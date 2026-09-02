@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+m_label.zip
+dist.zip
+*.log
