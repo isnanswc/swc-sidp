@@ -128,13 +128,13 @@ const handleLogout = () => {
   }
 };
 
-const currentShift = computed(() => scheduleStore.getCurrentShiftInfo());
+const currentShift = computed(() => scheduleStore.currentShift);
 
 let shiftCheckTimer = null;
 let lastKnownShiftCode = null;
 
 const checkShiftTransition = () => {
-  const shift = scheduleStore.getCurrentShiftInfo();
+  const shift = scheduleStore.currentShift;
   if (lastKnownShiftCode && lastKnownShiftCode !== shift.shiftCode) {
     // New shift has started -> trigger handover popup!
     scheduleStore.showShiftHandoverModal = true;

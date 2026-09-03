@@ -131,6 +131,21 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
   const showShiftHandoverModal = ref(false);
   const lastHandoverConfirmedAt = ref(null);
 
+  // Live Reactive Clock (memastikan transisi shift terdeteksi otomatis tanpa refresh browser)
+  const currentNow = ref(new Date());
+  let liveClockTimer = null;
+  const initLiveClock = () => {
+    if (liveClockTimer) return;
+    liveClockTimer = setInterval(() => {
+      currentNow.value = new Date();
+    }, 5000); // Evaluasi setiap 5 detik
+  };
+  initLiveClock();
+
+  const tickLiveClock = () => {
+    currentNow.value = new Date();
+  };
+
   // Active confirmed roster for each machine station
   const confirmedRoster = ref({
     CASTING: null,   // { operator: 'SUDARMAJI', kodeOperator: 'A', group: 'A', isSubstituted: false, note: '' }
@@ -208,7 +223,8 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
   /**
    * Mendeteksi shift mana yang sedang berjalan saat ini (berdasarkan jam lokal sekarang).
    */
-  const getCurrentShiftInfo = (nowDate = new Date()) => {
+  const getCurrentShiftInfo = (customDate = null) => {
+    const nowDate = customDate || currentNow.value;
     const year = nowDate.getFullYear();
     const month = String(nowDate.getMonth() + 1).padStart(2, '0');
     const day = String(nowDate.getDate()).padStart(2, '0');
@@ -268,7 +284,8 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
    * 1. previousShift: Shift yang TELAH bekerja / baru saja selesai
    * 2. upcomingShift: Shift yang AKAN bekerja / bertugas berikutnya
    */
-  const getHandoverShifts = (nowDate = new Date()) => {
+  const getHandoverShifts = (customDate = null) => {
+    const nowDate = customDate || currentNow.value;
     const year = nowDate.getFullYear();
     const month = String(nowDate.getMonth() + 1).padStart(2, '0');
     const day = String(nowDate.getDate()).padStart(2, '0');
@@ -430,11 +447,19 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     }
   };
 
+  // Reactive Computed Shift Properties
+  const currentShift = computed(() => getCurrentShiftInfo(currentNow.value));
+  const currentHandoverShifts = computed(() => getHandoverShifts(currentNow.value));
+
   return {
     anchorMonday,
     showShiftHandoverModal,
     lastHandoverConfirmedAt,
     confirmedRoster,
+    currentNow,
+    tickLiveClock,
+    currentShift,
+    currentHandoverShifts,
     getWeekOffset,
     getDayIndex,
     getShiftForGroupAndDate,

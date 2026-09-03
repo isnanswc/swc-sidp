@@ -8,7 +8,7 @@
  * 3. High-Precision Local RAG Engine (0ms, 100% offline & akurasi matematis database 31.000+ roll)
  */
 
-import { getSetting } from '@/db';
+import { db, getSetting } from '@/db';
 
 const MONTH_NAMES = {
   'januari': 1, 'jan': 1,
@@ -268,6 +268,259 @@ function computeSubsetStats(rolls = []) {
 }
 
 /**
+ * FAST IN-DATABASE AGGREGATION ENGINE (ZERO BULK BANDWIDTH)
+ * Menghitung langsung di level IndexedDB (Dexie) tanpa menarik puluhan ribu objek ke memory.
+ */
+export async function executeDatabaseAggregation(queryText, context = {}, customOperators = []) {
+  if (!db || !db.data_rolls) return null;
+  const q = (queryText || '').toLowerCase().trim();
+
+  // Detect operator from query or context
+  let targetOperator = null;
+  const dbOps = (customOperators || []).map(o => ({
+    nama: String(o.nama || '').trim().toUpperCase(),
+    kode: String(o.kodeOperator || o.kode || '').trim().toUpperCase()
+  }));
+
+  for (const op of dbOps) {
+    if (op.nama && q.includes(op.nama.toLowerCase())) {
+      targetOperator = op;
+      break;
+    }
+  }
+  if (!targetOperator && context.lastOperator) {
+    targetOperator = dbOps.find(o => o.nama === context.lastOperator) || { nama: context.lastOperator, kode: '' };
+  }
+
+  // Detect formula from query or context
+  let targetFormula = null;
+  const fMatch = q.match(/\b([ML]\d{2}[A-Z0-9]?|VMCPP|VMPET|LLDPE|PET|CPP)\b/i);
+  if (fMatch) {
+    targetFormula = fMatch[1].toUpperCase();
+  } else if ((q.includes('formula ini') || q.includes('formula tersebut') || q.includes('produk ini')) && context.lastFormula) {
+    targetFormula = context.lastFormula;
+  }
+
+  const isRejectQuery = q.includes('reject') || q.includes('ng') || q.includes('cacat') || q.includes('rusak') || q.includes('afkir');
+  const isHoldQuery = q.includes('hold') || q.includes('karantina');
+  const isCountQuery = q.includes('hitung') || q.includes('berapa') || q.includes('jumlah') || q.includes('total') || q.includes('rekap');
+
+  if (!isCountQuery && !isRejectQuery && !isHoldQuery && !targetOperator && !targetFormula) {
+    return null;
+  }
+
+  let totalCount = 0;
+  let passCount = 0;
+  let holdCount = 0;
+  let rejectCount = 0;
+  let totalMeters = 0;
+  const defectReasons = {};
+  const sampleRolls = [];
+
+  // Filtered in-database scan
+  if (targetOperator || targetFormula) {
+    await db.data_rolls
+      .filter(r => {
+        if (targetOperator) {
+          const op = String(r.operator || r.machineName || '').toUpperCase();
+          const code = String(r.kodeOperator || '').toUpperCase();
+          const matchOp = op.includes(targetOperator.nama) || (targetOperator.kode && code === targetOperator.kode);
+          if (!matchOp) return false;
+        }
+        if (targetFormula) {
+          const f = `${r.kodeFormula || ''} ${r.kodeFg || ''} ${r.lot || ''}`.toUpperCase();
+          if (!f.includes(targetFormula)) return false;
+        }
+        return true;
+      })
+      .each(r => {
+        totalCount++;
+        const st = String(r.qualityStatus || r.status || 'PASS').toUpperCase();
+        if (st === 'PASS') passCount++;
+        else if (st === 'HOLD') holdCount++;
+        else if (st === 'REJECT') {
+          rejectCount++;
+          const reason = r.reasonDefect || r.reasonOfDefect || r.keterangan || 'Defect Tidak Tercatat';
+          defectReasons[reason] = (defectReasons[reason] || 0) + 1;
+        }
+        totalMeters += (parseFloat(r.length || r.meter || 0) || 0);
+        if (sampleRolls.length < 8 && (isRejectQuery ? st === 'REJECT' : true)) {
+          sampleRolls.push(r);
+        }
+      });
+  } else {
+    // Fast database index counts (Zero bulk pull)
+    totalCount = await db.data_rolls.count();
+    rejectCount = await db.data_rolls.where('qualityStatus').equalsIgnoreCase('REJECT').count();
+    holdCount = await db.data_rolls.where('qualityStatus').equalsIgnoreCase('HOLD').count();
+    passCount = Math.max(0, totalCount - rejectCount - holdCount);
+
+    if (isRejectQuery && rejectCount > 0) {
+      await db.data_rolls
+        .where('qualityStatus')
+        .equalsIgnoreCase('REJECT')
+        .limit(100)
+        .each(r => {
+          const reason = r.reasonDefect || r.reasonOfDefect || r.keterangan || 'Defect Tidak Tercatat';
+          defectReasons[reason] = (defectReasons[reason] || 0) + 1;
+          if (sampleRolls.length < 8) sampleRolls.push(r);
+        });
+    }
+  }
+
+  if (totalCount === 0) {
+    return {
+      text: `🔍 **Hasil Perhitungan Database:**\n\nTidak ditemukan data roll untuk filter yang dicari${targetOperator ? ` (Operator: ${targetOperator.nama})` : ''}${targetFormula ? ` (Formula: ${targetFormula})` : ''}.`,
+      suggestions: ['Hitung total roll keseluruhan', 'Hitung jumlah reject pabrik']
+    };
+  }
+
+  const passRate = ((passCount / totalCount) * 100).toFixed(1);
+  const rejectRate = ((rejectCount / totalCount) * 100).toFixed(1);
+  const holdRate = ((holdCount / totalCount) * 100).toFixed(1);
+
+  let headerTitle = '📊 **Ringkasan Perhitungan Database Produksi:**';
+  if (targetOperator && targetFormula) {
+    headerTitle = `👷 **Hasil Perhitungan Operator [${targetOperator.nama}] — Formula [${targetFormula}]:**`;
+  } else if (targetOperator) {
+    headerTitle = `👷 **Hasil Perhitungan Operator [${targetOperator.nama}]:**`;
+  } else if (targetFormula) {
+    headerTitle = `📦 **Hasil Perhitungan Formula [${targetFormula}]:**`;
+  } else if (isRejectQuery) {
+    headerTitle = `⚠️ **Hasil Perhitungan Roll REJECT Pabrik:**`;
+  } else if (isHoldQuery) {
+    headerTitle = `⏸️ **Hasil Perhitungan Roll HOLD Karantina:**`;
+  }
+
+  let text = `${headerTitle}\n\n`;
+  text += `• **Total Roll:** **${totalCount.toLocaleString('id-ID')} roll**\n`;
+  text += `• **PASS (Lolos QC):** **${passCount.toLocaleString('id-ID')} roll** (${passRate}%)\n`;
+  text += `• **REJECT (Cacat):** **${rejectCount.toLocaleString('id-ID')} roll** (${rejectRate}%)\n`;
+  text += `• **HOLD (Karantina):** **${holdCount.toLocaleString('id-ID')} roll** (${holdRate}%)\n`;
+  if (totalMeters > 0) {
+    text += `• **Total Panjang Meter:** **${Math.round(totalMeters).toLocaleString('id-ID')} meter**\n`;
+  }
+
+  const sortedDefects = Object.entries(defectReasons).sort((a, b) => b[1] - a[1]);
+  if (sortedDefects.length > 0) {
+    text += `\n🚨 **Alasan Defect Terbanyak:**\n`;
+    sortedDefects.slice(0, 5).forEach(([reason, count], idx) => {
+      text += `${idx + 1}. **${reason}**: **${count} roll**\n`;
+    });
+  }
+
+  text += `\n💡 *Perhitungan matematis diproses langsung di dalam database lokal (IndexedDB) secara hemat memori & hemat bandwidth.*\n\nAda parameter atau tindakan hitung lainnya yang ingin Anda jalankan?`;
+
+  return {
+    text,
+    metrics: {
+      passRate: `${passRate}%`,
+      defectRate: `${rejectRate}%`,
+      total: totalCount,
+      reject: rejectCount
+    },
+    tableData: sampleRolls,
+    tableTitle: isRejectQuery ? 'Daftar Roll Reject' : 'Daftar Roll Terkait',
+    suggestions: [
+      'Defect apa yang paling sering terjadi?',
+      targetOperator ? `Berapa roll pass milik ${targetOperator.nama}?` : 'Siapa operator dengan reject terbanyak?',
+      'Berapa roll hold yang sedang dikarantina?'
+    ],
+    contextUpdates: {
+      lastOperator: targetOperator ? targetOperator.nama : context.lastOperator,
+      lastFormula: targetFormula || context.lastFormula,
+      lastStats: { total: totalCount, pass: passCount, reject: rejectCount, hold: holdCount }
+    }
+  };
+}
+
+/**
+ * GENERAL KNOWLEDGE & GREETING HANDLER WITH PRODUCTION GUIDANCE BRIDGE
+ */
+export async function handleGeneralAiQuery(queryText, history = []) {
+  const apiKey = await getSetting('google_ai_api_key', '') || await getSetting('gemini_api_key', '');
+  const model = await getSetting('google_ai_model', 'gemini-2.0-flash');
+
+  const generalGuidanceBridge = `\n\n💡 *Ada data produksi pabrik yang ingin Anda periksa saat ini? Saya siap membantu menganalisis:*\n• *Perhitungan jumlah & alasan roll REJECT / HOLD*\n• *Pencapaian & rekap performa per operator*\n• *Status jadwal dan antrean SPK aktif*`;
+
+  if (apiKey && apiKey.trim()) {
+    try {
+      const systemInstruction = `Anda adalah SWC AI Copilot, asisten manufaktur cerdas di PT SAPTAWARNA CEMERLANG (produsen flexible packaging: rotogravure printing, extrusion laminating, dry laminating, casting, metallizing, slitting, rewind).
+Pedoman Jawaban:
+1. Jawab pertanyaan umum pengguna secara ramah, cerdas, luwes, dan akurat (termasuk penjelasan istilah rotogravure, polimer film, slitting, salam, atau percakapan umum).
+2. Di akhir jawaban, sertakan ajakan ramah atau tawaran untuk membantu memeriksa laporan data produksi pabrik (seperti reject, SPK, atau operator).`;
+
+      const contents = [];
+      if (Array.isArray(history)) {
+        const recent = history.slice(-4);
+        for (const m of recent) {
+          contents.push({
+            role: m.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: m.text }]
+          });
+        }
+      }
+      contents.push({ role: 'user', parts: [{ text: queryText }] });
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey.trim()
+        },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: { temperature: 0.5, maxOutputTokens: 800 }
+        })
+      });
+
+      if (response.ok) {
+        const resJson = await response.json();
+        const output = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (output) {
+          return {
+            text: output.trim(),
+            suggestions: [
+              'Hitung total roll reject di pabrik',
+              'Tampilkan status antrean SPK hari ini',
+              'Siapa operator slitting yang bertugas?'
+            ]
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('Gemini General Query fallback:', e);
+    }
+  }
+
+  // Fallback offline answers
+  const q = queryText.toLowerCase();
+  let answer = 'Halo! Saya adalah **SWC AI Copilot**, asisten cerdas sistem manajemen produksi PT Saptawarna Cemerlang.';
+  if (q.includes('siapa kamu') || q.includes('kamu siapa')) {
+    answer = 'Saya adalah **SWC AI Copilot**, asisten cerdas terintegrasi untuk membantu analisis kualitas, pemantauan SPK, pelacakan roll WIP & FG, serta perhitungan statistik produksi di PT Saptawarna Cemerlang.';
+  } else if (q.includes('selamat pagi')) {
+    answer = 'Selamat pagi! Semangat beraktivitas di plant produksi hari ini.';
+  } else if (q.includes('selamat siang')) {
+    answer = 'Selamat siang! Semoga proses operasional dan serah terima shift berjalan lancar.';
+  } else if (q.includes('selamat malam')) {
+    answer = 'Selamat malam! Tetap utamakan keselamatan kerja (*safety first*) pada operasional shift malam.';
+  } else if (q.includes('slitting')) {
+    answer = '**Slitting** adalah proses memotong gulungan film induk (*jumbo roll*) menjadi beberapa gulungan roll yang lebih kecil (*slit rolls*) sesuai ukuran lebar dan panjang pesanan SPK customer.';
+  }
+
+  return {
+    text: `${answer}${generalGuidanceBridge}`,
+    suggestions: [
+      'Hitung total roll reject pabrik',
+      'Siapa operator dengan reject terendah?',
+      'Berapa roll hold yang sedang dikarantina?'
+    ]
+  };
+}
+
+/**
  * 4. GOOGLE GEMINI GENERATIVE AI LLM CALL (OPTIONAL CLOUD EXTENSION)
  */
 async function callGeminiGenerativeAi(userQuery, history, dataRolls, operators) {
@@ -334,6 +587,23 @@ Instruksi: Jawablah pertanyaan pengguna secara luwes, cerdas, solutif, dan profe
 export async function processAiQueryAsync(queryText, dataRolls = [], labels = [], customOperators = [], conversationHistory = []) {
   const query = (queryText || '').trim();
   const lowerQuery = query.toLowerCase();
+
+  // 1. General Greeting / Inquiry Check
+  const GENERAL_GREETING_REGEX = /^(halo|hai|hello|hi|selamat\s+(pagi|siang|sore|malam)|assalamualaikum|siang|pagi|malam|apa kabar|kamu siapa|siapa kamu)\b/i;
+  const keywords = ['roll', 'spk', 'operator', 'formula', 'slitting', 'rewind', 'casting', 'metalize', 'reject', 'hold', 'pass', 'defect', 'berat', 'kg', 'meter', 'lot', 'turunan', 'm07', 'vmcpp', 'pet', 'vmpet', 'hitung', 'jumlah', 'total'];
+  const hasFactoryKeyword = keywords.some(k => lowerQuery.includes(k));
+
+  if (GENERAL_GREETING_REGEX.test(lowerQuery) || (!hasFactoryKeyword && query.length < 50)) {
+    return await handleGeneralAiQuery(query, conversationHistory);
+  }
+
+  // 2. Direct In-Database Aggregation (Zero Bulk Bandwidth)
+  const context = extractConversationContext(conversationHistory);
+  const dbAggResult = await executeDatabaseAggregation(query, context, customOperators);
+  if (dbAggResult) {
+    return dbAggResult;
+  }
+
   const dataset = dataRolls.length > 0 ? dataRolls : labels;
   const total = dataset.length;
 
@@ -347,7 +617,6 @@ export async function processAiQueryAsync(queryText, dataRolls = [], labels = []
   // ─────────────────────────────────────────────────────────────────────────
   // A. CONTEXT MEMORY RESOLUTION ("ini", "itu", "tadi", "tersebut")
   // ─────────────────────────────────────────────────────────────────────────
-  const context = extractConversationContext(conversationHistory);
 
   // If query refers to "formula ini / formula tersebut"
   let effectiveFormula = null;

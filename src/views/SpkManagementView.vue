@@ -219,12 +219,12 @@
             <div class="absolute left-1/2 top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-500 via-blue-500 to-zinc-300 -translate-x-1/2"></div>
 
             <!-- Column Headers -->
-            <div class="grid grid-cols-2 gap-8 mb-6 text-xs font-black uppercase tracking-wider text-zinc-500 select-none">
-              <div class="text-right pr-6 flex items-center justify-end gap-2 text-zinc-700">
-                <span>📋 Rencana Kerja (Planned SPK)</span>
+            <div class="grid grid-cols-2 gap-2 sm:gap-6 mb-4 sm:mb-6 text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-500 select-none">
+              <div class="text-right pr-2.5 sm:pr-6 flex items-center justify-end gap-1.5 text-zinc-700">
+                <span class="truncate">📋 Rencana Kerja (Planned)</span>
               </div>
-              <div class="text-left pl-6 flex items-center justify-start gap-2 text-zinc-700">
-                <span>🏭 Proses Aktual Lapangan (Realtime)</span>
+              <div class="text-left pl-2.5 sm:pl-6 flex items-center justify-start gap-1.5 text-zinc-700">
+                <span class="truncate">🏭 Aktual Lapangan (Realtime)</span>
               </div>
             </div>
 
@@ -235,11 +235,11 @@
               class="relative flex items-center mb-8 last:mb-2 group"
             >
               <!-- LEFT COLUMN: PLANNED SPK -->
-              <div class="w-1/2 pr-6 sm:pr-8 flex justify-end">
+              <div class="w-1/2 pr-2.5 sm:pr-6 md:pr-8 flex justify-end">
                 <!-- If Planned SPK exists -->
                 <div
                   v-if="row.plan"
-                  class="w-full max-w-md bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all text-right space-y-2"
+                  class="w-full max-w-md bg-white rounded-xl sm:rounded-2xl border p-2.5 sm:p-4 shadow-xs hover:shadow-md transition-all text-right space-y-1.5 sm:space-y-2"
                   :class="[
                     row.status === 'COMPLETED' ? 'border-emerald-300 bg-emerald-50/20' : '',
                     row.status === 'IN_PROGRESS' ? 'border-blue-400 bg-blue-50/30 ring-2 ring-blue-500/20' : '',
@@ -259,7 +259,7 @@
                     </span>
                     <div class="flex items-center gap-1.5">
                       <span class="text-xs font-mono font-bold text-zinc-400">#{{ row.plan.seq || (rIdx + 1) }}</span>
-                      <h4 class="font-black text-sm font-mono text-zinc-900">{{ row.plan.spkNo }}</h4>
+                      <h4 class="font-black text-xs sm:text-sm font-mono text-zinc-900 truncate max-w-[95px] sm:max-w-none">{{ row.plan.spkNo }}</h4>
                     </div>
                   </div>
 
@@ -301,7 +301,7 @@
               <!-- CENTER NODE (ICON / STATUS) -->
               <div class="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center">
                 <div
-                  class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-mono font-black text-xs shadow-md border-2 border-white transition-transform group-hover:scale-110"
+                  class="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-mono font-black text-[10px] sm:text-xs shadow-md border-2 border-white transition-transform group-hover:scale-110"
                   :class="[
                     row.status === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-emerald-200' : '',
                     row.status === 'IN_PROGRESS' ? 'bg-blue-600 text-white shadow-blue-200 animate-bounce' : '',
@@ -317,11 +317,11 @@
               </div>
 
               <!-- RIGHT COLUMN: ACTUAL REALTIME PRODUCTION -->
-              <div class="w-1/2 pl-6 sm:pl-8 flex justify-start">
+              <div class="w-1/2 pl-2.5 sm:pl-6 md:pl-8 flex justify-start">
                 <!-- If Actual Production Exists -->
                 <div
                   v-if="row.actual"
-                  class="w-full max-w-md bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all text-left space-y-2"
+                  class="w-full max-w-md bg-white rounded-xl sm:rounded-2xl border p-2.5 sm:p-4 shadow-xs hover:shadow-md transition-all text-left space-y-1.5 sm:space-y-2"
                   :class="[
                     row.status === 'COMPLETED' ? 'border-emerald-300 bg-emerald-50/20' : '',
                     row.status === 'IN_PROGRESS' ? 'border-blue-400 bg-blue-50/30 ring-2 ring-blue-500/20' : '',
@@ -329,7 +329,7 @@
                   ]"
                 >
                   <div class="flex items-center justify-between gap-2">
-                    <h4 class="font-black text-sm font-mono text-zinc-900">{{ row.actual.spkNo }}</h4>
+                    <h4 class="font-black text-xs sm:text-sm font-mono text-zinc-900 truncate max-w-[95px] sm:max-w-none">{{ row.actual.spkNo }}</h4>
                     <span
                       class="px-2 py-0.5 rounded-full text-[10px] font-black font-mono"
                       :class="row.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' : (row.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')"

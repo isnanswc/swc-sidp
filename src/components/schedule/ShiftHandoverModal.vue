@@ -449,9 +449,9 @@ const stations = [
 // Pasangan Shift Serah Terima (Handover):
 // previousShift: Shift yang telah bekerja / baru saja selesai
 // upcomingShift: Shift yang AKAN bekerja / bertugas berikutnya
-const handoverShifts = computed(() => scheduleStore.getHandoverShifts());
-const previousShift = computed(() => handoverShifts.value.previousShift);
-const upcomingShift = computed(() => handoverShifts.value.upcomingShift);
+const handoverShifts = computed(() => scheduleStore.currentHandoverShifts);
+const previousShift = computed(() => handoverShifts.value?.previousShift);
+const upcomingShift = computed(() => handoverShifts.value?.upcomingShift);
 
 // Summary Data Shift Sebelumnya
 const shiftSummary = reactive({
@@ -662,7 +662,16 @@ const initRosterFromSchedule = () => {
 
 watch(() => scheduleStore.showShiftHandoverModal, (newVal) => {
   if (newVal) {
+    scheduleStore.tickLiveClock();
     currentStep.value = 1; // Selalu mulai dari Step 1 (Laporan Shift Sebelumnya)
+    loadShiftSummary();
+    initRosterFromSchedule();
+  }
+});
+
+// Otomatis muat ulang data jika transisi shift terjadi saat modal sedang dibuka
+watch(() => upcomingShift.value?.shiftCode, () => {
+  if (scheduleStore.showShiftHandoverModal) {
     loadShiftSummary();
     initRosterFromSchedule();
   }

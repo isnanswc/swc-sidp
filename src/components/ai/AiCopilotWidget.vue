@@ -62,7 +62,7 @@
       v-if="isOpen"
       ref="modalWindowRef"
       :style="windowStyle"
-      class="fixed w-[92vw] sm:w-[480px] h-[620px] max-h-[88vh] bg-zinc-950 rounded-2xl shadow-2xl border border-red-900/60 shadow-red-950/50 overflow-hidden flex flex-col z-50 text-white select-text animate-fade-in"
+      class="fixed w-[94vw] sm:w-[480px] h-[580px] sm:h-[620px] max-h-[88vh] bg-white rounded-3xl shadow-2xl border border-slate-200 shadow-slate-900/20 overflow-hidden flex flex-col z-50 text-slate-900 select-text animate-fade-in"
     >
       <!-- DRAGGABLE MODAL HEADER (WITH HEARTBEAT CIRCUIT ANIMATION) -->
       <div 
@@ -173,7 +173,7 @@
       </div>
 
       <!-- MAIN CONTAINER (WITH SLIDE-OVER HISTORY DRAWER) -->
-      <div class="relative flex-1 overflow-hidden flex flex-col bg-zinc-50/50">
+      <div class="relative flex-1 overflow-hidden flex flex-col bg-slate-50/60">
         <!-- ───────────────────────────────────────────────────────────────── -->
         <!-- 2A. LEFT SLIDE-OUT DRAWER: RIWAYAT PERCAKAPAN                     -->
         <!-- ───────────────────────────────────────────────────────────────── -->
@@ -262,32 +262,32 @@
         <!-- ───────────────────────────────────────────────────────────────── -->
         <!-- 2B. CHAT MESSAGE AREA (DEEP BLACK BASE, HIGH CONTRAST)            -->
         <!-- ───────────────────────────────────────────────────────────────── -->
-        <div ref="chatContainerRef" class="flex-1 overflow-y-auto p-4 space-y-3.5 bg-zinc-950/95">
+        <div ref="chatContainerRef" class="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-slate-50/70">
           <!-- Welcome Greeting & Suggested Quick Chips -->
-          <div v-if="currentMessages.length === 0" class="py-4 space-y-4 text-center animate-fade-in">
-            <div class="w-12 h-12 rounded-2xl bg-black text-red-500 border border-red-600/50 heartbeat-border flex items-center justify-center text-2xl mx-auto shadow-lg shadow-red-950/40 relative">
+          <div v-if="currentMessages.length === 0" class="py-3 sm:py-4 space-y-3.5 text-center animate-fade-in">
+            <div class="w-12 h-12 rounded-2xl bg-black text-red-500 border border-red-600/40 heartbeat-border flex items-center justify-center text-2xl mx-auto shadow-lg shadow-black/30 relative">
               ✨
               <span class="w-2 h-2 rounded-full bg-red-500 heartbeat-dot absolute -top-1 -right-1"></span>
             </div>
             <div class="space-y-1">
-              <h4 class="font-black text-sm text-white">Halo! Ada yang bisa saya bantu?</h4>
-              <p class="text-xs text-zinc-400 max-w-xs mx-auto">
-                Tanyakan apa saja seputar data roll, status kualitas (PASS/HOLD/REJECT), alasan defect, formula, mesin, atau operator.
+              <h4 class="font-black text-sm sm:text-base text-slate-900">Halo! Ada yang bisa saya bantu?</h4>
+              <p class="text-[11px] sm:text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
+                Tanyakan apa saja seputar data roll, hitung reject, alasan defect, formula, mesin, atau operator.
               </p>
             </div>
 
-            <!-- Quick Suggestions -->
-            <div class="space-y-1.5 text-left pt-2">
-              <p class="text-[10.5px] font-black text-red-400 uppercase tracking-wider px-1">Saran Pertanyaan Cepat:</p>
+            <!-- Quick Suggestions (Crisp White Card on Slate) -->
+            <div class="space-y-1.5 text-left pt-1">
+              <p class="text-[10.5px] font-black text-red-600 uppercase tracking-wider px-1">Saran Pertanyaan Cepat:</p>
               <div class="flex flex-col gap-1.5">
                 <button
                   v-for="(chip, idx) in defaultChips"
                   :key="idx"
                   @click="sendQuery(chip)"
-                  class="p-2 px-3 rounded-xl bg-zinc-900 hover:bg-black border border-zinc-800 hover:border-red-500/70 text-xs text-zinc-200 hover:text-white font-bold transition-all text-left flex items-center justify-between group cursor-pointer shadow-xs"
+                  class="p-2.5 px-3 rounded-xl bg-white hover:bg-red-50/80 border border-slate-200 hover:border-red-300 text-xs text-slate-800 hover:text-red-700 font-semibold transition-all text-left flex items-center justify-between group cursor-pointer shadow-2xs"
                 >
-                  <span>{{ chip }}</span>
-                  <span class="text-zinc-500 group-hover:text-red-400 text-[11px]">➔</span>
+                  <span class="truncate pr-2">{{ chip }}</span>
+                  <span class="text-slate-400 group-hover:text-red-600 text-xs shrink-0 font-bold">➔</span>
                 </button>
               </div>
             </div>
@@ -307,45 +307,45 @@
             <!-- User Message Bubble (Crisp White on Pure Dark with Crimson Border) -->
             <div
               v-if="msg.sender === 'user'"
-              class="p-3 px-4 rounded-2xl max-w-[88%] text-xs font-bold bg-zinc-900 !text-white border border-red-600/70 rounded-tr-xs shadow-md shadow-red-950/20 select-text"
+              class="p-2.5 sm:p-3 px-3.5 sm:px-4 rounded-2xl max-w-[88%] text-xs sm:text-[13px] font-semibold bg-gradient-to-r from-red-600 to-red-700 !text-white rounded-tr-xs shadow-sm shadow-red-600/20 select-text"
             >
-              <div class="whitespace-pre-line !text-white leading-relaxed select-text font-bold text-[12px]">{{ msg.text }}</div>
+              <div class="whitespace-pre-line !text-white leading-relaxed select-text font-medium">{{ msg.text }}</div>
             </div>
 
             <!-- AI Message Card (Pure White Background for Flawless Readability) -->
             <div
               v-else
-              class="p-3.5 rounded-2xl max-w-[96%] text-xs leading-relaxed transition-all shadow-md bg-white border border-zinc-200 !text-zinc-950 rounded-tl-xs space-y-2.5 select-text"
+              class="p-3.5 sm:p-4 rounded-2xl max-w-[96%] text-xs sm:text-[13px] leading-relaxed transition-all shadow-sm bg-white border border-slate-200 !text-slate-900 rounded-tl-xs space-y-2.5 select-text"
             >
               <!-- AI Header: Red Accent Badge + Copy Button -->
-              <div class="flex items-center justify-between border-b border-zinc-100 pb-1.5 select-none">
-                <div class="flex items-center gap-1.5 text-[10.5px] font-black text-red-700">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 select-none">
+                <div class="flex items-center gap-1.5 text-[11px] font-black text-red-600 tracking-tight">
                   <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                  <span>Analisis AI SWC</span>
+                  <span>SWC Factory Intelligence</span>
                 </div>
                 <button
                   @click="copyMessage(msg.text, idx)"
-                  class="px-2 py-0.5 rounded-md text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  :class="copiedIdx === idx ? 'bg-red-100 text-red-800' : 'bg-zinc-100 hover:bg-red-50 text-zinc-700 hover:text-red-700 border border-zinc-200'"
+                  class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                  :class="copiedIdx === idx ? 'bg-red-100 text-red-800 font-bold' : 'bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200'"
                   title="Salin isi jawaban ini"
                 >
                   <span>{{ copiedIdx === idx ? '✅' : '📋' }}</span>
-                  <span>{{ copiedIdx === idx ? 'Tersalin!' : 'Salin' }}</span>
+                  <span>{{ copiedIdx === idx ? 'Tersalin' : 'Salin' }}</span>
                 </button>
               </div>
 
-              <!-- Main Text (Maximum Contrast & Readability) -->
-              <div class="text-xs leading-relaxed !text-zinc-950 font-normal select-text" v-html="renderFormattedHtml(msg.text)"></div>
+              <!-- Main Text (Maximum Contrast & High Readability) -->
+              <div class="text-xs sm:text-[13px] leading-relaxed !text-slate-900 font-normal select-text space-y-2" v-html="renderFormattedHtml(msg.text)"></div>
 
               <!-- Interactive Follow-up Suggestion Chips -->
-              <div v-if="msg.suggestions && msg.suggestions.length > 0" class="flex flex-wrap gap-1.5 pt-2 border-t border-zinc-100 select-none">
+              <div v-if="msg.suggestions && msg.suggestions.length > 0" class="flex flex-wrap gap-1.5 pt-2 border-t border-slate-100 select-none">
                 <button
                   v-for="(sug, sIdx) in msg.suggestions"
                   :key="sIdx"
                   @click="sendQuery(sug)"
-                  class="px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-red-50/80 hover:bg-red-100 text-red-800 border border-red-200 transition-all cursor-pointer flex items-center gap-1 hover:scale-102 shadow-2xs text-left"
+                  class="px-2.5 py-1 rounded-full text-[10.5px] font-semibold bg-slate-50 hover:bg-red-50 text-slate-800 hover:text-red-700 border border-slate-200 hover:border-red-200 transition-all cursor-pointer flex items-center gap-1 hover:scale-102 shadow-2xs text-left"
                 >
-                  <span>💬</span>
+                  <span class="text-red-500">💬</span>
                   <span>{{ sug }}</span>
                 </button>
               </div>
@@ -406,9 +406,9 @@
           </div>
 
           <!-- Typing Indicator -->
-          <div v-if="isThinking" class="flex items-center gap-2 p-3 bg-zinc-900 rounded-2xl border border-red-900/60 w-fit text-xs text-zinc-300 animate-pulse">
+          <div v-if="isThinking" class="flex items-center gap-2 p-2.5 px-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs w-fit text-xs text-slate-700 animate-pulse">
             <span class="w-2 h-2 rounded-full bg-red-500 heartbeat-dot"></span>
-            <span>Menganalisis 30.000+ data roll & formula...</span>
+            <span class="font-medium">Mengeksekusi perhitungan database & formula...</span>
           </div>
         </div>
 
@@ -833,6 +833,11 @@ const handleSubmit = () => {
       const rolls = dataRollStore.rolls;
       const labels = labelStore.labels;
       const response = await processAiQueryAsync(query, rolls, labels, operators, session.messages);
+
+      // Simpan & perbarui memori konteks percakapan
+      if (response.contextUpdates) {
+        session.context = { ...(session.context || {}), ...response.contextUpdates };
+      }
 
       session.messages.push({
         sender: 'ai',
