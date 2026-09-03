@@ -421,33 +421,100 @@ export const useLabelStore = defineStore('labelStore', {
     },
 
     async updateLabel(id, updatedFields) {
-      const payload = {
-        ...updatedFields,
-        synced: 0,
-        updatedAt: new Date().toISOString()
-      };
-      await db.labels.update(id, payload);
+      const item = this.labels.find(l => l.id === id);
+      const isRoll = (item && item.isDataRoll) || (typeof id === 'string' && id.startsWith('roll_'));
+      const rollId = item?.originalRollId || (typeof id === 'string' && id.startsWith('roll_') ? parseInt(id.replace('roll_', ''), 10) : null);
+
+      if (isRoll && rollId && db.data_rolls) {
+        // Update di database master data_rolls agar perubahan permanen
+        const rollPayload = {
+          updatedAt: new Date().toISOString()
+        };
+        if (updatedFields.lot !== undefined) rollPayload.lot = updatedFields.lot;
+        if (updatedFields.spk !== undefined) rollPayload.spk = updatedFields.spk;
+        if (updatedFields.supplier !== undefined) rollPayload.supplier = updatedFields.supplier;
+        if (updatedFields.width !== undefined) rollPayload.width = parseFloat(updatedFields.width) || 0;
+        if (updatedFields.length !== undefined) rollPayload.length = parseFloat(updatedFields.length) || 0;
+        if (updatedFields.thickness !== undefined) rollPayload.thickness = parseFloat(updatedFields.thickness) || 0;
+        if (updatedFields.netto !== undefined) rollPayload.netto = parseFloat(updatedFields.netto) || 0;
+        if (updatedFields.status !== undefined) rollPayload.qualityStatus = updatedFields.status;
+        if (updatedFields.operator !== undefined) rollPayload.operator = updatedFields.operator;
+        if (updatedFields.mesin !== undefined) rollPayload.machineName = updatedFields.mesin;
+        if (updatedFields.tanggal !== undefined) rollPayload.tanggal = updatedFields.tanggal;
+        if (updatedFields.keterangan !== undefined) rollPayload.reasonDefect = updatedFields.keterangan;
+        
+        await db.data_rolls.update(rollId, rollPayload);
+      } else {
+        const payload = {
+          ...updatedFields,
+          synced: 0,
+          updatedAt: new Date().toISOString()
+        };
+        if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
+          await db.labels.update(id, payload);
+        }
+      }
+
       const idx = this.labels.findIndex(l => l.id === id);
       if (idx !== -1) {
-        this.labels[idx] = { ...this.labels[idx], ...payload };
+        this.labels[idx] = { ...this.labels[idx], ...updatedFields, updatedAt: new Date().toISOString() };
       }
     },
 
     async deleteLabel(id) {
-      await db.labels.delete(id);
+      const item = this.labels.find(l => l.id === id);
+      const isRoll = (item && item.isDataRoll) || (typeof id === 'string' && id.startsWith('roll_'));
+      const rollId = item?.originalRollId || (typeof id === 'string' && id.startsWith('roll_') ? parseInt(id.replace('roll_', ''), 10) : null);
+
+      // 1. Jika data bersumber dari data_rolls, hapus permanen dari db.data_rolls
+      if (isRoll && rollId && db.data_rolls) {
+        await db.data_rolls.delete(rollId);
+      }
+
+      // 2. Hapus dari db.labels jika tersimpan di sana
+      if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
+        await db.labels.delete(id);
+      } else if (item && item.uniqId) {
+        await db.labels.where('uniqId').equals(item.uniqId).delete();
+      }
+
+      // 3. Hapus dari state lokal
       this.labels = this.labels.filter(l => l.id !== id);
       this.selectedIds.delete(id);
       if (this.currentPage > this.totalPages) {
-        this.currentPage = this.totalPages;
+        this.currentPage = Math.max(1, this.totalPages);
       }
     },
 
     async deleteSelectedLabels(ids) {
-      await db.labels.bulkDelete(ids);
-      this.labels = this.labels.filter(l => !ids.includes(l.id));
+      const regularLabelIds = [];
+      const rollIds = [];
+
+      for (const id of ids) {
+        const item = this.labels.find(l => l.id === id);
+        const isRoll = (item && item.isDataRoll) || (typeof id === 'string' && id.startsWith('roll_'));
+        const rollId = item?.originalRollId || (typeof id === 'string' && id.startsWith('roll_') ? parseInt(id.replace('roll_', ''), 10) : null);
+
+        if (isRoll && rollId) {
+          rollIds.push(rollId);
+        } else if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
+          regularLabelIds.push(id);
+        }
+      }
+
+      // Hapus dari kedua tabel IndexedDB secara permanen
+      if (regularLabelIds.length > 0) {
+        await db.labels.bulkDelete(regularLabelIds);
+      }
+      if (rollIds.length > 0 && db.data_rolls) {
+        await db.data_rolls.bulkDelete(rollIds);
+      }
+
+      const idSet = new Set(ids);
+      this.labels = this.labels.filter(l => !idSet.has(l.id));
       this.selectedIds.clear();
       if (this.currentPage > this.totalPages) {
-        this.currentPage = this.totalPages;
+        this.currentPage = Math.max(1, this.totalPages);
       }
     },
 
