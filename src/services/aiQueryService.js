@@ -531,34 +531,164 @@ Pedoman Jawaban:
 }
 
 /**
- * 4. GOOGLE GEMINI GENERATIVE AI LLM CALL (OPTIONAL CLOUD EXTENSION)
+ * DYNAMIC TARGETED FACTORY GROUNDING BUILDER
+ * Menyusun ringkasan faktual mendalam dari IndexedDB untuk dianalisis langsung oleh Gemini
+ */
+async function buildTargetedGroundingData(queryText, history = [], customOperators = []) {
+  if (!db || !db.data_rolls) return 'Database belum memiliki tabel data_rolls.';
+  const q = (queryText || '').toLowerCase().trim();
+
+  // 1. Overall stats
+  const totalAll = await db.data_rolls.count();
+  const passAll = await db.data_rolls.where('qualityStatus').equalsIgnoreCase('PASS').count();
+  const holdAll = await db.data_rolls.where('qualityStatus').equalsIgnoreCase('HOLD').count();
+  const rejectAll = await db.data_rolls.where('qualityStatus').equalsIgnoreCase('REJECT').count();
+
+  let grounding = `DATABASE PRODUKSI PT SAPTAWARNA CEMERLANG (REALTIME INDEXEDDB):\n`;
+  grounding += `- Total Roll Keseluruhan: ${totalAll.toLocaleString('id-ID')} roll\n`;
+  grounding += `- Status Keseluruhan: PASS = ${passAll} roll (${totalAll ? ((passAll/totalAll)*100).toFixed(1) : 0}%), HOLD = ${holdAll} roll (${totalAll ? ((holdAll/totalAll)*100).toFixed(1) : 0}%), REJECT = ${rejectAll} roll (${totalAll ? ((rejectAll/totalAll)*100).toFixed(1) : 0}%)\n`;
+
+  // 2. Temporal / Month Filter Check (e.g. "april", "agustus", "bulan 4", etc.)
+  let targetMonthNum = null;
+  let targetMonthName = null;
+  for (const [mName, mNum] of Object.entries(MONTH_NAMES)) {
+    if (q.includes(mName)) {
+      targetMonthNum = mNum;
+      targetMonthName = mName.toUpperCase();
+      break;
+    }
+  }
+
+  // Check if month or date range specified
+  const dateRange = extractDateRange(queryText);
+  if (targetMonthNum || dateRange.hasRange) {
+    const monthStr = targetMonthNum ? String(targetMonthNum).padStart(2, '0') : '';
+    let periodTotal = 0;
+    let periodPass = 0;
+    let periodHold = 0;
+    let periodReject = 0;
+    const spkHoldMap = {};
+    const spkRejectMap = {};
+    const spkTotalMap = {};
+    const defectReasons = {};
+
+    await db.data_rolls
+      .filter(r => {
+        const d = String(r.tanggalFormatted || r.tanggal || '');
+        if (dateRange.hasRange && dateRange.startDate && dateRange.endDate) {
+          return d >= dateRange.startDate && d <= dateRange.endDate;
+        }
+        if (monthStr) {
+          return d.includes(`-${monthStr}-`) || d.includes(`/${monthStr}/`);
+        }
+        return true;
+      })
+      .each(r => {
+        periodTotal++;
+        const st = String(r.qualityStatus || r.status || 'PASS').toUpperCase();
+        const spk = String(r.spk || r.noSpk || r.spkNo || 'SPK UNKNOWN').trim();
+        const reason = r.reasonDefect || r.reasonOfDefect || r.keterangan || '';
+
+        spkTotalMap[spk] = (spkTotalMap[spk] || 0) + 1;
+
+        if (st === 'PASS') periodPass++;
+        else if (st === 'HOLD') {
+          periodHold++;
+          spkHoldMap[spk] = (spkHoldMap[spk] || 0) + 1;
+          if (reason) defectReasons[reason] = (defectReasons[reason] || 0) + 1;
+        } else if (st === 'REJECT') {
+          periodReject++;
+          spkRejectMap[spk] = (spkRejectMap[spk] || 0) + 1;
+          if (reason) defectReasons[reason] = (defectReasons[reason] || 0) + 1;
+        }
+      });
+
+    const periodLabel = dateRange.label || `Bulan ${targetMonthName || targetMonthNum}`;
+    grounding += `\nFAKTA STATISTIK PERIODE [${periodLabel}]:\n`;
+    grounding += `- Total Roll Diproses Periode Ini: ${periodTotal.toLocaleString('id-ID')} roll\n`;
+    grounding += `- Jumlah Roll PASS: ${periodPass} roll (${periodTotal ? ((periodPass/periodTotal)*100).toFixed(1) : 0}%)\n`;
+    grounding += `- Jumlah Roll HOLD (Karantina): ${periodHold} roll (${periodTotal ? ((periodHold/periodTotal)*100).toFixed(1) : 0}%)\n`;
+    grounding += `- Jumlah Roll REJECT: ${periodReject} roll (${periodTotal ? ((periodReject/periodTotal)*100).toFixed(1) : 0}%)\n`;
+
+    // Top SPK with HOLD
+    const sortedSpkHold = Object.entries(spkHoldMap).sort((a, b) => b[1] - a[1]);
+    if (sortedSpkHold.length > 0) {
+      grounding += `\nDAFTAR SPK DENGAN JUMLAH ROLL HOLD TERTINGGI PADA PERIODE INI:\n`;
+      sortedSpkHold.slice(0, 15).forEach(([spk, count], idx) => {
+        const totalSpk = spkTotalMap[spk] || count;
+        grounding += `${idx + 1}. No. SPK: ${spk} -> ${count} roll HOLD (dari total ${totalSpk} roll SPK ini)\n`;
+      });
+    } else {
+      grounding += `\nTidak ada roll berstatus HOLD pada periode ini.\n`;
+    }
+
+    // Top Defect Reasons
+    const sortedDefects = Object.entries(defectReasons).sort((a, b) => b[1] - a[1]);
+    if (sortedDefects.length > 0) {
+      grounding += `\nALASAN DEFECT PALING DOMINAN PADA PERIODE INI:\n`;
+      sortedDefects.slice(0, 8).forEach(([reason, count], idx) => {
+        grounding += `- ${reason}: ${count} roll\n`;
+      });
+    }
+  } else {
+    // Top SPK Hold & Reject across whole database
+    const spkHoldMap = {};
+    const spkRejectMap = {};
+    await db.data_rolls
+      .filter(r => {
+        const st = String(r.qualityStatus || r.status || '').toUpperCase();
+        return st === 'HOLD' || st === 'REJECT';
+      })
+      .limit(3000)
+      .each(r => {
+        const st = String(r.qualityStatus || r.status || '').toUpperCase();
+        const spk = String(r.spk || r.noSpk || r.spkNo || 'SPK UNKNOWN').trim();
+        if (st === 'HOLD') spkHoldMap[spk] = (spkHoldMap[spk] || 0) + 1;
+        if (st === 'REJECT') spkRejectMap[spk] = (spkRejectMap[spk] || 0) + 1;
+      });
+
+    const sortedSpkHold = Object.entries(spkHoldMap).sort((a, b) => b[1] - a[1]);
+    if (sortedSpkHold.length > 0) {
+      grounding += `\nTOP NOMOR SPK DENGAN JUMLAH ROLL HOLD TERTINGGI:\n`;
+      sortedSpkHold.slice(0, 15).forEach(([spk, count], idx) => {
+        grounding += `${idx + 1}. No. SPK: ${spk} -> ${count} roll HOLD\n`;
+      });
+    }
+  }
+
+  // Operator list
+  const opNames = (customOperators || []).map(o => `${o.nama} (${o.mesin})`).join(', ');
+  if (opNames) {
+    grounding += `\nDAFTAR OPERATOR PABRIK: ${opNames}\n`;
+  }
+
+  return grounding;
+}
+
+/**
+ * 4. GOOGLE GEMINI GENERATIVE AI ENGINE (PRIMARY INTELLIGENCE)
  */
 async function callGeminiGenerativeAi(userQuery, history, dataRolls, operators) {
   const apiKey = await getSetting('google_ai_api_key', '') || await getSetting('gemini_api_key', '');
-  const model = await getSetting('google_ai_model', 'gemini-2.0-flash');
+  const model = await getSetting('google_ai_model', 'gemini-3.5-flash');
 
   if (!apiKey || !apiKey.trim()) return null;
 
-  // Build high-level database knowledge snapshot
-  const total = dataRolls.length;
-  const pass = dataRolls.filter(r => String(r.qualityStatus || r.status || 'PASS').toUpperCase() === 'PASS').length;
-  const hold = dataRolls.filter(r => String(r.qualityStatus || r.status || '').toUpperCase() === 'HOLD').length;
-  const reject = dataRolls.filter(r => String(r.qualityStatus || r.status || '').toUpperCase() === 'REJECT').length;
+  // Build high-accuracy factual grounding from IndexedDB
+  const groundingData = await buildTargetedGroundingData(userQuery, history, operators);
 
-  const opNames = (operators || []).map(o => `${o.nama} (Kode ${o.kodeOperator || o.kode} - ${o.mesin})`).join(', ');
+  const systemInstruction = `Anda adalah SWC AI Copilot, asisten eksekutif manufaktur cerdas dan manajer kualitas senior di PT SAPTAWARNA CEMERLANG (produsen flexible packaging rotogravure).
 
-  const systemInstruction = `Anda adalah SWC AI Copilot, asisten eksekutif manufaktur cerdas di PT SAPTAWARNA CEMERLANG (produsen film kemasan fleksibel: CPP, VMCPP, PET, VMPET, LLDPE).
-Anda memiliki akses ke database produksi dengan ${total.toLocaleString('id-ID')} roll aktif.
-Ringkasan Data Pabrik:
-- Total: ${total} Roll
-- PASS: ${pass} Roll (${((pass/total)*100).toFixed(1)}%)
-- HOLD: ${hold} Roll (${((hold/total)*100).toFixed(1)}%)
-- REJECT: ${reject} Roll (${((reject/total)*100).toFixed(1)}%)
-- Daftar Operator Resmi di Database: ${opNames || 'Suhandi, Heru, Sugandi, Firman, Anwar, Tugimin, Sanan, Umar, Hendri'}
-Instruksi: Jawablah pertanyaan pengguna secara luwes, cerdas, solutif, dan profesional layaknya manajer kualitas senior. Jika pengguna bertanya tentang konteks lanjutan (misal "formula ini", "operator tadi"), pahami dari riwayat chat. Gunakan bullet point rapi.`;
+PEDOMAN UTAMA:
+1. DILARANG menggunakan jawaban template generik, teks kaku, atau data rekayasa/seed. Anda harus merumuskan jawaban sendiri secara orisinal, luwes, komunikatif, dan analitis berdasarkan data pabrik di bawah.
+2. Jika pengguna meminta menghitung jumlah barang (seperti HOLD, REJECT, PASS) pada bulan tertentu (seperti April) atau meminta daftar 10 SPK tertinggi, gunakan DATA FAKTUAL DI BAWAH untuk menyebutkan angka totalnya secara persis dan menyajikan daftar 10 nomor SPK beserta rincian jumlah roll-nya secara berurutan dan jelas.
+3. Berikan ulasan singkat mengapa defect tersebut terjadi dan rekomendasi tindakan perbaikan kualitas (QC/Slitting/Rewind) jika relevan.
+4. Pastikan jawaban Anda lengkap dan tuntas sampai kalimat penutup, jangan pernah terpotong di tengah kalimat.
+
+DATA FAKTUAL DATABASE PABRIK:
+${groundingData}`;
 
   const contents = [];
-  // Include recent history (up to 4 previous messages)
   if (Array.isArray(history)) {
     const recent = history.slice(-4);
     for (const m of recent) {
@@ -595,7 +725,12 @@ Instruksi: Jawablah pertanyaan pengguna secara luwes, cerdas, solutif, dan profe
     })
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    const errText = await response.text();
+    console.warn(`Gemini API returned status ${response.status}:`, errText);
+    return null;
+  }
+
   const resJson = await response.json();
   const outputText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
   return outputText ? outputText.trim() : null;
@@ -608,7 +743,28 @@ export async function processAiQueryAsync(queryText, dataRolls = [], labels = []
   const query = (queryText || '').trim();
   const lowerQuery = query.toLowerCase();
 
-  // 1. General Greeting / Inquiry Check
+  // 1. PRIORITAS UTAMA: REAL GENERATIVE AI (GEMINI 3.5 FLASH)
+  // Jika API Key tersedia, seluruh penalaran & jawaban dihasilkan langsung oleh AI secara dinamis tanpa template kaku!
+  const apiKey = await getSetting('google_ai_api_key', '') || await getSetting('gemini_api_key', '');
+  if (apiKey && apiKey.trim()) {
+    try {
+      const generativeResponse = await callGeminiGenerativeAi(query, conversationHistory, dataRolls, customOperators);
+      if (generativeResponse) {
+        return {
+          text: generativeResponse,
+          suggestions: [
+            'Rangkum alasan defect utama periode ini',
+            'Bagaimana status SPK terkait?',
+            'Berapa persentase kelulusan PASS?'
+          ]
+        };
+      }
+    } catch (err) {
+      console.warn('Gemini Generative API error, fallback ke local engine:', err);
+    }
+  }
+
+  // 2. General Greeting Fallback (hanya jika Gemini offline/tanpa API key)
   const GENERAL_GREETING_REGEX = /^(halo|hai|hello|hi|selamat\s+(pagi|siang|sore|malam)|assalamualaikum|siang|pagi|malam|apa kabar|kamu siapa|siapa kamu)\b/i;
   const keywords = ['roll', 'spk', 'operator', 'formula', 'slitting', 'rewind', 'casting', 'metalize', 'reject', 'hold', 'pass', 'defect', 'berat', 'kg', 'meter', 'lot', 'turunan', 'm07', 'vmcpp', 'pet', 'vmpet', 'hitung', 'jumlah', 'total'];
   const hasFactoryKeyword = keywords.some(k => lowerQuery.includes(k));
@@ -617,7 +773,7 @@ export async function processAiQueryAsync(queryText, dataRolls = [], labels = []
     return await handleGeneralAiQuery(query, conversationHistory);
   }
 
-  // 2. Direct In-Database Aggregation (Zero Bulk Bandwidth)
+  // 3. Local Aggregation Fallback (hanya jika Gemini offline/tanpa API key)
   const context = extractConversationContext(conversationHistory);
   const dbAggResult = await executeDatabaseAggregation(query, context, customOperators);
   if (dbAggResult) {

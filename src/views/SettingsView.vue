@@ -833,7 +833,7 @@ const formatTriggerTypeName = (type) => {
 
 // Gemini Tab State
 const apiKey = ref('');
-const selectedModel = ref('gemini-2.0-flash');
+const selectedModel = ref('gemini-3.5-flash');
 const customModelName = ref('');
 const showApiKey = ref(false);
 
@@ -843,9 +843,10 @@ const testStatusText = ref('Belum diuji');
 const isFetchingModels = ref(false);
 
 const DEFAULT_MODELS = [
-  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', description: 'Model cepat multimodal Google AI — stabil dan hemat kuota.' },
-  { id: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', description: 'Generasi 2.5 Flash (cek ketersediaan regional).' },
+  { id: 'gemini-3.5-flash', displayName: 'Gemini 3.5 Flash (Rekomendasi Utama)', description: 'Generasi 3.5 Flash mutakhir — kapasitas token besar, pemrosesan cepat & akurasi analitis tertinggi.' },
+  { id: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', description: 'Generasi 2.5 Flash.' },
   { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', description: 'Generasi 2.5 Pro untuk dokumen kompleks.' },
+  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', description: 'Generasi 2.0 Flash.' },
   { id: 'gemini-1.5-flash', displayName: 'Gemini 1.5 Flash', description: 'Generasi 1.5 Flash legacy.' },
   { id: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', description: 'Generasi 1.5 Pro legacy.' }
 ];
@@ -857,7 +858,7 @@ const isCustomModel = computed(() => selectedModel.value === '__custom__');
 
 const activeModelId = computed(() => {
   if (selectedModel.value === '__custom__') {
-    return customModelName.value.trim() || 'gemini-2.0-flash';
+    return customModelName.value.trim() || 'gemini-3.5-flash';
   }
   return selectedModel.value;
 });
@@ -887,7 +888,7 @@ const automationConfig = ref({
 
 onMounted(async () => {
   apiKey.value = await getSetting('google_ai_api_key', '');
-  const savedModel = await getSetting('google_ai_model', 'gemini-2.0-flash');
+  const savedModel = await getSetting('google_ai_model', 'gemini-3.5-flash');
   const savedModelList = await getSetting('google_ai_available_models', null);
 
   if (savedModelList && Array.isArray(savedModelList) && savedModelList.length > 0) {
