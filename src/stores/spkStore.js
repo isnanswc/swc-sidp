@@ -585,6 +585,9 @@ export const useSpkStore = defineStore('spk', () => {
     const diffParent = actualParentCut - plannedParentRolls;
     const diffChild = actualChildRolls - plannedChildRolls;
     const diffMeter = Math.round(totalRealMeter - plannedMeter);
+    const achievementPercent = plannedChildRolls > 0 
+      ? Math.min(100, Math.round((actualChildRolls / plannedChildRolls) * 100)) 
+      : 0;
 
     // Durasi pengerjaan aktual dari selisih waktu label
     let firstLabelTime = Infinity;
