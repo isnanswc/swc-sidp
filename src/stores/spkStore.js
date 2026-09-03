@@ -559,8 +559,46 @@ export const useSpkStore = defineStore('spk', () => {
     const plannedMeter = plan ? (plan.totalPlannedMeter || (plan.panjangParent * totalJumbo)) : (totalRealMeter || 24000);
     const timeEst = calculateEstimateMinutes(plannedMeter, totalJumbo, speed);
 
-    const plannedRollsCount = plan ? (plan.totalPlannedRolls || (totalJumbo * 2)) : Math.max(totalRealRolls, 1);
-    const achievementPercent = plannedRollsCount > 0 ? Math.min(100, Math.round((totalRealRolls / plannedRollsCount) * 100)) : 0;
+    // Parent, Child & Variance Precision Analytics
+    let upList = [];
+    try {
+      if (plan?.upList && Array.isArray(plan.upList)) upList = plan.upList;
+      else if (plan?.chartingJson) upList = JSON.parse(plan.chartingJson);
+    } catch (_) {}
+    const validUps = upList.filter(u => u && parseFloat(u.lebar) > 0);
+    const totalUp = Math.max(1, validUps.length || 2);
+
+    const plannedParentRolls = parseInt(plan?.jumlahJumbo, 10) || totalJumbo || 1;
+    const plannedChildRolls = plannedParentRolls * totalUp;
+    const actualChildRolls = totalRealRolls;
+
+    // Hitung Parent Jumbo yang telah dipotong dari unique parent lots
+    const uniqueParents = new Set(
+      allLots
+        .map(lt => lt.parentLot || (lt.lot ? String(lt.lot).split(/[-_/]/)[0] : ''))
+        .filter(Boolean)
+    );
+    const actualParentCut = uniqueParents.size > 0 
+      ? uniqueParents.size 
+      : (actualChildRolls > 0 ? Math.ceil(actualChildRolls / totalUp) : 0);
+
+    const diffParent = actualParentCut - plannedParentRolls;
+    const diffChild = actualChildRolls - plannedChildRolls;
+    const diffMeter = Math.round(totalRealMeter - plannedMeter);
+
+    // Durasi pengerjaan aktual dari selisih waktu label
+    let firstLabelTime = Infinity;
+    let lastLabelTime = 0;
+    for (const lt of allLots) {
+      if (lt.date) {
+        const t = new Date(lt.date).getTime();
+        if (t > 0 && t < firstLabelTime) firstLabelTime = t;
+        if (t > lastLabelTime) lastLabelTime = t;
+      }
+    }
+    const actualDurationMinutes = (lastLabelTime > 0 && firstLabelTime < Infinity && lastLabelTime > firstLabelTime)
+      ? Math.round((lastLabelTime - firstLabelTime) / 60000)
+      : (actualChildRolls > 0 ? Math.max(5, Math.round(timeEst.totalMinutes * Math.min(1, actualChildRolls / plannedChildRolls))) : 0);
 
     return {
       spkNo: cleanSpk,
@@ -568,6 +606,9 @@ export const useSpkStore = defineStore('spk', () => {
       month,
       monthName,
       timestamp: latestTimestamp,
+      firstLabelTime: firstLabelTime === Infinity ? 0 : firstLabelTime,
+      lastLabelTime,
+      actualDurationMinutes,
       formula,
       thickness,
       supplier,
@@ -584,6 +625,14 @@ export const useSpkStore = defineStore('spk', () => {
       cuttingMinutes: timeEst.cuttingMinutes,
       changeOverMinutes: timeEst.changeOverMinutes,
       totalMinutes: timeEst.totalMinutes,
+      plannedParentRolls,
+      actualParentCut,
+      plannedChildRolls,
+      actualChildRolls,
+      diffParent,
+      diffChild,
+      diffMeter,
+      totalUp,
       achievementPercent,
       isCrossOrderWarning,
       warningMessage,

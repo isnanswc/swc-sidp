@@ -337,6 +337,17 @@
               <!-- Main Text (Maximum Contrast & High Readability) -->
               <div class="text-xs sm:text-[13px] leading-relaxed !text-slate-900 font-normal select-text space-y-2" v-html="renderFormattedHtml(msg.text)"></div>
 
+              <!-- Dedicated WhatsApp Quick Action Button (Feature 7) -->
+              <div v-if="msg.isWaSummary" class="pt-1">
+                <button
+                  @click="copyMessage(msg.text, idx)"
+                  class="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer select-none"
+                >
+                  <span class="text-sm">📲</span>
+                  <span>{{ copiedIdx === idx ? '✅ Format WhatsApp Berhasil Disalin!' : 'Salin Laporan WhatsApp (Siap Kirim)' }}</span>
+                </button>
+              </div>
+
               <!-- Interactive Follow-up Suggestion Chips -->
               <div v-if="msg.suggestions && msg.suggestions.length > 0" class="flex flex-wrap gap-1.5 pt-2 border-t border-slate-100 select-none">
                 <button
@@ -476,15 +487,19 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useConfigStore } from '@/stores/configStore';
+import { useScheduleStore } from '@/stores/scheduleStore';
 import { db } from '@/db';
 import { processAiQueryAsync } from '@/services/aiQueryService';
 
+const router = useRouter();
 const dataRollStore = useDataRollStore();
 const labelStore = useLabelStore();
 const configStore = useConfigStore();
+const scheduleStore = useScheduleStore();
 
 // Window State
 const isOpen = ref(false);
@@ -548,11 +563,11 @@ const conversations = ref([]);
 const currentSessionId = ref(null);
 
 const defaultChips = [
-  '⚠️ Alasan defect apa yang paling sering terjadi?',
-  '📊 Berapa yield rate dan persentase kelulusan PASS?',
-  '🔴 Rekap total roll REJECT dan afval',
-  '🏭 Bandingkan output mesin Slitting vs Rewind',
-  '👷 Siapa operator dengan output terbanyak?'
+  '📲 Buat Laporan WhatsApp Shift',
+  '🔧 Solusi Cacat Telescoping & Kerut',
+  '📋 Buka Form Serah Terima Shift',
+  '📊 Hitung roll hold bulan april & 10 SPK tertinggi',
+  '🏭 Bandingkan output Slitting vs Rewind'
 ];
 
 // Current Conversation Messages
@@ -839,9 +854,30 @@ const handleSubmit = () => {
         session.context = { ...(session.context || {}), ...response.contextUpdates };
       }
 
+      let rawText = response.text || '';
+      let actionTag = null;
+      const actionMatch = rawText.match(/\[ACTION:([^\]]+)\]/);
+      if (actionMatch) {
+        actionTag = actionMatch[1];
+        rawText = rawText.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+      }
+
+      // Eksekusi Action Trigger Secara Otomatis
+      if (actionTag) {
+        if (actionTag === 'OPEN_SHIFT_HANDOVER') {
+          scheduleStore.showShiftHandoverModal = true;
+        } else if (actionTag.startsWith('NAVIGATE:')) {
+          const navPath = actionTag.replace('NAVIGATE:', '').trim();
+          if (navPath) router.push(navPath);
+        }
+      }
+
+      const isWaSummary = actionTag === 'WHATSAPP_SUMMARY' || query.toLowerCase().includes('whatsapp') || query.toLowerCase().includes('rekap wa');
+
       session.messages.push({
         sender: 'ai',
-        text: response.text,
+        text: rawText,
+        isWaSummary,
         metrics: response.metrics,
         tableData: response.tableData,
         tableTitle: response.tableTitle,

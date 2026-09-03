@@ -195,6 +195,61 @@
           </div>
         </div>
 
+        <!-- Executive Realtime Batch Schedule Summary Banner -->
+        <div class="bg-gradient-to-r from-slate-900 via-zinc-900 to-slate-950 text-white p-3.5 sm:p-5 border-b border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 select-none">
+          <!-- Left: Estimasi Selesai & Remaining Time -->
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2.5 py-0.5 rounded-full text-[10.5px] font-black uppercase tracking-wider"
+                :class="batchScheduleSummary.isDelayed ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'">
+                {{ batchScheduleSummary.isDelayed ? '⚠️ Potensi Terlambat' : '🟢 Timeline Sesuai Jadwal' }}
+              </span>
+              <span class="text-xs text-zinc-300 font-mono">
+                Estimasi Selesai Batch: <strong class="text-white text-sm font-bold">{{ batchScheduleSummary.estimatedCompletionTime }}</strong>
+              </span>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-zinc-400 font-mono flex-wrap">
+              <span>Sisa Waktu: <strong class="text-amber-400 font-black">{{ formatMinutes(batchScheduleSummary.remainingMinutes) }}</strong></span>
+              <span>•</span>
+              <span>Selesai: <strong class="text-emerald-400 font-bold">{{ batchScheduleSummary.completedCount }}</strong> SPK</span>
+              <span>•</span>
+              <span>Antrean: <strong class="text-zinc-200 font-bold">{{ batchScheduleSummary.upcomingCount }}</strong> SPK</span>
+              <span v-if="batchScheduleSummary.skippedCount > 0" class="text-amber-400 font-bold">• Dilewati: {{ batchScheduleSummary.skippedCount }} SPK</span>
+            </div>
+          </div>
+
+          <!-- Right: Progress Meters & Rolls -->
+          <div class="flex items-center gap-3 sm:gap-4 text-xs font-mono flex-wrap">
+            <!-- Meter Progress -->
+            <div class="bg-zinc-800/80 px-3 py-2 rounded-xl border border-zinc-700 space-y-1 min-w-[140px] flex-1 sm:flex-initial">
+              <div class="flex justify-between text-[11px] text-zinc-400">
+                <span>Panjang Meter</span>
+                <strong class="text-emerald-400">{{ batchScheduleSummary.meterPercent }}%</strong>
+              </div>
+              <div class="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" :style="{ width: `${batchScheduleSummary.meterPercent}%` }"></div>
+              </div>
+              <div class="text-[10px] text-zinc-300 text-right">
+                {{ formatNumber(batchScheduleSummary.totalRealMeter) }} / {{ formatNumber(batchScheduleSummary.totalPlannedMeter) }} m
+              </div>
+            </div>
+
+            <!-- Roll Progress -->
+            <div class="bg-zinc-800/80 px-3 py-2 rounded-xl border border-zinc-700 space-y-1 min-w-[140px] flex-1 sm:flex-initial">
+              <div class="flex justify-between text-[11px] text-zinc-400">
+                <span>Roll FG Jadi</span>
+                <strong class="text-blue-400">{{ batchScheduleSummary.rollPercent }}%</strong>
+              </div>
+              <div class="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-blue-500 h-full rounded-full transition-all duration-500" :style="{ width: `${batchScheduleSummary.rollPercent}%` }"></div>
+              </div>
+              <div class="text-[10px] text-zinc-300 text-right">
+                {{ formatNumber(batchScheduleSummary.totalRealRolls) }} / {{ formatNumber(batchScheduleSummary.totalPlannedRolls) }} Roll
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Legend Bar -->
         <div class="bg-zinc-50 border-b border-zinc-200 px-4 py-2.5 flex items-center justify-between text-xs flex-wrap gap-2 select-none">
           <div class="flex items-center gap-4 text-[11px] font-bold">
@@ -243,6 +298,7 @@
                   :class="[
                     row.status === 'COMPLETED' ? 'border-emerald-300 bg-emerald-50/20' : '',
                     row.status === 'IN_PROGRESS' ? 'border-blue-400 bg-blue-50/30 ring-2 ring-blue-500/20' : '',
+                    row.status === 'SKIPPED' ? 'border-amber-400 bg-amber-50/40 border-dashed ring-2 ring-amber-400/20' : '',
                     row.status === 'UPCOMING' ? 'border-zinc-200' : ''
                   ]"
                 >
@@ -252,10 +308,11 @@
                       :class="[
                         row.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : '',
                         row.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-900 border border-blue-300 animate-pulse' : '',
+                        row.status === 'SKIPPED' ? 'bg-amber-100 text-amber-900 border border-amber-300 font-bold' : '',
                         row.status === 'UPCOMING' ? 'bg-zinc-100 text-zinc-700 border border-zinc-300' : ''
                       ]"
                     >
-                      {{ row.status === 'COMPLETED' ? '✓ SELESAI' : (row.status === 'IN_PROGRESS' ? '⚙️ SEDANG BERJALAN' : '⏱️ ANTREAN') }}
+                      {{ row.status === 'COMPLETED' ? '✓ SELESAI' : (row.status === 'IN_PROGRESS' ? '⚙️ SEDANG BERJALAN' : (row.status === 'SKIPPED' ? '⏭️ DILEWATI (Dilompati)' : '⏱️ ANTREAN')) }}
                     </span>
                     <div class="flex items-center gap-1.5">
                       <span class="text-xs font-mono font-bold text-zinc-400">#{{ row.plan.seq || (rIdx + 1) }}</span>
@@ -268,7 +325,7 @@
                       {{ row.plan.formula }} ({{ row.plan.thickness }}μ)
                     </span>
                     <span>Lebar JR: {{ formatNumber(row.plan.lebarParent) }} mm</span>
-                    <span class="font-bold text-purple-900">{{ row.plan.jumlahJumbo }} JR</span>
+                    <span class="font-bold text-purple-900">{{ row.plan.jumlahJumbo }} JR ({{ row.totalUp }} UP)</span>
                   </div>
 
                   <div class="text-[11px] text-zinc-500 font-mono flex items-center justify-end gap-2 pt-1 border-t border-zinc-100">
@@ -279,7 +336,10 @@
                     <span class="font-bold text-purple-800">Est: {{ row.planDurationMinutes }} Mnt</span>
                   </div>
 
-                  <div class="text-[10px] text-zinc-400 font-mono">
+                  <div v-if="row.status === 'SKIPPED'" class="text-[10.5px] text-amber-800 font-bold bg-amber-100/70 p-1.5 rounded-lg text-center border border-amber-200">
+                    ⚠️ Plan Dilompati: Operator langsung mengerjakan nomor SPK setelah ini.
+                  </div>
+                  <div v-else class="text-[10px] text-zinc-400 font-mono">
                     Perkiraan Waktu: Pukul <strong class="text-zinc-700">{{ row.estStartTime }}</strong> s/d <strong class="text-zinc-700">{{ row.estEndTime }}</strong>
                   </div>
                 </div>
@@ -305,12 +365,14 @@
                   :class="[
                     row.status === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-emerald-200' : '',
                     row.status === 'IN_PROGRESS' ? 'bg-blue-600 text-white shadow-blue-200 animate-bounce' : '',
+                    row.status === 'SKIPPED' ? 'bg-amber-500 text-white shadow-amber-200 ring-2 ring-amber-300' : '',
                     row.status === 'UPCOMING' ? 'bg-white text-zinc-600 border-zinc-300' : '',
                     row.status === 'UNPLANNED' ? 'bg-amber-500 text-white shadow-amber-200' : ''
                   ]"
                 >
                   <span v-if="row.status === 'COMPLETED'">✓</span>
                   <span v-else-if="row.status === 'IN_PROGRESS'">⚙️</span>
+                  <span v-else-if="row.status === 'SKIPPED'">⏭️</span>
                   <span v-else-if="row.status === 'UNPLANNED'">⚠️</span>
                   <span v-else>{{ rIdx + 1 }}</span>
                 </div>
@@ -338,11 +400,46 @@
                     </span>
                   </div>
 
-                  <div class="text-xs font-mono text-zinc-700 flex items-center gap-2 flex-wrap">
-                    <strong class="text-emerald-700 font-black">{{ formatNumber(row.actual.totalRealMeter) }} m</strong>
-                    <span class="text-zinc-300">•</span>
-                    <strong class="text-zinc-900 font-bold">{{ formatNumber(row.actual.totalRealKg) }} kg</strong>
-                    <span v-if="row.actual.operator" class="text-zinc-400 text-[10px]">Op: {{ row.actual.operator }}</span>
+                  <!-- Precision Production Metrics Grid: Parent, Child & Variance -->
+                  <div class="grid grid-cols-2 gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200 text-[11px] font-mono">
+                    <!-- Parent Cut vs Plan -->
+                    <div class="flex flex-col">
+                      <span class="text-[9px] text-zinc-400 uppercase font-semibold">Parent Cut</span>
+                      <div class="flex items-center gap-1 font-bold text-zinc-800">
+                        <span>{{ row.actualParentCut || 0 }} / {{ row.plannedParentRolls || 1 }} JR</span>
+                        <span class="px-1 py-0.2 rounded text-[9px]" :class="(row.diffParent || 0) === 0 ? 'bg-emerald-100 text-emerald-800' : ((row.diffParent || 0) > 0 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800')">
+                          {{ (row.diffParent || 0) > 0 ? `+${row.diffParent}` : (row.diffParent || 0) }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Child Slit Roll FG vs Plan -->
+                    <div class="flex flex-col">
+                      <span class="text-[9px] text-zinc-400 uppercase font-semibold">Child Roll FG</span>
+                      <div class="flex items-center gap-1 font-bold text-zinc-800">
+                        <span>{{ row.actualChildRolls || 0 }} / {{ row.plannedChildRolls || 2 }} Roll</span>
+                        <span class="px-1 py-0.2 rounded text-[9px]" :class="(row.diffChild || 0) === 0 ? 'bg-emerald-100 text-emerald-800' : ((row.diffChild || 0) > 0 ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')">
+                          {{ (row.diffChild || 0) > 0 ? `+${row.diffChild}` : (row.diffChild || 0) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="text-xs font-mono text-zinc-700 flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <strong class="text-emerald-700 font-black">{{ formatNumber(row.actual.totalRealMeter) }} m</strong>
+                      <span class="text-zinc-300 mx-1">•</span>
+                      <strong class="text-zinc-900 font-bold">{{ formatNumber(row.actual.totalRealKg) }} kg</strong>
+                    </div>
+                    <span v-if="row.actual.operator" class="text-zinc-500 text-[10px] font-semibold">Op: {{ row.actual.operator }}</span>
+                  </div>
+
+                  <!-- Actual Duration vs Plan Target -->
+                  <div class="text-[10px] font-mono flex items-center justify-between pt-1 border-t border-zinc-100 text-zinc-500">
+                    <span>⏱️ Durasi: <strong class="text-zinc-800">{{ row.actualDurationMinutes }} Menit</strong></span>
+                    <span class="text-[9.5px] font-semibold" :class="row.actualDurationMinutes <= row.planDurationMinutes ? 'text-emerald-700' : 'text-amber-700'">
+                      (Plan: {{ row.planDurationMinutes }} Mnt{{ row.actualDurationMinutes > row.planDurationMinutes ? ` | +${row.actualDurationMinutes - row.planDurationMinutes} Mnt` : '' }})
+                    </span>
                   </div>
 
                   <!-- QC Badges -->
@@ -350,7 +447,7 @@
                     <span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900">Pass: {{ row.actual.passCount }}</span>
                     <span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">Hold: {{ row.actual.holdCount }}</span>
                     <span class="px-1.5 py-0.2 rounded bg-red-100 text-red-900">Reject: {{ row.actual.rejectCount }}</span>
-                    <span v-if="row.actual.latestLot" class="text-zinc-400 text-[9.5px] ml-auto">Lot: {{ row.actual.latestLot }}</span>
+                    <span v-if="row.actual.latestLot" class="text-zinc-400 text-[9.5px] ml-auto truncate max-w-[100px]">Lot: {{ row.actual.latestLot }}</span>
                   </div>
                 </div>
 
@@ -359,7 +456,8 @@
                   v-else
                   class="w-full max-w-md bg-zinc-50/50 border border-dashed border-zinc-200 rounded-2xl p-4 text-left flex items-center justify-center text-zinc-400 text-xs font-mono select-none"
                 >
-                  <span>⏱️ Menunggu giliran pemotongan mesin...</span>
+                  <span v-if="row.status === 'SKIPPED'" class="text-amber-600 font-bold">⏭️ Dilewati (Tidak Dikerjakan)</span>
+                  <span v-else>⏱️ Menunggu giliran pemotongan mesin...</span>
                 </div>
               </div>
             </div>
@@ -369,7 +467,6 @@
 
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- SHEET 2: LIST SPK (BERBAGI DATA TERPADU)                          -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div v-else-if="activeSheet === 'list'" class="space-y-4 animate-fade-in">
@@ -1683,7 +1780,65 @@ const formatMinutes = (minutes) => {
 // ── HIGH PERFORMANCE MEMOIZED SPK COMPUTED MAP (NO MAIN-THREAD BLOCK) ──
 
 // Cache plan analytics in a single computed map (1x evaluation per tick instead of 500,000 nested loops)
-// ── DUAL-SIDED CENTRAL TIMELINE ENGINE (WITH H+1 WINDOW & UNPLANNED SLOTS) ──
+// ── DUAL-SIDED CENTRAL TIMELINE ENGINE (WITH DYNAMIC RE-ESTIMATION & SKIPPED DETECTION) ──
+
+
+const batchScheduleSummary = computed(() => {
+  const rows = timelineRows.value || [];
+  let totalPlannedRolls = 0;
+  let totalRealRolls = 0;
+  let totalPlannedMeter = 0;
+  let totalRealMeter = 0;
+  let completedCount = 0;
+  let inProgressCount = 0;
+  let skippedCount = 0;
+  let upcomingCount = 0;
+  let finalEndTimestamp = 0;
+  let lastEndTimeFormatted = '';
+
+  for (const r of rows) {
+    if (r.plan) {
+      totalPlannedRolls += (r.plannedChildRolls || 0);
+      totalPlannedMeter += (parseFloat(r.plan.totalPlannedMeter) || 0);
+    }
+    if (r.actual) {
+      totalRealRolls += (r.actual.totalRealRolls || 0);
+      totalRealMeter += (r.actual.totalRealMeter || 0);
+    }
+    if (r.status === 'COMPLETED') completedCount++;
+    else if (r.status === 'IN_PROGRESS') inProgressCount++;
+    else if (r.status === 'SKIPPED') skippedCount++;
+    else if (r.status === 'UPCOMING') upcomingCount++;
+
+    if (r.estEndTimestamp && r.estEndTimestamp > finalEndTimestamp) {
+      finalEndTimestamp = r.estEndTimestamp;
+      lastEndTimeFormatted = r.estEndTime;
+    }
+  }
+
+  const remainingMinutes = finalEndTimestamp > 0 
+    ? Math.max(0, Math.round((finalEndTimestamp - Date.now()) / 60000))
+    : 0;
+
+  const rollPercent = totalPlannedRolls > 0 ? Math.min(100, Math.round((totalRealRolls / totalPlannedRolls) * 100)) : 0;
+  const meterPercent = totalPlannedMeter > 0 ? Math.min(100, Math.round((totalRealMeter / totalPlannedMeter) * 100)) : 0;
+
+  return {
+    totalPlannedRolls,
+    totalRealRolls,
+    totalPlannedMeter,
+    totalRealMeter,
+    completedCount,
+    inProgressCount,
+    skippedCount,
+    upcomingCount,
+    rollPercent,
+    meterPercent,
+    estimatedCompletionTime: lastEndTimeFormatted || 'Sesuai Jadwal',
+    remainingMinutes,
+    isDelayed: remainingMinutes > 0 && remainingMinutes > (upcomingCount * 45)
+  };
+});
 
 const timelineRows = computed(() => {
   const batch = spkStore.activeBatch;
@@ -1739,29 +1894,40 @@ const timelineRows = computed(() => {
     return c1 === c2 || c1.includes(c2) || c2.includes(c1);
   };
 
+  // Cari index rencana terjauh yang sudah mulai/selesai dikerjakan (untuk mendeteksi SPK yang dilewati/dilompati)
+  let maxActivePlanIdx = -1;
+  for (let pIdx = 0; pIdx < plannedList.length; pIdx++) {
+    const p = plannedList[pIdx];
+    const hasActual = actualRuns.some(act => isMatch(act.spkNo, p.spkNo));
+    if (hasActual) {
+      maxActivePlanIdx = Math.max(maxActivePlanIdx, pIdx);
+    }
+  }
+
   const rows = [];
   const handledActualIndices = new Set();
-  let cumulativeMinutes = 0;
-  const baseDate = new Date();
-  baseDate.setHours(8, 0, 0, 0); // Asumsi shift mulai pukul 08:00
+  
+  // Anchor waktu: mulai dari jam label pertama aktual jika ada, atau jam sekarang
+  let timelineClock = new Date();
+  if (actualRuns.length > 0 && actualRuns[0].firstTime > 0) {
+    timelineClock = new Date(actualRuns[0].firstTime);
+  }
 
   for (let pIdx = 0; pIdx < plannedList.length; pIdx++) {
     const plan = plannedList[pIdx];
     const planAnalytics = spkStore.getSpkRealtimeAnalytics(plan.spkNo, plan) || {};
 
-    // A. Periksa apakah ada pengerjaan aktual yang TIDAK ADA DI PLAN (Order Sisipan seperti SPK 5)
+    // A. Periksa apakah ada pengerjaan aktual yang TIDAK ADA DI PLAN (Order Sisipan)
     for (let aIdx = 0; aIdx < actualRuns.length; aIdx++) {
       if (handledActualIndices.has(aIdx)) continue;
       const act = actualRuns[aIdx];
 
       if (isMatch(act.spkNo, plan.spkNo)) {
-        break; // Cocok dengan plan saat ini, akan dipasangkan di bawah
+        break; // Cocok dengan plan saat ini
       }
 
-      // Cek apakah actual ini cocok dengan plan MASA DEPAN
       const matchesFuture = plannedList.slice(pIdx + 1).some(fPlan => isMatch(act.spkNo, fPlan.spkNo));
       if (!matchesFuture) {
-        // Ini adalah SPK Sisipan Tanpa Plan! (Sisi kiri KOSONG, Sisi kanan ADA)
         rows.push({
           id: `unplanned_${act.spkNo}_${aIdx}`,
           type: 'UNPLANNED',
@@ -1788,22 +1954,61 @@ const timelineRows = computed(() => {
       }
     }
 
-    // Hitung estimasi waktu pengerjaan kumulatif
     const speed = planAnalytics.speed || 600;
     const durMinutes = planAnalytics.totalMinutes || 45;
-    const startM = cumulativeMinutes;
-    const endM = cumulativeMinutes + durMinutes;
-    cumulativeMinutes = endM;
-
-    const startClock = new Date(baseDate.getTime() + startM * 60000);
-    const endClock = new Date(baseDate.getTime() + endM * 60000);
-    const estStartTime = startClock.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    const estEndTime = endClock.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const plannedTargetRolls = planAnalytics.plannedChildRolls || plan.totalPlannedRolls || (plan.jumlahJumbo * 2) || 2;
 
     let status = 'UPCOMING';
+    let estStartTime = '';
+    let estEndTime = '';
+    let estEndTimestamp = 0;
+    let actualDurationMinutes = planAnalytics.actualDurationMinutes || 0;
+
     if (matchedActual) {
-      const targetRolls = plan.totalPlannedRolls || 1;
-      status = matchedActual.totalRealRolls >= targetRolls ? 'COMPLETED' : 'IN_PROGRESS';
+      const isDone = matchedActual.totalRealRolls >= plannedTargetRolls;
+      status = isDone ? 'COMPLETED' : 'IN_PROGRESS';
+
+      if (matchedActual.firstTime > 0) {
+        estStartTime = new Date(matchedActual.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      } else {
+        estStartTime = timelineClock.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      if (status === 'COMPLETED') {
+        const finishTime = matchedActual.lastTime > 0 ? matchedActual.lastTime : (matchedActual.firstTime + durMinutes * 60000);
+        estEndTime = new Date(finishTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        estEndTimestamp = finishTime;
+        actualDurationMinutes = Math.max(1, Math.round((finishTime - (matchedActual.firstTime || finishTime)) / 60000));
+        // Update anchor waktu untuk SPK berikutnya ke jam selesai aktual SPK ini!
+        timelineClock = new Date(finishTime);
+      } else {
+        // IN_PROGRESS: hitung sisa roll & sisa menit
+        const rollsLeft = Math.max(1, plannedTargetRolls - matchedActual.totalRealRolls);
+        const remainingFraction = Math.max(0.1, rollsLeft / plannedTargetRolls);
+        const remainingMins = Math.round(durMinutes * remainingFraction);
+        const projectedFinish = Date.now() + remainingMins * 60000;
+        estEndTime = new Date(projectedFinish).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        estEndTimestamp = projectedFinish;
+        actualDurationMinutes = Math.max(1, Math.round((Date.now() - (matchedActual.firstTime || Date.now())) / 60000));
+        // Update anchor waktu untuk SPK berikutnya
+        timelineClock = new Date(projectedFinish);
+      }
+    } else {
+      // Belum ada data aktual
+      if (pIdx < maxActivePlanIdx) {
+        // DETEKSI SKIPPED: Plan ini berada sebelum plan yang sudah dikerjakan di lapangan!
+        status = 'SKIPPED';
+        estStartTime = '-';
+        estEndTime = '-';
+      } else {
+        // Normal UPCOMING: waktu mulai dihitung dari jam selesai SPK sebelumnya!
+        const startMs = timelineClock.getTime();
+        const endMs = startMs + durMinutes * 60000;
+        estStartTime = new Date(startMs).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        estEndTime = new Date(endMs).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        estEndTimestamp = endMs;
+        timelineClock = new Date(endMs);
+      }
     }
 
     rows.push({
@@ -1814,9 +2019,19 @@ const timelineRows = computed(() => {
       status,
       speed,
       planDurationMinutes: durMinutes,
+      actualDurationMinutes,
       estStartTime,
       estEndTime,
-      achievementPercent: planAnalytics.achievementPercent || 0
+      estEndTimestamp,
+      achievementPercent: planAnalytics.achievementPercent || 0,
+      plannedParentRolls: planAnalytics.plannedParentRolls || 1,
+      actualParentCut: planAnalytics.actualParentCut || 0,
+      diffParent: planAnalytics.diffParent || 0,
+      plannedChildRolls: plannedTargetRolls,
+      actualChildRolls: matchedActual ? matchedActual.totalRealRolls : 0,
+      diffChild: planAnalytics.diffChild || 0,
+      diffMeter: planAnalytics.diffMeter || 0,
+      totalUp: planAnalytics.totalUp || 2
     });
   }
 
