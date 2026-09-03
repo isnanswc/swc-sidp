@@ -1,7 +1,7 @@
 <template>
   <aside 
     :class="[
-      'bg-zinc-950 text-zinc-100 flex flex-col transition-all duration-300 z-50 shadow-2xl fixed md:sticky md:top-0 h-screen inset-y-0 left-0 border-r border-zinc-800/80 shrink-0',
+      'bg-zinc-950 text-zinc-100 flex flex-col transition-all duration-300 z-50 shadow-2xl fixed md:sticky md:top-0 h-screen inset-y-0 left-0 border-r border-zinc-800/80 shrink-0 select-none',
       isMobile ? 'translate-x-0 w-64' : (isOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20')
     ]"
   >
@@ -80,14 +80,15 @@
       </button>
     </div>
 
-    <!-- Navigation Menu (Categorized Toolbox) -->
-    <div class="flex-1 py-3 px-2.5 space-y-3 overflow-y-auto">
+    <!-- Navigation Menu (Clean Professional Categorization) -->
+    <div class="flex-1 py-3 px-2.5 space-y-3.5 overflow-y-auto custom-scrollbar">
       <div v-for="(cat, cIdx) in visibleNavCategories" :key="cIdx" class="space-y-1">
         <!-- Category Header (When Expanded or Mobile) -->
-        <div v-show="isOpen || isMobile" class="px-2.5 pt-1.5 pb-0.5 text-[9px] font-black text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+        <div v-show="isOpen || isMobile" class="px-2.5 pt-2 pb-1 text-[9.5px] font-black text-zinc-500 uppercase tracking-widest flex items-center justify-between">
           <span>{{ cat.category }}</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-zinc-700"></span>
         </div>
-        <div v-show="!isOpen && !isMobile" class="my-1 border-t border-zinc-800/80"></div>
+        <div v-show="!isOpen && !isMobile" class="my-1.5 border-t border-zinc-800/80"></div>
 
         <!-- Links in Category -->
         <router-link
@@ -95,22 +96,34 @@
           :key="item.path"
           :to="item.path"
           :class="[
-            'flex items-center gap-3 px-3 py-2 rounded-xl font-semibold text-xs transition-all group relative',
+            'flex items-center gap-3 px-3 py-2 rounded-xl font-semibold text-xs transition-all duration-200 group relative',
             !isOpen && !isMobile ? 'justify-center px-2' : '',
             isActive(item.path)
               ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 font-bold'
-              : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
+              : 'text-zinc-300 hover:bg-zinc-900/90 hover:text-white'
           ]"
           :title="!isOpen && !isMobile ? item.name : ''"
           @click="closeMobileNav"
         >
-          <!-- Icon -->
-          <span class="shrink-0 flex items-center justify-center" v-html="item.icon"></span>
+          <!-- Active Left Pill Indicator -->
+          <span 
+            v-if="isActive(item.path) && (isOpen || isMobile)"
+            class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r bg-white"
+          ></span>
 
-          <!-- Label -->
-          <span v-show="isOpen || isMobile" class="truncate">{{ item.name }}</span>
+          <!-- Icon with Smooth Minimalist Micro-Animation -->
+          <span 
+            class="shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-115 group-hover:rotate-3 group-hover:text-red-400"
+            :class="isActive(item.path) ? 'text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.6)]' : 'text-zinc-400'"
+            v-html="item.icon"
+          ></span>
 
-          <!-- Active Indicator Dot (Collapsed mode) -->
+          <!-- Label (Simple, Clean, Professional) -->
+          <span v-show="isOpen || isMobile" class="truncate tracking-tight font-medium" :class="isActive(item.path) ? 'font-bold' : ''">
+            {{ item.name }}
+          </span>
+
+          <!-- Active Dot Indicator (Collapsed mode) -->
           <span 
             v-if="!isOpen && !isMobile && isActive(item.path)"
             class="absolute right-1.5 top-1.5 w-2 h-2 rounded-full bg-red-400 ring-2 ring-zinc-950"
@@ -120,10 +133,10 @@
           <span 
             v-if="item.badge && (isOpen || isMobile)"
             :class="[
-              'ml-auto text-[9px] px-1.5 py-0.2 rounded-md font-extrabold border uppercase font-mono',
+              'ml-auto text-[9px] px-1.5 py-0.2 rounded-md font-extrabold border uppercase font-mono tracking-tight transition-colors',
               isActive(item.path) 
                 ? 'bg-white/20 text-white border-white/30' 
-                : 'bg-red-500/20 text-red-300 border-red-500/30'
+                : 'bg-zinc-800 text-zinc-400 border-zinc-700 group-hover:border-red-500/40 group-hover:text-red-300'
             ]"
           >
             {{ item.badge }}
@@ -177,117 +190,123 @@ const closeMobileNav = () => {
 
 const authStore = useAuthStore();
 
+// Navigation Categories: Clean, simple, and professional
 const navCategories = [
   {
-    category: 'PRODUKSI & LAPORAN',
+    category: 'PRODUKSI & ALUR KERJA',
     items: [
       {
-        name: 'Dashboard Overview',
+        name: 'Dashboard',
         path: '/',
         menuKey: 'dashboard',
         badge: 'Live',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>`
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>`
       },
       {
-        name: 'Operator Schedule',
+        name: 'Jadwal Operator',
         path: '/schedule',
         menuKey: 'schedule',
         badge: 'Shift',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/></svg>`
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/></svg>`
       },
       {
-        name: 'Data Roll (Identitas)',
+        name: 'Rencana SPK',
+        path: '/spk',
+        menuKey: 'spk',
+        badge: 'Jadwal',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`
+      },
+      {
+        name: 'Label Produksi',
+        path: '/label',
+        menuKey: 'label',
+        badge: 'Label FG',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>`
+      },
+      {
+        name: 'Data Roll FG',
         path: '/data-roll',
         menuKey: 'data_roll',
-        badge: 'Roll FG',
+        badge: 'Roll',
         icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`
       },
       {
-        name: 'Manajemen Label',
-        path: '/label',
-        menuKey: 'label',
-        badge: 'Produksi',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>`
-      },
-      {
-        name: 'Manajemen SPK',
-        path: '/spk',
-        menuKey: 'spk',
-        badge: 'Order',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`
-      },
-      {
-        name: 'Scan Laporan AI',
-        path: '/scan-report',
-        menuKey: 'scan_report',
-        badge: 'AI Scan',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2m0 10v2a2 2 0 01-2 2h-2M4 17v2a2 2 0 002 2h2"/><path d="M9 10h6M9 14h4"/></svg>`
-      },
-      {
-        name: 'DE Report (Rekap)',
+        name: 'Laporan Harian',
         path: '/de-report',
         menuKey: 'de_report',
-        badge: 'Data Entry',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="13" width="3.5" height="7" rx="0.5"/><rect x="10.25" y="9" width="3.5" height="11" rx="0.5"/><rect x="15.5" y="4" width="3.5" height="16" rx="0.5"/></svg>`
-      },
-      {
-        name: 'Tools & Konversi Lapangan',
-        path: '/tools',
-        menuKey: 'tools',
-        badge: 'Tools',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`
-      },
-      {
-        name: 'Manajemen Tugas & QR',
-        path: '/tasks',
-        menuKey: 'tasks',
-        badge: 'QC',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>`
+        badge: 'Rekap',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 17v-3"/><path d="M12 17v-6"/><path d="M16 17v-1"/></svg>`
       }
     ]
   },
   {
-    category: 'GUDANG & LOGISTIK',
+    category: 'INVENTARIS & QC',
     items: [
       {
-        name: 'Roll & Inventory Management (IMS)',
+        name: 'Stok Gudang',
         path: '/inventory',
         menuKey: 'inventory',
         badge: 'IMS',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>`
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`
       },
       {
         name: 'Stok Opname',
         path: '/opname',
         menuKey: 'opname',
-        badge: 'Gudang',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`
+        badge: 'Audit',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`
+      },
+      {
+        name: 'Inspeksi & Tugas',
+        path: '/tasks',
+        menuKey: 'tasks',
+        badge: 'QC',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`
       }
     ]
   },
   {
-    category: 'MASTER DATA & SISTEM',
+    category: 'ALAT & OTOMASI',
     items: [
       {
-        name: 'Data Configuration',
+        name: 'Pindai AI',
+        path: '/scan-report',
+        menuKey: 'scan_report',
+        badge: 'AI Scan',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2"/><path d="M17 3h2a2 2 0 012 2v2"/><path d="M21 17v2a2 2 0 01-2 2h-2"/><path d="M7 21H5a2 2 0 01-2-2v-2"/><polyline points="7 12 12 12 17 12"/><path d="M12 8v8"/></svg>`
+      },
+      {
+        name: 'Kalkulator Konversi',
+        path: '/tools',
+        menuKey: 'tools',
+        badge: 'Tools',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8.01" y2="10"/><line x1="12" y1="10" x2="12.01" y2="10"/><line x1="16" y1="10" x2="16.01" y2="10"/><line x1="8" y1="14" x2="8.01" y2="14"/><line x1="12" y1="14" x2="12.01" y2="14"/><line x1="16" y1="14" x2="16.01" y2="14"/><line x1="8" y1="18" x2="8.01" y2="18"/><line x1="12" y1="18" x2="16" y2="18"/></svg>`
+      }
+    ]
+  },
+  {
+    category: 'SISTEM & PENGATURAN',
+    items: [
+      {
+        name: 'Konfigurasi Data',
         path: '/data-config',
         menuKey: 'data_config',
         badge: 'Master',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3"/><circle cx="4" cy="14" r="2"/><circle cx="12" cy="8" r="2"/><circle cx="20" cy="16" r="2"/></svg>`
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 12v7c0 1.66 4 3 9 3s9-1.34 9-3v-7"/><path d="M3 5v7"/></svg>`
       },
       {
-        name: 'Pengaturan & AI',
-        path: '/settings',
-        menuKey: 'settings',
-        badge: 'AI Key',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`
-      },
-      {
-        name: 'Kelola Pengguna & Akses',
+        name: 'Manajemen Pengguna',
         path: '/users',
         menuKey: 'users',
-        badge: 'RBAC',
-        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>`
+        badge: 'Akses',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>`
+      },
+      {
+        name: 'Pengaturan Sistem',
+        path: '/settings',
+        menuKey: 'settings',
+        badge: 'Setup',
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`
       }
     ]
   }
@@ -309,3 +328,19 @@ const visibleNavCategories = computed(() => {
     .filter(cat => cat.items.length > 0);
 });
 </script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #71717a;
+}
+</style>
