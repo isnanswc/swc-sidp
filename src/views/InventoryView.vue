@@ -29,7 +29,7 @@
         >
           <span>📦 1. Stok FG Roll</span>
           <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-black/40 text-white">
-            {{ inventoryStore.totalStockRolls }}
+            {{ totalStockRolls }}
           </span>
         </button>
 
@@ -61,7 +61,7 @@
           <span>📦</span>
           <span>1. Stock Roll (Aktif)</span>
           <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-red-600 text-white font-mono font-bold">
-            {{ inventoryStore.totalStockRolls }} Roll
+            {{ totalStockRolls }} Roll
           </span>
         </button>
 
@@ -77,7 +77,7 @@
           <span>📑</span>
           <span>2. Riwayat Update Stok Roll</span>
           <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-700 text-white font-mono font-bold">
-            {{ inventoryStore.stockUploads.length }} Sesi
+            {{ stockUploads.length }} Sesi
           </span>
         </button>
 
@@ -115,13 +115,13 @@
                   ★ ACUAN STOK SAAT INI
                 </span>
                 <span class="text-xs font-bold text-emerald-950">
-                  {{ inventoryStore.activeUpload ? inventoryStore.activeUpload.fileName : 'Data Stok Aktif' }}
+                  {{ activeUpload ? activeUpload.fileName : 'Data Stok Aktif' }}
                 </span>
               </div>
               <p class="text-xs text-emerald-800 font-medium mt-0.5">
-                Tanggal: <strong>{{ inventoryStore.activeUpload ? inventoryStore.activeUpload.uploadDate : inventoryStore.lastUploadDate }}</strong> &nbsp;•&nbsp; 
-                Total: <strong>{{ (inventoryStore.currentStocks || []).length }} SKU</strong> (<strong>{{ inventoryStore.totalStockRolls }} Roll</strong> / <strong>{{ formatNumber(inventoryStore.totalStockKg) }} kg</strong>) &nbsp;•&nbsp; 
-                Pengunggah: {{ inventoryStore.activeUpload ? (inventoryStore.activeUpload.uploadedBy || 'Admin') : 'Admin' }}
+                Tanggal: <strong>{{ activeUpload ? activeUpload.uploadDate : lastUploadDate }}</strong> &nbsp;•&nbsp; 
+                Total: <strong>{{ (inventoryStore.currentStocks || []).length }} SKU</strong> (<strong>{{ totalStockRolls }} Roll</strong> / <strong>{{ formatNumber(totalStockKg) }} kg</strong>) &nbsp;•&nbsp; 
+                Pengunggah: {{ activeUpload ? (activeUpload.uploadedBy || 'Admin') : 'Admin' }}
               </p>
             </div>
           </div>
@@ -143,7 +143,7 @@
               <span>📦</span>
             </div>
             <p class="text-xl font-black text-zinc-900 mt-1 font-mono">
-              {{ formatNumber(inventoryStore.totalStockRolls) }} <span class="text-xs font-normal text-zinc-400 font-sans">Roll</span>
+              {{ formatNumber(totalStockRolls) }} <span class="text-xs font-normal text-zinc-400 font-sans">Roll</span>
             </p>
           </div>
 
@@ -154,7 +154,7 @@
               <span>⚖️</span>
             </div>
             <p class="text-xl font-black text-blue-800 mt-1 font-mono">
-              {{ formatNumber(inventoryStore.totalStockKg) }} <span class="text-xs font-normal text-blue-600 font-sans">kg</span>
+              {{ formatNumber(totalStockKg) }} <span class="text-xs font-normal text-blue-600 font-sans">kg</span>
             </p>
           </div>
 
@@ -165,7 +165,7 @@
               <span>📏</span>
             </div>
             <p class="text-xl font-black text-amber-800 mt-1 font-mono">
-              {{ formatNumber(inventoryStore.totalStockPanjang) }} <span class="text-xs font-normal text-amber-600 font-sans">M</span>
+              {{ formatNumber(totalStockPanjang) }} <span class="text-xs font-normal text-amber-600 font-sans">M</span>
             </p>
           </div>
 
@@ -603,11 +603,11 @@
               </thead>
               <tbody class="divide-y divide-zinc-100 font-medium">
                 <tr
-                  v-for="(u, idx) in inventoryStore.stockUploads"
+                  v-for="(u, idx) in stockUploads"
                   :key="u.id"
                   :class="[
                     'transition-colors',
-                    inventoryStore.activeUploadId === u.id
+                    activeUploadId === u.id
                       ? 'bg-emerald-50/60 font-bold border-l-4 border-emerald-500'
                       : 'hover:bg-zinc-50'
                   ]"
@@ -617,7 +617,7 @@
                   <!-- Status Acuan Badge -->
                   <td class="p-3">
                     <span
-                      v-if="inventoryStore.activeUploadId === u.id"
+                      v-if="activeUploadId === u.id"
                       class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white border border-emerald-700 shadow-xs flex items-center gap-1 w-max"
                     >
                       <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
@@ -647,7 +647,7 @@
                   </td>
                 </tr>
 
-                <tr v-if="inventoryStore.stockUploads.length === 0">
+                <tr v-if="stockUploads.length === 0">
                   <td colspan="8" class="p-10 text-center text-zinc-400">
                     <p class="font-bold text-sm text-zinc-700">Belum ada riwayat sesi update.</p>
                     <p class="text-xs text-zinc-400 mt-0.5">Klik tombol <strong>+ Buat Update Stok Baru</strong> untuk mulai memasukkan data 27 kolom.</p>
@@ -1285,6 +1285,16 @@ import * as XLSX from 'xlsx';
 const route = useRoute();
 const router = useRouter();
 const inventoryStore = useInventoryStore();
+
+// Local robust reactive wrappers to guarantee template never crashes even if store is loading
+const totalStockRolls = computed(() => inventoryStore?.totalStockRolls || 0);
+const totalStockKg = computed(() => inventoryStore?.totalStockKg || 0);
+const totalStockPanjang = computed(() => inventoryStore?.totalStockPanjang || 0);
+const stockUploads = computed(() => inventoryStore?.stockUploads || []);
+const currentStocksList = computed(() => inventoryStore?.currentStocks || []);
+const activeUpload = computed(() => inventoryStore?.activeUpload || null);
+const activeUploadId = computed(() => inventoryStore?.activeUploadId || null);
+const lastUploadDate = computed(() => inventoryStore?.lastUploadDate || '-');
 
 // Sub-Sheet Navigation Tabs for FG Roll: 'stock' | 'updates' | 'location'
 const activeFgTab = ref('stock');

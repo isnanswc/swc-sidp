@@ -224,7 +224,7 @@
         </div>
         <div class="mt-3">
           <div class="text-2xl font-black text-emerald-700">{{ operatorPassPercent }}% <span class="text-xs font-bold text-zinc-500">PASS</span></div>
-          <div class="text-xs text-zinc-500 mt-1 font-medium">{{ labelStats.statusPass }} Pass • {{ labelStats.statusHold }} Hold</div>
+          <div class="text-xs text-zinc-500 mt-1 font-medium">{{ labelStats?.statusPass || 0 }} Pass • {{ labelStats?.statusHold || 0 }} Hold</div>
         </div>
       </div>
     </div>
@@ -300,7 +300,7 @@
         </div>
         <div class="mt-3">
           <div class="text-2xl font-black text-emerald-600">{{ qcPassRate }}%</div>
-          <div class="text-xs text-emerald-700 font-bold mt-1">{{ labelStats.statusPass }} Roll Lolos Uji</div>
+          <div class="text-xs text-emerald-700 font-bold mt-1">{{ labelStats?.statusPass || 0 }} Roll Lolos Uji</div>
         </div>
       </div>
 
@@ -313,7 +313,7 @@
           </div>
         </div>
         <div class="mt-3">
-          <div class="text-2xl font-black text-amber-600">{{ labelStats.statusHold }} <span class="text-sm font-bold text-zinc-500">Roll</span></div>
+          <div class="text-2xl font-black text-amber-600">{{ labelStats?.statusHold || 0 }} <span class="text-sm font-bold text-zinc-500">Roll</span></div>
           <div class="text-xs text-zinc-500 mt-1 font-medium">Dalam peninjauan kualitas</div>
         </div>
       </div>
@@ -327,7 +327,7 @@
           </div>
         </div>
         <div class="mt-3">
-          <div class="text-2xl font-black text-red-600">{{ labelStats.statusReject }} <span class="text-sm font-bold text-zinc-500">Roll</span></div>
+          <div class="text-2xl font-black text-red-600">{{ labelStats?.statusReject || 0 }} <span class="text-sm font-bold text-zinc-500">Roll</span></div>
           <div class="text-xs text-zinc-500 mt-1 font-medium">Gagal standar produksi</div>
         </div>
       </div>
@@ -416,9 +416,9 @@
         <div class="mt-3">
           <div class="text-2xl font-black text-zinc-900">{{ labelStats.total }} <span class="text-sm font-bold text-zinc-500">Roll</span></div>
           <div class="flex items-center gap-2 mt-1 text-xs text-zinc-500 font-semibold font-mono">
-            <span class="text-emerald-700 font-bold">{{ labelStats.statusPass }} PASS</span>
+            <span class="text-emerald-700 font-bold">{{ labelStats?.statusPass || 0 }} PASS</span>
             <span>•</span>
-            <span class="text-amber-700 font-bold">{{ labelStats.statusHold }} HOLD</span>
+            <span class="text-amber-700 font-bold">{{ labelStats?.statusHold || 0 }} HOLD</span>
           </div>
         </div>
       </div>
@@ -579,15 +579,15 @@
         <div class="mt-4 pt-4 border-t border-zinc-100 grid grid-cols-3 gap-2 text-center font-mono">
           <div class="p-2 bg-emerald-50 rounded-xl border border-emerald-200">
             <p class="text-[10px] text-emerald-800 font-bold">PASS</p>
-            <p class="text-base font-black text-emerald-900">{{ labelStats.statusPass }}</p>
+            <p class="text-base font-black text-emerald-900">{{ labelStats?.statusPass || 0 }}</p>
           </div>
           <div class="p-2 bg-amber-50 rounded-xl border border-amber-200">
             <p class="text-[10px] text-amber-800 font-bold">HOLD</p>
-            <p class="text-base font-black text-amber-900">{{ labelStats.statusHold }}</p>
+            <p class="text-base font-black text-amber-900">{{ labelStats?.statusHold || 0 }}</p>
           </div>
           <div class="p-2 bg-red-50 rounded-xl border border-red-200">
             <p class="text-[10px] text-red-800 font-bold">REJECT</p>
-            <p class="text-base font-black text-red-900">{{ labelStats.statusReject }}</p>
+            <p class="text-base font-black text-red-900">{{ labelStats?.statusReject || 0 }}</p>
           </div>
         </div>
       </div>
@@ -814,10 +814,21 @@ const can = (menuKey, action = 'view') => {
 // Shift Info
 const currentShift = computed(() => scheduleStore.getCurrentShiftInfo());
 
-// Stats & Items
-const labelStats = computed(() => labelStore.statistics);
-const recentLabels = computed(() => labelStore.labels.slice(0, 5));
-const recentTasks = computed(() => taskStore.tasks.slice(0, 5));
+// Stats & Items (Guaranteed 100% Null-Safe against asynchronous store loads)
+const labelStats = computed(() => {
+  return labelStore.statistics || {
+    total: 0,
+    statusPass: 0,
+    statusHold: 0,
+    statusReject: 0,
+    slitting: 0,
+    rewind: 0,
+    sml: 0,
+    totalKg: 0
+  };
+});
+const recentLabels = computed(() => (labelStore.labels || []).slice(0, 5));
+const recentTasks = computed(() => (taskStore.tasks || []).slice(0, 5));
 const recentBatches = computed(() => (dataRollStore.uploadHistory || []).slice(0, 5));
 
 const unverifiedRollsCount = computed(() => {
@@ -830,16 +841,16 @@ const discrepancyList = computed(() => {
 
 // QC Pass Rate calculation
 const qcPassRate = computed(() => {
-  const total = (labelStats.value.total || 0);
+  const total = (labelStats.value?.total || 0);
   if (total === 0) return 100;
-  const pass = (labelStats.value.statusPass || 0);
+  const pass = (labelStats.value?.statusPass || 0);
   return Math.round((pass / total) * 100);
 });
 
 const operatorPassPercent = computed(() => {
-  const total = labelStats.value.total || 0;
+  const total = (labelStats.value?.total || 0);
   if (total === 0) return 100;
-  return Math.round((labelStats.value.statusPass / total) * 100);
+  return Math.round(((labelStats.value?.statusPass || 0) / total) * 100);
 });
 
 // Charts
@@ -858,9 +869,9 @@ const initCharts = () => {
         datasets: [{
           label: 'Jumlah Roll Label',
           data: [
-            labelStats.value.slitting || 0,
-            labelStats.value.rewind || 0,
-            labelStats.value.sml || 0
+            labelStats.value?.slitting || 0,
+            labelStats.value?.rewind || 0,
+            labelStats.value?.sml || 0
           ],
           backgroundColor: ['#dc2626', '#991b1b', '#18181b'],
           borderRadius: 8

@@ -228,7 +228,12 @@ export const useInventoryStore = defineStore('inventory', () => {
   const isLoading = ref(false);
   const stockViewMode = ref('EXCEL');
 
-  const activeUploadId = ref(localStorage.getItem('m_label_active_fg_upload_id') ? parseInt(localStorage.getItem('m_label_active_fg_upload_id'), 10) : null);
+  let initialUploadId = null;
+  try {
+    const savedId = typeof window !== 'undefined' ? localStorage.getItem('m_label_active_fg_upload_id') : null;
+    if (savedId) initialUploadId = parseInt(savedId, 10);
+  } catch (e) {}
+  const activeUploadId = ref(initialUploadId);
 
   const activeUpload = computed(() => {
     if (!stockUploads.value || stockUploads.value.length === 0) return null;
