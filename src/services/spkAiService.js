@@ -11,22 +11,60 @@ export function monthToRoman(m) {
 }
 
 /**
- * Standarisasi Nomor SPK ke Format Penuh Baku: [URUTAN 2DIGIT]/[ROMAWI]/SPK/[TAHUN]
- * Berlaku untuk Inhouse maupun Supplier Luar
+ * Standarisasi Nomor SPK ke Format Penuh Baku:
+ * - INHOUSE: [URUTAN 2DIGIT]/[ROMAWI]/SPK/[TAHUN] (Contoh: 04/VIII/SPK/2026)
+ * - SUPPLIER LUAR: [JENIS AWAL BAHAN (CPP, VMCPP, PET, VMPET)]/[ROMAWI]/[NAMA SUPPLIER]/[TAHUN] (Contoh: CPP/IX/PANVERTA/2026)
  */
-export function normalizeSpkToFullStandard(rawSpk, rowIndex = 1, scheduleDate = null, supplierName = '') {
+export function normalizeSpkToFullStandard(rawSpk, rowIndex = 1, scheduleDate = null, supplierName = '', jenisBahan = 'CPP') {
   let s = String(rawSpk || '').trim();
   const d = scheduleDate ? new Date(scheduleDate) : new Date();
   const defaultYear = d.getFullYear() || 2026;
   const defaultMonth = d.getMonth() + 1;
   const defaultRoman = monthToRoman(defaultMonth);
 
-  // Jika sudah memiliki format lengkap /SPK/
-  if (/\bSPK\b/i.test(s)) {
+  // Cek apakah entitas berasal dari supplier luar
+  const isExternalSupplier = Boolean(
+    (supplierName && supplierName !== 'INHOUSE' && !supplierName.includes('SWC')) ||
+    s.toUpperCase().includes('PANVERTA') ||
+    s.toUpperCase().includes('BHINEKA')
+  );
+
+  if (isExternalSupplier) {
+    // FORMAT STANDARD SPK SUPPLIER LUAR:
+    // [JENIS AWAL BAHAN (CPP, VMCPP, PET, VMPET)]/[ROMAWI]/[NAMA SUPPLIER]/[TAHUN]
+    let cleanJenis = String(jenisBahan || 'CPP').toUpperCase().trim();
+    if (!['CPP', 'VMCPP', 'PET', 'VMPET'].includes(cleanJenis)) {
+      if (cleanJenis.includes('VM') || cleanJenis.includes('METAL')) {
+        cleanJenis = cleanJenis.includes('PET') ? 'VMPET' : 'VMCPP';
+      } else if (cleanJenis.includes('PET')) {
+        cleanJenis = 'PET';
+      } else {
+        cleanJenis = 'CPP';
+      }
+    }
+
+    let cleanSupplier = (supplierName || s).toUpperCase().trim();
+    if (cleanSupplier.includes('PANVERTA')) cleanSupplier = 'PANVERTA';
+    else if (cleanSupplier.includes('BHINEKA')) cleanSupplier = 'BHINEKA';
+    else if (!cleanSupplier || cleanSupplier === 'SUPPLIER LUAR') cleanSupplier = 'EXTERNAL';
+
+    const match = s.match(/\/([IVXLCDM]+)(?:\/.*)?(?:\/(\d{2,4}))?/i);
+    const roman = match && match[1] ? match[1].toUpperCase() : defaultRoman;
+    let year = defaultYear;
+    if (match && match[2]) {
+      const yr = parseInt(match[2], 10);
+      year = yr < 100 ? (2000 + yr) : yr;
+    }
+
+    return `${cleanJenis}/${roman}/${cleanSupplier}/${year}`;
+  }
+
+  // FORMAT STANDARD INHOUSE:
+  // [URUTAN 2DIGIT]/[ROMAWI]/SPK/[TAHUN]
+  if (/\bSPK\b/i.test(s) && /\d{2}\/[IVXLCDM]+\/SPK\/\d{4}/i.test(s)) {
     return s.toUpperCase();
   }
 
-  // Pola Inhouse: [Urutan]/[Romawi](/[Tahun])? contoh: 04/VIII, 07/VI, 07/XII/25, 01/IX
   const regex = /^(\d+)\s*\/\s*([IVXLCDM]+)(?:\s*\/\s*(\d{2,4}))?$/i;
   const match = s.match(regex);
 
@@ -41,20 +79,13 @@ export function normalizeSpkToFullStandard(rawSpk, rowIndex = 1, scheduleDate = 
     return `${seq}/${roman}/SPK/${year}`;
   }
 
-  // Jika terpotong di akhir dengan slash misal "02/"
   const slashMatch = s.match(/^(\d+)\s*\/$/);
   if (slashMatch) {
     const seq = String(parseInt(slashMatch[1], 10)).padStart(2, '0');
     return `${seq}/I/SPK/${defaultYear}`;
   }
 
-  // Format Supplier Luar / Nama Eksternal (misal: "PANVERTA")
   const seq = String(rowIndex).padStart(2, '0');
-  const sup = (supplierName || s).toUpperCase().trim();
-  if (sup && sup !== 'INHOUSE' && !sup.includes('SWC')) {
-    return `${seq}/${defaultRoman}/SPK/${defaultYear}/${sup}`;
-  }
-
   return `${seq}/${defaultRoman}/SPK/${defaultYear}`;
 }
 
@@ -279,8 +310,8 @@ export function postProcessExtractedRows(rawRows, filmConfigs = [], scheduleDate
       : [rawSpkText];
 
     for (let tokenIdx = 0; tokenIdx < spkTokens.length; tokenIdx++) {
-      const token = spkTokens[tokenIdx];
-      const standardSpk = normalizeSpkToFullStandard(token, executionSeq, scheduleDate, isSupplierInhouse ? '' : supplier);
+      const rawJenis = matchedFilm?.jenis || String(raw.jenis || 'CPP').toUpperCase().trim();
+      const standardSpk = normalizeSpkToFullStandard(token, executionSeq, scheduleDate, isSupplierInhouse ? '' : supplier, rawJenis);
 
       const lebarParent = parseFloat(raw.lebarParent) || 0;
       const upList = [];

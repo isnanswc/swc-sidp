@@ -1946,7 +1946,7 @@ const standardizeAllStagingSpks = () => {
     item.no = idx + 1;
     item.seq = idx + 1;
     item.urutanPengerjaan = idx + 1;
-    item.spkNo = normalizeSpkToFullStandard(item.spkNo, idx + 1, activeDate, item.supplier);
+    item.spkNo = normalizeSpkToFullStandard(item.spkNo, idx + 1, activeDate, item.supplier, item.jenis || item.formula);
     recalcVerificationRow(item);
   });
 };
@@ -2079,7 +2079,7 @@ const commitCellEdit = (dr = 0, dc = 0) => {
     let val = cellEditValue.value.trim();
     if (col.key === 'spkNo') {
       const activeDate = isDateRangeMode.value ? verificationBatchStartDate.value : verificationBatchDate.value;
-      item.spkNo = normalizeSpkToFullStandard(val, r + 1, activeDate, item.supplier);
+      item.spkNo = normalizeSpkToFullStandard(val, r + 1, activeDate, item.supplier, item.jenis || item.formula);
     } else if (['thickness', 'lebarParent', 'panjangParent', 'up1', 'up2', 'up3', 'up4', 'panjangChild', 'jumlahJumbo'].includes(col.key)) {
       item[col.key] = val !== '' ? (parseFloat(val) || 0) : null;
     } else {
