@@ -881,6 +881,50 @@ const formatMinutes = (minutes) => {
   return `${hours} Jam ${remaining} Mnt`;
 };
 
+// ── HIGH PERFORMANCE MEMOIZED SPK COMPUTED MAP (NO MAIN-THREAD BLOCK) ──
+
+// Cache plan analytics in a single computed map (1x evaluation per tick instead of 500,000 nested loops)
+const planAnalyticsMap = computed(() => {
+  const res = {};
+  for (const p of (spkStore.plans || [])) {
+    res[p.id || p.spkNo] = spkStore.getSpkRealtimeAnalytics(p.spkNo, p) || {
+      speed: 600,
+      cuttingMinutes: 0,
+      changeOverMinutes: 0,
+      totalMinutes: 0,
+      achievementPercent: 0,
+      totalRealRolls: 0,
+      totalRealMeter: 0,
+      totalRealKg: 0,
+      passCount: 0,
+      holdCount: 0,
+      rejectCount: 0,
+      isCrossOrderWarning: false,
+      warningMessage: ''
+    };
+  }
+  return res;
+});
+
+const getPlanAnalytics = (plan) => {
+  if (!plan) return {};
+  return planAnalyticsMap.value[plan.id || plan.spkNo] || {
+    speed: 600,
+    cuttingMinutes: 0,
+    changeOverMinutes: 0,
+    totalMinutes: 0,
+    achievementPercent: 0,
+    totalRealRolls: 0,
+    totalRealMeter: 0,
+    totalRealKg: 0,
+    passCount: 0,
+    holdCount: 0,
+    rejectCount: 0,
+    isCrossOrderWarning: false,
+    warningMessage: ''
+  };
+};
+
 // ── SHEET 1 COMPUTED KPIS ──
 
 const totalPlannedMeterAll = computed(() => {
@@ -893,10 +937,10 @@ const totalJumboAll = computed(() => {
 
 const totalRealizedMeterAll = computed(() => {
   let sum = 0;
-  (spkStore.plans || []).forEach(p => {
-    const a = spkStore.getSpkRealtimeAnalytics(p.spkNo, p);
+  for (const p of (spkStore.plans || [])) {
+    const a = planAnalyticsMap.value[p.id || p.spkNo];
     if (a) sum += a.totalRealMeter;
-  });
+  }
   return sum;
 });
 
@@ -908,19 +952,19 @@ const meterAchievementPercent = computed(() => {
 
 const totalCuttingMinutesAll = computed(() => {
   let sum = 0;
-  (spkStore.plans || []).forEach(p => {
-    const a = spkStore.getSpkRealtimeAnalytics(p.spkNo, p);
+  for (const p of (spkStore.plans || [])) {
+    const a = planAnalyticsMap.value[p.id || p.spkNo];
     if (a) sum += a.cuttingMinutes;
-  });
+  }
   return sum;
 });
 
 const totalChangeOverMinutesAll = computed(() => {
   let sum = 0;
-  (spkStore.plans || []).forEach(p => {
-    const a = spkStore.getSpkRealtimeAnalytics(p.spkNo, p);
+  for (const p of (spkStore.plans || [])) {
+    const a = planAnalyticsMap.value[p.id || p.spkNo];
     if (a) sum += a.changeOverMinutes;
-  });
+  }
   return sum;
 });
 
@@ -936,43 +980,30 @@ const calculatedEtcTimeString = computed(() => {
 
 const totalPassAll = computed(() => {
   let sum = 0;
-  (spkStore.plans || []).forEach(p => {
-    const a = spkStore.getSpkRealtimeAnalytics(p.spkNo, p);
+  for (const p of (spkStore.plans || [])) {
+    const a = planAnalyticsMap.value[p.id || p.spkNo];
     if (a) sum += a.passCount;
-  });
+  }
   return sum;
 });
 
 const totalHoldAll = computed(() => {
   let sum = 0;
-  (spkStore.plans || []).forEach(p => {
-    const a = spkStore.getSpkRealtimeAnalytics(p.spkNo, p);
+  for (const p of (spkStore.plans || [])) {
+    const a = planAnalyticsMap.value[p.id || p.spkNo];
     if (a) sum += a.holdCount;
-  });
+  }
   return sum;
 });
 
 const totalRejectAll = computed(() => {
   let sum = 0;
-  (spkStore.plans || []).forEach(p => {
-    const a = spkStore.getSpkRealtimeAnalytics(p.spkNo, p);
+  for (const p of (spkStore.plans || [])) {
+    const a = planAnalyticsMap.value[p.id || p.spkNo];
     if (a) sum += a.rejectCount;
-  });
+  }
   return sum;
 });
-
-const getPlanAnalytics = (plan) => {
-  return spkStore.getSpkRealtimeAnalytics(plan.spkNo, plan) || {
-    speed: 600,
-    cuttingMinutes: 0,
-    changeOverMinutes: 0,
-    totalMinutes: 0,
-    achievementPercent: 0,
-    totalRealRolls: 0,
-    isCrossOrderWarning: false,
-    warningMessage: ''
-  };
-};
 
 const parseCharting = (jsonStr) => {
   try {
@@ -993,23 +1024,25 @@ const getChildPanjang = (row) => {
   return ups.length > 0 && ups[0].panjang ? ups[0].panjang : 12000;
 };
 
-// ── SHEET 2: ACTIVE SPK LIST ──
+// ── SHEET 2: ACTIVE SPK LIST (FAST O(1) LOOKUP) ──
 
 const activeSpkList = computed(() => {
   const map = new Map();
-  // Ambil dari spk plans
-  (spkStore.plans || []).forEach(p => {
-    const a = spkStore.getSpkRealtimeAnalytics(p.spkNo, p);
-    if (a) map.set(p.spkNo, a);
-  });
+  const dataMap = spkStore.spkRealtimeDataMap || new Map();
 
-  // Ambil juga jika ada SPK dari labelStore yang belum terdaftar di rencana
-  (labelStore.labels || []).forEach(l => {
-    if (l.spk && !map.has(l.spk)) {
-      const a = spkStore.getSpkRealtimeAnalytics(l.spk, null);
-      if (a) map.set(l.spk, a);
+  // 1. Ambil dari spk plans
+  for (const p of (spkStore.plans || [])) {
+    const a = planAnalyticsMap.value[p.id || p.spkNo];
+    if (a) map.set(p.spkNo, a);
+  }
+
+  // 2. Ambil dari dataMap keys yang belum ada di spk plans
+  for (const spkKey of dataMap.keys()) {
+    if (!map.has(spkKey)) {
+      const a = spkStore.getSpkRealtimeAnalytics(spkKey, null);
+      if (a) map.set(spkKey, a);
     }
-  });
+  }
 
   return Array.from(map.values());
 });

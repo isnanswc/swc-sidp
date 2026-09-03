@@ -310,135 +310,177 @@ export const useSpkStore = defineStore('spk', () => {
     }
   };
 
-  // REALTIME AGGREGATION & ANALYTICS HELPER
-  // Mengintegrasikan planned SPK dengan realisasi aktual dari labelStore.labels dan dataRollStore.rolls
+  // REALTIME AGGREGATION & ANALYTICS HELPER (HIGH-PERFORMANCE O(1) MAP INDEXING)
+  // Pre-index seluruh labels & rolls sekali jalan secara reaktif
+  const spkRealtimeDataMap = computed(() => {
+    const labels = labelStore.labels || [];
+    const rolls = dataRollStore.rolls || [];
+    const spkMap = new Map();
+
+    const getOrInitSpk = (spkKey) => {
+      if (!spkMap.has(spkKey)) {
+        spkMap.set(spkKey, {
+          spkNo: spkKey,
+          lots: new Map(),
+          totalRealRolls: 0,
+          totalRealMeter: 0,
+          totalRealKg: 0,
+          passCount: 0,
+          holdCount: 0,
+          rejectCount: 0,
+          widthMap: new Map()
+        });
+      }
+      return spkMap.get(spkKey);
+    };
+
+    // Index labels in single O(N) pass
+    for (let i = 0; i < labels.length; i++) {
+      const l = labels[i];
+      if (!l || !l.spk) continue;
+      const s = String(l.spk).trim().toUpperCase();
+      const spkObj = getOrInitSpk(s);
+      const lotKey = l.lot || l.barcode || l.uniqId || `L_${i}`;
+
+      if (!spkObj.lots.has(lotKey)) {
+        const w = parseFloat(l.width) || 0;
+        const m = parseFloat(l.length) || parseFloat(l.meter) || 0;
+        const kg = parseFloat(l.netto) || parseFloat(l.beratNetto) || 0;
+        const st = String(l.status || 'PASS').toUpperCase();
+
+        spkObj.lots.set(lotKey, {
+          lot: lotKey,
+          width: w,
+          length: m,
+          weight: kg,
+          status: st,
+          source: 'LABEL',
+          date: l.tanggal || l.createdAt
+        });
+
+        spkObj.totalRealRolls++;
+        spkObj.totalRealMeter += m;
+        spkObj.totalRealKg += kg;
+
+        if (st === 'PASS' || st === 'OK') spkObj.passCount++;
+        else if (st === 'HOLD') spkObj.holdCount++;
+        else if (st === 'REJECT' || st === 'NG') spkObj.rejectCount++;
+        else spkObj.passCount++;
+
+        const roundedW = Math.round(w);
+        if (roundedW > 0) {
+          if (!spkObj.widthMap.has(roundedW)) {
+            spkObj.widthMap.set(roundedW, { width: roundedW, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+          }
+          const wEntry = spkObj.widthMap.get(roundedW);
+          wEntry.totalRoll++;
+          wEntry.totalMeter += m;
+          wEntry.totalKg += kg;
+        }
+      }
+    }
+
+    // Index data rolls in single O(M) pass
+    for (let i = 0; i < rolls.length; i++) {
+      const r = rolls[i];
+      if (!r || !r.spk) continue;
+      const s = String(r.spk).trim().toUpperCase();
+      const spkObj = getOrInitSpk(s);
+      const lotKey = r.lot || r.kodeFg || r.uuid || `R_${i}`;
+
+      if (!spkObj.lots.has(lotKey)) {
+        const w = parseFloat(r.width) || 0;
+        const m = parseFloat(r.length) || 0;
+        const kg = parseFloat(r.netto) || 0;
+        const st = String(r.qualityStatus || 'PASS').toUpperCase();
+
+        spkObj.lots.set(lotKey, {
+          lot: lotKey,
+          width: w,
+          length: m,
+          weight: kg,
+          status: st,
+          source: 'DATA_ROLL',
+          date: r.tanggal || r.createdAt
+        });
+
+        spkObj.totalRealRolls++;
+        spkObj.totalRealMeter += m;
+        spkObj.totalRealKg += kg;
+
+        if (st === 'PASS' || st === 'OK') spkObj.passCount++;
+        else if (st === 'HOLD') spkObj.holdCount++;
+        else if (st === 'REJECT' || st === 'NG') spkObj.rejectCount++;
+        else spkObj.passCount++;
+
+        const roundedW = Math.round(w);
+        if (roundedW > 0) {
+          if (!spkObj.widthMap.has(roundedW)) {
+            spkObj.widthMap.set(roundedW, { width: roundedW, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+          }
+          const wEntry = spkObj.widthMap.get(roundedW);
+          wEntry.totalRoll++;
+          wEntry.totalMeter += m;
+          wEntry.totalKg += kg;
+        }
+      }
+    }
+
+    return spkMap;
+  });
+
   const getSpkRealtimeAnalytics = (spkNo, plan = null) => {
     const cleanSpk = String(spkNo || '').trim().toUpperCase();
     if (!cleanSpk) return null;
 
-    // Support multi-SPK matching (misal "07/XII/25 & 02/I")
+    const dataMap = spkRealtimeDataMap.value || new Map();
     const subSpkTokens = cleanSpk.split('&').map(s => s.trim()).filter(Boolean);
 
-    const allLabels = labelStore.labels || [];
-    const allRolls = dataRollStore.rolls || [];
-
-    // Filter matched records
-    const matchedLabels = allLabels.filter(l => {
-      if (!l.spk) return false;
-      const s = String(l.spk).trim().toUpperCase();
-      return s === cleanSpk || subSpkTokens.includes(s) || cleanSpk.includes(s);
-    });
-
-    const matchedRolls = allRolls.filter(r => {
-      if (!r.spk) return false;
-      const s = String(r.spk).trim().toUpperCase();
-      return s === cleanSpk || subSpkTokens.includes(s) || cleanSpk.includes(s);
-    });
-
-    // Gabungkan nomor lot unik
-    const lotMap = new Map();
-    matchedLabels.forEach(l => {
-      const lot = l.lot || l.barcode || l.uniqId;
-      if (!lotMap.has(lot)) {
-        lotMap.set(lot, {
-          lot,
-          width: parseFloat(l.width) || 0,
-          length: parseFloat(l.length) || parseFloat(l.meter) || 0,
-          weight: parseFloat(l.netto) || parseFloat(l.beratNetto) || 0,
-          status: String(l.status || 'PASS').toUpperCase(),
-          turunan: l.turunan || 1,
-          source: 'LABEL',
-          date: l.tanggal || l.createdAt
-        });
-      }
-    });
-
-    matchedRolls.forEach(r => {
-      const lot = r.lot || r.kodeFg || r.uuid;
-      if (!lotMap.has(lot)) {
-        lotMap.set(lot, {
-          lot,
-          width: parseFloat(r.width) || 0,
-          length: parseFloat(r.length) || 0,
-          weight: parseFloat(r.netto) || 0,
-          status: String(r.qualityStatus || 'PASS').toUpperCase(),
-          turunan: r.turunan || 1,
-          source: 'DATA_ROLL',
-          date: r.tanggal || r.createdAt
-        });
-      }
-    });
-
-    const realLots = Array.from(lotMap.values());
-    const totalRealRolls = realLots.length;
-    const totalRealMeter = realLots.reduce((sum, item) => sum + item.length, 0);
-    const totalRealKg = realLots.reduce((sum, item) => sum + item.weight, 0);
-
+    let totalRealRolls = 0;
+    let totalRealMeter = 0;
+    let totalRealKg = 0;
     let passCount = 0;
     let holdCount = 0;
     let rejectCount = 0;
+    const allLots = [];
+    const aggregatedWidthMap = new Map();
 
-    realLots.forEach(item => {
-      if (item.status === 'PASS' || item.status === 'OK') passCount++;
-      else if (item.status === 'HOLD') holdCount++;
-      else if (item.status === 'REJECT' || item.status === 'NG') rejectCount++;
-      else passCount++;
-    });
-
-    // Breakdown per ukuran lebar roll turunan
-    const widthSummaryMap = new Map();
-    realLots.forEach(item => {
-      const w = Math.round(item.width);
-      if (!widthSummaryMap.has(w)) {
-        widthSummaryMap.set(w, {
-          width: w,
-          totalRoll: 0,
-          totalMeter: 0,
-          totalKg: 0
+    // Check exact match or token matches in O(1)
+    const matchedSpkKeys = new Set([cleanSpk, ...subSpkTokens]);
+    for (const key of matchedSpkKeys) {
+      const spkData = dataMap.get(key);
+      if (spkData) {
+        totalRealRolls += spkData.totalRealRolls;
+        totalRealMeter += spkData.totalRealMeter;
+        totalRealKg += spkData.totalRealKg;
+        passCount += spkData.passCount;
+        holdCount += spkData.holdCount;
+        rejectCount += spkData.rejectCount;
+        spkData.lots.forEach(lotObj => allLots.push(lotObj));
+        spkData.widthMap.forEach((wObj, w) => {
+          if (!aggregatedWidthMap.has(w)) {
+            aggregatedWidthMap.set(w, { width: w, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+          }
+          const tgt = aggregatedWidthMap.get(w);
+          tgt.totalRoll += wObj.totalRoll;
+          tgt.totalMeter += wObj.totalMeter;
+          tgt.totalKg += wObj.totalKg;
         });
       }
-      const wObj = widthSummaryMap.get(w);
-      wObj.totalRoll++;
-      wObj.totalMeter += item.length;
-      wObj.totalKg += item.weight;
-    });
-
-    const widthSummaries = Array.from(widthSummaryMap.values()).sort((a, b) => b.width - a.width);
-
-    // Smart Charting Match & Cross-Order Sign Warning
-    let isCrossOrderWarning = false;
-    let warningMessage = '';
-
-    if (subSpkTokens.length > 1) {
-      isCrossOrderWarning = true;
-      warningMessage = `SPK multi-item (${subSpkTokens.join(' & ')}) dalam 1 lembar pengerjaan.`;
     }
 
-    if (plan) {
-      const upList = plan.chartingJson ? JSON.parse(plan.chartingJson) : [];
-      const plannedWidths = upList.map(u => Math.round(u.lebar));
+    const widthSummaries = Array.from(aggregatedWidthMap.values()).sort((a, b) => b.width - a.width);
 
-      // Cek apakah ada roll aktual yang ukurannya cocok dengan UP tapi nomor SPK aslinya berbeda
-      allLabels.forEach(l => {
-        if (!l.spk) return;
-        const s = String(l.spk).trim().toUpperCase();
-        if (s !== cleanSpk && !subSpkTokens.includes(s)) {
-          const lWidth = Math.round(parseFloat(l.width) || 0);
-          if (plannedWidths.includes(lWidth) && Math.abs(new Date(l.tanggal || l.createdAt) - new Date(plan.tanggal || Date.now())) < 86400000 * 2) {
-            isCrossOrderWarning = true;
-            warningMessage = `Terdeteksi kesesuaian UP (${lWidth} mm) pada SPK berbeda: ${s} (Potensi Cross-Order/Gabungan).`;
-          }
-        }
-      });
-    }
+    // Cross Order detection
+    const isCrossOrderWarning = subSpkTokens.length > 1;
+    const warningMessage = isCrossOrderWarning ? `SPK multi-item (${subSpkTokens.join(' & ')}) dalam 1 lembar pengerjaan.` : '';
 
-    // Time calculations
+    // Speed & time calculation in O(1)
     const speed = plan ? getSlittingSpeed(plan.formula, plan.jenis) : 600;
     const plannedMeter = plan ? (plan.totalPlannedMeter || (plan.panjangParent * plan.jumlahJumbo)) : (totalRealMeter || 24000);
     const jumlahJumbo = plan ? (plan.jumlahJumbo || 1) : 1;
     const timeEst = calculateEstimateMinutes(plannedMeter, jumlahJumbo, speed);
 
-    // Achievement percentage
     const plannedRollsCount = plan ? (plan.totalPlannedRolls || (jumlahJumbo * 2)) : Math.max(totalRealRolls, 1);
     const achievementPercent = plannedRollsCount > 0 ? Math.min(100, Math.round((totalRealRolls / plannedRollsCount) * 100)) : 0;
 
@@ -450,7 +492,7 @@ export const useSpkStore = defineStore('spk', () => {
       passCount,
       holdCount,
       rejectCount,
-      realLots,
+      realLots: allLots,
       widthSummaries,
       speed,
       cuttingMinutes: timeEst.cuttingMinutes,
@@ -475,6 +517,7 @@ export const useSpkStore = defineStore('spk', () => {
     getSlittingSpeed,
     calculateEstimateMinutes,
     calculateTrim,
+    spkRealtimeDataMap,
     getSpkRealtimeAnalytics
   };
 });
