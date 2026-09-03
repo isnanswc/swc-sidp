@@ -1124,6 +1124,14 @@
           </div>
           <div class="flex items-center gap-2">
             <button
+              @click="standardizeAllStagingSpks"
+              class="px-2.5 py-1.5 rounded-xl bg-purple-900 hover:bg-purple-800 text-purple-200 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+              title="Ubah semua SPK ke format standar penuh [URUTAN]/[ROMAWI]/SPK/[TAHUN]"
+            >
+              <span>⚡</span>
+              <span>Standar Penuh SPK</span>
+            </button>
+            <button
               @click="addVerificationRow"
               class="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-colors cursor-pointer"
               title="Tambah baris kosong"
@@ -1145,18 +1153,39 @@
 
         <!-- BATCH METADATA CONTROLS & EXCEL FORMULA BAR -->
         <div class="bg-zinc-100 border-b border-zinc-300 p-2.5 space-y-2 text-xs">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            <div class="sm:col-span-4">
               <label class="block font-bold text-zinc-700 text-[11px] mb-0.5">Nama Batch Dokumen *</label>
-              <input v-model="verificationBatchName" class="w-full p-1.5 bg-white border border-zinc-300 rounded-lg font-mono font-bold text-xs outline-none" placeholder="Mis: JADWAL SLITTING 3-Sep-26" />
+              <input v-model="verificationBatchName" class="w-full p-1.5 bg-white border border-zinc-300 rounded-lg font-mono font-bold text-xs outline-none" placeholder="Mis: JADWAL SLITTING 5-7 Sep 2026" />
             </div>
-            <div>
-              <label class="block font-bold text-zinc-700 text-[11px] mb-0.5">Tanggal Jadwal *</label>
-              <input v-model="verificationBatchDate" type="date" class="w-full p-1.5 bg-white border border-zinc-300 rounded-lg font-mono font-bold text-xs outline-none" />
+
+            <!-- Toggle Tanggal Tunggal vs Rentang Beberapa Hari -->
+            <div class="sm:col-span-5 flex items-end gap-2">
+              <div class="flex-1">
+                <div class="flex items-center justify-between mb-0.5">
+                  <label class="block font-bold text-zinc-700 text-[11px]">
+                    {{ isDateRangeMode ? 'Rentang Tanggal Jadwal *' : 'Tanggal Jadwal *' }}
+                  </label>
+                  <button
+                    type="button"
+                    @click="toggleDateRangeMode"
+                    class="text-[10px] font-bold text-blue-700 hover:underline cursor-pointer"
+                  >
+                    {{ isDateRangeMode ? 'Mode 1 Hari' : 'Mode Rentang Hari (Misal 5-7 Sep)' }}
+                  </button>
+                </div>
+
+                <div v-if="isDateRangeMode" class="grid grid-cols-2 gap-1.5">
+                  <input v-model="verificationBatchStartDate" type="date" @change="onDateRangeChanged" class="w-full p-1.5 bg-white border border-zinc-300 rounded-lg font-mono text-xs outline-none" />
+                  <input v-model="verificationBatchEndDate" type="date" @change="onDateRangeChanged" class="w-full p-1.5 bg-white border border-zinc-300 rounded-lg font-mono text-xs outline-none" />
+                </div>
+                <input v-else v-model="verificationBatchDate" type="date" @change="onSingleDateChanged" class="w-full p-1.5 bg-white border border-zinc-300 rounded-lg font-mono text-xs outline-none" />
+              </div>
             </div>
-            <div class="flex items-end">
-              <div class="w-full p-1.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 font-mono text-[11px] flex items-center justify-between">
-                <span>Total Item Teridentifikasi:</span>
+
+            <div class="sm:col-span-3">
+              <div class="p-1.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 font-mono text-[11px] flex items-center justify-between">
+                <span>Total Item:</span>
                 <strong class="text-sm font-black">{{ verificationStagingList.length }} SPK</strong>
               </div>
             </div>
@@ -1419,7 +1448,7 @@ import { useSpkStore } from '@/stores/spkStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
-import { parseSpkDocumentImage } from '@/services/spkAiService';
+import { parseSpkDocumentImage, normalizeSpkToFullStandard } from '@/services/spkAiService';
 
 const spkStore = useSpkStore();
 const configStore = useConfigStore();
@@ -1861,6 +1890,67 @@ const calculateRowTrim = (row) => {
   return Math.max(0, parent - (up1 + up2 + up3 + up4));
 };
 
+// ── DATE RANGE & FULL STANDARD SPK LOGIC ──
+
+const isDateRangeMode = ref(false);
+const verificationBatchStartDate = ref('2026-09-05');
+const verificationBatchEndDate = ref('2026-09-07');
+const verificationBatchDateLabel = ref('');
+
+const monthNamesIndo = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+const formatRangeLabel = (startStr, endStr) => {
+  if (!startStr) return '';
+  const d1 = new Date(startStr);
+  const d2 = endStr ? new Date(endStr) : d1;
+  const m1 = monthNamesIndo[d1.getMonth() + 1] || 'Sep';
+  const m2 = monthNamesIndo[d2.getMonth() + 1] || m1;
+  const y1 = d1.getFullYear();
+  const y2 = d2.getFullYear();
+
+  if (startStr === endStr || !endStr) {
+    return `${d1.getDate()} ${m1} ${y1}`;
+  }
+  if (m1 === m2 && y1 === y2) {
+    return `${d1.getDate()}-${d2.getDate()} ${m1} ${y1}`;
+  }
+  return `${d1.getDate()} ${m1} - ${d2.getDate()} ${m2} ${y2}`;
+};
+
+const toggleDateRangeMode = () => {
+  isDateRangeMode.value = !isDateRangeMode.value;
+  if (isDateRangeMode.value) {
+    onDateRangeChanged();
+  } else {
+    onSingleDateChanged();
+  }
+};
+
+const onDateRangeChanged = () => {
+  const lbl = formatRangeLabel(verificationBatchStartDate.value, verificationBatchEndDate.value);
+  verificationBatchDateLabel.value = lbl;
+  verificationBatchName.value = `JADWAL SLITTING ${lbl}`;
+  standardizeAllStagingSpks();
+};
+
+const onSingleDateChanged = () => {
+  const lbl = formatRangeLabel(verificationBatchDate.value, verificationBatchDate.value);
+  verificationBatchDateLabel.value = lbl;
+  verificationBatchName.value = `JADWAL SLITTING ${lbl}`;
+  standardizeAllStagingSpks();
+};
+
+const standardizeAllStagingSpks = () => {
+  const activeDate = isDateRangeMode.value ? verificationBatchStartDate.value : verificationBatchDate.value;
+  verificationStagingList.value.forEach((item, idx) => {
+    item.no = idx + 1;
+    item.seq = idx + 1;
+    item.urutanPengerjaan = idx + 1;
+    item.spkNo = normalizeSpkToFullStandard(item.spkNo, idx + 1, activeDate, item.supplier);
+    recalcVerificationRow(item);
+  });
+};
+
 // ── TRUE EXCEL SPREADSHEET ENGINE FOR SPK VERIFICATION ──
 
 const vColumns = [
@@ -1987,7 +2077,10 @@ const commitCellEdit = (dr = 0, dc = 0) => {
 
   if (item && col && !col.readonly) {
     let val = cellEditValue.value.trim();
-    if (['thickness', 'lebarParent', 'panjangParent', 'up1', 'up2', 'up3', 'up4', 'panjangChild', 'jumlahJumbo'].includes(col.key)) {
+    if (col.key === 'spkNo') {
+      const activeDate = isDateRangeMode.value ? verificationBatchStartDate.value : verificationBatchDate.value;
+      item.spkNo = normalizeSpkToFullStandard(val, r + 1, activeDate, item.supplier);
+    } else if (['thickness', 'lebarParent', 'panjangParent', 'up1', 'up2', 'up3', 'up4', 'panjangChild', 'jumlahJumbo'].includes(col.key)) {
       item[col.key] = val !== '' ? (parseFloat(val) || 0) : null;
     } else {
       item[col.key] = val;
@@ -2254,10 +2347,14 @@ const deleteSelectedVerificationRows = () => {
 
 
 const commitVerificationToPlans = async () => {
+  const scheduleDateFinal = isDateRangeMode.value
+    ? (verificationBatchDateLabel.value || `${verificationBatchStartDate.value} s/d ${verificationBatchEndDate.value}`)
+    : (verificationBatchDateLabel.value || verificationBatchDate.value || new Date().toISOString().slice(0, 10));
+
   const batchMeta = {
-    batchName: verificationBatchName.value || `Jadwal Slitting ${verificationBatchDate.value || new Date().toISOString().slice(0, 10)}`,
+    batchName: verificationBatchName.value || `JADWAL SLITTING ${scheduleDateFinal}`,
     docNo: '3B-PROD',
-    tanggal: verificationBatchDate.value || new Date().toISOString().slice(0, 10),
+    tanggal: scheduleDateFinal,
     source: 'AI_SCAN'
   };
 

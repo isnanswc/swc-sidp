@@ -5,6 +5,59 @@ import { getSetting } from '@/db';
  * Menganalisis gambar formulir fisik jadwal slitting secara cerdas menggunakan Google Gemini AI Vision.
  */
 
+export function monthToRoman(m) {
+  const map = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+  return map[m] || 'IX';
+}
+
+/**
+ * Standarisasi Nomor SPK ke Format Penuh Baku: [URUTAN 2DIGIT]/[ROMAWI]/SPK/[TAHUN]
+ * Berlaku untuk Inhouse maupun Supplier Luar
+ */
+export function normalizeSpkToFullStandard(rawSpk, rowIndex = 1, scheduleDate = null, supplierName = '') {
+  let s = String(rawSpk || '').trim();
+  const d = scheduleDate ? new Date(scheduleDate) : new Date();
+  const defaultYear = d.getFullYear() || 2026;
+  const defaultMonth = d.getMonth() + 1;
+  const defaultRoman = monthToRoman(defaultMonth);
+
+  // Jika sudah memiliki format lengkap /SPK/
+  if (/\bSPK\b/i.test(s)) {
+    return s.toUpperCase();
+  }
+
+  // Pola Inhouse: [Urutan]/[Romawi](/[Tahun])? contoh: 04/VIII, 07/VI, 07/XII/25, 01/IX
+  const regex = /^(\d+)\s*\/\s*([IVXLCDM]+)(?:\s*\/\s*(\d{2,4}))?$/i;
+  const match = s.match(regex);
+
+  if (match) {
+    const seq = String(parseInt(match[1], 10)).padStart(2, '0');
+    const roman = match[2].toUpperCase();
+    let year = defaultYear;
+    if (match[3]) {
+      const yr = parseInt(match[3], 10);
+      year = yr < 100 ? (2000 + yr) : yr;
+    }
+    return `${seq}/${roman}/SPK/${year}`;
+  }
+
+  // Jika terpotong di akhir dengan slash misal "02/"
+  const slashMatch = s.match(/^(\d+)\s*\/$/);
+  if (slashMatch) {
+    const seq = String(parseInt(slashMatch[1], 10)).padStart(2, '0');
+    return `${seq}/I/SPK/${defaultYear}`;
+  }
+
+  // Format Supplier Luar / Nama Eksternal (misal: "PANVERTA")
+  const seq = String(rowIndex).padStart(2, '0');
+  const sup = (supplierName || s).toUpperCase().trim();
+  if (sup && sup !== 'INHOUSE' && !sup.includes('SWC')) {
+    return `${seq}/${defaultRoman}/SPK/${defaultYear}/${sup}`;
+  }
+
+  return `${seq}/${defaultRoman}/SPK/${defaultYear}`;
+}
+
 // Helper robust untuk mengambil API Key Google AI / Gemini dari berbagai kemungkinan setting
 export async function getResolvedGeminiApiKey() {
   const candidateKeys = [
@@ -47,7 +100,7 @@ export async function getResolvedGeminiApiKey() {
   return '';
 }
 
-export async function parseSpkDocumentImage(fileOrBase64, isCamera = false, filmConfigs = []) {
+export async function parseSpkDocumentImage(fileOrBase64, isCamera = false, filmConfigs = [], scheduleDate = null) {
   // 1. Dapatkan base64 string
   let base64Data = '';
   let mimeType = 'image/jpeg';
@@ -81,25 +134,24 @@ export async function parseSpkDocumentImage(fileOrBase64, isCamera = false, film
   }
 
   // 3. Eksekusi panggilan Vision ke Gemini
-  return await callGeminiVisionSpkParser(base64Data, geminiApiKey, mimeType, filmConfigs);
+  return await callGeminiVisionSpkParser(base64Data, geminiApiKey, mimeType, filmConfigs, scheduleDate);
 }
 
 /**
  * Panggilan ke Google Gemini API Vision untuk ekstraksi dokumen fisik
  */
-async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/jpeg', filmConfigs = []) {
-  // Ambil model yang dikonfigurasi di Settings (default gemini-2.0-flash yang stabil)
+async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/jpeg', filmConfigs = [], scheduleDate = null) {
   let modelTarget = await getSetting('google_ai_model');
   if (!modelTarget) modelTarget = await getSetting('gemini_model');
   if (!modelTarget || modelTarget === '__custom__') modelTarget = 'gemini-2.0-flash';
 
   const prompt = `
-Analisis dokumen fisik formulir PT. Saptawarna Cemerlang dengan judul "JADWAL SLITTING (Kode: 3B-PROD)".
+Analisis dokumen formulir fisik PT. Saptawarna Cemerlang "JADWAL SLITTING (Kode: 3B-PROD)".
 Ekstrak tabel jadwal potong ke dalam array JSON dengan format persis berikut:
 [
   {
     "no": 1,
-    "spkNo": "Nomor SPK (contoh: 04/VIII, 07/XII/25 & 02/I, 07/VI, 01/IX, PANVERTA)",
+    "spkNo": "Nomor SPK (contoh: 04/VIII, 07/XII/25, 02/I, 07/VI, 01/IX, PANVERTA)",
     "formula": "Kode formula (contoh: M07, M06, CMGX)",
     "thickness": 35,
     "lebarParent": 2320,
@@ -115,17 +167,18 @@ Ekstrak tabel jadwal potong ke dalam array JSON dengan format persis berikut:
   }
 ]
 
-ATURAN DAN PETUNJUK KHUSUS SLITTING & REWIND:
-1. Kolom SPK: Jika ada nomor SPK gabungan (multi-SPK dengan tanda "&"), pastikan kedua nomor SPK terekstrak UTUH DAN LENGKAP dengan bulan Romawi dan tahunnya (contoh: "07/XII/25 & 02/I" atau "07/XII/25 & 02/I/26"). JANGAN biarkan terpotong menjadi "02/".
-2. Kolom UP 1, UP 2, UP 3, UP 4:
-   - Jika tertulis angka lebar potong (contoh: 1.145, 1.220, 1.180), ekstrak sebagai angka mm.
-   - PENTING: Jika kolom UP kosong atau strip "-" karena jumbo roll tersebut TIDAK DIBELAH (hanya di-REWIND dengan ukuran yang sama), maka set up1 = lebarParent, dan up2..up4 = null.
-3. Nilai TEBAL dalam mikron (angka), LEBAR parent dalam mm (angka), PANJANG parent dalam meter (angka).
-4. JUMLAH JR adalah angka jumlah Jumbo Roll.
-5. Keluarkan HANYA array JSON murni tanpa markdown atau teks tambahan.
+ATURAN WAJIB & MUTLAK PPIC SLITTING:
+1. ATURAN 1 BARIS = 1 SPK:
+   - DILARANG KERAS MENGGABUNGKAN 2 NOMOR SPK DALAM 1 BARIS (jangan gunakan tanda "&").
+   - Jika dokumen fisik menuliskan 2 nomor SPK (misal "07/XII/25 & 02/I"), Anda WAJIB memisahkannya menjadi 2 baris terpisah dalam output JSON!
+   - Baris pertama untuk SPK 1 (contoh: "07/XII/25"), dan baris kedua untuk SPK 2 (contoh: "02/I").
+2. ATURAN URUTAN PENGERJAAN:
+   - Urutan baris JSON harus persis sesuai urutan pengerjaan pada lembar jadwal, dari baris paling atas ke baris paling bawah.
+3. ATURAN REWIND (UKURAN SAMA):
+   - Jika kolom UP 1..UP 4 kosong / strip "-" (karena roll induk hanya di-REWIND dengan ukuran yang sama tanpa dibelah), isi up1 = lebarParent, dan up2..up4 = null.
+4. Keluarkan HANYA array JSON murni tanpa pembuka/penutup markdown.
 `;
 
-  // Gunakan header resmi x-goog-api-key
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelTarget}:generateContent`;
   
   let response;
@@ -179,17 +232,21 @@ ATURAN DAN PETUNJUK KHUSUS SLITTING & REWIND:
     throw new Error('Gagal mengurai output JSON dari Gemini: ' + parseErr.message);
   }
 
-  return postProcessExtractedRows(Array.isArray(parsed) ? parsed : [parsed], filmConfigs);
+  return postProcessExtractedRows(Array.isArray(parsed) ? parsed : [parsed], filmConfigs, scheduleDate);
 }
 
 /**
- * Normalisasi dan penghitungan otomatis trim sisa setelah ekstraksi
+ * Normalisasi, Pemecahan Multi-SPK menjadi 1 Baris 1 SPK, dan Format Standar Penuh
  */
-export function postProcessExtractedRows(rawRows, filmConfigs = []) {
-  return (rawRows || []).map((row, idx) => {
-    const rawFormula = String(row.formula || 'M07').toUpperCase().trim();
-    
-    // 1. Auto-detect supplier via Data Configuration (filmConfigs)
+export function postProcessExtractedRows(rawRows, filmConfigs = [], scheduleDate = null) {
+  const resultRows = [];
+  let executionSeq = 1;
+
+  for (const raw of (rawRows || [])) {
+    const rawSpkText = String(raw.spkNo || '').trim();
+    const rawFormula = String(raw.formula || 'M07').toUpperCase().trim();
+
+    // Deteksi Supplier via Data Configuration
     const matchedFilm = (filmConfigs || []).find(f => 
       String(f.kodeFormula || '').toUpperCase().trim() === rawFormula ||
       String(f.alias || '').toUpperCase().trim() === rawFormula
@@ -208,104 +265,102 @@ export function postProcessExtractedRows(rawRows, filmConfigs = []) {
         isSupplierInhouse = false;
       }
     } else {
-      // Heuristic fallback
-      const rawSpk = String(row.spkNo || '').toUpperCase();
-      if (rawSpk.includes('PANVERTA') || rawFormula.includes('CMGX') || rawFormula.startsWith('EXT')) {
-        supplier = rawSpk.includes('PANVERTA') ? 'PANVERTA' : 'SUPPLIER LUAR';
+      const uSpk = rawSpkText.toUpperCase();
+      if (uSpk.includes('PANVERTA') || rawFormula.includes('CMGX') || rawFormula.startsWith('EXT')) {
+        supplier = uSpk.includes('PANVERTA') ? 'PANVERTA' : 'SUPPLIER LUAR';
         isSupplierInhouse = false;
       }
     }
 
-    // 2. Standardize SPK Number format based on inhouse vs supplier luar
-    let spkNo = String(row.spkNo || '').trim();
-    if (isSupplierInhouse) {
-      // Standard Inhouse: Rapikan multi-SPK "07/XII/25 & 02/I"
-      spkNo = spkNo.split('&').map(part => {
-        let p = part.trim().toUpperCase().replace(/\s*\/\s*/g, '/');
-        // Jika terpotong di akhir dengan tanda slash misalnya "02/", lengkapi dengan "I" sesuai standar dokumen SWC
-        if (p.endsWith('/')) {
-          p = p + 'I';
+    // ATURAN MUTLAK: 1 BARIS HANYA BOLEH 1 SPK!
+    // Jika ada tanda "&" atau multiple SPK dalam 1 baris, PECAH menjadi baris terpisah!
+    const spkTokens = rawSpkText.includes('&')
+      ? rawSpkText.split('&').map(s => s.trim()).filter(Boolean)
+      : [rawSpkText];
+
+    for (let tokenIdx = 0; tokenIdx < spkTokens.length; tokenIdx++) {
+      const token = spkTokens[tokenIdx];
+      const standardSpk = normalizeSpkToFullStandard(token, executionSeq, scheduleDate, isSupplierInhouse ? '' : supplier);
+
+      const lebarParent = parseFloat(raw.lebarParent) || 0;
+      const upList = [];
+
+      if (raw.up1 && parseFloat(raw.up1) > 0) {
+        upList.push({ upNo: 1, lebar: parseFloat(raw.up1), panjang: parseFloat(raw.panjangChild) || 12000 });
+      }
+      if (raw.up2 && parseFloat(raw.up2) > 0) {
+        upList.push({ upNo: 2, lebar: parseFloat(raw.up2), panjang: parseFloat(raw.panjangChild) || 12000 });
+      }
+      if (raw.up3 && parseFloat(raw.up3) > 0) {
+        upList.push({ upNo: 3, lebar: parseFloat(raw.up3), panjang: parseFloat(raw.panjangChild) || 12000 });
+      }
+      if (raw.up4 && parseFloat(raw.up4) > 0) {
+        upList.push({ upNo: 4, lebar: parseFloat(raw.up4), panjang: parseFloat(raw.panjangChild) || 12000 });
+      }
+
+      // ATURAN REWIND (UKURAN SAMA):
+      // Jika parent tidak memiliki UP atau chart pada plan, barang di-rewind dengan ukuran yang sama
+      let finalUp1 = raw.up1 ? parseFloat(raw.up1) : null;
+      let finalUp2 = raw.up2 ? parseFloat(raw.up2) : null;
+      let finalUp3 = raw.up3 ? parseFloat(raw.up3) : null;
+      let finalUp4 = raw.up4 ? parseFloat(raw.up4) : null;
+      let trimAuto = 0;
+      let keterangan = raw.keterangan ? String(raw.keterangan).trim() : '';
+
+      if (upList.length === 0 || (upList.length === 1 && upList[0].lebar === lebarParent)) {
+        finalUp1 = lebarParent;
+        finalUp2 = null;
+        finalUp3 = null;
+        finalUp4 = null;
+        trimAuto = 0;
+        if (upList.length === 0) {
+          upList.push({ upNo: 1, lebar: lebarParent, panjang: parseFloat(raw.panjangParent) || parseFloat(raw.panjangChild) || 12000 });
         }
-        return p;
-      }).join(' & ');
-    } else {
-      // Supplier luar: pertahankan nama supplier / order eksternal
-      spkNo = spkNo.trim().toUpperCase();
-    }
-
-    const lebarParent = parseFloat(row.lebarParent) || 0;
-    const upList = [];
-
-    if (row.up1 && parseFloat(row.up1) > 0) {
-      upList.push({ upNo: 1, lebar: parseFloat(row.up1), panjang: parseFloat(row.panjangChild) || 12000 });
-    }
-    if (row.up2 && parseFloat(row.up2) > 0) {
-      upList.push({ upNo: 2, lebar: parseFloat(row.up2), panjang: parseFloat(row.panjangChild) || 12000 });
-    }
-    if (row.up3 && parseFloat(row.up3) > 0) {
-      upList.push({ upNo: 3, lebar: parseFloat(row.up3), panjang: parseFloat(row.panjangChild) || 12000 });
-    }
-    if (row.up4 && parseFloat(row.up4) > 0) {
-      upList.push({ upNo: 4, lebar: parseFloat(row.up4), panjang: parseFloat(row.panjangChild) || 12000 });
-    }
-
-    // ATURAN SPK REWIND LEBAR SAMA:
-    // "TERKADANG ADA PARENT YANG TIDAK MEMILIKI UP ATAU CHART PADA PLAN, BIASANYA BARANG ITU AKAN DI REWIND DENGAN UKURAN YANG SAMA"
-    let finalUp1 = row.up1 ? parseFloat(row.up1) : null;
-    let finalUp2 = row.up2 ? parseFloat(row.up2) : null;
-    let finalUp3 = row.up3 ? parseFloat(row.up3) : null;
-    let finalUp4 = row.up4 ? parseFloat(row.up4) : null;
-    let trimAuto = 0;
-    let keterangan = row.keterangan ? String(row.keterangan).trim() : '';
-
-    if (upList.length === 0 || (upList.length === 1 && upList[0].lebar === lebarParent)) {
-      // Tidak ada pisau belah -> Di-rewind dengan ukuran yang sama!
-      finalUp1 = lebarParent;
-      finalUp2 = null;
-      finalUp3 = null;
-      finalUp4 = null;
-      trimAuto = 0;
-      if (upList.length === 0) {
-        upList.push({ upNo: 1, lebar: lebarParent, panjang: parseFloat(row.panjangParent) || parseFloat(row.panjangChild) || 12000 });
+        if (!keterangan || keterangan === '-') {
+          keterangan = 'REWIND (UKURAN SAMA)';
+        }
+      } else {
+        const sumUp = upList.reduce((sum, u) => sum + u.lebar, 0);
+        trimAuto = Math.max(0, lebarParent - sumUp);
       }
-      if (!keterangan || keterangan === '-') {
-        keterangan = 'REWIND (UKURAN SAMA)';
-      }
-    } else {
-      const sumUp = upList.reduce((sum, u) => sum + u.lebar, 0);
-      trimAuto = Math.max(0, lebarParent - sumUp);
+
+      const jumlahJumbo = parseInt(raw.jumlahJumbo, 10) || 1;
+      const totalPlannedRolls = upList.length * jumlahJumbo;
+
+      resultRows.push({
+        no: executionSeq,
+        seq: executionSeq,
+        urutanPengerjaan: executionSeq,
+        spkNo: standardSpk,
+        docNo: '3B-PROD',
+        formula: rawFormula,
+        jenis: matchedFilm?.jenis || String(raw.jenis || 'CPP').toUpperCase().trim(),
+        thickness: parseFloat(raw.thickness) || matchedFilm?.thickness || 25,
+        lebarParent,
+        panjangParent: parseFloat(raw.panjangParent) || 0,
+        up1: finalUp1,
+        up2: finalUp2,
+        up3: finalUp3,
+        up4: finalUp4,
+        panjangChild: parseFloat(raw.panjangChild) || 12000,
+        upList,
+        trimAuto,
+        jumlahJumbo,
+        totalPlannedRolls,
+        totalPlannedMeter: parseFloat(raw.totalPlannedMeter) || ((parseFloat(raw.panjangChild) || 12000) * jumlahJumbo),
+        keterangan,
+        supplier,
+        isSupplierInhouse,
+        formatStandard: isSupplierInhouse ? 'INHOUSE' : 'SUPPLIER_LUAR',
+        status: 'PLANNED',
+        isValidated: true
+      });
+
+      executionSeq++;
     }
+  }
 
-    const jumlahJumbo = parseInt(row.jumlahJumbo, 10) || 1;
-    const totalPlannedRolls = upList.length * jumlahJumbo;
-
-    return {
-      no: row.no || (idx + 1),
-      spkNo,
-      docNo: '3B-PROD',
-      formula: rawFormula,
-      jenis: matchedFilm?.jenis || String(row.jenis || 'CPP').toUpperCase().trim(),
-      thickness: parseFloat(row.thickness) || matchedFilm?.thickness || 25,
-      lebarParent,
-      panjangParent: parseFloat(row.panjangParent) || 0,
-      up1: finalUp1,
-      up2: finalUp2,
-      up3: finalUp3,
-      up4: finalUp4,
-      panjangChild: parseFloat(row.panjangChild) || 12000,
-      upList,
-      trimAuto,
-      jumlahJumbo,
-      totalPlannedRolls,
-      totalPlannedMeter: parseFloat(row.totalPlannedMeter) || ((parseFloat(row.panjangChild) || 12000) * jumlahJumbo),
-      keterangan,
-      supplier,
-      isSupplierInhouse,
-      formatStandard: isSupplierInhouse ? 'INHOUSE' : 'SUPPLIER_LUAR',
-      status: 'PLANNED',
-      isValidated: true
-    };
-  });
+  return resultRows;
 }
 
 /**
