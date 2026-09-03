@@ -453,13 +453,13 @@
                   <span class="text-zinc-600 font-semibold tracking-tight" :title="`No. Lot Induk (Parent): ${formatLotTable(item).parentLot}`">
                     {{ formatLotTable(item).parentLot }}
                   </span>
-                  <span v-if="formatLotTable(item).childTurunan" class="text-zinc-400 font-bold">/</span>
+                  <span v-if="formatLotTable(item).childTurunan || item.turunan" class="text-zinc-400 font-bold">/</span>
                   <span
-                    v-if="formatLotTable(item).childTurunan"
+                    v-if="formatLotTable(item).childTurunan || item.turunan"
                     class="px-2 py-0.5 rounded-md font-black bg-red-100 text-red-700 border border-red-200 shadow-2xs text-[11px]"
-                    :title="`Turunan / Child Roll: ${formatLotTable(item).childTurunan}`"
+                    :title="`Turunan / Child Roll: ${formatLotTable(item).childTurunan || item.turunan}`"
                   >
-                    {{ formatLotTable(item).childTurunan }}
+                    {{ formatLotTable(item).childTurunan || item.turunan }}
                   </span>
                 </div>
               </td>
@@ -4456,14 +4456,38 @@ function getOperatorFromTurunan(turunanVal, mesinVal) {
 const formatLotTable = (item) => {
   if (!item) return { parentLot: '', childTurunan: '' };
   let lotStr = (item.lot || '').trim();
-  let turunanStr = (item.turunan || '').trim();
+  let turunanStr = (item.turunan || '').trim().toUpperCase();
 
-  // If lot contains slashes e.g. W5403702/F106/HA03/HA02 or M01290625C207/D206/GA06
+  // 1. Jika item memiliki turunan eksplisit (dari input form manual atau parsing)
+  if (turunanStr) {
+    const upperLot = lotStr.toUpperCase();
+    if (upperLot.endsWith('/' + turunanStr)) {
+      const parent = lotStr.slice(0, -(turunanStr.length + 1)).trim();
+      return {
+        parentLot: parent.split('/').map(s => s.trim()).join(' / '),
+        childTurunan: turunanStr
+      };
+    } else if (upperLot.endsWith(turunanStr) && upperLot.length > turunanStr.length && !upperLot.endsWith('0' + turunanStr)) {
+      const parent = lotStr.slice(0, -turunanStr.length).trim();
+      return {
+        parentLot: parent.split('/').map(s => s.trim()).join(' / '),
+        childTurunan: turunanStr
+      };
+    } else {
+      return {
+        parentLot: lotStr.split('/').map(s => s.trim()).join(' / '),
+        childTurunan: turunanStr
+      };
+    }
+  }
+
+  // 2. Jika item tidak memiliki turunan eksplisit, periksa apakah bagian akhir lot adalah turunan slitting
   if (lotStr.includes('/')) {
-    const parts = lotStr.split('/').filter(Boolean);
+    const parts = lotStr.split('/').map(s => s.trim()).filter(Boolean);
     if (parts.length >= 2) {
       const lastPart = parts[parts.length - 1];
-      if (!turunanStr || turunanStr.toUpperCase() === lastPart.toUpperCase() || /^[A-Za-z]{1,2}\d{1,2}/.test(lastPart)) {
+      // Turunan slitting umumnya berupa format 1-2 huruf + 1-2 angka (misal HA01, A01, GA02)
+      if (/^[A-Za-z]{1,2}\d{1,2}$/.test(lastPart)) {
         return {
           parentLot: parts.slice(0, -1).join(' / '),
           childTurunan: lastPart
@@ -4472,18 +4496,18 @@ const formatLotTable = (item) => {
     }
   }
 
-  // If lot is unparsed continuous string
+  // 3. Fallback continuous lot parser
   const parsed = parseContinuousLot(lotStr, item.mesin || 'SLITTING', item.supplier || 'INHOUSE');
   if (parsed && parsed.baseLot && parsed.turunan && parsed.baseLot !== parsed.turunan) {
     return {
-      parentLot: parsed.baseLot.split('/').join(' / '),
+      parentLot: parsed.baseLot.split('/').map(s => s.trim()).join(' / '),
       childTurunan: parsed.turunan
     };
   }
 
   return {
     parentLot: lotStr,
-    childTurunan: turunanStr
+    childTurunan: turunanStr || ''
   };
 };
 

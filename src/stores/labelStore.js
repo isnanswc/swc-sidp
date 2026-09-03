@@ -272,7 +272,9 @@ export const useLabelStore = defineStore('labelStore', {
             const parsed = parseContinuousLot(lot, item.mesin || 'SLITTING', supplier);
             if (parsed && parsed.parsedLot) {
               lot = parsed.parsedLot;
-              turunan = turunan || parsed.turunan;
+              if (!turunan && parsed.turunan && parsed.turunan !== parsed.baseLot) {
+                turunan = parsed.turunan;
+              }
               kodeOperator = kodeOperator || parsed.kodeOperator;
               shift = shift || parsed.shift || '1';
             }

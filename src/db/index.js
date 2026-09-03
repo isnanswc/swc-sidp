@@ -493,15 +493,7 @@ export async function seedInitialInventoryIfEmpty() {
 export async function purgeAllLegacyDummyData() {
   try {
 
-    // 1. Purge dummy labels (SPK 01/VIII..07/VIII or specific dummy lots)
-    const dummyLabels = await db.labels.filter(l => 
-      ['M01240826C101', 'L01240826C102', 'SF151240826C103', 'M02240826C104', 'M01230826C201', 'L02230826C202', 'M03230826C203'].includes(l.lot) ||
-      ['01/VIII/SPK/2026', '02/VIII/SPK/2026', '03/VIII/SPK/2026', '04/VIII/SPK/2026', '05/VIII/SPK/2026', '06/VIII/SPK/2026', '07/VIII/SPK/2026', '08/VIII/SPK/2026', '09/VIII/SPK/2026', '10/VIII/SPK/2026'].includes(l.spk)
-    ).primaryKeys();
-    if (dummyLabels.length > 0) {
-      await db.labels.bulkDelete(dummyLabels);
-      console.log('Purged ' + dummyLabels.length + ' dummy labels');
-    }
+    // 1. Labels: Data input dan import pengguna 100% terjaga dan aman (TIDAK BOLEH dihapus otomatis saat refresh/reload)
 
     // 2. Operators: Data input/import pengguna dijaga 100% dan tidak pernah diblokir atau dihapus.
 
