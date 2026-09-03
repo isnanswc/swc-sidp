@@ -3266,9 +3266,9 @@
                   </tbody>
                 </table>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-top: 3px; padding-bottom: 2px; box-sizing: border-box; line-height: 1.2;">
-                  <strong><span style="font-size: 8px; font-family: monospace; letter-spacing: 0.2px; color: #000;">{{ item.uniqId }}</span></strong>
-                  <span style="font-size: 8px; font-family: Arial, sans-serif; color: #1f2937;">{{ currentDateTimeString }}</span>
+                <div class="label-footer-info" style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: 16px; padding: 2px 4px 1px 4px; box-sizing: border-box; line-height: 1; border-top: 1px dashed #cbd5e1; margin-top: 2px;">
+                  <strong><span style="font-size: 8.5px; font-family: monospace; letter-spacing: 0.25px; color: #000;">ID: {{ item.uniqId }}</span></strong>
+                  <span style="font-size: 8px; font-family: Arial, sans-serif; color: #1f2937; font-weight: 600;">Cetak: {{ currentDateTimeString }}</span>
                 </div>
               </div>
 
@@ -6536,7 +6536,7 @@ watch(() => form.kode, () => {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 3mm 5mm;
+    margin: 3.5mm 5mm;
   }
 
   html, body {
@@ -6586,10 +6586,10 @@ watch(() => form.kode, () => {
 
   .label-preview-content {
     border: 1.2px solid black !important;
-    padding: 1.5px 3.5px 2px 3.5px !important;
+    padding: 2.5px 4px 2px 4px !important;
     margin: 0 !important;
-    height: 64.5mm !important;
-    max-height: 65mm !important;
+    height: 68.5mm !important;
+    max-height: 69mm !important;
     box-sizing: border-box !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
@@ -6602,32 +6602,42 @@ watch(() => form.kode, () => {
   .label-table {
     width: 100% !important;
     border-collapse: collapse !important;
-    font-size: 10px !important;
-    line-height: 1.15 !important;
+    font-size: 10.5px !important;
+    line-height: 1.22 !important;
   }
 
   .label-table td, .label-table th {
     border: 1px solid black !important;
-    padding: 0.5px 1.5px !important;
+    padding: 1.8px 2px !important;
     vertical-align: middle !important;
     text-align: center !important;
-    line-height: 1.15 !important;
+    line-height: 1.22 !important;
+  }
+
+  .label-footer-info {
+    height: 15px !important;
+    padding: 1.5px 2px 1px 2px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    line-height: 1 !important;
   }
 
   .cut-line {
     display: flex !important;
     align-items: center !important;
     gap: 4px !important;
-    height: 3mm !important;
-    margin: 0.8mm 0 !important;
+    height: 2.2mm !important;
+    margin: 0.5mm 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color: #374151 !important;
   }
 
   .cut-scissor-svg {
-    width: 10px !important;
-    height: 10px !important;
+    width: 9px !important;
+    height: 9px !important;
     flex-shrink: 0 !important;
     color: #1f2937 !important;
     -webkit-print-color-adjust: exact !important;

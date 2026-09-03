@@ -84,20 +84,7 @@ const DEFAULT_FILM_CONFIGS = [
   { jenis: 'LLDPE', kodeFormula: 'M01', alias: '', tipeBahan: 'PE', jenisBahan: 'Transparent', kategoriFilm: 'POLOS', density: 0.92, supplier: 'INHOUSE' },
 ];
 
-const DEFAULT_OPERATORS = [
-  { nama: 'SUDARMAJI', mesin: 'CASTING', kodeGrup: 'A', kodeOperator: 'A', active: true },
-  { nama: 'AHMAD', mesin: 'CASTING', kodeGrup: 'B', kodeOperator: 'B', active: true },
-  { nama: 'BAMBANG', mesin: 'CASTING', kodeGrup: 'C', kodeOperator: 'C', active: true },
-  { nama: 'TUKIMIN', mesin: 'METALIZE', kodeGrup: 'D', kodeOperator: 'D', active: true },
-  { nama: 'FIRMAN', mesin: 'METALIZE', kodeGrup: 'E', kodeOperator: 'E', active: true },
-  { nama: 'ANWAR', mesin: 'METALIZE', kodeGrup: 'F', kodeOperator: 'F', active: true },
-  { nama: 'HENDRA', mesin: 'SLITTING', kodeGrup: 'A', kodeOperator: 'H', active: true },
-  { nama: 'GUNAWAN', mesin: 'SLITTING', kodeGrup: 'B', kodeOperator: 'G', active: true },
-  { nama: 'WAHYU', mesin: 'SLITTING', kodeGrup: 'C', kodeOperator: 'W', active: true },
-  { nama: 'JOKO', mesin: 'REWIND', kodeGrup: 'A', kodeOperator: 'J', active: true },
-  { nama: 'KURNIA', mesin: 'REWIND', kodeGrup: 'B', kodeOperator: 'K', active: true },
-  { nama: 'LUKMAN', mesin: 'REWIND', kodeGrup: 'C', kodeOperator: 'L', active: true },
-];
+const DEFAULT_OPERATORS = [];
 
 const DEFAULT_MESIN = [
   { nama: 'CASTING', praKodePack: '', active: true },

@@ -1461,18 +1461,19 @@ const filteredTotalPanjang = computed(() => {
 
 const totalRollInRacks = computed(() => {
   const stocks = Array.isArray(inventoryStore.currentStocks) ? inventoryStore.currentStocks : [];
-  return stocks.reduce((sum, s) => sum + (parseInt(s.qtyRak, 10) || 0), 0);
+  return stocks.reduce((sum, s) => sum + (parseInt(s?.qtyRak, 10) || 0), 0);
 });
 
 const areaTotals = computed(() => {
   const totals = { A: 0, B: 0, C: 0, D: 0, E: 0 };
   const stocks = Array.isArray(inventoryStore.currentStocks) ? inventoryStore.currentStocks : [];
   for (const s of stocks) {
-    totals.A += parseInt(s.areaA, 10) || 0;
-    totals.B += parseInt(s.areaB, 10) || 0;
-    totals.C += parseInt(s.areaC, 10) || 0;
-    totals.D += parseInt(s.areaD, 10) || 0;
-    totals.E += parseInt(s.areaE, 10) || 0;
+    if (!s) continue;
+    totals.A += parseInt(s?.areaA, 10) || 0;
+    totals.B += parseInt(s?.areaB, 10) || 0;
+    totals.C += parseInt(s?.areaC, 10) || 0;
+    totals.D += parseInt(s?.areaD, 10) || 0;
+    totals.E += parseInt(s?.areaE, 10) || 0;
   }
   return totals;
 });
@@ -1553,29 +1554,64 @@ const totalFloorKg = computed(() => {
 // 2. RAK FG (Rak A - M, Kolom Vertikal 1..5)
 const fgRackLetterList = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
 
-const getFgColumnsForRack = (rackLetter) => {
-  const letter = String(rackLetter || 'A').toUpperCase();
-  const colSet = new Set();
-  
-  // Default columns 1..5 (vertical from bottom to top)
-  for (let i = 1; i <= 5; i++) {
-    colSet.add(`${letter}${i}`);
+const fgStorageDataMap = computed(() => {
+  const stocks = Array.isArray(inventoryStore.currentStocks) ? inventoryStore.currentStocks : [];
+  const colData = {};
+  const rackColumns = {};
+  const rackSummary = {};
+
+  for (const letter of fgRackLetterList) {
+    rackColumns[letter] = [];
+    for (let i = 1; i <= 5; i++) {
+      const code = `${letter}${i}`;
+      rackColumns[letter].push(code);
+      colData[code] = { code, totalRolls: 0, totalKg: 0, items: [] };
+    }
+    rackSummary[letter] = { letter, totalRolls: 0, totalKg: 0, occupiedCols: 0, totalCols: 5 };
   }
 
-  // Any other columns discovered from listRak (e.g. A6, J6)
-  const stocks = Array.isArray(inventoryStore.currentStocks) ? inventoryStore.currentStocks : [];
   for (const s of stocks) {
-    if (s && s.listRak) {
-      const tokens = String(s.listRak).split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
-      for (const t of tokens) {
-        if (/^[A-Z]\d+$/.test(t) && t.startsWith(letter)) {
-          colSet.add(t);
+    if (!s || !s.listRak) continue;
+    const tokens = String(s.listRak).split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
+    const rollCount = parseInt(s.totalRoll, 10) || 0;
+    const rollKg = parseFloat(s.totalKg) || 0;
+
+    for (const t of tokens) {
+      if (/^[A-Z]\d+$/.test(t)) {
+        const letter = t.charAt(0);
+        if (!colData[t]) {
+          colData[t] = { code: t, totalRolls: 0, totalKg: 0, items: [] };
+          if (rackColumns[letter]) {
+            rackColumns[letter].push(t);
+            rackSummary[letter].totalCols++;
+          }
         }
+        colData[t].items.push(s);
+        colData[t].totalRolls += rollCount;
+        colData[t].totalKg += rollKg;
       }
     }
   }
 
-  return Array.from(colSet).sort((a, b) => {
+  for (const letter of fgRackLetterList) {
+    const sum = rackSummary[letter];
+    if (!sum) continue;
+    for (const col of rackColumns[letter]) {
+      const d = colData[col];
+      if (d && d.totalRolls > 0) {
+        sum.totalRolls += d.totalRolls;
+        sum.totalKg += d.totalKg;
+        sum.occupiedCols++;
+      }
+    }
+  }
+
+  return { colData, rackColumns, rackSummary };
+});
+
+const getFgColumnsForRack = (rackLetter) => {
+  const letter = String(rackLetter || 'A').toUpperCase();
+  return (fgStorageDataMap.value.rackColumns[letter] || []).slice().sort((a, b) => {
     const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
     const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
     return numA - numB;
@@ -1584,60 +1620,20 @@ const getFgColumnsForRack = (rackLetter) => {
 
 const getFgColumnData = (colCode) => {
   const code = String(colCode || '').toUpperCase().trim();
-  const matched = [];
-  let totalRolls = 0;
-  let totalKg = 0;
-
-  const stocks = Array.isArray(inventoryStore.currentStocks) ? inventoryStore.currentStocks : [];
-  for (const s of stocks) {
-    if (s && s.listRak) {
-      const tokens = String(s.listRak).split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
-      if (tokens.includes(code)) {
-        matched.push(s);
-        const rollCount = parseInt(s.totalRoll, 10) || 0;
-        totalRolls += rollCount;
-        totalKg += parseFloat(s.totalKg) || 0;
-      }
-    }
-  }
-
-  return {
-    code,
-    totalRolls,
-    totalKg,
-    items: matched
-  };
+  return fgStorageDataMap.value.colData[code] || { code, totalRolls: 0, totalKg: 0, items: [] };
 };
 
 const getFgRackSummary = (rackLetter) => {
-  const cols = getFgColumnsForRack(rackLetter);
-  let totalRolls = 0;
-  let totalKg = 0;
-  let occupiedCols = 0;
-
-  for (const col of cols) {
-    const data = getFgColumnData(col);
-    if (data.totalRolls > 0) {
-      totalRolls += data.totalRolls;
-      totalKg += data.totalKg;
-      occupiedCols++;
-    }
-  }
-
-  return {
-    totalRolls,
-    totalKg,
-    occupiedCols,
-    totalCols: cols.length
-  };
+  const letter = String(rackLetter || 'A').toUpperCase();
+  return fgStorageDataMap.value.rackSummary[letter] || { totalRolls: 0, totalKg: 0, occupiedCols: 0, totalCols: 5 };
 };
 
 const totalFgRackRolls = computed(() => {
-  return fgRackLetterList.reduce((sum, l) => sum + getFgRackSummary(l).totalRolls, 0);
+  return fgRackLetterList.reduce((sum, l) => sum + (fgStorageDataMap.value.rackSummary[l]?.totalRolls || 0), 0);
 });
 
 const totalFgRackKg = computed(() => {
-  return fgRackLetterList.reduce((sum, l) => sum + getFgRackSummary(l).totalKg, 0);
+  return fgRackLetterList.reduce((sum, l) => sum + (fgStorageDataMap.value.rackSummary[l]?.totalKg || 0), 0);
 });
 
 // 3. RAK JUMBO (Rel 4-Karakter: A1A2, B3B4, H3H4, dll yang terisi Roll FG)

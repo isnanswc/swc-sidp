@@ -55,7 +55,7 @@
         <span>📦</span>
         <span>1. Stock WIP (Aktif)</span>
         <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-600 text-white font-mono font-bold">
-          {{ wipStore.activeWipRolls.length }}
+          {{ wipStore.activeWipRolls ? wipStore.activeWipRolls.length : 0 }}
         </span>
       </button>
 

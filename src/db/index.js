@@ -395,184 +395,9 @@ function generateKodePack(tanggal, mesin) {
   return `${prefix}3B${bulan}${tahun}`;
 }
 
-// Initial Standard Data Generator for 100 accurate labels
+// Zero-Seeding Policy: Generator data dummy ditiadakan
 export function generate100StandardDummyLabels() {
-  const labels = [];
-  const lotPlans = [
-    // ── HARI 1: 2026-08-24 (24 Roll) ──
-    {
-      date: '2026-08-24', shift: 1, mesin: 'SLITTING', operator: 'UMAR', kodeOp: 'G',
-      lot: 'M01240826C101', spk: '01/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M01', type: 'METALIZED',
-      thick: '20', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: 'OD2.4+PLASMA',
-      chartings: ['A', 'B', 'C', 'D'], countPerCharting: 2 // 8 rolls (GA01..GA02, GB01..GB02, GC01..GC02, GD01..GD02)
-    },
-    {
-      date: '2026-08-24', shift: 1, mesin: 'SLITTING', operator: 'UMAR', kodeOp: 'G',
-      lot: 'L01240826C102', spk: '02/VIII/SPK/2026', jenis: 'CPP', kode: 'L01', type: 'TRANSPARENT',
-      thick: '25', width: '1200', length: '3000', meter: '3000', joint: '0', density: 0.91, od: '',
-      chartings: ['A', 'B', 'C'], countPerCharting: 2 // 6 rolls (HA01..HA02, HB01..HB02, HC01..HC02)
-    },
-    {
-      date: '2026-08-24', shift: 2, mesin: 'SLITTING', operator: 'INDRA', kodeOp: 'I',
-      lot: 'SF151240826C103', spk: '03/VIII/SPK/2026', jenis: 'VMPET', kode: 'SF151', type: 'METALIZED',
-      thick: '12', width: '800', length: '6000', meter: '6000', joint: '0', density: 1.4, od: 'OD2.8+PLASMA',
-      chartings: ['A', 'B'], countPerCharting: 2 // 4 rolls (IA01..IA02, IB01..IB02)
-    },
-    {
-      date: '2026-08-24', shift: 2, mesin: 'REWIND', operator: 'INDRA', kodeOp: 'I',
-      lot: 'M02240826C104', spk: '04/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M02', type: 'METALIZED',
-      thick: '18', width: '1100', length: '5000', meter: '5000', joint: '0', density: 0.91, od: 'OD2.2+PLASMA',
-      chartings: ['A', 'B'], countPerCharting: 3 // 6 rolls (JA01..JA03, JB01..JB03)
-    },
-
-    // ── HARI 2: 2026-08-23 (20 Roll) ──
-    {
-      date: '2026-08-23', shift: 1, mesin: 'SLITTING', operator: 'UMAR', kodeOp: 'G',
-      lot: 'M01230826C201', spk: '05/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M01', type: 'METALIZED',
-      thick: '20', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: 'OD2.4+PLASMA',
-      chartings: ['A', 'B', 'C'], countPerCharting: 2 // 6 rolls
-    },
-    {
-      date: '2026-08-23', shift: 2, mesin: 'CASTING', operator: 'AGUS', kodeOp: 'A',
-      lot: 'L02230826C202', spk: '06/VIII/SPK/2026', jenis: 'CPP', kode: 'L02', type: 'TRANSPARENT',
-      thick: '30', width: '1050', length: '2500', meter: '2500', joint: '0', density: 0.91, od: '',
-      chartings: ['A', 'B'], countPerCharting: 4 // 8 rolls
-    },
-    {
-      date: '2026-08-23', shift: 3, mesin: 'METALIZE', operator: 'DEDI', kodeOp: 'D',
-      lot: 'M03230826C203', spk: '07/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M03', type: 'METALIZED',
-      thick: '20', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: 'OD2.5+PLASMA',
-      chartings: ['A', 'B'], countPerCharting: 3 // 6 rolls
-    },
-
-    // ── HARI 3: 2026-08-22 (18 Roll) ──
-    {
-      date: '2026-08-22', shift: 1, mesin: 'SLITTING', operator: 'HENDRA', kodeOp: 'H',
-      lot: 'L06220826C301', spk: '08/VIII/SPK/2026', jenis: 'CPP', kode: 'L06', type: 'MATTE',
-      thick: '20', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: '',
-      chartings: ['A', 'B', 'C'], countPerCharting: 2 // 6 rolls
-    },
-    {
-      date: '2026-08-22', shift: 1, mesin: 'REWIND', operator: 'HENDRA', kodeOp: 'H',
-      lot: 'M04220826C302', spk: '09/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M04', type: 'METALIZED',
-      thick: '15', width: '1200', length: '5000', meter: '5000', joint: '0', density: 0.91, od: 'OD2.0',
-      chartings: ['A', 'B'], countPerCharting: 3 // 6 rolls
-    },
-    {
-      date: '2026-08-22', shift: 2, mesin: 'SLITTING', operator: 'INDRA', kodeOp: 'I',
-      lot: 'M01220826C303', spk: '10/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M01', type: 'METALIZED',
-      thick: '20', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: 'OD2.4+PLASMA',
-      chartings: ['A', 'B', 'C'], countPerCharting: 2 // 6 rolls
-    },
-
-    // ── HARI 4: 2026-08-21 (16 Roll) ──
-    {
-      date: '2026-08-21', shift: 1, mesin: 'SLITTING', operator: 'UMAR', kodeOp: 'G',
-      lot: 'L01210826C401', spk: '11/VIII/SPK/2026', jenis: 'CPP', kode: 'L01', type: 'TRANSPARENT',
-      thick: '25', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: '',
-      chartings: ['A', 'B', 'C'], countPerCharting: 2 // 6 rolls
-    },
-    {
-      date: '2026-08-21', shift: 2, mesin: 'METALIZE', operator: 'EKO', kodeOp: 'E',
-      lot: 'M02210826C402', spk: '12/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M02', type: 'METALIZED',
-      thick: '18', width: '1100', length: '5000', meter: '5000', joint: '0', density: 0.91, od: 'OD2.2+PLASMA',
-      chartings: ['A', 'B'], countPerCharting: 3 // 6 rolls
-    },
-    {
-      date: '2026-08-21', shift: 3, mesin: 'CASTING', operator: 'BUDI', kodeOp: 'B',
-      lot: 'C8-GETAS210826C403', spk: '13/VIII/SPK/2026', jenis: 'LLDPE', kode: 'C8-GETAS', type: 'LLDPE',
-      thick: '30', width: '1000', length: '3000', meter: '3000', joint: '0', density: 0.91, od: '',
-      chartings: ['A', 'B'], countPerCharting: 2 // 4 rolls
-    },
-
-    // ── HARI 5: 2026-08-20 (12 Roll) ──
-    {
-      date: '2026-08-20', shift: 1, mesin: 'SLITTING', operator: 'HENDRA', kodeOp: 'H',
-      lot: 'M05200826C501', spk: '14/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M05', type: 'GLOSSY',
-      thick: '20', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: 'OD2.4',
-      chartings: ['A', 'B', 'C'], countPerCharting: 2 // 6 rolls
-    },
-    {
-      date: '2026-08-20', shift: 2, mesin: 'REWIND', operator: 'LUKMAN', kodeOp: 'L',
-      lot: 'L02200826C502', spk: '15/VIII/SPK/2026', jenis: 'CPP', kode: 'L02', type: 'TRANSPARENT',
-      thick: '25', width: '1200', length: '3000', meter: '3000', joint: '0', density: 0.91, od: '',
-      chartings: ['A', 'B'], countPerCharting: 3 // 6 rolls
-    },
-
-    // ── HARI 6: 2026-08-19 (10 Roll) ──
-    {
-      date: '2026-08-19', shift: 1, mesin: 'SLITTING', operator: 'UMAR', kodeOp: 'G',
-      lot: 'M01190826C601', spk: '16/VIII/SPK/2026', jenis: 'VMCPP', kode: 'M01', type: 'METALIZED',
-      thick: '20', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: 'OD2.4+PLASMA',
-      chartings: ['A', 'B'], countPerCharting: 2 // 4 rolls
-    },
-    {
-      date: '2026-08-19', shift: 2, mesin: 'CASTING', operator: 'CANDRA', kodeOp: 'C',
-      lot: 'L01190826C602', spk: '17/VIII/SPK/2026', jenis: 'CPP', kode: 'L01', type: 'TRANSPARENT',
-      thick: '25', width: '1000', length: '4000', meter: '4000', joint: '0', density: 0.91, od: '',
-      chartings: ['A', 'B', 'C'], countPerCharting: 2 // 6 rolls
-    }
-  ];
-
-  let globalRollIdx = 1;
-
-  for (const plan of lotPlans) {
-    for (let cIdx = 0; cIdx < plan.chartings.length; cIdx++) {
-      const chartLetter = plan.chartings[cIdx];
-      for (let seq = 1; seq <= plan.countPerCharting; seq++) {
-        const seqStr = String(seq).padStart(2, '0');
-        const turunan = `${plan.kodeOp}${chartLetter}${seqStr}`;
-        const subKode = String(globalRollIdx).padStart(4, '0');
-        const kodePack = generateKodePack(plan.date, plan.mesin);
-        const netto = ((parseFloat(plan.thick) * parseFloat(plan.width) * parseFloat(plan.length) * plan.density) / 1000000).toFixed(2);
-        const paperCore = calculatePaperCore(plan.width);
-
-        let status = 'PASS';
-        if (globalRollIdx % 16 === 0) status = 'HOLD';
-        else if (globalRollIdx % 33 === 0) status = 'REJECT';
-
-        labels.push({
-          uniqId: generateUniqID('LBL'),
-          supplier: 'INHOUSE',
-          spk: plan.spk,
-          tanggal: plan.date,
-          tanggalShift: plan.date,
-          tanggalManual: '',
-          mesin: plan.mesin,
-          jenis: plan.jenis,
-          type: plan.type,
-          kode: plan.kode,
-          thickness: plan.thick,
-          width: plan.width,
-          length: plan.length,
-          meter: plan.meter,
-          joint: plan.joint,
-          netto,
-          paperCore,
-          kodePack,
-          subKodeType: status === 'REJECT' ? 'reject' : status === 'HOLD' ? 'hold' : 'numeric',
-          subKodeNumeric: String(globalRollIdx),
-          subKode: status === 'REJECT' ? 'REJECT' : status === 'HOLD' ? '0000' : subKode,
-          status,
-          treatment: globalRollIdx % 2 === 0 ? 'INSIDE' : 'OUTSIDE',
-          od: plan.od,
-          lot: plan.lot,
-          turunan,
-          operator: plan.operator,
-          kodeOperator: plan.kodeOp,
-          keterangan: status === 'PASS' ? 'Standard QC Pass' : status === 'HOLD' ? 'Tahan inspeksi lab' : 'Reject visual defect',
-          jenisPrint: 'FINISH GOODS',
-          synced: 0,
-          createdAt: new Date(`${plan.date}T08:00:00.000Z`).toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-
-        globalRollIdx++;
-      }
-    }
-  }
-
-  return labels;
+  return [];
 }
 
 export async function seedInitialLabelsIfEmpty() {
@@ -589,270 +414,87 @@ export async function seedInitialLabelsIfEmpty() {
   // Jangan auto-populate jika database kosong/dihapus pengguna
 }
 
-// Initial Sample Data Generator for Tasks
+// Zero-Seeding Policy: Seed initial tasks ditiadakan
 export async function seedInitialTasksIfEmpty() {
-  const isSeeded = await getSetting('tasks_seeded_flag_v1');
-  if (isSeeded) return;
-
-  const count = await db.tasks.count();
-  if (count > 0) {
-    await saveSetting('tasks_seeded_flag_v1', true);
-    return;
-  }
   await saveSetting('tasks_seeded_flag_v1', true);
-
-  const sampleTasks = [
-    {
-      uuid: generateUniqID('TSK'),
-      taskCode: 'TSK-1001',
-      title: 'Kalibrasi Sensor Mesin Slitting 01',
-      category: 'Maintenance',
-      status: 'In Progress',
-      priority: 'High',
-      assignee: 'Budi Santoso',
-      dueDate: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
-      qrPayload: 'QR-MAINT-SLIT-01',
-      description: 'Lakukan kalibrasi presisi pada sensor tegangan dan pisau roll.',
-      synced: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      uuid: generateUniqID('TSK'),
-      taskCode: 'TSK-1002',
-      title: 'Pemeriksaan Visual Roll VMCPP Lot M01',
-      category: 'QC Inspection',
-      status: 'Pending',
-      priority: 'Medium',
-      assignee: 'Siti Rahma',
-      dueDate: new Date(Date.now() + 86400000 * 1).toISOString().slice(0, 10),
-      qrPayload: 'QR-QC-VMCPP-M01',
-      description: 'Cek keseragaman lapisan metalized dan optical density.',
-      synced: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ];
-
-  await db.tasks.bulkAdd(sampleTasks);
 }
 
-// Initial Sample Data Generator for Stock Opname
+// Zero-Seeding Policy: Seed initial opname ditiadakan
 export async function seedInitialOpnameIfEmpty() {
-  const isSeeded = await getSetting('opname_seeded_flag_v1');
-  if (isSeeded) return;
-
-  const count = await db.opname.count();
-  if (count > 0) {
-    await saveSetting('opname_seeded_flag_v1', true);
-    return;
-  }
   await saveSetting('opname_seeded_flag_v1', true);
-
-  const sampleOpname = [
-    {
-      uuid: generateUniqID('OPN'),
-      itemCode: 'RAW-CPP-12',
-      itemName: 'Jumbo Roll CPP 12 Micron 1200mm',
-      category: 'Raw Material',
-      systemStock: 45,
-      physicalStock: 44,
-      difference: -1,
-      unit: 'Roll',
-      location: 'Rak A-02',
-      notes: '1 roll rusak kemasan luar, di-quarantine',
-      status: 'Investigated',
-      synced: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      uuid: generateUniqID('OPN'),
-      itemCode: 'FG-VMCPP-18',
-      itemName: 'Finished Roll VMCPP 18 Micron 1000mm',
-      category: 'Finished Goods',
-      systemStock: 120,
-      physicalStock: 120,
-      difference: 0,
-      unit: 'Roll',
-      location: 'Gudang Utama B-05',
-      notes: 'Stok cocok dan sesuai',
-      status: 'Verified',
-      synced: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ];
-
-  await db.opname.bulkAdd(sampleOpname);
 }
 
-// Initial Sample Data Generator for Inventory Management System (Master Items & Stock)
+// Zero-Seeding Policy: Seed initial inventory ditiadakan
 export async function seedInitialInventoryIfEmpty() {
-  const isAlreadySeeded = await getSetting('inventory_seeded_flag_v1');
-  if (isAlreadySeeded) return;
-
-  const count = await db.inventory_items.count();
-  if (count > 0) {
-    await saveSetting('inventory_seeded_flag_v1', true);
-    return;
-  }
-
   await saveSetting('inventory_seeded_flag_v1', true);
+}
 
-  const sampleMasterItems = [
-    {
-      descriptionExcel: 'VMCPP M06 20MC 1060MM 6500M 6" OD2.4+PLASMA',
-      descriptionNav: 'FILM VMCPP M06 20MCX1060MMX6500M 6INCH OD2.4+PLASMA',
-      sourceNo: 'RM-VMCPP-M06-20-1060',
-      jenis: 'VMCPP',
-      kodeFormula: 'M06',
-      thickness: '20',
-      width: '1060',
-      length: '6500',
-      core: '6',
-      od: 'OD2.4+PLASMA',
-      tanda: 'A',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      descriptionExcel: 'VMCPP M06 20MC 1000MM 6000M 6" OD2.4+PLASMA',
-      descriptionNav: 'FILM VMCPP M06 20MCX1000MMX6000M 6INCH OD2.4+PLASMA',
-      sourceNo: 'RM-VMCPP-M06-20-1000',
-      jenis: 'VMCPP',
-      kodeFormula: 'M06',
-      thickness: '20',
-      width: '1000',
-      length: '6000',
-      core: '6',
-      od: 'OD2.4+PLASMA',
-      tanda: 'B',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      descriptionExcel: 'VMPET M04 12MC 1020MM 8000M 3" OD2.2+CORONA',
-      descriptionNav: 'FILM VMPET M04 12MCX1020MMX8000M 3INCH OD2.2+CORONA',
-      sourceNo: 'RM-VMPET-M04-12-1020',
-      jenis: 'VMPET',
-      kodeFormula: 'M04',
-      thickness: '12',
-      width: '1020',
-      length: '8000',
-      core: '3',
-      od: 'OD2.2+CORONA',
-      tanda: 'C',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      descriptionExcel: 'CPP G01 25MC 1250MM 4000M 3" PLAIN',
-      descriptionNav: 'FILM CPP G01 25MCX1250MMX4000M 3INCH PLAIN',
-      sourceNo: 'RM-CPP-G01-25-1250',
-      jenis: 'CPP',
-      kodeFormula: 'G01',
-      thickness: '25',
-      width: '1250',
-      length: '4000',
-      core: '3',
-      od: 'PLAIN',
-      tanda: 'P',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      descriptionExcel: 'PET P01 12MC 1050MM 12000M 6" CHEMICAL',
-      descriptionNav: 'FILM PET P01 12MCX1050MMX12000M 6INCH CHEMICAL',
-      sourceNo: 'RM-PET-P01-12-1050',
-      jenis: 'PET',
-      kodeFormula: 'P01',
-      thickness: '12',
-      width: '1050',
-      length: '12000',
-      core: '6',
-      od: 'CHEMICAL',
-      tanda: 'X',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+/**
+ * Pembersihan Menyeluruh Seluruh Data Dummy Lama (Zero-Seeding Policy Enforcement)
+ * Menjamin database lokal pengguna bersih murni dari data dummy simulasi sebelumnya.
+ */
+export async function purgeAllLegacyDummyData() {
+  try {
+    const purged = await getSetting('purged_all_dummy_data_v2');
+    if (purged) return;
+
+    // 1. Purge dummy labels (SPK 01/VIII..07/VIII or specific dummy lots)
+    const dummyLabels = await db.labels.filter(l => 
+      ['M01240826C101', 'L01240826C102', 'SF151240826C103', 'M02240826C104', 'M01230826C201', 'L02230826C202', 'M03230826C203'].includes(l.lot) ||
+      ['01/VIII/SPK/2026', '02/VIII/SPK/2026', '03/VIII/SPK/2026', '04/VIII/SPK/2026', '05/VIII/SPK/2026', '06/VIII/SPK/2026', '07/VIII/SPK/2026', '08/VIII/SPK/2026', '09/VIII/SPK/2026', '10/VIII/SPK/2026'].includes(l.spk)
+    ).primaryKeys();
+    if (dummyLabels.length > 0) {
+      await db.labels.bulkDelete(dummyLabels);
+      console.log('Purged ' + dummyLabels.length + ' dummy labels');
     }
-  ];
 
-  await db.inventory_items.bulkAdd(sampleMasterItems);
-
-  // Initial Sample Stock Upload
-  const today = new Date().toISOString().slice(0, 10);
-  const sampleUpload = {
-    uploadDate: today,
-    fileName: 'Saldo_Awal_Stock_Gudang.xlsx',
-    totalSku: 5,
-    totalRoll: 184,
-    uploadedBy: 'Admin Inventory',
-    itemsJson: JSON.stringify([
-      { descriptionExcel: 'VMCPP M06 20MC 1060MM 6500M 6" OD2.4+PLASMA', totalRoll: 48 },
-      { descriptionExcel: 'VMCPP M06 20MC 1000MM 6000M 6" OD2.4+PLASMA', totalRoll: 32 },
-      { descriptionExcel: 'VMPET M04 12MC 1020MM 8000M 3" OD2.2+CORONA', totalRoll: 50 },
-      { descriptionExcel: 'CPP G01 25MC 1250MM 4000M 3" PLAIN', totalRoll: 24 },
-      { descriptionExcel: 'PET P01 12MC 1050MM 12000M 6" CHEMICAL', totalRoll: 30 }
-    ]),
-    createdAt: new Date().toISOString()
-  };
-
-  await db.inventory_stock_uploads.add(sampleUpload);
-
-  // Initial Current Stocks
-  const initialStocks = [
-    {
-      itemKey: 'VMCPP_M06_20_1060_6500_6',
-      descriptionExcel: 'VMCPP M06 20MC 1060MM 6500M 6" OD2.4+PLASMA',
-      descriptionNav: 'FILM VMCPP M06 20MCX1060MMX6500M 6INCH OD2.4+PLASMA',
-      sourceNo: 'RM-VMCPP-M06-20-1060',
-      totalRoll: 48,
-      totalKg: (48 * 125.57).toFixed(2),
-      lastUploadDate: today,
-      updatedAt: new Date().toISOString()
-    },
-    {
-      itemKey: 'VMCPP_M06_20_1000_6000_6',
-      descriptionExcel: 'VMCPP M06 20MC 1000MM 6000M 6" OD2.4+PLASMA',
-      descriptionNav: 'FILM VMCPP M06 20MCX1000MMX6000M 6INCH OD2.4+PLASMA',
-      sourceNo: 'RM-VMCPP-M06-20-1000',
-      totalRoll: 32,
-      totalKg: (32 * 109.2).toFixed(2),
-      lastUploadDate: today,
-      updatedAt: new Date().toISOString()
-    },
-    {
-      itemKey: 'VMPET_M04_12_1020_8000_3',
-      descriptionExcel: 'VMPET M04 12MC 1020MM 8000M 3" OD2.2+CORONA',
-      descriptionNav: 'FILM VMPET M04 12MCX1020MMX8000M 3INCH OD2.2+CORONA',
-      sourceNo: 'RM-VMPET-M04-12-1020',
-      totalRoll: 50,
-      totalKg: (50 * 137.09).toFixed(2),
-      lastUploadDate: today,
-      updatedAt: new Date().toISOString()
-    },
-    {
-      itemKey: 'CPP_G01_25_1250_4000_3',
-      descriptionExcel: 'CPP G01 25MC 1250MM 4000M 3" PLAIN',
-      descriptionNav: 'FILM CPP G01 25MCX1250MMX4000M 3INCH PLAIN',
-      sourceNo: 'RM-CPP-G01-25-1250',
-      totalRoll: 24,
-      totalKg: (24 * 113.75).toFixed(2),
-      lastUploadDate: today,
-      updatedAt: new Date().toISOString()
-    },
-    {
-      itemKey: 'PET_P01_12_1050_12000_6',
-      descriptionExcel: 'PET P01 12MC 1050MM 12000M 6" CHEMICAL',
-      descriptionNav: 'FILM PET P01 12MCX1050MMX12000M 6INCH CHEMICAL',
-      sourceNo: 'RM-PET-P01-12-1050',
-      totalRoll: 30,
-      totalKg: (30 * 211.68).toFixed(2),
-      lastUploadDate: today,
-      updatedAt: new Date().toISOString()
+    // 2. Purge dummy operators
+    const dummyOps = await db.operator_list.filter(o => 
+      ['SUDARMAJI', 'AHMAD', 'BAMBANG', 'TUKIMIN', 'FIRMAN', 'ANWAR', 'HENDRA', 'GUNAWAN', 'WAHYU', 'JOKO', 'KURNIA', 'LUKMAN'].includes((o.nama || '').toUpperCase())
+    ).primaryKeys();
+    if (dummyOps.length > 0) {
+      await db.operator_list.bulkDelete(dummyOps);
+      console.log('Purged ' + dummyOps.length + ' dummy operators');
     }
-  ];
 
-  await db.inventory_current_stocks.bulkAdd(initialStocks);
+    // 3. Purge dummy tasks
+    const dummyTasks = await db.tasks.filter(t => ['TSK-1001', 'TSK-1002'].includes(t.taskCode)).primaryKeys();
+    if (dummyTasks.length > 0) {
+      await db.tasks.bulkDelete(dummyTasks);
+      console.log('Purged ' + dummyTasks.length + ' dummy tasks');
+    }
+
+    // 4. Purge dummy opname
+    const dummyOpname = await db.opname.filter(o => ['RAW-CPP-12', 'FG-VMCPP-18'].includes(o.itemCode)).primaryKeys();
+    if (dummyOpname.length > 0) {
+      await db.opname.bulkDelete(dummyOpname);
+      console.log('Purged ' + dummyOpname.length + ' dummy opnames');
+    }
+
+    // 5. Purge dummy inventory items & uploads
+    const dummyUploads = await db.inventory_stock_uploads.filter(u => u.fileName === 'Saldo_Awal_Stock_Gudang.xlsx').primaryKeys();
+    if (dummyUploads.length > 0) {
+      await db.inventory_stock_uploads.bulkDelete(dummyUploads);
+      console.log('Purged ' + dummyUploads.length + ' dummy uploads');
+    }
+    const dummyStocks = await db.inventory_current_stocks.filter(s => 
+      ['VMCPP_M06_20_1060_6500_6', 'VMCPP_M06_20_1000_6000_6', 'VMPET_M04_12_1020_8000_3', 'CPP_G01_25_1250_4000_3', 'PET_P01_12_1050_12000_6'].includes(s.itemKey)
+    ).primaryKeys();
+    if (dummyStocks.length > 0) {
+      await db.inventory_current_stocks.bulkDelete(dummyStocks);
+      console.log('Purged ' + dummyStocks.length + ' dummy stocks');
+    }
+
+    const dummyItems = await db.inventory_items.filter(i => 
+      ['RM-VMCPP-M06-20-1060', 'RM-VMCPP-M06-20-1000', 'RM-VMPET-M04-12-1020', 'RM-CPP-G01-25-1250', 'RM-PET-P01-12-1050'].includes(i.sourceNo)
+    ).primaryKeys();
+    if (dummyItems.length > 0) {
+      await db.inventory_items.bulkDelete(dummyItems);
+      console.log('Purged ' + dummyItems.length + ' dummy inventory items');
+    }
+
+    await saveSetting('purged_all_dummy_data_v2', true);
+  } catch (err) {
+    console.error('Error during purgeAllLegacyDummyData:', err);
+  }
 }

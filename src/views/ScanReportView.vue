@@ -1394,7 +1394,7 @@
                   <th class="border border-zinc-300 px-2 py-1 min-w-[80px] text-right">Width</th>
                   <th class="border border-zinc-300 px-2 py-1 min-w-[85px] text-right">Length</th>
                   <th class="border border-zinc-300 px-2 py-1 min-w-[95px] text-right bg-amber-100 text-amber-950 font-black">Berat Aktual</th>
-                  <th class="border border-zinc-300 px-2 py-1 min-w-[95px] text-right bg-zinc-100">Berat teori</th>
+                  <th class="border border-zinc-300 px-2 py-1 min-w-[95px] text-right bg-zinc-100">Berat Teori</th>
                   <th class="border border-zinc-300 px-2 py-1 min-w-[95px] text-right bg-zinc-100">Berat Selisih</th>
                   <th class="border border-zinc-300 px-2 py-1 min-w-[70px]">Tanda</th>
                   <th class="border border-zinc-300 px-2 py-1 min-w-[80px]">No Pack</th>
@@ -1425,7 +1425,7 @@
                   <td class="border border-zinc-300 p-0 text-center bg-amber-50/40"><input v-model.number="row.downtime" @focus="selectCell(rIdx, 'downtime')" type="number" class="w-full px-1.5 py-1 text-center font-bold text-amber-900 bg-transparent outline-none" /></td>
                   <td class="border border-zinc-300 p-0 font-sans"><input v-model="row.downtime_ket" @focus="selectCell(rIdx, 'downtime_ket')" class="w-full px-2 py-1 bg-transparent outline-none text-zinc-800" /></td>
                   <td class="border border-zinc-300 p-0"><input v-model="row.no_batch" @focus="selectCell(rIdx, 'no_batch')" class="w-full px-2 py-1 bg-transparent outline-none" /></td>
-                  <td class="border border-zinc-300 p-0"><input v-model="row.spk_no" @focus="selectCell(rIdx, 'spk_no')" class="w-full px-2 py-1 font-bold bg-transparent outline-none" /></td>
+                  <td class="border border-zinc-300 p-0"><input v-model="row.spk_no" @blur="row.spk_no = standardizeSpkInhouse(row.spk_no, row.tanggal)" @focus="selectCell(rIdx, 'spk_no')" class="w-full px-2 py-1 font-bold bg-transparent outline-none" /></td>
                   <td class="border border-zinc-300 p-0"><input v-model="row.no_lot" @focus="selectCell(rIdx, 'no_lot')" class="w-full px-2 py-1 font-black text-red-600 uppercase bg-transparent outline-none" /></td>
                   <td class="border border-zinc-300 p-0 text-center font-bold"><input v-model="row.jenis" @focus="selectCell(rIdx, 'jenis')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" /></td>
                   <td class="border border-zinc-300 p-0 text-center font-bold"><input v-model="row.kode_formula" @focus="selectCell(rIdx, 'kode_formula')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" /></td>
@@ -1476,7 +1476,7 @@
                   <th class="border border-zinc-300 px-3 py-1 min-w-[100px] text-center font-bold">Tujuan</th>
                   <th class="border border-zinc-300 px-3 py-1 min-w-[160px]">Keterangan</th>
                   <th class="border border-zinc-300 px-3 py-1 min-w-[220px] font-black text-zinc-900">Nama Resin</th>
-                  <th class="border border-zinc-300 px-3 py-1 min-w-[140px] text-right font-black bg-amber-100 text-amber-950">Weigth (kg)</th>
+                  <th class="border border-zinc-300 px-3 py-1 min-w-[140px] text-right font-black bg-amber-100 text-amber-950">Weight (kg)</th>
                   <th class="border border-zinc-300 px-3 py-1 min-w-[120px] text-center">Grup Shift Manual</th>
                 </tr>
               </thead>
@@ -2061,7 +2061,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { getSetting, saveSetting, db } from '@/db';
 import { useConfigStore } from '@/stores/configStore';
 import { extractReportFromImage, performDeepHandwritingAudit, matchMasterResin } from '@/services/aiReportService';
-import { exportCastingReportToExcel, exportMetalizeReportToExcel, exportFullSessionToExcel, calculateDurationMinutes } from '@/services/excelReportService';
+import { exportCastingReportToExcel, exportMetalizeReportToExcel, exportFullSessionToExcel, calculateDurationMinutes, standardizeSpkInhouse } from '@/services/excelReportService';
 
 const configStore = useConfigStore();
 

@@ -293,9 +293,9 @@ export const useInventoryStore = defineStore('inventory', () => {
     isLoading.value = true;
     try {
       const [items, uploads, stocks] = await Promise.all([
-        db.inventory_items.toArray(),
-        db.inventory_stock_uploads.orderBy('id').reverse().toArray(),
-        db.inventory_current_stocks.toArray()
+        db.inventory_items ? db.inventory_items.toArray() : Promise.resolve([]),
+        db.inventory_stock_uploads ? db.inventory_stock_uploads.toArray().then(a => a.reverse()) : Promise.resolve([]),
+        db.inventory_current_stocks ? db.inventory_current_stocks.toArray() : Promise.resolve([])
       ]);
 
       masterItems.value = items || [];
@@ -519,16 +519,23 @@ export const useInventoryStore = defineStore('inventory', () => {
   });
 
   const totalStockPanjang = computed(() => {
-    return (currentStocks.value || []).reduce((sum, s) => {
+    const list = currentStocks.value || [];
+    if (list.length === 0) return 0;
+
+    const masterMap = new Map();
+    for (const m of (masterItems.value || [])) {
+      if (m?.descriptionExcel) {
+        masterMap.set(String(m.descriptionExcel).toLowerCase().trim(), parseFloat(m.length) || 0);
+      }
+    }
+
+    return list.reduce((sum, s) => {
       if (!s) return sum;
       if (s.totalPanjang !== undefined && s.totalPanjang !== null && !isNaN(parseFloat(s.totalPanjang))) {
         return sum + (parseFloat(s.totalPanjang) || 0);
       }
-      const master = (masterItems.value || []).find(m => 
-        m && m.descriptionExcel && s.descriptionExcel &&
-        String(m.descriptionExcel).toLowerCase().trim() === String(s.descriptionExcel).toLowerCase().trim()
-      );
-      const l = parseFloat(master?.length) || parseFloat(s.length) || 0;
+      const desc = String(s.descriptionExcel || '').toLowerCase().trim();
+      const l = masterMap.get(desc) || parseFloat(s.length) || 0;
       return sum + ((parseInt(s.totalRoll, 10) || 0) * l);
     }, 0);
   });

@@ -604,58 +604,7 @@ const generateDummyOpname = () => {
 
 // SEED SPECIFIC MODULE
 const handleSeedSpecific = async (moduleId) => {
-  isProcessing.value = true;
-  try {
-    if (moduleId === 'label' || moduleId === 'dereport') {
-      const dummies = generateDummyLabels();
-      await db.labels.bulkAdd(dummies);
-      await labelStore.loadLabels();
-      alert(`⚡ Sukses: ${dummies.length} data label & slitting dummy berhasil dimasukkan!`);
-    } else if (moduleId === 'inventory') {
-      const masterDummies = generateDummyMasterItems();
-      await inventoryStore.importMasterItems(masterDummies);
-
-      // Also add sample stock upload batch
-      await inventoryStore.processStockUpload({
-        uploadDate: new Date().toISOString().slice(0, 10),
-        fileName: 'Saldo_Stock_Sample_2026.xlsx',
-        uploadedBy: 'Developer Debugger',
-        items: [
-          { descriptionExcel: masterDummies[0].descriptionExcel, totalRoll: 48, uploadDate: new Date().toISOString().slice(0, 10) },
-          { descriptionExcel: masterDummies[1].descriptionExcel, totalRoll: 32, uploadDate: new Date().toISOString().slice(0, 10) },
-          { descriptionExcel: masterDummies[2].descriptionExcel, totalRoll: 20, uploadDate: new Date().toISOString().slice(0, 10) }
-        ]
-      });
-      await inventoryStore.loadInventory();
-      alert(`⚡ Sukses: ${masterDummies.length} Master Items & Stock Gudang dummy berhasil dimasukkan!`);
-    } else if (moduleId === 'tasks') {
-      const taskDummies = generateDummyTasks();
-      await db.tasks.bulkAdd(taskDummies);
-      await taskStore.loadTasks();
-      alert(`⚡ Sukses: ${taskDummies.length} data tugas operasional berhasil dimasukkan!`);
-    } else if (moduleId === 'opname') {
-      const opnameDummies = generateDummyOpname();
-      await db.opname.bulkAdd(opnameDummies);
-      await opnameStore.loadOpname();
-      alert(`⚡ Sukses: ${opnameDummies.length} data stok opname gudang berhasil dimasukkan!`);
-    } else if (moduleId === 'dataconfig') {
-      // Re-seed standard machine configs
-      configStore.mesinList = [
-        { id: 1, nama: 'SLT01', jenis: 'SLITTING', defaultPaperCore: '6.09', codepackPrefix: '', status: 'ACTIVE' },
-        { id: 2, nama: 'SLT02', jenis: 'SLITTING', defaultPaperCore: '6.09', codepackPrefix: '', status: 'ACTIVE' },
-        { id: 3, nama: 'REW01', jenis: 'REWIND', defaultPaperCore: '3.00', codepackPrefix: 'R', status: 'ACTIVE' },
-        { id: 4, nama: 'CASTING', jenis: 'CASTING', defaultPaperCore: '6.09', codepackPrefix: '', status: 'ACTIVE' }
-      ];
-      configStore.saveConfigs();
-      alert('⚡ Sukses: Data konfigurasi mesin & formula standar berhasil dimuat!');
-    } else if (moduleId === 'dashboard') {
-      await handleSeedAllDatabase();
-    }
-  } catch (err) {
-    alert('Terjadi kesalahan: ' + err.message);
-  } finally {
-    isProcessing.value = false;
-  }
+  alert('🛡️ Aturan Zero-Seeding Aktif: Generator data dummy telah dinonaktifkan secara permanen sesuai standar sistem.');
 };
 
 // CLEAR SPECIFIC MODULE
@@ -741,32 +690,6 @@ const handleClearAllDatabase = async () => {
 };
 
 const handleSeedAllDatabase = async () => {
-  isProcessing.value = true;
-  try {
-    const labels = generateDummyLabels();
-    const masters = generateDummyMasterItems();
-    const tasks = generateDummyTasks();
-    const opnames = generateDummyOpname();
-
-    await Promise.all([
-      db.labels.bulkAdd(labels),
-      db.inventory_items.bulkAdd(masters),
-      db.tasks.bulkAdd(tasks),
-      db.opname.bulkAdd(opnames)
-    ]);
-
-    await Promise.all([
-      labelStore.loadLabels(),
-      inventoryStore.loadInventory(),
-      taskStore.loadTasks(),
-      opnameStore.loadOpname()
-    ]);
-
-    alert('🚀 Sukses: Data dummy simulasi untuk SEMUA MODUL berhasil dimuat!');
-  } catch (err) {
-    alert('Gagal memuat data dummy global: ' + err.message);
-  } finally {
-    isProcessing.value = false;
-  }
+  alert('🛡️ Aturan Zero-Seeding Aktif: Pemuatan data dummy global telah dinonaktifkan secara permanen.');
 };
 </script>
