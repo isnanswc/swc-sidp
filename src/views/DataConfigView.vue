@@ -244,6 +244,7 @@
                     <th class="px-3 py-3 text-left font-bold">Kategori</th>
                     <th class="px-3 py-3 text-left font-bold w-24">Supplier</th>
                     <th class="px-3 py-3 text-center font-bold w-16">Density</th>
+                    <th class="px-3 py-3 text-center font-bold w-28">Speed Slitting</th>
                     <th class="px-3 py-3 text-left font-bold w-48">Status Resep BOM</th>
                     <th class="px-3 py-3 text-center font-bold w-20">Status</th>
                     <th class="px-3 py-3 text-center font-bold w-36">Aksi</th>
@@ -251,7 +252,7 @@
                 </thead>
                 <tbody class="divide-y divide-zinc-100">
                   <tr v-if="filteredFilmConfigs.length === 0">
-                    <td colspan="11" class="py-12 text-center text-zinc-400 text-xs">
+                    <td colspan="12" class="py-12 text-center text-zinc-400 text-xs">
                       Tidak ada data Formula Film ditemukan
                     </td>
                   </tr>
@@ -293,6 +294,21 @@
                       </td>
                       <td class="px-3 py-2.5 text-center font-mono font-bold text-zinc-700">
                         {{ row.density }}
+                      </td>
+
+                      <!-- SPEED MESIN SLITTING -->
+                      <td class="px-3 py-2.5 text-center font-mono">
+                        <span
+                          :class="[
+                            'px-2 py-0.5 rounded font-black text-xs border inline-flex items-center gap-1',
+                            (row.kategoriFilm === 'METAL' || String(row.jenisBahan).toLowerCase().includes('metal') || row.jenis === 'VMCPP' || row.speed === 400)
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-blue-50 text-blue-800 border-blue-200'
+                          ]"
+                        >
+                          <span>{{ row.speed || ((row.kategoriFilm === 'METAL' || String(row.jenisBahan).toLowerCase().includes('metal') || row.jenis === 'VMCPP') ? 400 : 600) }}</span>
+                          <span class="text-[9px] font-normal text-zinc-500">m/min</span>
+                        </span>
                       </td>
                       
                       <!-- STATUS RESEP BOM BADGE -->
@@ -619,18 +635,34 @@
                   <th class="px-4 py-3 text-left font-bold w-12">#</th>
                   <th class="px-4 py-3 text-left font-bold">Nama Mesin</th>
                   <th class="px-4 py-3 text-left font-bold">Pra-CodePack (Prefix Otomatis)</th>
+                  <th class="px-4 py-3 text-left font-bold">Speed Standar Slitting</th>
                   <th class="px-4 py-3 text-center font-bold w-28">Status</th>
                   <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-zinc-100">
                 <tr v-if="configStore.mesinList.length === 0">
-                  <td colspan="5" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data mesin</td>
+                  <td colspan="6" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data mesin</td>
                 </tr>
                 <tr v-for="(row, idx) in configStore.mesinList" :key="row.id" class="hover:bg-zinc-50">
                   <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
                   <td class="px-4 py-3 font-bold text-zinc-900">{{ row.nama }}</td>
                   <td class="px-4 py-3 font-mono font-black text-red-600">{{ row.praKodePack || '—' }}</td>
+                  <td class="px-4 py-3 font-mono">
+                    <template v-if="row.nama && row.nama.toUpperCase().includes('SLITTING')">
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px]">
+                          Metalized: {{ row.speedMetalized || 400 }} m/min
+                        </span>
+                        <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-300 font-bold text-[10px]">
+                          Polos: {{ row.speedPolos || 600 }} m/min
+                        </span>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <span class="text-zinc-400 text-xs">—</span>
+                    </template>
+                  </td>
                   <td class="px-4 py-3 text-center">
                     <button @click="toggleMesinActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
                       {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
@@ -905,8 +937,8 @@
             </div>
           </div>
 
-          <!-- BARIS 2: ALIAS CETAK & DENSITY -->
-          <div class="grid grid-cols-2 gap-3">
+          <!-- BARIS 2: ALIAS CETAK, DENSITY & SPEED SLITTING -->
+          <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-[11px] font-bold text-zinc-700 mb-1">Alias Cetak <span class="text-zinc-400 font-normal">(Opsional)</span></label>
               <input v-model="filmForm.alias" placeholder="Mis: TPTGS, TPMF..." class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none uppercase font-mono font-bold text-purple-700" />
@@ -914,6 +946,14 @@
             <div>
               <label class="block text-[11px] font-bold text-zinc-700 mb-1">Density *</label>
               <input v-model.number="filmForm.density" type="number" step="0.01" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none font-mono font-bold" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-zinc-700 mb-1">Speed Slitting (m/min) *</label>
+              <div class="flex items-center gap-1">
+                <input v-model.number="filmForm.speed" type="number" step="10" placeholder="400 / 600" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none font-mono font-bold text-zinc-900" />
+                <button type="button" @click="filmForm.speed = 400" class="px-1.5 py-2 text-[9.5px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg border border-amber-300 shrink-0 cursor-pointer" title="Metalized: 400 m/menit">400</button>
+                <button type="button" @click="filmForm.speed = 600" class="px-1.5 py-2 text-[9.5px] font-bold bg-blue-100 hover:bg-blue-200 text-blue-900 rounded-lg border border-blue-300 shrink-0 cursor-pointer" title="Polos: 600 m/menit">600</button>
+              </div>
             </div>
           </div>
 
@@ -1378,6 +1418,16 @@
             <label class="block text-[11px] font-bold text-zinc-600 mb-1">Pra-CodePack (Prefix) *</label>
             <input v-model="mesinForm.praKodePack" placeholder="Mis: C1, R1..." class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none uppercase font-mono font-bold text-red-600" />
           </div>
+          <div v-if="mesinForm.nama && mesinForm.nama.toUpperCase().includes('SLITTING')" class="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-100">
+            <div>
+              <label class="block text-[10.5px] font-bold text-amber-800 mb-1">Speed Metalized (m/min)</label>
+              <input v-model.number="mesinForm.speedMetalized" type="number" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl font-mono font-bold text-amber-900 bg-amber-50/50" />
+            </div>
+            <div>
+              <label class="block text-[10.5px] font-bold text-blue-800 mb-1">Speed Polos (m/min)</label>
+              <input v-model.number="mesinForm.speedPolos" type="number" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl font-mono font-bold text-blue-900 bg-blue-50/50" />
+            </div>
+          </div>
         </div>
         <div class="px-6 py-4 border-t border-zinc-100 flex justify-end gap-2 bg-zinc-50/50">
           <button @click="showMesinModal = false" class="px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-100 rounded-xl cursor-pointer">Batal</button>
@@ -1732,6 +1782,7 @@ const openFilmModal = (row = null) => {
       kodeFormula: '',
       alias: '',
       density: 0.91,
+      speed: 600,
       tipeBahan: '',
       jenisBahan: 'Transparent',
       kategoriFilm: 'POLOS',
@@ -1756,6 +1807,7 @@ const saveFilm = async () => {
     kodeFormula: filmForm.kodeFormula.trim().toUpperCase(),
     alias: filmForm.alias ? filmForm.alias.trim().toUpperCase() : '',
     density: parseFloat(filmForm.density) || 0.91,
+    speed: parseInt(filmForm.speed, 10) || ((filmForm.kategoriFilm === 'METAL' || String(filmForm.jenisBahan).toLowerCase().includes('metal') || filmForm.jenis === 'VMCPP') ? 400 : 600),
     tipeBahan: filmForm.tipeBahan.trim(),
     jenisBahan: filmForm.jenisBahan.trim(),
     kategoriFilm: filmForm.kategoriFilm.trim().toUpperCase(),
@@ -2218,21 +2270,26 @@ const deleteResin = async (id) => {
 // ── ⚙️ MESIN & OPERATOR LOGIC ─────────────────────────────────────────────────
 const showMesinModal = ref(false);
 const editingMesin = ref(null);
-const mesinForm = reactive({ nama: '', praKodePack: '' });
+const mesinForm = reactive({ nama: '', praKodePack: '', speedMetalized: 400, speedPolos: 600 });
 
 const openMesinModal = (row = null) => {
   editingMesin.value = row;
   if (row) {
-    Object.assign(mesinForm, { nama: row.nama, praKodePack: row.praKodePack || '' });
+    Object.assign(mesinForm, { nama: row.nama, praKodePack: row.praKodePack || '', speedMetalized: row.speedMetalized || 400, speedPolos: row.speedPolos || 600 });
   } else {
-    Object.assign(mesinForm, { nama: '', praKodePack: '' });
+    Object.assign(mesinForm, { nama: '', praKodePack: '', speedMetalized: 400, speedPolos: 600 });
   }
   showMesinModal.value = true;
 };
 
 const saveMesin = async () => {
   if (!mesinForm.nama.trim() || !mesinForm.praKodePack.trim()) return alert('Semua field wajib diisi!');
-  const payload = { nama: mesinForm.nama.trim().toUpperCase(), praKodePack: mesinForm.praKodePack.trim().toUpperCase() };
+  const payload = {
+    nama: mesinForm.nama.trim().toUpperCase(),
+    praKodePack: mesinForm.praKodePack.trim().toUpperCase(),
+    speedMetalized: parseInt(mesinForm.speedMetalized, 10) || 400,
+    speedPolos: parseInt(mesinForm.speedPolos, 10) || 600
+  };
   if (editingMesin.value) await configStore.updateMesin(editingMesin.value.id, payload);
   else await configStore.addMesin(payload);
   showMesinModal.value = false;
