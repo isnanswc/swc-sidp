@@ -439,7 +439,7 @@ export async function executeDatabaseAggregation(queryText, context = {}, custom
  */
 export async function handleGeneralAiQuery(queryText, history = []) {
   const apiKey = await getSetting('google_ai_api_key', '') || await getSetting('gemini_api_key', '');
-  const model = await getSetting('google_ai_model', 'gemini-2.0-flash');
+  const model = await getSetting('google_ai_model', 'gemini-3.5-flash');
 
   const generalGuidanceBridge = `\n\n💡 *Ada data produksi pabrik yang ingin Anda periksa saat ini? Saya siap membantu menganalisis:*\n• *Perhitungan jumlah & alasan roll REJECT / HOLD*\n• *Pencapaian & rekap performa per operator*\n• *Status jadwal dan antrean SPK aktif*`;
 
