@@ -60,158 +60,20 @@ export const useSpkStore = defineStore('spk', () => {
     isLoading.value = true;
     try {
       if (db.spk_plans) {
+        // ZERO-SEEDING POLICY: Bersihkan segala data sample / dummy SPK
+        const dummyItems = await db.spk_plans.filter(p => String(p.uuid || '').startsWith('spk-sample-')).toArray();
+        if (dummyItems.length > 0) {
+          await db.spk_plans.bulkDelete(dummyItems.map(d => d.id));
+        }
         plans.value = (await db.spk_plans.toArray()).reverse();
       }
       if (db.spk_revisions) {
         revisions.value = (await db.spk_revisions.toArray()).reverse();
       }
-
-      // Seed initial data from physical sheet "JADWAL SLITTING (3B-PROD)" if empty
-      if (plans.value.length === 0) {
-        await seedFromJadwalSlitting();
-      }
     } catch (err) {
       console.error('Failed to load SPK plans:', err);
     } finally {
       isLoading.value = false;
-    }
-  };
-
-  // Seed sample from physical sheet 3B-PROD
-  const seedFromJadwalSlitting = async () => {
-    const sampleDate = '2026-09-03';
-    const initialItems = [
-      {
-        uuid: 'spk-sample-01',
-        spkNo: '04/VIII',
-        docNo: '3B-PROD',
-        formula: 'M07',
-        jenis: 'CPP',
-        thickness: 35,
-        lebarParent: 2320,
-        panjangParent: 19300,
-        jumlahJumbo: 3,
-        totalPlannedMeter: 240000,
-        totalPlannedRolls: 6,
-        chartingJson: JSON.stringify([
-          { upNo: 1, lebar: 1145, panjang: 12000, qty: 3 },
-          { upNo: 2, lebar: 1145, panjang: 12000, qty: 3 }
-        ]),
-        trimAuto: 30, // 2320 - (1145 * 2) = 30 mm
-        keterangan: 'Jadwal Standar Batch 1',
-        status: 'IN_PROGRESS',
-        source: 'AI_SCAN',
-        revisionsCount: 0,
-        tanggal: sampleDate,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        uuid: 'spk-sample-02',
-        spkNo: '07/XII/25 & 02/I', // Multi-SPK dalam 1 JR
-        docNo: '3B-PROD',
-        formula: 'M06',
-        jenis: 'CPP',
-        thickness: 25,
-        lebarParent: 2260,
-        panjangParent: 5300,
-        jumlahJumbo: 1,
-        totalPlannedMeter: 40000,
-        totalPlannedRolls: 2,
-        chartingJson: JSON.stringify([
-          { upNo: 1, lebar: 1100, panjang: 10000, qty: 1 },
-          { upNo: 2, lebar: 1100, panjang: 10000, qty: 1 }
-        ]),
-        trimAuto: 60, // 2260 - 2200 = 60 mm
-        keterangan: 'C1 TENGAH - Cross Order Multi SPK',
-        status: 'PLANNED',
-        source: 'AI_SCAN',
-        revisionsCount: 0,
-        tanggal: sampleDate,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        uuid: 'spk-sample-03',
-        spkNo: '07/VI',
-        docNo: '3B-PROD',
-        formula: 'M07',
-        jenis: 'CPP',
-        thickness: 25,
-        lebarParent: 2410,
-        panjangParent: 11000,
-        jumlahJumbo: 1,
-        totalPlannedMeter: 24000,
-        totalPlannedRolls: 2,
-        chartingJson: JSON.stringify([
-          { upNo: 1, lebar: 1220, panjang: 12000, qty: 1 },
-          { upNo: 2, lebar: 1160, panjang: 12000, qty: 1 }
-        ]),
-        trimAuto: 30, // 2410 - (1220 + 1160) = 30 mm
-        keterangan: 'C1 ATAS',
-        status: 'PLANNED',
-        source: 'AI_SCAN',
-        revisionsCount: 0,
-        tanggal: sampleDate,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        uuid: 'spk-sample-04',
-        spkNo: '01/IX',
-        docNo: '3B-PROD',
-        formula: 'M07',
-        jenis: 'CPP',
-        thickness: 35,
-        lebarParent: 2250,
-        panjangParent: 20300,
-        jumlahJumbo: 2,
-        totalPlannedMeter: 40000,
-        totalPlannedRolls: 6,
-        chartingJson: JSON.stringify([
-          { upNo: 1, lebar: 740, panjang: 12000, qty: 2 },
-          { upNo: 2, lebar: 740, panjang: 12000, qty: 2 },
-          { upNo: 3, lebar: 740, panjang: 12000, qty: 2 }
-        ]),
-        trimAuto: 30, // 2250 - (740 * 3) = 30 mm
-        keterangan: 'Potong 3 UP Standard',
-        status: 'PLANNED',
-        source: 'AI_SCAN',
-        revisionsCount: 0,
-        tanggal: sampleDate,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        uuid: 'spk-sample-05',
-        spkNo: 'PANVERTA',
-        docNo: '3B-PROD',
-        formula: 'CMGX',
-        jenis: 'CPP',
-        thickness: 35,
-        lebarParent: 2320,
-        panjangParent: 20300,
-        jumlahJumbo: 8,
-        totalPlannedMeter: 160000,
-        totalPlannedRolls: 16,
-        chartingJson: JSON.stringify([
-          { upNo: 1, lebar: 1145, panjang: 12000, qty: 8 },
-          { upNo: 2, lebar: 1145, panjang: 12000, qty: 8 }
-        ]),
-        trimAuto: 30,
-        keterangan: 'Order Khusus Eksternal',
-        status: 'PLANNED',
-        source: 'AI_SCAN',
-        revisionsCount: 0,
-        tanggal: sampleDate,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
-
-    if (db.spk_plans) {
-      await db.spk_plans.bulkAdd(initialItems);
-      plans.value = (await db.spk_plans.toArray()).reverse();
     }
   };
 

@@ -519,6 +519,15 @@ export async function purgeAllLegacyDummyData() {
       console.log('Purged ' + dummyItems.length + ' dummy inventory items');
     }
 
+    // 6. Purge dummy SPK plans & revisions (Zero-Seeding Policy)
+    if (db.spk_plans) {
+      const dummyPlans = await db.spk_plans.filter(p => String(p.uuid || '').startsWith('spk-sample-')).primaryKeys();
+      if (dummyPlans.length > 0) {
+        await db.spk_plans.bulkDelete(dummyPlans);
+        console.log('Purged ' + dummyPlans.length + ' dummy SPK plans');
+      }
+    }
+
     await saveSetting('purged_all_dummy_data_v2', true);
   } catch (err) {
     console.error('Error during purgeAllLegacyDummyData:', err);

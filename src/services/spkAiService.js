@@ -36,9 +36,8 @@ export async function parseSpkDocumentImage(fileOrBase64, isCamera = false) {
     }
   }
 
-  // 3. Fallback Heuristic Extractor:
-  // Mensimulasikan ekstraksi berbasis template baku 3B-PROD PT SWC
-  return getSimulatedSampleExtraction();
+  // ZERO-SEEDING POLICY: Tidak ada ekstraksi dummy/sample tiruan jika scan belum berjalan
+  throw new Error('Silakan atur Google Gemini API Key pada menu Pengaturan Sistem (Settings) untuk menjalankan AI Scanner SPK.');
 }
 
 /**
@@ -175,92 +174,4 @@ export function detectSpkRevisionsDiff(oldItem, newItem) {
   });
 
   return diffs;
-}
-
-/**
- * Sampel data ekstraksi cerdas dari formulir fisik 3B-PROD PT. SWC
- */
-function getSimulatedSampleExtraction() {
-  return postProcessExtractedRows([
-    {
-      no: 1,
-      spkNo: '04/VIII',
-      formula: 'M07',
-      thickness: 35,
-      lebarParent: 2320,
-      panjangParent: 19300,
-      up1: 1145,
-      up2: 1145,
-      up3: null,
-      up4: null,
-      panjangChild: 12000,
-      jumlahJumbo: 3,
-      totalPlannedMeter: 240000,
-      keterangan: '-'
-    },
-    {
-      no: 2,
-      spkNo: '07/XII/25 & 02/I',
-      formula: 'M06',
-      thickness: 25,
-      lebarParent: 2260,
-      panjangParent: 5300,
-      up1: 1100,
-      up2: 1100,
-      up3: null,
-      up4: null,
-      panjangChild: 10000,
-      jumlahJumbo: 1,
-      totalPlannedMeter: 40000,
-      keterangan: 'C1 TENGAH'
-    },
-    {
-      no: 3,
-      spkNo: '07/VI',
-      formula: 'M07',
-      thickness: 25,
-      lebarParent: 2410,
-      panjangParent: 11000,
-      up1: 1220,
-      up2: 1160,
-      up3: null,
-      up4: null,
-      panjangChild: 12000,
-      jumlahJumbo: 1,
-      totalPlannedMeter: 24000,
-      keterangan: 'C1 ATAS'
-    },
-    {
-      no: 4,
-      spkNo: '01/IX',
-      formula: 'M07',
-      thickness: 35,
-      lebarParent: 2250,
-      panjangParent: 20300,
-      up1: 740,
-      up2: 740,
-      up3: 740,
-      up4: null,
-      panjangChild: 12000,
-      jumlahJumbo: 2,
-      totalPlannedMeter: 40000,
-      keterangan: '-'
-    },
-    {
-      no: 5,
-      spkNo: 'PANVERTA',
-      formula: 'CMGX',
-      thickness: 35,
-      lebarParent: 2320,
-      panjangParent: 20300,
-      up1: 1145,
-      up2: 1145,
-      up3: null,
-      up4: null,
-      panjangChild: 12000,
-      jumlahJumbo: 8,
-      totalPlannedMeter: 160000,
-      keterangan: '-'
-    }
-  ]);
 }
