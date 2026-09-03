@@ -395,6 +395,276 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- DEDICATED FULL PAGE VIEW: DETAIL SPK (BUKAN MODAL / SELESAI SESAK)-->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div v-else-if="activeSheet === 'detail' && selectedDetailSpk" class="space-y-4 animate-fade-in">
+      
+      <!-- Top Navigation & Action Bar -->
+      <div class="bg-white p-4 rounded-3xl border border-zinc-200 shadow-xs flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-3">
+          <button
+            @click="activeSheet = 'list'"
+            class="px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <span>←</span>
+            <span>Kembali ke List SPK Aktif</span>
+          </button>
+          <div class="h-6 w-px bg-zinc-200"></div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-red-600 text-white font-mono font-bold">DETAIL SPK</span>
+              <h2 class="text-lg font-black font-mono tracking-tight text-zinc-900">{{ selectedDetailSpk.spkNo }}</h2>
+              <span
+                :class="[
+                  'text-[10px] px-2.5 py-0.5 rounded-full font-bold font-mono',
+                  selectedDetailSpk.isSupplierInhouse !== false ? 'bg-blue-50 text-blue-800 border border-blue-200' : 'bg-purple-50 text-purple-800 border border-purple-200'
+                ]"
+              >
+                {{ selectedDetailSpk.supplier }}
+              </span>
+              <span v-if="selectedDetailSpk.isCrossOrderWarning" class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-bold">
+                ⚠️ Multi-Item SPK
+              </span>
+            </div>
+            <p class="text-xs text-zinc-500 mt-0.5">Integrasi Data Terpadu: Dokumen SPK 3B-PROD, Management Label & Data Roll</p>
+          </div>
+        </div>
+
+        <!-- Quick Metrics in Header -->
+        <div class="flex items-center gap-3 font-mono text-xs">
+          <div class="px-3.5 py-2 rounded-xl bg-zinc-50 border border-zinc-200 text-right">
+            <div class="text-[10px] text-zinc-400 font-sans font-medium">Pencapaian Produksi</div>
+            <div class="font-black text-sm text-zinc-900">{{ selectedDetailSpk.achievementPercent }}%</div>
+          </div>
+          <div class="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-right">
+            <div class="text-[10px] text-emerald-700 font-sans font-medium">Hasil Jadi Fisik</div>
+            <div class="font-black text-sm text-emerald-900">{{ selectedDetailSpk.totalRealRolls }} Roll</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI METRICS GRID (4 CARDS FULL WIDTH) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-3xl border border-zinc-200 shadow-xs">
+          <div class="text-xs font-bold text-zinc-400 mb-1">INFORMASI DASAR</div>
+          <div class="font-black text-base text-zinc-900 font-mono">{{ selectedDetailSpk.year }} / {{ selectedDetailSpk.monthName }}</div>
+          <div class="text-xs text-zinc-600 mt-1 font-sans">Formula: <strong class="text-purple-900 font-mono">{{ selectedDetailSpk.formula }} ({{ selectedDetailSpk.thickness }}μ)</strong></div>
+          <div class="text-xs text-zinc-600 font-sans">Alokasi JR: <strong class="text-amber-900 font-mono">{{ selectedDetailSpk.totalJumbo }} JR</strong></div>
+        </div>
+
+        <div class="bg-white p-4 rounded-3xl border border-zinc-200 shadow-xs">
+          <div class="text-xs font-bold text-zinc-400 mb-1">TOTAL BERAT BERSIH</div>
+          <div class="font-black text-xl text-emerald-800 font-mono">{{ formatNumber(selectedDetailSpk.totalRealKg) }} kg</div>
+          <div class="text-xs text-zinc-600 mt-1 font-sans">Total Roll Fisik: <strong class="text-zinc-900 font-mono">{{ selectedDetailSpk.totalRealRolls }} Roll</strong></div>
+          <div class="text-xs text-zinc-500 font-sans">Rata-rata: {{ selectedDetailSpk.totalRealRolls > 0 ? (selectedDetailSpk.totalRealKg / selectedDetailSpk.totalRealRolls).toFixed(1) : 0 }} kg/roll</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-3xl border border-zinc-200 shadow-xs">
+          <div class="text-xs font-bold text-zinc-400 mb-1">TOTAL PANJANG AKTUAL</div>
+          <div class="font-black text-xl text-purple-900 font-mono">{{ formatNumber(selectedDetailSpk.totalRealMeter) }} m</div>
+          <div class="text-xs text-zinc-600 mt-1 font-sans">Speed Mesin: <strong class="text-zinc-900 font-mono">{{ selectedDetailSpk.speed }} m/menit</strong></div>
+          <div class="text-xs text-zinc-500 font-sans">Estimasi Waktu: {{ selectedDetailSpk.totalMinutes }} menit</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-3xl border border-zinc-200 shadow-xs">
+          <div class="text-xs font-bold text-zinc-400 mb-1">STATUS MUTU (QC)</div>
+          <div class="grid grid-cols-3 gap-1.5 text-center font-mono font-bold mt-1.5">
+            <div class="p-1.5 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300">
+              <div class="text-[9.5px]">PASS</div>
+              <div class="text-sm font-black">{{ selectedDetailSpk.passCount }}</div>
+            </div>
+            <div class="p-1.5 rounded-xl bg-amber-100 text-amber-900 border border-amber-300">
+              <div class="text-[9.5px]">HOLD</div>
+              <div class="text-sm font-black">{{ selectedDetailSpk.holdCount }}</div>
+            </div>
+            <div class="p-1.5 rounded-xl bg-red-100 text-red-900 border border-red-300">
+              <div class="text-[9.5px]">REJECT</div>
+              <div class="text-sm font-black">{{ selectedDetailSpk.rejectCount }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 1: RINGKASAN HASIL PER UKURAN ROLL TURUNAN (TABEL LEGA & LEBAR) -->
+      <div class="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
+        <div class="p-4 border-b border-zinc-200 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📐</span>
+            <div>
+              <h3 class="font-black text-sm text-zinc-900">Ringkasan Hasil per Ukuran Roll Turunan</h3>
+              <p class="text-xs text-zinc-500">Breakdown roll jadi berdasarkan variasi ukuran lebar hasil pemotongan pisau slitting</p>
+            </div>
+          </div>
+          <span class="px-3 py-1 rounded-full bg-zinc-100 font-mono font-bold text-xs text-zinc-700">
+            {{ (selectedDetailSpk.widthSummaries || []).length }} Ukuran Teridentifikasi
+          </span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs font-mono">
+            <thead class="bg-zinc-100/80 border-b border-zinc-200 text-zinc-700 font-bold">
+              <tr>
+                <th class="px-4 py-3 text-center w-12">No</th>
+                <th class="px-4 py-3 text-left">Ukuran Lebar</th>
+                <th class="px-4 py-3 text-center">Jumlah Roll Jadi</th>
+                <th class="px-4 py-3 text-right">Total Meter Jalan</th>
+                <th class="px-4 py-3 text-right">Total Berat Bersih (kg)</th>
+                <th class="px-4 py-3 text-right">Rata-rata Berat / Roll</th>
+                <th class="px-4 py-3 text-center font-sans">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-200">
+              <tr v-if="!selectedDetailSpk.widthSummaries || selectedDetailSpk.widthSummaries.length === 0">
+                <td colspan="7" class="py-8 text-center text-zinc-400 font-sans">Belum ada data roll turunan untuk SPK ini</td>
+              </tr>
+              <tr
+                v-for="(w, wIdx) in selectedDetailSpk.widthSummaries"
+                :key="w.width"
+                class="hover:bg-zinc-50"
+              >
+                <td class="px-4 py-3 text-center text-zinc-400 font-bold">{{ wIdx + 1 }}</td>
+                <td class="px-4 py-3 font-black text-sm text-zinc-900">
+                  {{ w.width }} mm
+                </td>
+                <td class="px-4 py-3 text-center font-black text-emerald-700 text-sm">
+                  {{ w.totalRoll }} Roll
+                </td>
+                <td class="px-4 py-3 text-right font-bold text-purple-900">
+                  {{ formatNumber(w.totalMeter) }} m
+                </td>
+                <td class="px-4 py-3 text-right font-bold text-zinc-900">
+                  {{ formatNumber(w.totalKg) }} kg
+                </td>
+                <td class="px-4 py-3 text-right text-zinc-600">
+                  {{ w.totalRoll > 0 ? (w.totalKg / w.totalRoll).toFixed(1) : 0 }} kg
+                </td>
+                <td class="px-4 py-3 text-center font-sans">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Siap Kirim / Finishing
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 2: DAFTAR NOMOR LOT FISIK TERDAFTAR (PAGINASI & SEARCH) -->
+      <div class="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
+        <div class="p-4 border-b border-zinc-200 flex items-center justify-between flex-wrap gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-base">🏷️</span>
+            <div>
+              <h3 class="font-black text-sm text-zinc-900">Daftar Nomor Lot Fisik Terdaftar</h3>
+              <p class="text-xs text-zinc-500">Seluruh roll yang terdata di Management Label / Data Roll untuk SPK ini</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input
+              v-model="detailPageLotSearch"
+              placeholder="Cari nomor lot, operator..."
+              class="px-3 py-1.5 text-xs border border-zinc-300 rounded-xl font-mono outline-none focus:ring-1 focus:ring-red-500 w-64"
+            />
+            <span class="text-xs font-mono font-bold text-zinc-500">
+              {{ filteredDetailPageLots.length }} / {{ (selectedDetailSpk.realLots || []).length }} Lot
+            </span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs font-mono">
+            <thead class="bg-zinc-900 text-white font-bold">
+              <tr>
+                <th class="px-4 py-3 text-center w-12">No</th>
+                <th class="px-4 py-3 text-left">Nomor Lot / Barcode</th>
+                <th class="px-4 py-3 text-right">Ukuran (Lebar × Panjang)</th>
+                <th class="px-4 py-3 text-right">Berat Netto</th>
+                <th class="px-4 py-3 text-left">Operator / Mesin</th>
+                <th class="px-4 py-3 text-center">Tanggal Produksi</th>
+                <th class="px-4 py-3 text-center">Sumber</th>
+                <th class="px-4 py-3 text-center">Status QC</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-200">
+              <tr v-if="filteredDetailPageLots.length === 0">
+                <td colspan="8" class="py-12 text-center text-zinc-400 font-sans">
+                  Tidak ada data nomor lot yang cocok
+                </td>
+              </tr>
+              <tr
+                v-for="(lot, lIdx) in paginatedDetailPageLots"
+                :key="lot.lot"
+                class="hover:bg-blue-50/30 transition-colors"
+              >
+                <td class="px-4 py-2.5 text-center text-zinc-400 font-bold">
+                  {{ (detailPageLotCurrentPage - 1) * detailPageLotPageSize + lIdx + 1 }}
+                </td>
+                <td class="px-4 py-2.5 font-black text-zinc-900 text-sm">
+                  {{ lot.lot }}
+                </td>
+                <td class="px-4 py-2.5 text-right font-bold text-zinc-700">
+                  {{ lot.width }} mm × {{ formatNumber(lot.length) }} m
+                </td>
+                <td class="px-4 py-2.5 text-right font-bold text-emerald-800">
+                  {{ formatNumber(lot.weight) }} kg
+                </td>
+                <td class="px-4 py-2.5 text-zinc-600 font-sans">
+                  {{ lot.operator || '-' }}
+                </td>
+                <td class="px-4 py-2.5 text-center text-zinc-500">
+                  {{ lot.date ? String(lot.date).slice(0, 10) : '-' }}
+                </td>
+                <td class="px-4 py-2.5 text-center">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-700">
+                    {{ lot.source }}
+                  </span>
+                </td>
+                <td class="px-4 py-2.5 text-center">
+                  <span
+                    :class="[
+                      'px-2.5 py-1 rounded-full text-[10.5px] font-black',
+                      lot.status === 'PASS' ? 'bg-emerald-100 text-emerald-800' : (lot.status === 'HOLD' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800')
+                    ]"
+                  >
+                    {{ lot.status }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- LOT PAGINATION BAR -->
+        <div v-if="filteredDetailPageLots.length > detailPageLotPageSize" class="p-3 bg-zinc-50 border-t border-zinc-200 flex items-center justify-between text-xs font-mono">
+          <div class="text-zinc-500">
+            Menampilkan {{ (detailPageLotCurrentPage - 1) * detailPageLotPageSize + 1 }} - {{ Math.min(detailPageLotCurrentPage * detailPageLotPageSize, filteredDetailPageLots.length) }} dari {{ filteredDetailPageLots.length }} Lot
+          </div>
+          <div class="flex items-center gap-1">
+            <button
+              @click="detailPageLotCurrentPage = Math.max(1, detailPageLotCurrentPage - 1)"
+              :disabled="detailPageLotCurrentPage <= 1"
+              class="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white font-bold hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              ‹ Sebelumnya
+            </button>
+            <span class="px-2.5 py-1 text-zinc-600 font-bold">
+              {{ detailPageLotCurrentPage }} / {{ totalDetailPageLotPages }}
+            </span>
+            <button
+              @click="detailPageLotCurrentPage = Math.min(totalDetailPageLotPages, detailPageLotCurrentPage + 1)"
+              :disabled="detailPageLotCurrentPage >= totalDetailPageLotPages"
+              class="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white font-bold hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Selanjutnya ›
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- SHEET 3: PLANNED SPK SLITTING & AI SCAN (BATCH HARIAN)            -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div v-else-if="activeSheet === 'planned'" class="space-y-4 animate-fade-in">
@@ -1029,6 +1299,37 @@
       </div>
     </div>
 
+
+    <!-- MODAL LOADING AKTUAL AI SCAN DOKUMEN SPK -->
+    <div v-if="isAiScanning" class="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fade-in">
+      <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-zinc-200">
+        <div class="relative w-20 h-20 mx-auto mb-5">
+          <div class="absolute inset-0 rounded-full border-4 border-red-100"></div>
+          <div class="absolute inset-0 rounded-full border-4 border-red-600 border-t-transparent animate-spin"></div>
+          <div class="absolute inset-0 flex items-center justify-center text-2xl">
+            📄
+          </div>
+        </div>
+
+        <h3 class="text-base font-black text-zinc-900 mb-1">Memproses Dokumen SPK</h3>
+        <p class="text-xs text-zinc-500 font-medium mb-5 min-h-[32px] flex items-center justify-center">
+          {{ aiScanStage }}
+        </p>
+
+        <!-- Animated Progress Bar -->
+        <div class="w-full bg-zinc-100 rounded-full h-2.5 overflow-hidden border border-zinc-200">
+          <div
+            class="bg-gradient-to-r from-red-600 to-amber-500 h-2.5 rounded-full transition-all duration-300 ease-out shadow-xs"
+            :style="{ width: aiScanProgress + '%' }"
+          ></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] text-zinc-400 font-mono mt-2">
+          <span>AI VISION SCANNER</span>
+          <span class="font-bold text-red-600">{{ aiScanProgress }}%</span>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -1370,9 +1671,36 @@ const filteredDrawerLots = computed(() => {
   return lots.filter(l => String(l.lot || '').toLowerCase().includes(q) || String(l.operator || '').toLowerCase().includes(q));
 });
 
+const selectedDetailSpk = ref(null);
+const detailPageLotSearch = ref('');
+const detailPageLotCurrentPage = ref(1);
+const detailPageLotPageSize = ref(15);
+
+const filteredDetailPageLots = computed(() => {
+  const lots = selectedDetailSpk.value?.realLots || [];
+  const q = (detailPageLotSearch.value || '').trim().toLowerCase();
+  if (!q) return lots;
+  return lots.filter(l => 
+    String(l.lot || '').toLowerCase().includes(q) ||
+    String(l.operator || '').toLowerCase().includes(q)
+  );
+});
+
+const totalDetailPageLotPages = computed(() => {
+  return Math.ceil(filteredDetailPageLots.value.length / detailPageLotPageSize.value) || 1;
+});
+
+const paginatedDetailPageLots = computed(() => {
+  const start = (detailPageLotCurrentPage.value - 1) * detailPageLotPageSize.value;
+  return filteredDetailPageLots.value.slice(start, start + detailPageLotPageSize.value);
+});
+
 const openSpkDetailDrawer = (item) => {
-  selectedSpkAnalytics.value = item;
-  showDetailDrawer.value = true;
+  selectedDetailSpk.value = item;
+  detailPageLotSearch.value = '';
+  detailPageLotCurrentPage.value = 1;
+  activeSheet.value = 'detail';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 // ── SHEET 3: AI SCAN & VERIFIKASI MANDIRI ──
@@ -1399,9 +1727,33 @@ const handleFileUploadScan = async (e) => {
   }
 };
 
+const isAiScanning = ref(false);
+const aiScanStage = ref('');
+const aiScanProgress = ref(0);
+
 const processImageScan = async (file) => {
+  isAiScanning.value = true;
+  aiScanStage.value = 'Membaca dan memproses citra dokumen fisik...';
+  aiScanProgress.value = 25;
+
   try {
-    const extractedRows = await parseSpkDocumentImage(file);
+    aiScanStage.value = 'Menghubungi Google Gemini AI Engine...';
+    aiScanProgress.value = 50;
+
+    if (!configStore.filmConfigs || configStore.filmConfigs.length === 0) {
+      await configStore.loadAll();
+    }
+
+    aiScanStage.value = 'Menganalisis tabel formulir JADWAL SLITTING (3B-PROD)...';
+    aiScanProgress.value = 75;
+
+    const extractedRows = await parseSpkDocumentImage(file, false, configStore.filmConfigs);
+
+    aiScanStage.value = 'Standarisasi format SPK & kalkulasi auto-trim...';
+    aiScanProgress.value = 95;
+
+    await new Promise(r => setTimeout(r, 400));
+
     if (extractedRows && extractedRows.length > 0) {
       const todayStr = new Date().toISOString().slice(0, 10);
       verificationBatchName.value = `JADWAL SLITTING ${todayStr}`;
@@ -1414,6 +1766,9 @@ const processImageScan = async (file) => {
   } catch (err) {
     console.error('Scan failed:', err);
     alert('Gagal memproses dokumen SPK: ' + err.message);
+  } finally {
+    isAiScanning.value = false;
+    aiScanProgress.value = 0;
   }
 };
 

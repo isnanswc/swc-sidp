@@ -47,7 +47,7 @@ export async function getResolvedGeminiApiKey() {
   return '';
 }
 
-export async function parseSpkDocumentImage(fileOrBase64, isCamera = false) {
+export async function parseSpkDocumentImage(fileOrBase64, isCamera = false, filmConfigs = []) {
   // 1. Dapatkan base64 string
   let base64Data = '';
   let mimeType = 'image/jpeg';
@@ -81,13 +81,13 @@ export async function parseSpkDocumentImage(fileOrBase64, isCamera = false) {
   }
 
   // 3. Eksekusi panggilan Vision ke Gemini
-  return await callGeminiVisionSpkParser(base64Data, geminiApiKey, mimeType);
+  return await callGeminiVisionSpkParser(base64Data, geminiApiKey, mimeType, filmConfigs);
 }
 
 /**
  * Panggilan ke Google Gemini API Vision untuk ekstraksi dokumen fisik
  */
-async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/jpeg') {
+async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/jpeg', filmConfigs = []) {
   // Ambil model yang dikonfigurasi di Settings (default gemini-2.0-flash yang stabil)
   let modelTarget = await getSetting('google_ai_model');
   if (!modelTarget) modelTarget = await getSetting('gemini_model');
@@ -177,14 +177,56 @@ Petunjuk Ekstraksi:
     throw new Error('Gagal mengurai output JSON dari Gemini: ' + parseErr.message);
   }
 
-  return postProcessExtractedRows(Array.isArray(parsed) ? parsed : [parsed]);
+  return postProcessExtractedRows(Array.isArray(parsed) ? parsed : [parsed], filmConfigs);
 }
 
 /**
  * Normalisasi dan penghitungan otomatis trim sisa setelah ekstraksi
  */
-export function postProcessExtractedRows(rawRows) {
+export function postProcessExtractedRows(rawRows, filmConfigs = []) {
   return (rawRows || []).map((row, idx) => {
+    const rawFormula = String(row.formula || 'M07').toUpperCase().trim();
+    
+    // 1. Auto-detect supplier via Data Configuration (filmConfigs)
+    const matchedFilm = (filmConfigs || []).find(f => 
+      String(f.kodeFormula || '').toUpperCase().trim() === rawFormula ||
+      String(f.alias || '').toUpperCase().trim() === rawFormula
+    );
+
+    let supplier = 'INHOUSE (PT. SWC)';
+    let isSupplierInhouse = true;
+
+    if (matchedFilm && matchedFilm.supplier) {
+      const sUpper = String(matchedFilm.supplier).toUpperCase().trim();
+      if (sUpper.includes('INHOUSE') || sUpper.includes('SWC') || sUpper === 'PT. SWC') {
+        supplier = 'INHOUSE (PT. SWC)';
+        isSupplierInhouse = true;
+      } else {
+        supplier = sUpper;
+        isSupplierInhouse = false;
+      }
+    } else {
+      // Heuristic fallback
+      const rawSpk = String(row.spkNo || '').toUpperCase();
+      if (rawSpk.includes('PANVERTA') || rawFormula.includes('CMGX') || rawFormula.startsWith('EXT')) {
+        supplier = rawSpk.includes('PANVERTA') ? 'PANVERTA' : 'SUPPLIER LUAR';
+        isSupplierInhouse = false;
+      }
+    }
+
+    // 2. Standardize SPK Number format based on inhouse vs supplier luar
+    let spkNo = String(row.spkNo || '').trim();
+    if (isSupplierInhouse) {
+      // Format standard inhouse: Bersihkan spasi berlebih, standarisasi multi-SPK dengan ' & '
+      spkNo = spkNo.split('&').map(part => {
+        return part.trim().toUpperCase()
+          .replace(/\s*\/\s*/g, '/'); // rapikan slash
+      }).join(' & ');
+    } else {
+      // Format supplier luar: pertahankan format identitas pemesan eksternal
+      spkNo = spkNo.trim().toUpperCase();
+    }
+
     const lebarParent = parseFloat(row.lebarParent) || 0;
     const upList = [];
 
@@ -208,11 +250,11 @@ export function postProcessExtractedRows(rawRows) {
 
     return {
       no: row.no || (idx + 1),
-      spkNo: String(row.spkNo || '').trim(),
+      spkNo,
       docNo: '3B-PROD',
-      formula: String(row.formula || 'M07').toUpperCase().trim(),
-      jenis: String(row.jenis || 'CPP').toUpperCase().trim(),
-      thickness: parseFloat(row.thickness) || 25,
+      formula: rawFormula,
+      jenis: matchedFilm?.jenis || String(row.jenis || 'CPP').toUpperCase().trim(),
+      thickness: parseFloat(row.thickness) || matchedFilm?.thickness || 25,
       lebarParent,
       panjangParent: parseFloat(row.panjangParent) || 0,
       up1: row.up1 || null,
@@ -226,6 +268,9 @@ export function postProcessExtractedRows(rawRows) {
       totalPlannedRolls,
       totalPlannedMeter: parseFloat(row.totalPlannedMeter) || ((parseFloat(row.panjangChild) || 12000) * jumlahJumbo),
       keterangan: row.keterangan || '',
+      supplier,
+      isSupplierInhouse,
+      formatStandard: isSupplierInhouse ? 'INHOUSE' : 'SUPPLIER_LUAR',
       status: 'PLANNED',
       isValidated: true
     };

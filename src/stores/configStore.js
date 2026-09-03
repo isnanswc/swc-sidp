@@ -357,16 +357,8 @@ export const useConfigStore = defineStore('configStore', {
           }
         }
 
-        // ZERO-SEEDING POLICY: Bersihkan seluruh operator dummy/simulasi dari IndexedDB dan memory
-        const dummyOpNames = ['SUDARMAJI', 'AHMAD', 'BAMBANG', 'TUKIMIN', 'FIRMAN', 'ANWAR', 'HENDRA', 'GUNAWAN', 'WAHYU', 'JOKO', 'KURNIA', 'LUKMAN', 'HERI', 'EKO', 'DIDIK'];
-        const dirtyOps = this.operatorList.filter(o => dummyOpNames.includes((o.nama || '').trim().toUpperCase()));
-        if (dirtyOps.length > 0) {
-          for (const dOp of dirtyOps) {
-            if (dOp.id) await db.operator_list.delete(dOp.id);
-          }
-        }
+        // ZERO-SEEDING POLICY: Tidak ada auto-seeding data dummy baru. Data yang diupload pengguna dijaga 100% utuh tanpa pemblokiran nama.
         this.operatorList = (await db.operator_list.toArray())
-          .filter(o => !dummyOpNames.includes((o.nama || '').trim().toUpperCase()))
           .sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
       } finally {
         this.loading = false;

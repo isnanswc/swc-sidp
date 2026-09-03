@@ -503,14 +503,7 @@ export async function purgeAllLegacyDummyData() {
       console.log('Purged ' + dummyLabels.length + ' dummy labels');
     }
 
-    // 2. Purge dummy operators
-    const dummyOps = await db.operator_list.filter(o => 
-      ['SUDARMAJI', 'AHMAD', 'BAMBANG', 'TUKIMIN', 'FIRMAN', 'ANWAR', 'HENDRA', 'GUNAWAN', 'WAHYU', 'JOKO', 'KURNIA', 'LUKMAN'].includes((o.nama || '').toUpperCase())
-    ).primaryKeys();
-    if (dummyOps.length > 0) {
-      await db.operator_list.bulkDelete(dummyOps);
-      console.log('Purged ' + dummyOps.length + ' dummy operators');
-    }
+    // 2. Operators: Data input/import pengguna dijaga 100% dan tidak pernah diblokir atau dihapus.
 
     // 3. Purge dummy tasks
     const dummyTasks = await db.tasks.filter(t => ['TSK-1001', 'TSK-1002'].includes(t.taskCode)).primaryKeys();
