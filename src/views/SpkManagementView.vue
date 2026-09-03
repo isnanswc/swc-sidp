@@ -1783,63 +1783,6 @@ const formatMinutes = (minutes) => {
 // ── DUAL-SIDED CENTRAL TIMELINE ENGINE (WITH DYNAMIC RE-ESTIMATION & SKIPPED DETECTION) ──
 
 
-const batchScheduleSummary = computed(() => {
-  const rows = timelineRows.value || [];
-  let totalPlannedRolls = 0;
-  let totalRealRolls = 0;
-  let totalPlannedMeter = 0;
-  let totalRealMeter = 0;
-  let completedCount = 0;
-  let inProgressCount = 0;
-  let skippedCount = 0;
-  let upcomingCount = 0;
-  let finalEndTimestamp = 0;
-  let lastEndTimeFormatted = '';
-
-  for (const r of rows) {
-    if (r.plan) {
-      totalPlannedRolls += (r.plannedChildRolls || 0);
-      totalPlannedMeter += (parseFloat(r.plan.totalPlannedMeter) || 0);
-    }
-    if (r.actual) {
-      totalRealRolls += (r.actual.totalRealRolls || 0);
-      totalRealMeter += (r.actual.totalRealMeter || 0);
-    }
-    if (r.status === 'COMPLETED') completedCount++;
-    else if (r.status === 'IN_PROGRESS') inProgressCount++;
-    else if (r.status === 'SKIPPED') skippedCount++;
-    else if (r.status === 'UPCOMING') upcomingCount++;
-
-    if (r.estEndTimestamp && r.estEndTimestamp > finalEndTimestamp) {
-      finalEndTimestamp = r.estEndTimestamp;
-      lastEndTimeFormatted = r.estEndTime;
-    }
-  }
-
-  const remainingMinutes = finalEndTimestamp > 0 
-    ? Math.max(0, Math.round((finalEndTimestamp - Date.now()) / 60000))
-    : 0;
-
-  const rollPercent = totalPlannedRolls > 0 ? Math.min(100, Math.round((totalRealRolls / totalPlannedRolls) * 100)) : 0;
-  const meterPercent = totalPlannedMeter > 0 ? Math.min(100, Math.round((totalRealMeter / totalPlannedMeter) * 100)) : 0;
-
-  return {
-    totalPlannedRolls,
-    totalRealRolls,
-    totalPlannedMeter,
-    totalRealMeter,
-    completedCount,
-    inProgressCount,
-    skippedCount,
-    upcomingCount,
-    rollPercent,
-    meterPercent,
-    estimatedCompletionTime: lastEndTimeFormatted || 'Sesuai Jadwal',
-    remainingMinutes,
-    isDelayed: remainingMinutes > 0 && remainingMinutes > (upcomingCount * 45)
-  };
-});
-
 const timelineRows = computed(() => {
   const batch = spkStore.activeBatch;
   const rawPlans = batch ? spkStore.plans.filter(p => p.batchId === batch.uuid) : spkStore.plans;
@@ -2053,6 +1996,66 @@ const timelineRows = computed(() => {
 
   return rows;
 });
+
+const batchScheduleSummary = computed(() => {
+  const rows = timelineRows.value || [];
+  let totalPlannedRolls = 0;
+  let totalRealRolls = 0;
+  let totalPlannedMeter = 0;
+  let totalRealMeter = 0;
+  let completedCount = 0;
+  let inProgressCount = 0;
+  let skippedCount = 0;
+  let upcomingCount = 0;
+  let finalEndTimestamp = 0;
+  let lastEndTimeFormatted = '';
+
+  for (const r of rows) {
+    if (r.plan) {
+      totalPlannedRolls += (r.plannedChildRolls || 0);
+      totalPlannedMeter += (parseFloat(r.plan.totalPlannedMeter) || 0);
+    }
+    if (r.actual) {
+      totalRealRolls += (r.actual.totalRealRolls || 0);
+      totalRealMeter += (r.actual.totalRealMeter || 0);
+    }
+    if (r.status === 'COMPLETED') completedCount++;
+    else if (r.status === 'IN_PROGRESS') inProgressCount++;
+    else if (r.status === 'SKIPPED') skippedCount++;
+    else if (r.status === 'UPCOMING') upcomingCount++;
+
+    if (r.estEndTimestamp && r.estEndTimestamp > finalEndTimestamp) {
+      finalEndTimestamp = r.estEndTimestamp;
+      lastEndTimeFormatted = r.estEndTime;
+    }
+  }
+
+  const remainingMinutes = finalEndTimestamp > 0 
+    ? Math.max(0, Math.round((finalEndTimestamp - Date.now()) / 60000))
+    : 0;
+
+  const rollPercent = totalPlannedRolls > 0 ? Math.min(100, Math.round((totalRealRolls / totalPlannedRolls) * 100)) : 0;
+  const meterPercent = totalPlannedMeter > 0 ? Math.min(100, Math.round((totalRealMeter / totalPlannedMeter) * 100)) : 0;
+
+  return {
+    totalPlannedRolls,
+    totalRealRolls,
+    totalPlannedMeter,
+    totalRealMeter,
+    completedCount,
+    inProgressCount,
+    skippedCount,
+    upcomingCount,
+    rollPercent,
+    meterPercent,
+    estimatedCompletionTime: lastEndTimeFormatted || 'Sesuai Jadwal',
+    remainingMinutes,
+    isDelayed: remainingMinutes > 0 && remainingMinutes > (upcomingCount * 45)
+  };
+});
+
+
+
 
 
 const planAnalyticsMap = computed(() => {
