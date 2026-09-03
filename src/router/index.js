@@ -14,6 +14,7 @@ import SettingsView from '@/views/SettingsView.vue';
 import ToolsView from '@/views/ToolsView.vue';
 import LoginView from '@/views/LoginView.vue';
 import UserManagementView from '@/views/UserManagementView.vue';
+import SpkManagementView from '@/views/SpkManagementView.vue';
 import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
@@ -46,6 +47,12 @@ const routes = [
     name: 'LabelManagement',
     component: LabelView,
     meta: { title: 'Manajemen Label', menuKey: 'label' }
+  },
+  {
+    path: '/spk',
+    name: 'SpkManagement',
+    component: SpkManagementView,
+    meta: { title: 'Manajemen SPK (Production Order)', menuKey: 'spk' }
   },
   {
     path: '/de-report',

@@ -6,6 +6,7 @@ export const APP_MENUS = [
   { key: 'schedule', name: 'Operator Schedule', path: '/schedule', category: 'PRODUKSI & LAPORAN', icon: '📅' },
   { key: 'data_roll', name: 'Data Roll (Identitas)', path: '/data-roll', category: 'PRODUKSI & LAPORAN', icon: '🌀' },
   { key: 'label', name: 'Manajemen Label', path: '/label', category: 'PRODUKSI & LAPORAN', icon: '🏷️' },
+  { key: 'spk', name: 'Manajemen SPK (Production Order)', path: '/spk', category: 'PRODUKSI & LAPORAN', icon: '📄' },
   { key: 'scan_report', name: 'Scan Laporan AI', path: '/scan-report', category: 'PRODUKSI & LAPORAN', icon: '🤖' },
   { key: 'de_report', name: 'DE Report (Rekap)', path: '/de-report', category: 'PRODUKSI & LAPORAN', icon: '📋' },
   { key: 'tools', name: 'Tools & Konversi Lapangan', path: '/tools', category: 'PRODUKSI & LAPORAN', icon: '🛠️' },
@@ -69,7 +70,7 @@ export function generatePresetPermissions(role) {
       canView = true;
       canEdit = true;
     } else if (role === 'ADMIN_DE') {
-      if (['dashboard', 'schedule', 'data_roll', 'label', 'scan_report', 'de_report', 'tools'].includes(menu.key)) {
+      if (['dashboard', 'schedule', 'data_roll', 'label', 'spk', 'scan_report', 'de_report', 'tools'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }
@@ -77,12 +78,12 @@ export function generatePresetPermissions(role) {
       if (['dashboard', 'schedule', 'tools'].includes(menu.key)) {
         canView = true;
         canEdit = false;
-      } else if (menu.key === 'label') {
+      } else if (['label', 'spk'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }
     } else if (role === 'QC') {
-      if (['dashboard', 'scan_report', 'tools'].includes(menu.key)) {
+      if (['dashboard', 'scan_report', 'tools', 'spk'].includes(menu.key)) {
         canView = true;
         canEdit = false;
       } else if (['tasks', 'data_roll'].includes(menu.key)) {
