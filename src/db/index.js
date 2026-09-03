@@ -435,8 +435,6 @@ export async function seedInitialInventoryIfEmpty() {
  */
 export async function purgeAllLegacyDummyData() {
   try {
-    const purged = await getSetting('purged_all_dummy_data_v2');
-    if (purged) return;
 
     // 1. Purge dummy labels (SPK 01/VIII..07/VIII or specific dummy lots)
     const dummyLabels = await db.labels.filter(l => 

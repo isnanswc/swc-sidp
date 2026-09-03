@@ -173,9 +173,9 @@
                   </tbody>
                 </table>
 
-                <div class="label-footer-info" style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: 16px; padding: 2px 4px 1px 4px; box-sizing: border-box; line-height: 1; border-top: 1px dashed #cbd5e1; margin-top: 2px;">
-                  <strong><span style="font-size: 8.5px; font-family: monospace; letter-spacing: 0.25px; color: #000;">ID: {{ item.uniqId }}</span></strong>
-                  <span style="font-size: 8px; font-family: Arial, sans-serif; color: #1f2937; font-weight: 600;">Cetak: {{ currentDateTimeString }}</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 6.5px; font-family: monospace; color: #475569; line-height: 1; padding: 0.5px 2px 0 2px; margin: 0; height: 7.5px; box-sizing: border-box;">
+                  <span>{{ item.uniqId }}</span>
+                  <span>{{ currentDateTimeString }}</span>
                 </div>
               </div>
 

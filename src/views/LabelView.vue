@@ -3266,9 +3266,9 @@
                   </tbody>
                 </table>
 
-                <div class="label-footer-info" style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: 16px; padding: 2px 4px 1px 4px; box-sizing: border-box; line-height: 1; border-top: 1px dashed #cbd5e1; margin-top: 2px;">
-                  <strong><span style="font-size: 8.5px; font-family: monospace; letter-spacing: 0.25px; color: #000;">ID: {{ item.uniqId }}</span></strong>
-                  <span style="font-size: 8px; font-family: Arial, sans-serif; color: #1f2937; font-weight: 600;">Cetak: {{ currentDateTimeString }}</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 6.5px; font-family: monospace; color: #475569; line-height: 1; padding: 0.5px 2px 0 2px; margin: 0; height: 7.5px; box-sizing: border-box;">
+                  <span>{{ item.uniqId }}</span>
+                  <span>{{ currentDateTimeString }}</span>
                 </div>
               </div>
 
@@ -6430,23 +6430,30 @@ watch(() => form.kode, () => {
 
 .label-preview-content {
   border: 1.5px solid black;
-  padding: 3px 5px 4px 5px;
+  padding: 2.5px 4px 1px 4px;
   background-color: white;
   color: black;
   font-family: Arial, Helvetica, sans-serif;
   box-sizing: border-box;
   width: 100%;
+  min-height: 68.5mm;
+  height: 68.5mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .label-table {
   width: 100%;
+  height: calc(100% - 8.5px);
+  flex: 1;
   border-collapse: collapse;
   font-size: 11px;
 }
 
 .label-table td, .label-table th {
   border: 1px solid black;
-  padding: 1.5px 2px;
+  padding: 2.5px 2px;
   vertical-align: middle;
   text-align: center;
 }
@@ -6586,10 +6593,10 @@ watch(() => form.kode, () => {
 
   .label-preview-content {
     border: 1.2px solid black !important;
-    padding: 2.5px 4px 2px 4px !important;
+    padding: 2px 3.5px 1px 3.5px !important;
     margin: 0 !important;
     height: 68.5mm !important;
-    max-height: 69mm !important;
+    max-height: 68.8mm !important;
     box-sizing: border-box !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
@@ -6601,27 +6608,20 @@ watch(() => form.kode, () => {
 
   .label-table {
     width: 100% !important;
+    height: calc(100% - 8.5px) !important;
+    flex: 1 !important;
+    display: table !important;
     border-collapse: collapse !important;
     font-size: 10.5px !important;
-    line-height: 1.22 !important;
+    line-height: 1.25 !important;
   }
 
   .label-table td, .label-table th {
     border: 1px solid black !important;
-    padding: 1.8px 2px !important;
+    padding: 2px 2px !important;
     vertical-align: middle !important;
     text-align: center !important;
-    line-height: 1.22 !important;
-  }
-
-  .label-footer-info {
-    height: 15px !important;
-    padding: 1.5px 2px 1px 2px !important;
-    box-sizing: border-box !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    line-height: 1 !important;
+    line-height: 1.25 !important;
   }
 
   .cut-line {

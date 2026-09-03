@@ -34,7 +34,7 @@
         </button>
 
         <button
-          @click="$router.push('/wip')"
+          @click="router.push('/wip')"
           class="px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer"
         >
           <span>🛢️ 2. Stok WIP Jumbo ➔</span>
@@ -1510,48 +1510,51 @@ const expandedFloorAreas = reactive({
 const expandedFgRacks = reactive({});
 const expandedJumboRacks = reactive({});
 
-// 1. FLOOR (Lantai A - E)
-const getFloorSectorData = (letter) => {
-  const char = String(letter || 'A').toUpperCase();
-  const key = `area${char}`;
-  const matched = [];
-  let totalRolls = 0;
-  let totalKg = 0;
-
+// 1. FLOOR (Lantai A - E) - Memoized Computed Map for Instant O(1) Access
+const floorDataMap = computed(() => {
+  const letters = ['A', 'B', 'C', 'D', 'E'];
+  const res = {};
+  for (const l of letters) {
+    res[l] = { letter: l, totalRolls: 0, totalKg: 0, items: [] };
+  }
   const stocks = Array.isArray(inventoryStore.currentStocks) ? inventoryStore.currentStocks : [];
   for (const s of stocks) {
     if (!s) continue;
-    const count = parseInt(s[key], 10) || 0;
-    if (count > 0) {
-      const weightPerRoll = parseFloat(s.weight) || (parseFloat(s.totalKg) / (parseInt(s.totalRoll, 10) || 1)) || 0;
-      const calculatedKg = count * weightPerRoll;
-      matched.push({
-        item: s,
-        rollCount: count,
-        totalKg: calculatedKg
-      });
-      totalRolls += count;
-      totalKg += calculatedKg;
+    for (const l of letters) {
+      const key = `area${l}`;
+      const count = parseInt(s[key], 10) || 0;
+      if (count > 0) {
+        const weightPerRoll = parseFloat(s.weight) || (parseFloat(s.totalKg) / (parseInt(s.totalRoll, 10) || 1)) || 0;
+        const calculatedKg = count * weightPerRoll;
+        res[l].items.push({
+          item: s,
+          rollCount: count,
+          totalKg: calculatedKg
+        });
+        res[l].totalRolls += count;
+        res[l].totalKg += calculatedKg;
+      }
     }
   }
+  return res;
+});
 
-  return {
-    letter: char,
-    totalRolls,
-    totalKg,
-    items: matched
-  };
+const getFloorSectorData = (letter) => {
+  const char = String(letter || 'A').toUpperCase();
+  return floorDataMap.value?.[char] || { letter: char, totalRolls: 0, totalKg: 0, items: [] };
 };
 
 const totalFloorRolls = computed(() => {
-  return ['A', 'B', 'C', 'D', 'E'].reduce((sum, l) => sum + getFloorSectorData(l).totalRolls, 0);
+  const map = floorDataMap.value || {};
+  return ['A', 'B', 'C', 'D', 'E'].reduce((sum, l) => sum + (map[l]?.totalRolls || 0), 0);
 });
 
 const totalFloorKg = computed(() => {
-  return ['A', 'B', 'C', 'D', 'E'].reduce((sum, l) => sum + getFloorSectorData(l).totalKg, 0);
+  const map = floorDataMap.value || {};
+  return ['A', 'B', 'C', 'D', 'E'].reduce((sum, l) => sum + (map[l]?.totalKg || 0), 0);
 });
 
-// 2. RAK FG (Rak A - M, Kolom Vertikal 1..5)
+// 2. RAK FG (Rak A - M, Kolom Vertikal 1..5) - Memoized Computed Map
 const fgRackLetterList = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
 
 const fgStorageDataMap = computed(() => {
@@ -1583,7 +1586,7 @@ const fgStorageDataMap = computed(() => {
           colData[t] = { code: t, totalRolls: 0, totalKg: 0, items: [] };
           if (rackColumns[letter]) {
             rackColumns[letter].push(t);
-            rackSummary[letter].totalCols++;
+            if (rackSummary[letter]) rackSummary[letter].totalCols++;
           }
         }
         colData[t].items.push(s);
@@ -1596,7 +1599,7 @@ const fgStorageDataMap = computed(() => {
   for (const letter of fgRackLetterList) {
     const sum = rackSummary[letter];
     if (!sum) continue;
-    for (const col of rackColumns[letter]) {
+    for (const col of (rackColumns[letter] || [])) {
       const d = colData[col];
       if (d && d.totalRolls > 0) {
         sum.totalRolls += d.totalRolls;
@@ -1611,7 +1614,8 @@ const fgStorageDataMap = computed(() => {
 
 const getFgColumnsForRack = (rackLetter) => {
   const letter = String(rackLetter || 'A').toUpperCase();
-  return (fgStorageDataMap.value.rackColumns[letter] || []).slice().sort((a, b) => {
+  const map = fgStorageDataMap.value;
+  return (map?.rackColumns?.[letter] || []).slice().sort((a, b) => {
     const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
     const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
     return numA - numB;
@@ -1620,20 +1624,26 @@ const getFgColumnsForRack = (rackLetter) => {
 
 const getFgColumnData = (colCode) => {
   const code = String(colCode || '').toUpperCase().trim();
-  return fgStorageDataMap.value.colData[code] || { code, totalRolls: 0, totalKg: 0, items: [] };
+  const map = fgStorageDataMap.value;
+  return map?.colData?.[code] || { code, totalRolls: 0, totalKg: 0, items: [] };
 };
 
 const getFgRackSummary = (rackLetter) => {
   const letter = String(rackLetter || 'A').toUpperCase();
-  return fgStorageDataMap.value.rackSummary[letter] || { totalRolls: 0, totalKg: 0, occupiedCols: 0, totalCols: 5 };
+  const map = fgStorageDataMap.value;
+  return map?.rackSummary?.[letter] || { totalRolls: 0, totalKg: 0, occupiedCols: 0, totalCols: 5 };
 };
 
 const totalFgRackRolls = computed(() => {
-  return fgRackLetterList.reduce((sum, l) => sum + (fgStorageDataMap.value.rackSummary[l]?.totalRolls || 0), 0);
+  const map = fgStorageDataMap.value;
+  if (!map || !map.rackSummary) return 0;
+  return fgRackLetterList.reduce((sum, l) => sum + (map.rackSummary[l]?.totalRolls || 0), 0);
 });
 
 const totalFgRackKg = computed(() => {
-  return fgRackLetterList.reduce((sum, l) => sum + (fgStorageDataMap.value.rackSummary[l]?.totalKg || 0), 0);
+  const map = fgStorageDataMap.value;
+  if (!map || !map.rackSummary) return 0;
+  return fgRackLetterList.reduce((sum, l) => sum + (map.rackSummary[l]?.totalKg || 0), 0);
 });
 
 // 3. RAK JUMBO (Rel 4-Karakter: A1A2, B3B4, H3H4, dll yang terisi Roll FG)
@@ -1645,7 +1655,6 @@ const jumboRacksWithFg = computed(() => {
     if (s && s.listRak) {
       const tokens = String(s.listRak).split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
       for (const t of tokens) {
-        // Match 4-character rack codes like A1A2, B3B4, H3H4
         if (/^[A-Z]\d[A-Z]\d$/.test(t)) {
           if (!map.has(t)) {
             map.set(t, {
@@ -1656,7 +1665,7 @@ const jumboRacksWithFg = computed(() => {
             });
           }
           const rackObj = map.get(t);
-          if (!rackObj.items.some(it => it.id === s.id && it.descriptionExcel === s.descriptionExcel)) {
+          if (!rackObj.items.some(it => (it.itemKey && it.itemKey === s.itemKey) || it.descriptionExcel === s.descriptionExcel)) {
             rackObj.items.push(s);
             rackObj.totalRolls += parseInt(s.totalRoll, 10) || 0;
             rackObj.totalKg += parseFloat(s.totalKg) || 0;
@@ -1670,11 +1679,11 @@ const jumboRacksWithFg = computed(() => {
 });
 
 const totalJumboFgRolls = computed(() => {
-  return jumboRacksWithFg.value.reduce((sum, j) => sum + j.totalRolls, 0);
+  return (jumboRacksWithFg.value || []).reduce((sum, j) => sum + (j?.totalRolls || 0), 0);
 });
 
 const totalJumboFgKg = computed(() => {
-  return jumboRacksWithFg.value.reduce((sum, j) => sum + j.totalKg, 0);
+  return (jumboRacksWithFg.value || []).reduce((sum, j) => sum + (j?.totalKg || 0), 0);
 });
 
 const allOccupiedRacksCount = computed(() => {

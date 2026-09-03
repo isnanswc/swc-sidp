@@ -357,44 +357,17 @@ export const useConfigStore = defineStore('configStore', {
           }
         }
 
-        // Pastikan operator SLITTING tersedia
-        const hasSlitting = this.operatorList.some(o => o.mesin && o.mesin.toUpperCase() === 'SLITTING');
-        if (!hasSlitting) {
-          const slittingDefaults = [
-            { nama: 'HENDRA', mesin: 'SLITTING', kodeGrup: 'A', kodeOperator: 'H', active: true, createdAt: now, updatedAt: now },
-            { nama: 'GUNAWAN', mesin: 'SLITTING', kodeGrup: 'B', kodeOperator: 'G', active: true, createdAt: now, updatedAt: now },
-            { nama: 'WAHYU', mesin: 'SLITTING', kodeGrup: 'C', kodeOperator: 'W', active: true, createdAt: now, updatedAt: now },
-          ];
-          await db.operator_list.bulkAdd(slittingDefaults);
-          this.operatorList = (await db.operator_list.toArray()).sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
-        }
-
-        // Bersihkan mock operator METALIZE (HERI, EKO, DIDIK) jika ada dan ganti dengan aktual (TUKIMIN, FIRMAN, ANWAR)
-        const mockMetalizeNames = ['HERI', 'EKO', 'DIDIK'];
-        const mockOps = this.operatorList.filter(o => o.mesin && o.mesin.toUpperCase() === 'METALIZE' && mockMetalizeNames.includes(o.nama?.toUpperCase()));
-        if (mockOps.length > 0) {
-          for (const mOp of mockOps) {
-            if (mOp.id) await db.operator_list.delete(mOp.id);
+        // ZERO-SEEDING POLICY: Bersihkan seluruh operator dummy/simulasi dari IndexedDB dan memory
+        const dummyOpNames = ['SUDARMAJI', 'AHMAD', 'BAMBANG', 'TUKIMIN', 'FIRMAN', 'ANWAR', 'HENDRA', 'GUNAWAN', 'WAHYU', 'JOKO', 'KURNIA', 'LUKMAN', 'HERI', 'EKO', 'DIDIK'];
+        const dirtyOps = this.operatorList.filter(o => dummyOpNames.includes((o.nama || '').trim().toUpperCase()));
+        if (dirtyOps.length > 0) {
+          for (const dOp of dirtyOps) {
+            if (dOp.id) await db.operator_list.delete(dOp.id);
           }
         }
-
-        // Pastikan operator METALIZE aktual (TUKIMIN, FIRMAN, ANWAR) tersedia di database
-        const actualMetalize = [
-          { nama: 'TUKIMIN', mesin: 'METALIZE', kodeGrup: 'D', kodeOperator: 'D', active: true },
-          { nama: 'FIRMAN', mesin: 'METALIZE', kodeGrup: 'E', kodeOperator: 'E', active: true },
-          { nama: 'ANWAR', mesin: 'METALIZE', kodeGrup: 'F', kodeOperator: 'F', active: true },
-        ];
-        let hasChangedMetalize = mockOps.length > 0;
-        for (const act of actualMetalize) {
-          const exists = this.operatorList.some(o => o.mesin && o.mesin.toUpperCase() === 'METALIZE' && o.nama?.toUpperCase() === act.nama);
-          if (!exists) {
-            await db.operator_list.add({ ...act, createdAt: now, updatedAt: now });
-            hasChangedMetalize = true;
-          }
-        }
-        if (hasChangedMetalize) {
-          this.operatorList = (await db.operator_list.toArray()).sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
-        }
+        this.operatorList = (await db.operator_list.toArray())
+          .filter(o => !dummyOpNames.includes((o.nama || '').trim().toUpperCase()))
+          .sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
       } finally {
         this.loading = false;
       }
