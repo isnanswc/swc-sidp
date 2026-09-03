@@ -359,15 +359,22 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- SHEET 3: PLANNED SPK SLITTING & AI SCAN                           -->
+    <!-- SHEET 3: PLANNED SPK SLITTING & AI SCAN (BATCH HARIAN)            -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div v-else-if="activeSheet === 'planned'" class="space-y-4 animate-fade-in">
       
       <!-- Action Toolbar -->
       <div class="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h3 class="text-sm font-black text-zinc-900">Jadwal Rencana Kerja (JADWAL SLITTING 3B-PROD)</h3>
-          <p class="text-xs text-zinc-500 font-medium">Input mandiri atau scan dokumen fisik SPK menggunakan AI Kamera / Unggah Berkas</p>
+          <div class="flex items-center gap-2">
+            <h3 class="text-sm font-black text-zinc-900">Jadwal Rencana Kerja per Batch Harian (JADWAL SLITTING)</h3>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-50 text-purple-700 border border-purple-200 font-mono">
+              1 Scan = 1 Batch Harian
+            </span>
+          </div>
+          <p class="text-xs text-zinc-500 font-medium mt-0.5">
+            Daftar sesi pemindaian SPK harian. Klik baris batch untuk melihat atau menyembunyikan rincian planned SPK.
+          </p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -377,7 +384,7 @@
             class="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <span>📷</span>
-            <span>Scan SPK Kamera AI</span>
+            <span>Scan SPK Kamera AI (Batch Baru)</span>
           </button>
 
           <!-- Tombol Upload Dokumen SPK -->
@@ -389,99 +396,241 @@
 
           <!-- Input Manual Form -->
           <button
-            @click="openManualPlanModal"
+            @click="openManualPlanModal(null)"
             class="px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold transition-colors cursor-pointer"
           >
-            + Tambah Manual
+            + Buat Batch Manual
           </button>
         </div>
       </div>
 
-      <!-- TABLE PLANNED SPK (FORMAT ASLI 3B-PROD) -->
-      <div class="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs font-mono">
-            <thead class="bg-zinc-900 text-white font-bold text-[11px]">
-              <tr>
-                <th class="px-3 py-3 text-center w-10">No</th>
-                <th class="px-3 py-3 text-left">SPK</th>
-                <th class="px-3 py-3 text-left">TYPE</th>
-                <th class="px-3 py-3 text-center">TEBAL</th>
-                <th class="px-3 py-3 text-right">LEBAR</th>
-                <th class="px-3 py-3 text-right">PANJANG</th>
-                <th class="px-2 py-3 text-center bg-zinc-800">UP 1</th>
-                <th class="px-2 py-3 text-center bg-zinc-800">UP 2</th>
-                <th class="px-2 py-3 text-center bg-zinc-800">UP 3</th>
-                <th class="px-2 py-3 text-center bg-zinc-800">UP 4</th>
-                <th class="px-3 py-3 text-right">P. CHILD</th>
-                <th class="px-2 py-3 text-center">JR</th>
-                <th class="px-2 py-3 text-center text-red-400">TRIM</th>
-                <th class="px-3 py-3 text-left">KETERANGAN</th>
-                <th class="px-3 py-3 text-right">Meter jr</th>
-                <th class="px-3 py-3 text-center font-sans">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-zinc-200 text-zinc-800">
-              <tr v-if="spkStore.plans.length === 0">
-                <td colspan="16" class="py-12 text-center text-zinc-400 font-sans text-xs">
-                  Belum ada rencana SPK Slitting
-                </td>
-              </tr>
-              <tr
-                v-for="(row, idx) in spkStore.plans"
-                :key="row.id || idx"
-                class="hover:bg-amber-50/30 transition-colors"
+      <!-- EMPTY STATE: JIKA BELUM ADA BATCH -->
+      <div v-if="spkStore.batches.length === 0 && unassignedPlans.length === 0" class="bg-white rounded-3xl border border-zinc-200 p-12 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-2xl mb-3 shadow-2xs border border-red-100">
+          📄
+        </div>
+        <h3 class="text-base font-black text-zinc-900">Belum Ada Batch Rencana SPK Slitting</h3>
+        <p class="text-xs text-zinc-500 max-w-md mx-auto mt-1 font-medium">
+          Gunakan tombol <strong>Scan SPK Kamera AI</strong> atau <strong>Upload Berkas SPK</strong> di atas untuk memindai dokumen fisik JADWAL SLITTING (3B-PROD) dan membuat batch baru.
+        </p>
+        <div class="mt-4 flex items-center justify-center gap-2">
+          <button
+            @click="triggerCameraScan"
+            class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black shadow-xs cursor-pointer"
+          >
+            📷 Mulai Scan Dokumen Sekarang
+          </button>
+        </div>
+      </div>
+
+      <!-- DAFTAR BATCH HARIAN (ACCORDION EXPANDABLE) -->
+      <div v-else class="space-y-3">
+        <div
+          v-for="(batch, bIdx) in spkStore.batches"
+          :key="batch.uuid"
+          class="border border-zinc-200/90 rounded-2xl bg-white shadow-2xs overflow-hidden transition-all"
+        >
+          <!-- BATCH HEADER ROW: KLIK BARIS AKAN MENAMPILKAN/MENUTUP RINCIAN -->
+          <div
+            @click="toggleBatch(batch.uuid)"
+            class="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-50/80 transition-colors select-none flex-wrap gap-3"
+          >
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-bold text-zinc-400">#{{ bIdx + 1 }}</span>
+              <div
+                class="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-600 transition-transform duration-200"
+                :class="{ 'rotate-90 text-red-600 bg-red-50': expandedBatchIds.has(batch.uuid) }"
               >
-                <td class="px-3 py-2.5 text-center text-zinc-500 font-bold">{{ idx + 1 }}</td>
-                <td class="px-3 py-2.5 font-black text-zinc-900 text-sm whitespace-nowrap">
-                  {{ row.spkNo }}
-                </td>
-                <td class="px-3 py-2.5 font-black text-red-600 whitespace-nowrap">
-                  {{ row.formula }}
-                </td>
-                <td class="px-3 py-2.5 text-center">{{ row.thickness }}</td>
-                <td class="px-3 py-2.5 text-right font-bold">{{ formatNumber(row.lebarParent) }}</td>
-                <td class="px-3 py-2.5 text-right">{{ formatNumber(row.panjangParent) }}</td>
-                <td class="px-2 py-2.5 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 1) }}</td>
-                <td class="px-2 py-2.5 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 2) }}</td>
-                <td class="px-2 py-2.5 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 3) }}</td>
-                <td class="px-2 py-2.5 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 4) }}</td>
-                <td class="px-3 py-2.5 text-right">{{ formatNumber(getChildPanjang(row)) }}</td>
-                <td class="px-2 py-2.5 text-center font-black text-purple-900">{{ row.jumlahJumbo }}</td>
-                <td class="px-2 py-2.5 text-center font-black text-red-600 bg-red-50/50">{{ row.trimAuto }}</td>
-                <td class="px-3 py-2.5 text-zinc-500 text-[11px] whitespace-nowrap">{{ row.keterangan || '-' }}</td>
-                <td class="px-3 py-2.5 text-right font-black text-emerald-800">{{ formatNumber(row.totalPlannedMeter) }}</td>
-                <td class="px-3 py-2.5 text-center whitespace-nowrap font-sans">
-                  <div class="flex items-center justify-center gap-1">
-                    <button
-                      @click="openEditPlanModal(row)"
-                      class="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold text-[10px] cursor-pointer"
+                ▶
+              </div>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h4 class="font-black text-sm text-zinc-900 font-mono tracking-tight">{{ batch.batchName }}</h4>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 font-mono">
+                    📅 {{ batch.tanggal }}
+                  </span>
+                  <span class="px-2 py-0.5 rounded text-[9.5px] font-black bg-zinc-100 text-zinc-700 uppercase">
+                    {{ batch.source || 'AI_SCAN' }}
+                  </span>
+                </div>
+                <p class="text-[11px] text-zinc-500 font-sans mt-0.5">
+                  {{ expandedBatchIds.has(batch.uuid) ? 'Tutup rincian' : 'Klik baris ini untuk melihat detail planned SPK' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Ringkasan Metrik Batch -->
+            <div class="flex items-center gap-4 text-xs font-mono">
+              <div class="text-right">
+                <div class="font-black text-zinc-900">{{ getBatchPlans(batch.uuid).length || batch.totalItems }} Item SPK</div>
+                <div class="text-[10px] text-zinc-400 font-sans">Terjadwal</div>
+              </div>
+              <div class="text-right">
+                <div class="font-black text-purple-900">{{ getBatchTotalJumbo(batch.uuid) }} JR</div>
+                <div class="text-[10px] text-zinc-400 font-sans">Jumbo Roll</div>
+              </div>
+              <div class="text-right">
+                <div class="font-black text-emerald-800">{{ formatNumber(getBatchTotalMeter(batch.uuid)) }} m</div>
+                <div class="text-[10px] text-zinc-400 font-sans">Meter JR</div>
+              </div>
+
+              <!-- Tombol Aksi Batch -->
+              <div class="flex items-center gap-1.5 pl-3 border-l border-zinc-200 font-sans" @click.stop>
+                <button
+                  @click="openAddRowToBatch(batch)"
+                  class="px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-[10.5px] cursor-pointer"
+                  title="Tambah baris SPK ke batch ini"
+                >
+                  + Item
+                </button>
+                <button
+                  @click="confirmDeleteBatch(batch.uuid, batch.batchName)"
+                  class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 cursor-pointer"
+                  title="Hapus batch ini"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- RINCIAN DETAIL PLANNED SPK (MUNCUL SAAT BARIS BATCH DI-KLIK) -->
+          <div v-if="expandedBatchIds.has(batch.uuid)" class="p-4 bg-zinc-50/70 border-t border-zinc-200 animate-fade-in">
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-2xs overflow-hidden">
+              <div class="p-3 bg-zinc-100/80 border-b border-zinc-200 flex items-center justify-between text-xs font-sans">
+                <div class="flex items-center gap-2 font-bold text-zinc-700">
+                  <span>📋 Rincian Jadwal Slitting:</span>
+                  <span class="font-mono text-zinc-900 font-black">{{ batch.batchName }}</span>
+                  <span class="text-zinc-400">({{ batch.docNo || '3B-PROD' }})</span>
+                </div>
+                <div class="text-zinc-500 font-mono text-[11px]">
+                  Total: <strong class="text-zinc-900">{{ getBatchPlans(batch.uuid).length }} Baris SPK</strong>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs font-mono">
+                  <thead class="bg-zinc-900 text-white font-bold text-[11px]">
+                    <tr>
+                      <th class="px-3 py-2.5 text-center w-8">No</th>
+                      <th class="px-3 py-2.5 text-left">SPK</th>
+                      <th class="px-3 py-2.5 text-left">TYPE</th>
+                      <th class="px-2 py-2.5 text-center">TEBAL</th>
+                      <th class="px-3 py-2.5 text-right">LEBAR</th>
+                      <th class="px-3 py-2.5 text-right">PANJANG</th>
+                      <th class="px-2 py-2.5 text-center bg-zinc-800">UP 1</th>
+                      <th class="px-2 py-2.5 text-center bg-zinc-800">UP 2</th>
+                      <th class="px-2 py-2.5 text-center bg-zinc-800">UP 3</th>
+                      <th class="px-2 py-2.5 text-center bg-zinc-800">UP 4</th>
+                      <th class="px-3 py-2.5 text-right">P. CHILD</th>
+                      <th class="px-2 py-2.5 text-center">JR</th>
+                      <th class="px-2 py-2.5 text-center text-red-400">TRIM</th>
+                      <th class="px-3 py-2.5 text-left">KETERANGAN</th>
+                      <th class="px-3 py-2.5 text-right">Meter jr</th>
+                      <th class="px-3 py-2.5 text-center font-sans">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-zinc-200 text-zinc-800">
+                    <tr v-if="getBatchPlans(batch.uuid).length === 0">
+                      <td colspan="16" class="py-8 text-center text-zinc-400 font-sans text-xs">
+                        Belum ada item SPK pada batch ini. Klik tombol "+ Item" untuk menambahkan.
+                      </td>
+                    </tr>
+                    <tr
+                      v-for="(row, rIdx) in getBatchPlans(batch.uuid)"
+                      :key="row.id || rIdx"
+                      class="hover:bg-amber-50/40 transition-colors"
                     >
-                      Revisi
-                    </button>
-                    <button
-                      @click="confirmDeletePlan(row.id, row.spkNo)"
-                      class="p-1 text-zinc-400 hover:text-red-600 rounded cursor-pointer"
-                      title="Hapus"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-            <!-- Footer Akumulasi Asli Sesuai Dokumen -->
-            <tfoot class="bg-zinc-100 font-bold border-t-2 border-zinc-300 text-zinc-900">
-              <tr>
-                <td colspan="11" class="px-4 py-2.5 text-right uppercase text-[11px]">Total Akumulasi:</td>
-                <td class="px-2 py-2.5 text-center font-black text-purple-950 text-sm">{{ totalJumboAll }} JR</td>
-                <td class="px-2 py-2.5 text-center text-red-600 font-mono">-</td>
-                <td></td>
-                <td class="px-3 py-2.5 text-right font-black text-emerald-900 text-sm">{{ formatNumber(totalPlannedMeterAll) }} m</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
+                      <td class="px-3 py-2 text-center text-zinc-500 font-bold">{{ rIdx + 1 }}</td>
+                      <td class="px-3 py-2 font-black text-zinc-900 text-sm whitespace-nowrap">{{ row.spkNo }}</td>
+                      <td class="px-3 py-2 font-black text-red-600 whitespace-nowrap">{{ row.formula }}</td>
+                      <td class="px-2 py-2 text-center">{{ row.thickness }}</td>
+                      <td class="px-3 py-2 text-right font-bold">{{ formatNumber(row.lebarParent) }}</td>
+                      <td class="px-3 py-2 text-right">{{ formatNumber(row.panjangParent) }}</td>
+                      <td class="px-2 py-2 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 1) }}</td>
+                      <td class="px-2 py-2 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 2) }}</td>
+                      <td class="px-2 py-2 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 3) }}</td>
+                      <td class="px-2 py-2 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 4) }}</td>
+                      <td class="px-3 py-2 text-right">{{ formatNumber(getChildPanjang(row)) }}</td>
+                      <td class="px-2 py-2 text-center font-black text-purple-900">{{ row.jumlahJumbo }}</td>
+                      <td class="px-2 py-2 text-center font-black text-red-600 bg-red-50/50">{{ row.trimAuto }}</td>
+                      <td class="px-3 py-2 text-zinc-500 text-[11px] whitespace-nowrap">{{ row.keterangan || '-' }}</td>
+                      <td class="px-3 py-2 text-right font-black text-emerald-800">{{ formatNumber(row.totalPlannedMeter) }}</td>
+                      <td class="px-3 py-2 text-center whitespace-nowrap font-sans">
+                        <div class="flex items-center justify-center gap-1">
+                          <button
+                            @click="openEditPlanModal(row)"
+                            class="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold text-[10px] cursor-pointer"
+                          >
+                            Revisi
+                          </button>
+                          <button
+                            @click="confirmDeletePlan(row.id, row.spkNo)"
+                            class="p-1 text-zinc-400 hover:text-red-600 rounded cursor-pointer"
+                            title="Hapus baris ini"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                  <!-- Subtotal Batch Footer -->
+                  <tfoot class="bg-zinc-100 font-bold border-t-2 border-zinc-300 text-zinc-900">
+                    <tr>
+                      <td colspan="11" class="px-4 py-2 text-right uppercase text-[10.5px]">Subtotal Batch Ini:</td>
+                      <td class="px-2 py-2 text-center font-black text-purple-950 text-sm">{{ getBatchTotalJumbo(batch.uuid) }} JR</td>
+                      <td class="px-2 py-2 text-center text-red-600 font-mono">-</td>
+                      <td></td>
+                      <td class="px-3 py-2 text-right font-black text-emerald-900 text-sm">{{ formatNumber(getBatchTotalMeter(batch.uuid)) }} m</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- JIKA ADA ITEM SPK TANPA BATCH (LEGACY/MANUAL) -->
+        <div v-if="unassignedPlans.length > 0" class="border border-zinc-200 rounded-2xl bg-white shadow-2xs overflow-hidden">
+          <div class="p-4 bg-amber-50/50 border-b border-amber-200 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">📌</span>
+              <div>
+                <h4 class="font-black text-xs text-amber-900">Item Planned SPK Mandiri (Tanpa Batch)</h4>
+                <p class="text-[11px] text-amber-700">Item yang diinput sebelum sistem batching diaktifkan</p>
+              </div>
+            </div>
+            <span class="font-mono text-xs font-bold text-amber-900">{{ unassignedPlans.length }} Item</span>
+          </div>
+          <div class="overflow-x-auto p-4">
+            <table class="w-full text-xs font-mono">
+              <thead class="bg-zinc-800 text-white font-bold text-[11px]">
+                <tr>
+                  <th class="px-3 py-2 text-left">SPK</th>
+                  <th class="px-3 py-2 text-left">TYPE</th>
+                  <th class="px-3 py-2 text-right">LEBAR</th>
+                  <th class="px-3 py-2 text-center">JR</th>
+                  <th class="px-3 py-2 text-right">Meter jr</th>
+                  <th class="px-3 py-2 text-center font-sans">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-200">
+                <tr v-for="uRow in unassignedPlans" :key="uRow.id">
+                  <td class="px-3 py-2 font-bold">{{ uRow.spkNo }}</td>
+                  <td class="px-3 py-2 text-red-600">{{ uRow.formula }}</td>
+                  <td class="px-3 py-2 text-right">{{ formatNumber(uRow.lebarParent) }}</td>
+                  <td class="px-3 py-2 text-center">{{ uRow.jumlahJumbo }}</td>
+                  <td class="px-3 py-2 text-right text-emerald-800 font-bold">{{ formatNumber(uRow.totalPlannedMeter) }}</td>
+                  <td class="px-3 py-2 text-center font-sans">
+                    <button @click="openEditPlanModal(uRow)" class="px-2 py-1 bg-zinc-100 rounded text-[10px] font-bold">Revisi</button>
+                    <button @click="confirmDeletePlan(uRow.id, uRow.spkNo)" class="p-1 text-red-600 ml-1">🗑️</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -628,13 +777,25 @@
           <div class="flex items-center gap-2.5">
             <span class="text-xl">🔍</span>
             <div>
-              <h3 class="text-sm font-black text-white">LEMBAR VERIFIKASI HASIL SCAN SPK SLITTING (MANDIRI)</h3>
-              <p class="text-xs text-zinc-400 mt-0.5">Periksa dan koreksi data sebelum disimpan secara permanen ke Rencana Kerja</p>
+              <h3 class="text-sm font-black text-white">LEMBAR VERIFIKASI HASIL SCAN SPK SLITTING (1 BATCH HARIAN)</h3>
+              <p class="text-xs text-zinc-400 mt-0.5">Setiap dokumen yang dipindai disimpan menjadi 1 Batch Rencana Kerja harian</p>
             </div>
           </div>
           <button @click="showVerificationModal = false" class="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white cursor-pointer">
             ✕
           </button>
+        </div>
+
+        <!-- BATCH METADATA CONTROLS -->
+        <div class="p-3 bg-zinc-100 border-b border-zinc-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block font-bold text-zinc-700 mb-1">Nama Batch Dokumen *</label>
+            <input v-model="verificationBatchName" class="w-full p-2 bg-white border border-zinc-300 rounded-xl font-mono font-bold" placeholder="Mis: JADWAL SLITTING 3-Sep-26" />
+          </div>
+          <div>
+            <label class="block font-bold text-zinc-700 mb-1">Tanggal Jadwal *</label>
+            <input v-model="verificationBatchDate" type="date" class="w-full p-2 bg-white border border-zinc-300 rounded-xl font-mono font-bold" />
+          </div>
         </div>
 
         <!-- Spreadsheet Verification Table (Editable Cells) -->
@@ -836,6 +997,62 @@ const selectedSpkAnalytics = ref(null);
 // Verification Modal State
 const showVerificationModal = ref(false);
 const verificationStagingList = ref([]);
+// Batch & Expand State (1 Scan = 1 Batch)
+const expandedBatchIds = ref(new Set());
+const verificationBatchName = ref('');
+const verificationBatchDate = ref(new Date().toISOString().slice(0, 10));
+const targetBatchUuidForNewItem = ref(null);
+
+const toggleBatch = (uuid) => {
+  if (expandedBatchIds.value.has(uuid)) {
+    expandedBatchIds.value.delete(uuid);
+  } else {
+    expandedBatchIds.value.add(uuid);
+  }
+};
+
+const getBatchPlans = (batchUuid) => {
+  return (spkStore.plans || []).filter(p => p.batchId === batchUuid);
+};
+
+const getBatchTotalJumbo = (batchUuid) => {
+  return getBatchPlans(batchUuid).reduce((sum, p) => sum + (parseInt(p.jumlahJumbo, 10) || 1), 0);
+};
+
+const getBatchTotalMeter = (batchUuid) => {
+  return getBatchPlans(batchUuid).reduce((sum, p) => sum + (parseFloat(p.totalPlannedMeter) || 0), 0);
+};
+
+const unassignedPlans = computed(() => {
+  const batchUuids = new Set((spkStore.batches || []).map(b => b.uuid));
+  return (spkStore.plans || []).filter(p => !p.batchId || !batchUuids.has(p.batchId));
+});
+
+const openAddRowToBatch = (batch) => {
+  targetBatchUuidForNewItem.value = batch.uuid;
+  editingPlanId.value = null;
+  Object.assign(manualForm, {
+    spkNo: '',
+    formula: 'M07',
+    thickness: 25,
+    lebarParent: 2320,
+    panjangParent: 12000,
+    up1: 1145,
+    up2: 1145,
+    up3: null,
+    up4: null,
+    jumlahJumbo: 1,
+    keterangan: ''
+  });
+  showManualModal.value = true;
+};
+
+const confirmDeleteBatch = async (batchUuid, batchName) => {
+  if (confirm(`Hapus seluruh Batch "${batchName}" beserta seluruh baris SPK di dalamnya?`)) {
+    await spkStore.deleteBatch(batchUuid);
+  }
+};
+
 
 // Manual / Revision Modal State
 const showManualModal = ref(false);
@@ -1089,6 +1306,9 @@ const processImageScan = async (file) => {
   try {
     const extractedRows = await parseSpkDocumentImage(file);
     if (extractedRows && extractedRows.length > 0) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      verificationBatchName.value = `JADWAL SLITTING ${todayStr}`;
+      verificationBatchDate.value = todayStr;
       verificationStagingList.value = extractedRows;
       showVerificationModal.value = true;
     } else {
@@ -1110,14 +1330,21 @@ const calculateRowTrim = (row) => {
 };
 
 const commitVerificationToPlans = async () => {
-  for (const row of verificationStagingList.value) {
+  const batchMeta = {
+    batchName: verificationBatchName.value || `Jadwal Slitting ${verificationBatchDate.value || new Date().toISOString().slice(0, 10)}`,
+    docNo: '3B-PROD',
+    tanggal: verificationBatchDate.value || new Date().toISOString().slice(0, 10),
+    source: 'AI_SCAN'
+  };
+
+  const formattedItems = verificationStagingList.value.map(row => {
     const upList = [];
     if (row.up1) upList.push({ upNo: 1, lebar: parseFloat(row.up1), panjang: parseFloat(row.panjangChild) || 12000 });
     if (row.up2) upList.push({ upNo: 2, lebar: parseFloat(row.up2), panjang: parseFloat(row.panjangChild) || 12000 });
     if (row.up3) upList.push({ upNo: 3, lebar: parseFloat(row.up3), panjang: parseFloat(row.panjangChild) || 12000 });
     if (row.up4) upList.push({ upNo: 4, lebar: parseFloat(row.up4), panjang: parseFloat(row.panjangChild) || 12000 });
 
-    await spkStore.addPlan({
+    return {
       spkNo: row.spkNo,
       docNo: '3B-PROD',
       formula: row.formula,
@@ -1128,12 +1355,17 @@ const commitVerificationToPlans = async () => {
       totalPlannedMeter: row.totalPlannedMeter,
       upList,
       keterangan: row.keterangan,
-      source: 'AI_SCAN'
-    });
+      status: 'PLANNED'
+    };
+  });
+
+  const res = await spkStore.addBatchWithPlans(batchMeta, formattedItems);
+  if (res && res.batch) {
+    expandedBatchIds.value.add(res.batch.uuid);
   }
   showVerificationModal.value = false;
   activeSheet.value = 'planned';
-  alert(`✓ Berhasil menambahkan ${verificationStagingList.value.length} item SPK ke Rencana Kerja!`);
+  alert(`✓ Berhasil membuat Batch "${batchMeta.batchName}" dengan ${formattedItems.length} item SPK!`);
 };
 
 // ── MANUAL / REVISI MODAL ──
@@ -1209,7 +1441,22 @@ const saveManualPlan = async () => {
   if (editingPlanId.value) {
     await spkStore.updatePlan(editingPlanId.value, payload, manualForm.revisionReason || 'Revisi SPK', 'Admin');
   } else {
-    await spkStore.addPlan(payload);
+    if (targetBatchUuidForNewItem.value) {
+      payload.batchId = targetBatchUuidForNewItem.value;
+      await spkStore.addPlan(payload);
+      expandedBatchIds.value.add(targetBatchUuidForNewItem.value);
+    } else {
+      // Buat batch manual baru
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const res = await spkStore.addBatchWithPlans({
+        batchName: `Jadwal Slitting Manual ${todayStr}`,
+        tanggal: todayStr,
+        source: 'MANUAL'
+      }, [payload]);
+      if (res && res.batch) {
+        expandedBatchIds.value.add(res.batch.uuid);
+      }
+    }
   }
 
   showManualModal.value = false;

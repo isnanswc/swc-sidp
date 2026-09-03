@@ -7,9 +7,11 @@ import { useDataRollStore } from '@/stores/dataRollStore';
 
 export const useSpkStore = defineStore('spk', () => {
   const plans = ref([]);
+  const batches = ref([]);
   const revisions = ref([]);
   const isLoading = ref(false);
   const activePlanId = ref(null);
+  const selectedBatchId = ref(null);
 
   const configStore = useConfigStore();
   const labelStore = useLabelStore();
@@ -59,6 +61,9 @@ export const useSpkStore = defineStore('spk', () => {
   const loadAll = async () => {
     isLoading.value = true;
     try {
+      if (db.spk_batches) {
+        batches.value = (await db.spk_batches.toArray()).reverse();
+      }
       if (db.spk_plans) {
         // ZERO-SEEDING POLICY: Bersihkan segala data sample / dummy SPK
         const dummyItems = await db.spk_plans.filter(p => String(p.uuid || '').startsWith('spk-sample-')).toArray();
@@ -74,6 +79,93 @@ export const useSpkStore = defineStore('spk', () => {
       console.error('Failed to load SPK plans:', err);
     } finally {
       isLoading.value = false;
+    }
+  };
+
+  // Create New Batch with multiple SPK Plans (1 Scan = 1 Batch Harian)
+  const addBatchWithPlans = async (batchMeta, planItems) => {
+    const now = new Date().toISOString();
+    const batchUuid = `spk_batch_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const items = planItems || [];
+
+    const totalItems = items.length;
+    const totalJumbo = items.reduce((sum, it) => sum + (parseInt(it.jumlahJumbo, 10) || 1), 0);
+    const totalMeter = items.reduce((sum, it) => sum + (parseFloat(it.totalPlannedMeter) || 0), 0);
+
+    const batchRecord = {
+      uuid: batchUuid,
+      batchName: batchMeta.batchName || `Jadwal Slitting ${batchMeta.tanggal || now.slice(0, 10)}`,
+      docNo: batchMeta.docNo || '3B-PROD',
+      tanggal: batchMeta.tanggal || now.slice(0, 10),
+      totalItems,
+      totalJumbo,
+      totalMeter,
+      source: batchMeta.source || 'AI_SCAN',
+      createdAt: now,
+      updatedAt: now
+    };
+
+    if (db.spk_batches) {
+      const bId = await db.spk_batches.add(batchRecord);
+      batchRecord.id = bId;
+      batches.value.unshift(batchRecord);
+    }
+
+    const createdPlans = [];
+    for (const planData of items) {
+      const upList = planData.upList || [];
+      const trim = calculateTrim(planData.lebarParent, upList);
+      const planRecord = {
+        uuid: `spk_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        batchId: batchUuid,
+        spkNo: String(planData.spkNo || '').trim(),
+        docNo: String(batchRecord.docNo || '3B-PROD').trim(),
+        formula: String(planData.formula || 'M01').toUpperCase().trim(),
+        jenis: String(planData.jenis || 'CPP').toUpperCase().trim(),
+        thickness: parseFloat(planData.thickness) || 20,
+        lebarParent: parseFloat(planData.lebarParent) || 0,
+        panjangParent: parseFloat(planData.panjangParent) || 0,
+        jumlahJumbo: parseInt(planData.jumlahJumbo, 10) || 1,
+        totalPlannedMeter: parseFloat(planData.totalPlannedMeter) || 0,
+        totalPlannedRolls: parseInt(planData.totalPlannedRolls, 10) || (upList.length * (parseInt(planData.jumlahJumbo, 10) || 1)),
+        chartingJson: JSON.stringify(upList),
+        trimAuto: trim,
+        keterangan: planData.keterangan || '',
+        status: planData.status || 'PLANNED',
+        source: batchRecord.source,
+        revisionsCount: 0,
+        tanggal: batchRecord.tanggal,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      if (db.spk_plans) {
+        const pId = await db.spk_plans.add(planRecord);
+        planRecord.id = pId;
+        plans.value.unshift(planRecord);
+        createdPlans.push(planRecord);
+      }
+    }
+
+    return { batch: batchRecord, plans: createdPlans };
+  };
+
+  // Delete Batch and all its child plans
+  const deleteBatch = async (batchUuid) => {
+    if (db.spk_batches) {
+      const b = await db.spk_batches.where('uuid').equals(batchUuid).first();
+      if (b) await db.spk_batches.delete(b.id);
+      batches.value = batches.value.filter(b => b.uuid !== batchUuid);
+    }
+    if (db.spk_plans) {
+      const childPlans = await db.spk_plans.where('batchId').equals(batchUuid).toArray();
+      if (childPlans.length > 0) {
+        await db.spk_plans.bulkDelete(childPlans.map(c => c.id));
+        plans.value = plans.value.filter(p => p.batchId !== batchUuid);
+      }
+    }
+    if (selectedBatchId.value === batchUuid) {
+      selectedBatchId.value = null;
     }
   };
 
@@ -369,13 +461,17 @@ export const useSpkStore = defineStore('spk', () => {
 
   return {
     plans,
+    batches,
+    selectedBatchId,
     revisions,
     isLoading,
     activePlanId,
     loadAll,
     addPlan,
+    addBatchWithPlans,
     updatePlan,
     deletePlan,
+    deleteBatch,
     getSlittingSpeed,
     calculateEstimateMinutes,
     calculateTrim,

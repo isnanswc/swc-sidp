@@ -363,6 +363,35 @@ db.version(21).stores({
   spk_revisions: '++id, planId, spkNo, revNumber, previousDataJson, newDataJson, changesDiffJson, reason, revisedBy, createdAt'
 });
 
+db.version(22).stores({
+  labels: '++id, uuid, barcode, noPack, tanggal, spk, lot, turunan, operator, kodeOperator, jenis, type, kode, thickness, width, length, meter, joint, netto, paperCore, kodePack, subKode, status, treatment, od, jenisPrint, verified, synced, createdAt, updatedAt',
+  settings: 'key, value, updatedAt',
+  film_configs: '++id, jenis, tipeBahan, jenisBahan, kategoriFilm, kodeFormula, alias, keterangan, supplier, density, active, createdAt, updatedAt',
+  mesin_list: '++id, nama, praKodePack, active, createdAt, updatedAt',
+  operator_list: '++id, nama, mesin, kodeGrup, kodeOperator, active, createdAt, updatedAt',
+  jenis_list: '++id, nama, active, createdAt',
+  jenis_bahan_list: '++id, nama, active, createdAt',
+  kategori_film_list: '++id, nama, active, createdAt',
+  tipe_bahan_list: '++id, nama, active, createdAt',
+  label_signs: '++id, name, triggerType, triggerValue, badgeText, textColor, bgColor, active, createdAt, updatedAt',
+  inventory_items: '++id, descriptionExcel, descriptionNav, sourceNo, jenis, kodeFormula, thickness, width, length, core, od, tanda, createdAt, updatedAt',
+  inventory_stock_uploads: '++id, uploadDate, fileName, totalSku, totalRoll, uploadedBy, itemsJson, createdAt',
+  inventory_current_stocks: '++id, itemKey, descriptionExcel, descriptionNav, sourceNo, totalRoll, totalKg, lastUploadDate, updatedAt',
+  wip_rolls: '++id, uuid, updateId, tanggalSpk, spk, lot, jenis, kodeFormula, thickness, width, length, core, od, tanda, beratAktual, beratTeori, lokasiAktif, posisiAktif, descriptionExcel, descriptionNav, keterangan, status, createdAt, updatedAt',
+  scan_reports: '++id, uuid, name, tanggal, machine, totalShifts, totalRolls, totalResinKg, totalRollsKg, totalWasteKg, balanceDiffKg, shiftsJson, createdAt, updatedAt',
+  wip_updates: '++id, uuid, title, tanggal, fileName, totalRolls, totalKg, isActive, rollsJson, createdAt, updatedAt',
+  location_list: '++id, nama, jenis, alias, kapasitas, keterangan, active, createdAt, updatedAt',
+  standard_lengths: '++id, thickness, maxPanjangFg, maxPanjangJumbo, active, createdAt, updatedAt',
+  resin_items: '++id, resin, kode, nomorItem, active, createdAt, updatedAt',
+  bom_formulas: '++id, formula, rm, persen, active, createdAt, updatedAt',
+  data_rolls: '++id, uuid, uploadId, batchId, kodeFg, lot, turunan, jenis, kodeFormula, thickness, width, length, core, treatment, od, slitting, rewind, sml, machineName, tanggal, tanggalFormatted, spk, kodePack, subKode, qualityStatus, verified, createdAt, updatedAt',
+  data_roll_uploads: '++id, uuid, uploadDate, batchName, source, fileName, machine, totalRolls, totalKg, passCount, holdCount, rejectCount, uploadedBy, status, rollsJson, createdAt, updatedAt',
+  users: '++id, uuid, username, name, email, role, active, createdAt, updatedAt',
+  spk_plans: '++id, uuid, batchId, spkNo, docNo, formula, jenis, thickness, lebarParent, panjangParent, jumlahJumbo, totalPlannedRolls, totalPlannedMeter, totalPlannedKg, chartingJson, trimAuto, keterangan, status, source, revisionsCount, tanggal, createdAt, updatedAt',
+  spk_revisions: '++id, planId, spkNo, revNumber, previousDataJson, newDataJson, changesDiffJson, reason, revisedBy, createdAt',
+  spk_batches: '++id, uuid, batchName, docNo, tanggal, totalItems, totalJumbo, totalMeter, source, createdAt, updatedAt'
+});
+
 export async function saveSetting(key, value) {
   try {
     let cleanValue = value;
