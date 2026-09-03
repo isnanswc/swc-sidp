@@ -285,7 +285,7 @@
               <tr>
                 <th class="px-4 py-3 text-left w-12 font-mono">#</th>
                 <th class="px-4 py-3 text-left">Nomor SPK</th>
-                <th class="px-4 py-3 text-left">Dokumen / Tanggal</th>
+                <th class="px-4 py-3 text-left">Tahun / Periode</th>
                 <th class="px-4 py-3 text-left">Formula & Spek</th>
                 <th class="px-4 py-3 text-center">Jumbo Roll (JR)</th>
                 <th class="px-4 py-3 text-right">Hasil Aktual</th>
@@ -301,12 +301,12 @@
                 </td>
               </tr>
               <tr
-                v-for="(item, idx) in filteredActiveSpkList"
+                v-for="(item, idx) in paginatedActiveSpkList"
                 :key="item.spkNo"
-                class="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                class="hover:bg-blue-50/50 transition-colors cursor-pointer"
                 @click="openSpkDetailDrawer(item)"
               >
-                <td class="px-4 py-3 text-zinc-400 font-bold">{{ idx + 1 }}</td>
+                <td class="px-4 py-3 text-zinc-400 font-bold">{{ (spkCurrentPage - 1) * spkPageSize + idx + 1 }}</td>
                 <td class="px-4 py-3">
                   <div class="font-black text-sm text-zinc-900 flex items-center gap-1.5">
                     <span>{{ item.spkNo }}</span>
@@ -314,17 +314,17 @@
                   </div>
                   <div class="text-[10px] text-zinc-400 font-sans">{{ item.plan?.docNo || '3B-PROD' }}</div>
                 </td>
-                <td class="px-4 py-3 text-zinc-600">
-                  <div>{{ item.plan?.tanggal || '3-Sep-26' }}</div>
-                  <div class="text-[10px] text-zinc-400">Tahun: 2026 • Bulan: Sep</div>
+                <td class="px-4 py-3 text-zinc-700">
+                  <div class="font-bold font-mono">{{ item.year }} • {{ item.monthName }}</div>
+                  <div class="text-[10px] text-zinc-400 font-sans">{{ item.supplier }}</div>
                 </td>
                 <td class="px-4 py-3">
                   <span class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 font-bold text-[11px]">
-                    {{ item.plan?.formula || 'M07' }} - {{ item.plan?.thickness || 25 }}μ
+                    {{ item.formula }} - {{ item.thickness }}μ
                   </span>
                 </td>
                 <td class="px-4 py-3 text-center font-bold text-zinc-700">
-                  {{ item.plan?.jumlahJumbo || 1 }} JR
+                  {{ item.totalJumbo }} JR
                 </td>
                 <td class="px-4 py-3 text-right">
                   <div class="font-black text-emerald-700">{{ item.totalRealRolls }} Roll</div>
@@ -353,6 +353,42 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- PAGINATION & LAZY CONTROLS BAR (RINGAN & CEPAT) -->
+        <div class="p-3.5 bg-zinc-50 border-t border-zinc-200 flex items-center justify-between flex-wrap gap-3 text-xs">
+          <div class="text-zinc-500 font-medium">
+            Menampilkan <strong class="text-zinc-900 font-bold font-mono">{{ ((spkCurrentPage - 1) * spkPageSize) + (filteredActiveSpkList.length ? 1 : 0) }} – {{ Math.min(spkCurrentPage * spkPageSize, filteredActiveSpkList.length) }}</strong> dari <strong class="text-zinc-900 font-bold font-mono">{{ filteredActiveSpkList.length }}</strong> SPK
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span class="text-zinc-400 font-medium text-[11px]">Baris per halaman:</span>
+            <select v-model.number="spkPageSize" class="p-1 border border-zinc-300 rounded-lg text-xs bg-white font-mono">
+              <option :value="10">10</option>
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+            </select>
+
+            <div class="flex items-center gap-1 font-mono ml-2">
+              <button
+                @click="spkCurrentPage = Math.max(1, spkCurrentPage - 1)"
+                :disabled="spkCurrentPage <= 1"
+                class="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white font-bold hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                ‹ Sebelumnya
+              </button>
+              <span class="px-2.5 py-1 text-zinc-600 font-bold">
+                {{ spkCurrentPage }} / {{ totalSpkPages }}
+              </span>
+              <button
+                @click="spkCurrentPage = Math.min(totalSpkPages, spkCurrentPage + 1)"
+                :disabled="spkCurrentPage >= totalSpkPages"
+                class="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white font-bold hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Selanjutnya ›
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -639,40 +675,51 @@
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- DRAWER / MODAL DETAIL SPK (BERBAGI DATA DENGAN LABEL / DATA ROLL)  -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div v-if="showDetailDrawer && selectedSpkAnalytics" class="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-fade-in">
-      <div class="bg-white w-full max-w-xl h-full shadow-2xl flex flex-col justify-between overflow-hidden">
+    <div v-if="showDetailDrawer && selectedSpkAnalytics" class="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-xs animate-fade-in" @click.self="showDetailDrawer = false">
+      <div class="bg-white w-full max-w-xl h-full shadow-2xl flex flex-col justify-between overflow-hidden border-l border-zinc-200 animate-slide-left">
         
         <!-- Header Drawer -->
-        <div class="p-5 border-b border-zinc-200 bg-zinc-950 text-white flex items-center justify-between">
+        <div class="p-5 border-b border-zinc-200 bg-gradient-to-r from-zinc-950 to-zinc-900 text-white flex items-center justify-between">
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-xs px-2 py-0.5 rounded bg-red-600 text-white font-mono font-bold">SPK DETAIL</span>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-red-600 text-white font-mono font-bold">DETAIL SPK</span>
               <h2 class="text-lg font-black font-mono tracking-tight">{{ selectedSpkAnalytics.spkNo }}</h2>
             </div>
             <p class="text-xs text-zinc-400 mt-0.5">Integrasi Data Terpadu: Management Label & Data Roll</p>
           </div>
-          <button @click="showDetailDrawer = false" class="p-2 rounded-xl bg-zinc-800 text-zinc-300 hover:text-white cursor-pointer">
+          <button @click="showDetailDrawer = false" class="w-8 h-8 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center cursor-pointer">
             ✕
           </button>
         </div>
 
         <!-- Drawer Body -->
-        <div class="p-5 overflow-y-auto space-y-5 text-xs">
+        <div class="p-5 overflow-y-auto space-y-4 text-xs">
           
           <!-- Data Pokok SPK -->
-          <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2">
-            <h4 class="font-extrabold text-zinc-900 uppercase text-[11px] border-b border-zinc-200 pb-1.5">📌 Informasi Dasar SPK</h4>
+          <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
+            <h4 class="font-extrabold text-zinc-900 uppercase text-[11px] border-b border-zinc-200 pb-1.5 flex items-center justify-between">
+              <span>📌 Informasi Dasar SPK</span>
+              <span class="font-mono text-zinc-500 font-bold">{{ selectedSpkAnalytics.plan?.docNo || '3B-PROD' }}</span>
+            </h4>
             <div class="grid grid-cols-2 gap-3 text-zinc-700">
               <div>
-                <span class="text-[10px] text-zinc-400 block font-semibold">Tahun / Bulan</span>
-                <span class="font-black text-zinc-900 text-sm font-mono">2026 / September</span>
+                <span class="text-[10px] text-zinc-400 block font-semibold">Tahun / Periode Bulan</span>
+                <span class="font-black text-zinc-900 text-sm font-mono">{{ selectedSpkAnalytics.year }} / {{ selectedSpkAnalytics.monthName }}</span>
               </div>
               <div>
                 <span class="text-[10px] text-zinc-400 block font-semibold">Supplier Asal</span>
-                <span class="font-black text-blue-900 text-sm">INHOUSE (PT. SWC)</span>
+                <span class="font-black text-blue-900 text-sm">{{ selectedSpkAnalytics.supplier }}</span>
               </div>
               <div>
-                <span class="text-[10px] text-zinc-400 block font-semibold">Total Berat Bersih</span>
+                <span class="text-[10px] text-zinc-400 block font-semibold">Formula & Spek Film</span>
+                <span class="font-black text-purple-900 text-sm font-mono">{{ selectedSpkAnalytics.formula }} ({{ selectedSpkAnalytics.thickness }}μ)</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-zinc-400 block font-semibold">Total Jumbo Roll (JR)</span>
+                <span class="font-black text-amber-900 text-sm font-mono">{{ selectedSpkAnalytics.totalJumbo }} JR</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-zinc-400 block font-semibold">Total Berat Bersih Roll</span>
                 <span class="font-black text-emerald-800 text-sm font-mono">{{ formatNumber(selectedSpkAnalytics.totalRealKg) }} kg</span>
               </div>
               <div>
@@ -684,7 +731,10 @@
 
           <!-- QC Mutu & Status Progress Bar -->
           <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2.5">
-            <h4 class="font-extrabold text-zinc-900 uppercase text-[11px] border-b border-zinc-200 pb-1.5">📊 Status Kualitas & Pencapaian</h4>
+            <div class="flex items-center justify-between border-b border-zinc-200 pb-1.5">
+              <h4 class="font-extrabold text-zinc-900 uppercase text-[11px]">📊 Status Kualitas Hasil (QC)</h4>
+              <span class="text-xs font-mono font-black text-emerald-700">{{ selectedSpkAnalytics.totalRealRolls }} Total Roll</span>
+            </div>
             <div class="grid grid-cols-3 gap-2 text-center font-mono">
               <div class="p-2 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold">
                 <div class="text-[10px]">PASS / OK</div>
@@ -701,16 +751,16 @@
             </div>
           </div>
 
-          <!-- RINGKASAN HASIL ROLL TURUNAN PER UKURAN LEBAR (SESUAI REQUEST USER) -->
+          <!-- RINGKASAN HASIL ROLL TURUNAN PER UKURAN LEBAR (SESUAI PERMINTAAN USER) -->
           <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2.5">
             <div class="flex items-center justify-between border-b border-zinc-200 pb-1.5">
               <h4 class="font-extrabold text-zinc-900 uppercase text-[11px]">📐 Ringkasan Hasil per Ukuran Roll Turunan</h4>
-              <span class="text-[10px] font-mono text-zinc-500 font-bold">{{ selectedSpkAnalytics.widthSummaries.length }} Ukuran Teridentifikasi</span>
+              <span class="text-[10px] font-mono text-zinc-500 font-bold">{{ (selectedSpkAnalytics.widthSummaries || []).length }} Ukuran Teridentifikasi</span>
             </div>
             
             <div class="space-y-2 font-mono">
               <div
-                v-for="w in selectedSpkAnalytics.widthSummaries"
+                v-for="w in (selectedSpkAnalytics.widthSummaries || [])"
                 :key="w.width"
                 class="p-3 bg-white rounded-xl border border-zinc-200 shadow-2xs flex items-center justify-between"
               >
@@ -723,24 +773,32 @@
                   <div class="text-[10px] text-zinc-400">{{ formatNumber(w.totalMeter) }} m • {{ formatNumber(w.totalKg) }} kg</div>
                 </div>
               </div>
-              <div v-if="selectedSpkAnalytics.widthSummaries.length === 0" class="text-center py-4 text-zinc-400 font-sans">
+              <div v-if="!selectedSpkAnalytics.widthSummaries || selectedSpkAnalytics.widthSummaries.length === 0" class="text-center py-4 text-zinc-400 font-sans">
                 Belum ada roll turunan yang terdata
               </div>
             </div>
           </div>
 
-          <!-- Daftar Nomor Lot Terkait -->
+          <!-- Daftar Nomor Lot Terdaftar -->
           <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2">
-            <h4 class="font-extrabold text-zinc-900 uppercase text-[11px] border-b border-zinc-200 pb-1.5">🏷️ Daftar Nomor Lot Terdaftar ({{ selectedSpkAnalytics.realLots.length }})</h4>
-            <div class="max-h-48 overflow-y-auto space-y-1 font-mono text-[11px]">
+            <div class="flex items-center justify-between border-b border-zinc-200 pb-1.5">
+              <h4 class="font-extrabold text-zinc-900 uppercase text-[11px]">🏷️ Daftar Nomor Lot Terdaftar ({{ (selectedSpkAnalytics.realLots || []).length }})</h4>
+              <input
+                v-model="drawerLotSearch"
+                placeholder="Cari lot..."
+                class="px-2 py-0.5 text-[10px] border border-zinc-300 rounded font-mono bg-white"
+              />
+            </div>
+            <div class="max-h-56 overflow-y-auto space-y-1 font-mono text-[11px]">
               <div
-                v-for="lot in selectedSpkAnalytics.realLots"
+                v-for="lot in filteredDrawerLots"
                 :key="lot.lot"
                 class="p-2 bg-white rounded-lg border border-zinc-200 flex items-center justify-between"
               >
                 <div>
                   <strong class="text-zinc-900">{{ lot.lot }}</strong>
-                  <span class="text-zinc-400 text-[10px] ml-2">({{ lot.width }} mm × {{ lot.length }} m)</span>
+                  <span class="text-zinc-400 text-[10px] ml-2 font-sans">({{ lot.width }} mm × {{ formatNumber(lot.length) }} m • {{ formatNumber(lot.weight) }} kg)</span>
+                  <span v-if="lot.operator" class="text-zinc-500 text-[9.5px] block font-sans">Operator: {{ lot.operator }}</span>
                 </div>
                 <span
                   :class="[
@@ -750,6 +808,9 @@
                 >
                   {{ lot.status }}
                 </span>
+              </div>
+              <div v-if="filteredDrawerLots.length === 0" class="text-center py-4 text-zinc-400 font-sans">
+                Tidak ada data nomor lot
               </div>
             </div>
           </div>
@@ -1241,7 +1302,11 @@ const getChildPanjang = (row) => {
   return ups.length > 0 && ups[0].panjang ? ups[0].panjang : 12000;
 };
 
-// ── SHEET 2: ACTIVE SPK LIST (FAST O(1) LOOKUP) ──
+// ── SHEET 2: ACTIVE SPK LIST (SORTED BY YEAR, MONTH, SPK DESC & PAGINATED) ──
+
+const spkCurrentPage = ref(1);
+const spkPageSize = ref(10);
+const drawerLotSearch = ref('');
 
 const activeSpkList = computed(() => {
   const map = new Map();
@@ -1261,16 +1326,48 @@ const activeSpkList = computed(() => {
     }
   }
 
-  return Array.from(map.values());
+  // 3. Urutkan sesuai Tahun, Bulan, dan Waktu/Urutan SPK dari paling baru ke paling lama
+  return Array.from(map.values()).sort((a, b) => {
+    if ((b.year || 0) !== (a.year || 0)) {
+      return (b.year || 0) - (a.year || 0);
+    }
+    if ((b.month || 0) !== (a.month || 0)) {
+      return (b.month || 0) - (a.month || 0);
+    }
+    const timeA = a.timestamp || 0;
+    const timeB = b.timestamp || 0;
+    if (timeB !== timeA) {
+      return timeB - timeA;
+    }
+    return String(b.spkNo || '').localeCompare(String(a.spkNo || ''), undefined, { numeric: true, sensitivity: 'base' });
+  });
 });
 
 const filteredActiveSpkList = computed(() => {
   const q = (searchSpkQuery.value || '').trim().toLowerCase();
   if (!q) return activeSpkList.value;
   return activeSpkList.value.filter(item => {
-    return String(item.spkNo).toLowerCase().includes(q) ||
-      (item.plan && String(item.plan.formula).toLowerCase().includes(q));
+    return String(item.spkNo || '').toLowerCase().includes(q) ||
+      String(item.formula || '').toLowerCase().includes(q) ||
+      String(item.year || '').includes(q) ||
+      String(item.monthName || '').toLowerCase().includes(q);
   });
+});
+
+const totalSpkPages = computed(() => {
+  return Math.ceil(filteredActiveSpkList.value.length / spkPageSize.value) || 1;
+});
+
+const paginatedActiveSpkList = computed(() => {
+  const start = (spkCurrentPage.value - 1) * spkPageSize.value;
+  return filteredActiveSpkList.value.slice(start, start + spkPageSize.value);
+});
+
+const filteredDrawerLots = computed(() => {
+  const lots = selectedSpkAnalytics.value?.realLots || [];
+  const q = (drawerLotSearch.value || '').trim().toLowerCase();
+  if (!q) return lots;
+  return lots.filter(l => String(l.lot || '').toLowerCase().includes(q) || String(l.operator || '').toLowerCase().includes(q));
 });
 
 const openSpkDetailDrawer = (item) => {

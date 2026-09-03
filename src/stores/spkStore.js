@@ -309,7 +309,11 @@ export const useSpkStore = defineStore('spk', () => {
           weight: kg,
           status: st,
           source: 'LABEL',
-          date: l.tanggal || l.createdAt
+          date: l.tanggal || l.createdAt,
+          formula: l.kodeFormula || l.formula || l.type || l.jenis || '',
+          thickness: parseFloat(l.thickness) || 0,
+          operator: l.operator || l.kodeOperator || '-',
+          supplier: l.supplier || 'INHOUSE'
         });
 
         spkObj.totalRealRolls++;
@@ -355,7 +359,11 @@ export const useSpkStore = defineStore('spk', () => {
           weight: kg,
           status: st,
           source: 'DATA_ROLL',
-          date: r.tanggal || r.createdAt
+          date: r.tanggal || r.tanggalFormatted || r.createdAt,
+          formula: r.kodeFormula || r.jenis || '',
+          thickness: parseFloat(r.thickness) || 0,
+          operator: r.machineName || '-',
+          supplier: 'INHOUSE'
         });
 
         spkObj.totalRealRolls++;
@@ -429,17 +437,59 @@ export const useSpkStore = defineStore('spk', () => {
     const isCrossOrderWarning = subSpkTokens.length > 1;
     const warningMessage = isCrossOrderWarning ? `SPK multi-item (${subSpkTokens.join(' & ')}) dalam 1 lembar pengerjaan.` : '';
 
-    // Speed & time calculation in O(1)
-    const speed = plan ? getSlittingSpeed(plan.formula, plan.jenis) : 600;
-    const plannedMeter = plan ? (plan.totalPlannedMeter || (plan.panjangParent * plan.jumlahJumbo)) : (totalRealMeter || 24000);
-    const jumlahJumbo = plan ? (plan.jumlahJumbo || 1) : 1;
-    const timeEst = calculateEstimateMinutes(plannedMeter, jumlahJumbo, speed);
+    // Extract dynamic dates, year, month, formula, thickness, supplier
+    let latestTimestamp = 0;
+    let detectedFormula = '';
+    let detectedThickness = 0;
+    let detectedSupplier = 'INHOUSE (PT. SWC)';
 
-    const plannedRollsCount = plan ? (plan.totalPlannedRolls || (jumlahJumbo * 2)) : Math.max(totalRealRolls, 1);
+    for (const lt of allLots) {
+      if (lt.date) {
+        const t = new Date(lt.date).getTime();
+        if (t > latestTimestamp) latestTimestamp = t;
+      }
+      if (!detectedFormula && lt.formula) detectedFormula = lt.formula;
+      if (!detectedThickness && lt.thickness) detectedThickness = lt.thickness;
+      if (lt.supplier && lt.supplier !== 'INHOUSE') detectedSupplier = lt.supplier;
+    }
+
+    if (plan && plan.tanggal) {
+      const pt = new Date(plan.tanggal).getTime();
+      if (pt > latestTimestamp) latestTimestamp = pt;
+    }
+
+    const d = latestTimestamp > 0 ? new Date(latestTimestamp) : new Date();
+    const year = d.getFullYear() || 2026;
+    const month = d.getMonth() + 1; // 1 - 12
+    const monthNamesId = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const monthName = monthNamesId[month] || 'September';
+
+    const formula = plan?.formula || detectedFormula || 'M01';
+    const thickness = plan?.thickness || detectedThickness || 25;
+    const supplier = (cleanSpk.includes('PANVERTA') ? 'PANVERTA' : detectedSupplier) || 'INHOUSE (PT. SWC)';
+    const totalJumbo = plan?.jumlahJumbo || Math.max(1, Math.ceil(totalRealRolls / 2));
+
+    // Speed & time calculation in O(1)
+    const speed = plan ? getSlittingSpeed(formula, plan.jenis) : 600;
+    const plannedMeter = plan ? (plan.totalPlannedMeter || (plan.panjangParent * totalJumbo)) : (totalRealMeter || 24000);
+    const timeEst = calculateEstimateMinutes(plannedMeter, totalJumbo, speed);
+
+    const plannedRollsCount = plan ? (plan.totalPlannedRolls || (totalJumbo * 2)) : Math.max(totalRealRolls, 1);
     const achievementPercent = plannedRollsCount > 0 ? Math.min(100, Math.round((totalRealRolls / plannedRollsCount) * 100)) : 0;
 
     return {
       spkNo: cleanSpk,
+      year,
+      month,
+      monthName,
+      timestamp: latestTimestamp,
+      formula,
+      thickness,
+      supplier,
+      totalJumbo,
       totalRealRolls,
       totalRealMeter,
       totalRealKg,
