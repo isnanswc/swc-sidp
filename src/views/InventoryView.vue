@@ -1277,7 +1277,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue';
+import { ref, computed, reactive, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useInventoryStore, parseFg27ColRow } from '@/stores/inventoryStore';
 import * as XLSX from 'xlsx';
