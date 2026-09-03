@@ -1,3 +1,49 @@
+export function getBatchDateMatchingWindow(batch) {
+  if (!batch || !batch.tanggal) return null;
+
+  const raw = String(batch.tanggal).trim();
+  const isoDates = raw.match(/\d{4}-\d{2}-\d{2}/g);
+  let startDate = null;
+  let endDate = null;
+
+  if (isoDates && isoDates.length >= 2) {
+    startDate = new Date(isoDates[0]);
+    endDate = new Date(isoDates[isoDates.length - 1]);
+  } else if (isoDates && isoDates.length === 1) {
+    startDate = new Date(isoDates[0]);
+    endDate = new Date(isoDates[0]);
+  } else {
+    const rangeMatch = raw.match(/(\d{1,2})\s*-\s*(\d{1,2})\s*([A-Za-z]+)\s*(\d{4})/);
+    if (rangeMatch) {
+      const dStart = parseInt(rangeMatch[1], 10);
+      const dEnd = parseInt(rangeMatch[2], 10);
+      const mStr = rangeMatch[3].toLowerCase();
+      const yr = parseInt(rangeMatch[4], 10);
+      const monthMap = { jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4, jun: 5, jul: 6, agu: 7, aug: 7, sep: 8, okt: 9, oct: 9, nov: 10, des: 11, dec: 11 };
+      const mIdx = monthMap[mStr.slice(0, 3)] ?? 8;
+      startDate = new Date(yr, mIdx, dStart);
+      endDate = new Date(yr, mIdx, dEnd);
+    } else {
+      startDate = new Date(batch.createdAt || Date.now());
+      endDate = new Date(startDate);
+    }
+  }
+
+  startDate.setHours(0, 0, 0, 0);
+  const limitDate = new Date(endDate);
+  limitDate.setDate(limitDate.getDate() + 1); // H+1 aturan user
+  limitDate.setHours(23, 59, 59, 999);
+
+  return {
+    startDate,
+    endDate,
+    limitDate,
+    startDateMs: startDate.getTime(),
+    limitDateMs: limitDate.getTime(),
+    label: `${startDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} s/d ${limitDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} (H+1)`
+  };
+}
+
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db } from '@/db';
@@ -12,6 +58,19 @@ export const useSpkStore = defineStore('spk', () => {
   const isLoading = ref(false);
   const activePlanId = ref(null);
   const selectedBatchId = ref(null);
+  const activeTimelineBatchUuid = ref(null);
+
+  const activeBatch = computed(() => {
+    if (activeTimelineBatchUuid.value) {
+      const found = (batches.value || []).find(b => b.uuid === activeTimelineBatchUuid.value);
+      if (found) return found;
+    }
+    return (batches.value || [])[0] || null;
+  });
+
+  const activeDateWindow = computed(() => {
+    return getBatchDateMatchingWindow(activeBatch.value);
+  });
 
   const configStore = useConfigStore();
   const labelStore = useLabelStore();
@@ -70,7 +129,8 @@ export const useSpkStore = defineStore('spk', () => {
         if (dummyItems.length > 0) {
           await db.spk_plans.bulkDelete(dummyItems.map(d => d.id));
         }
-        plans.value = (await db.spk_plans.toArray()).reverse();
+        const rawPlans = await db.spk_plans.toArray();
+        plans.value = rawPlans.sort((a, b) => (a.seq || a.no || a.id) - (b.seq || b.no || b.id));
       }
       if (db.spk_revisions) {
         revisions.value = (await db.spk_revisions.toArray()).reverse();
@@ -142,7 +202,7 @@ export const useSpkStore = defineStore('spk', () => {
       if (db.spk_plans) {
         const pId = await db.spk_plans.add(planRecord);
         planRecord.id = pId;
-        plans.value.unshift(planRecord);
+        plans.value.push(planRecord);
         createdPlans.push(planRecord);
       }
     }
@@ -271,6 +331,10 @@ export const useSpkStore = defineStore('spk', () => {
     const rolls = dataRollStore.rolls || [];
     const spkMap = new Map();
 
+    const wnd = activeDateWindow.value;
+    const minTime = wnd ? wnd.startDateMs : 0;
+    const maxTime = wnd ? wnd.limitDateMs : Infinity;
+
     const getOrInitSpk = (spkKey) => {
       if (!spkMap.has(spkKey)) {
         spkMap.set(spkKey, {
@@ -292,6 +356,15 @@ export const useSpkStore = defineStore('spk', () => {
     for (let i = 0; i < labels.length; i++) {
       const l = labels[i];
       if (!l || !l.spk) continue;
+
+      // Filter tanggal aktual: data masa lampau diabaikan, hanya berlaku [startDate ... H+1]
+      const rawDateStr = l.tanggal || l.createdAt;
+      if (wnd && rawDateStr) {
+        const itemTime = new Date(rawDateStr).getTime();
+        if (!isNaN(itemTime)) {
+          if (itemTime < minTime || itemTime > maxTime) continue;
+        }
+      }
       const s = String(l.spk).trim().toUpperCase();
       const spkObj = getOrInitSpk(s);
       const lotKey = l.lot || l.barcode || l.uniqId || `L_${i}`;
@@ -342,6 +415,15 @@ export const useSpkStore = defineStore('spk', () => {
     for (let i = 0; i < rolls.length; i++) {
       const r = rolls[i];
       if (!r || !r.spk) continue;
+
+      // Filter tanggal aktual: data masa lampau diabaikan, hanya berlaku [startDate ... H+1]
+      const rawDateStr = r.tanggal || r.tanggalFormatted || r.createdAt;
+      if (wnd && rawDateStr) {
+        const itemTime = new Date(rawDateStr).getTime();
+        if (!isNaN(itemTime)) {
+          if (itemTime < minTime || itemTime > maxTime) continue;
+        }
+      }
       const s = String(r.spk).trim().toUpperCase();
       const spkObj = getOrInitSpk(s);
       const lotKey = r.lot || r.kodeFg || r.uuid || `R_${i}`;
@@ -525,6 +607,9 @@ export const useSpkStore = defineStore('spk', () => {
     getSlittingSpeed,
     calculateEstimateMinutes,
     calculateTrim,
+    activeTimelineBatchUuid,
+    activeBatch,
+    activeDateWindow,
     spkRealtimeDataMap,
     getSpkRealtimeAnalytics
   };

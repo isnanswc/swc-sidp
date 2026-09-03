@@ -161,95 +161,206 @@
         </div>
       </div>
 
-      <!-- TIMELINE GANTT: PLANNED VS REALTIME TRACKING -->
+      <!-- TIMELINE GANTT: PLANNED VS REALTIME TRACKING (CENTRAL DUAL-SIDE TIMELINE) -->
       <div class="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
-        <div class="p-4 border-b border-zinc-100 flex items-center justify-between flex-wrap gap-2">
+        <!-- Header Timeline -->
+        <div class="p-4 sm:p-5 border-b border-zinc-200 bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 text-white flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h3 class="text-sm font-black text-zinc-900">Timeline Antrian Potong Slitting (Planned vs Realtime)</h3>
-            <p class="text-xs text-zinc-500 font-medium">Visualisasi perbandingan volume rencana potong terhadap realisasi fisik data roll</p>
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">⏱️</span>
+              <h3 class="text-sm sm:text-base font-black text-white tracking-tight">Timeline Garis Waktu Produksi Slitting (Realtime)</h3>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Pencocokan H+1
+              </span>
+            </div>
+            <p class="text-xs text-zinc-400 mt-1">
+              Sisi Kiri: <strong>Planned SPK</strong> • Sisi Kanan: <strong>Proses Aktual Lapangan</strong> • Urutan dari atas ke bawah
+            </p>
           </div>
-          <div class="flex items-center gap-3 text-xs">
-            <div class="flex items-center gap-1.5">
-              <span class="w-3 h-3 rounded-xs bg-zinc-200 inline-block"></span>
-              <span class="text-zinc-600 font-medium">Planned Volume</span>
+
+          <!-- Batch Selector & Date Window Badge -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <div v-if="spkStore.activeDateWindow" class="px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-300 font-mono text-[11px] border border-zinc-700">
+              📅 Jendela Valid: <strong class="text-emerald-400">{{ spkStore.activeDateWindow.label }}</strong>
             </div>
-            <div class="flex items-center gap-1.5">
-              <span class="w-3 h-3 rounded-xs bg-emerald-600 inline-block"></span>
-              <span class="text-zinc-600 font-medium">Aktual Selesai</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="w-3 h-3 rounded-xs bg-amber-500 inline-block"></span>
-              <span class="text-zinc-600 font-medium">Smart Match / Warning</span>
-            </div>
+            <select
+              v-if="(spkStore.batches || []).length > 1"
+              v-model="spkStore.activeTimelineBatchUuid"
+              class="px-3 py-1.5 bg-zinc-800 text-white text-xs rounded-xl font-bold font-mono border border-zinc-700 outline-none cursor-pointer"
+            >
+              <option v-for="b in spkStore.batches" :key="b.uuid" :value="b.uuid">
+                {{ b.batchName }}
+              </option>
+            </select>
           </div>
         </div>
 
-        <div class="p-4 space-y-3.5">
-          <div
-            v-for="(plan, idx) in spkStore.plans"
-            :key="plan.id || idx"
-            class="p-3.5 rounded-2xl border border-zinc-200/80 hover:border-zinc-300 transition-all bg-zinc-50/40 space-y-2.5"
-          >
-            <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
-              <div class="flex items-center gap-2.5">
-                <span class="w-6 h-6 rounded-full bg-zinc-900 text-white font-mono font-black text-[11px] flex items-center justify-center">
-                  {{ idx + 1 }}
-                </span>
-                <span class="font-black text-sm text-zinc-900 font-mono tracking-tight">{{ plan.spkNo }}</span>
-                <span class="px-2 py-0.5 rounded font-black text-[10px] font-mono bg-zinc-200 text-zinc-800">
-                  {{ plan.formula }} ({{ plan.thickness }}μ)
-                </span>
-                <span class="text-zinc-500 font-mono text-[11px]">
-                  Lebar: {{ plan.lebarParent }} mm • {{ plan.jumlahJumbo }} JR
-                </span>
-                
-                <!-- Sign Warning Badge if Cross Order -->
-                <span
-                  v-if="getPlanAnalytics(plan).isCrossOrderWarning"
-                  class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10.5px] flex items-center gap-1"
-                  :title="getPlanAnalytics(plan).warningMessage"
+        <!-- Legend Bar -->
+        <div class="bg-zinc-50 border-b border-zinc-200 px-4 py-2.5 flex items-center justify-between text-xs flex-wrap gap-2 select-none">
+          <div class="flex items-center gap-4 text-[11px] font-bold">
+            <span class="flex items-center gap-1.5 text-emerald-800"><span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Selesai Terpotong</span>
+            <span class="flex items-center gap-1.5 text-blue-800"><span class="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span> Sedang Dikerjakan</span>
+            <span class="flex items-center gap-1.5 text-zinc-600"><span class="w-2.5 h-2.5 rounded-full bg-zinc-300"></span> Antrean Akan Dikerjakan</span>
+            <span class="flex items-center gap-1.5 text-amber-800"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Order Sisipan / Tanpa Plan</span>
+          </div>
+          <div class="text-[11px] font-mono text-zinc-500">
+            ⬇️ <strong>Arah Alur Pengerjaan: Dari Atas ke Bawah</strong>
+          </div>
+        </div>
+
+        <!-- Central Timeline Canvas Container -->
+        <div class="p-4 sm:p-6 bg-zinc-100/50 min-h-[350px]">
+          <div v-if="timelineRows.length === 0" class="py-16 text-center text-zinc-400 font-sans text-xs">
+            Belum ada data rencana kerja SPK. Pindai dokumen jadwal atau buat batch baru di Sheet 3.
+          </div>
+
+          <div v-else class="relative max-w-5xl mx-auto">
+            <!-- Center Vertical Line -->
+            <div class="absolute left-1/2 top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-500 via-blue-500 to-zinc-300 -translate-x-1/2"></div>
+
+            <!-- Column Headers -->
+            <div class="grid grid-cols-2 gap-8 mb-6 text-xs font-black uppercase tracking-wider text-zinc-500 select-none">
+              <div class="text-right pr-6 flex items-center justify-end gap-2 text-zinc-700">
+                <span>📋 Rencana Kerja (Planned SPK)</span>
+              </div>
+              <div class="text-left pl-6 flex items-center justify-start gap-2 text-zinc-700">
+                <span>🏭 Proses Aktual Lapangan (Realtime)</span>
+              </div>
+            </div>
+
+            <!-- Timeline Rows -->
+            <div
+              v-for="(row, rIdx) in timelineRows"
+              :key="row.id || rIdx"
+              class="relative flex items-center mb-8 last:mb-2 group"
+            >
+              <!-- LEFT COLUMN: PLANNED SPK -->
+              <div class="w-1/2 pr-6 sm:pr-8 flex justify-end">
+                <!-- If Planned SPK exists -->
+                <div
+                  v-if="row.plan"
+                  class="w-full max-w-md bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all text-right space-y-2"
+                  :class="[
+                    row.status === 'COMPLETED' ? 'border-emerald-300 bg-emerald-50/20' : '',
+                    row.status === 'IN_PROGRESS' ? 'border-blue-400 bg-blue-50/30 ring-2 ring-blue-500/20' : '',
+                    row.status === 'UPCOMING' ? 'border-zinc-200' : ''
+                  ]"
                 >
-                  <span>⚠️</span>
-                  <span>Cross-Order Warning</span>
-                </span>
+                  <div class="flex items-center justify-between flex-row-reverse gap-2">
+                    <span
+                      class="px-2 py-0.5 rounded-full text-[10px] font-black font-mono tracking-tight"
+                      :class="[
+                        row.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : '',
+                        row.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-900 border border-blue-300 animate-pulse' : '',
+                        row.status === 'UPCOMING' ? 'bg-zinc-100 text-zinc-700 border border-zinc-300' : ''
+                      ]"
+                    >
+                      {{ row.status === 'COMPLETED' ? '✓ SELESAI' : (row.status === 'IN_PROGRESS' ? '⚙️ SEDANG BERJALAN' : '⏱️ ANTREAN') }}
+                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-xs font-mono font-bold text-zinc-400">#{{ row.plan.seq || (rIdx + 1) }}</span>
+                      <h4 class="font-black text-sm font-mono text-zinc-900">{{ row.plan.spkNo }}</h4>
+                    </div>
+                  </div>
+
+                  <div class="text-xs text-zinc-600 font-mono flex items-center justify-end gap-2 flex-wrap">
+                    <span class="px-1.5 py-0.2 rounded bg-red-50 text-red-700 font-bold border border-red-200">
+                      {{ row.plan.formula }} ({{ row.plan.thickness }}μ)
+                    </span>
+                    <span>Lebar JR: {{ formatNumber(row.plan.lebarParent) }} mm</span>
+                    <span class="font-bold text-purple-900">{{ row.plan.jumlahJumbo }} JR</span>
+                  </div>
+
+                  <div class="text-[11px] text-zinc-500 font-mono flex items-center justify-end gap-2 pt-1 border-t border-zinc-100">
+                    <span>Target: <strong class="text-zinc-800">{{ formatNumber(row.plan.totalPlannedMeter) }} m</strong></span>
+                    <span>•</span>
+                    <span>Speed: {{ row.speed }} m/m</span>
+                    <span>•</span>
+                    <span class="font-bold text-purple-800">Est: {{ row.planDurationMinutes }} Mnt</span>
+                  </div>
+
+                  <div class="text-[10px] text-zinc-400 font-mono">
+                    Perkiraan Waktu: Pukul <strong class="text-zinc-700">{{ row.estStartTime }}</strong> s/d <strong class="text-zinc-700">{{ row.estEndTime }}</strong>
+                  </div>
+                </div>
+
+                <!-- If Unplanned SPK (Blank slot on the left) -->
+                <div
+                  v-else
+                  class="w-full max-w-md bg-amber-50/40 border-2 border-dashed border-amber-300 rounded-2xl p-4 text-right space-y-1"
+                >
+                  <div class="flex items-center justify-end gap-1.5 text-amber-900 font-black text-xs">
+                    <span>⚠️ Slot Kosong (Tanpa Planned SPK)</span>
+                  </div>
+                  <p class="text-[11px] text-amber-800/80 font-sans">
+                    Pengerjaan aktual di lapangan ini merupakan order sisipan atau revisi langsung tanpa jadwal awal.
+                  </p>
+                </div>
               </div>
 
-              <div class="flex items-center gap-3 font-mono text-xs">
-                <span class="text-zinc-500">
-                  Speed: <strong class="text-zinc-800">{{ getPlanAnalytics(plan).speed }} m/min</strong>
-                </span>
-                <span class="text-purple-800 font-bold">
-                  Est: {{ formatMinutes(getPlanAnalytics(plan).totalMinutes) }}
-                </span>
-                <span class="font-black text-sm text-emerald-700">
-                  {{ getPlanAnalytics(plan).totalRealRolls }} / {{ plan.totalPlannedRolls }} Roll ({{ getPlanAnalytics(plan).achievementPercent }}%)
-                </span>
+              <!-- CENTER NODE (ICON / STATUS) -->
+              <div class="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center">
+                <div
+                  class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-mono font-black text-xs shadow-md border-2 border-white transition-transform group-hover:scale-110"
+                  :class="[
+                    row.status === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-emerald-200' : '',
+                    row.status === 'IN_PROGRESS' ? 'bg-blue-600 text-white shadow-blue-200 animate-bounce' : '',
+                    row.status === 'UPCOMING' ? 'bg-white text-zinc-600 border-zinc-300' : '',
+                    row.status === 'UNPLANNED' ? 'bg-amber-500 text-white shadow-amber-200' : ''
+                  ]"
+                >
+                  <span v-if="row.status === 'COMPLETED'">✓</span>
+                  <span v-else-if="row.status === 'IN_PROGRESS'">⚙️</span>
+                  <span v-else-if="row.status === 'UNPLANNED'">⚠️</span>
+                  <span v-else>{{ rIdx + 1 }}</span>
+                </div>
               </div>
-            </div>
 
-            <!-- Progress Bar -->
-            <div class="w-full bg-zinc-200 rounded-full h-3.5 overflow-hidden flex shadow-inner">
-              <div
-                class="bg-emerald-600 h-3.5 transition-all duration-500 text-[9px] text-white font-bold font-mono flex items-center justify-center"
-                :style="{ width: `${Math.min(100, getPlanAnalytics(plan).achievementPercent)}%` }"
-              >
-                <span v-if="getPlanAnalytics(plan).achievementPercent > 15">{{ getPlanAnalytics(plan).achievementPercent }}%</span>
-              </div>
-            </div>
+              <!-- RIGHT COLUMN: ACTUAL REALTIME PRODUCTION -->
+              <div class="w-1/2 pl-6 sm:pl-8 flex justify-start">
+                <!-- If Actual Production Exists -->
+                <div
+                  v-if="row.actual"
+                  class="w-full max-w-md bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all text-left space-y-2"
+                  :class="[
+                    row.status === 'COMPLETED' ? 'border-emerald-300 bg-emerald-50/20' : '',
+                    row.status === 'IN_PROGRESS' ? 'border-blue-400 bg-blue-50/30 ring-2 ring-blue-500/20' : '',
+                    row.status === 'UNPLANNED' ? 'border-amber-400 bg-amber-50/30' : ''
+                  ]"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <h4 class="font-black text-sm font-mono text-zinc-900">{{ row.actual.spkNo }}</h4>
+                    <span
+                      class="px-2 py-0.5 rounded-full text-[10px] font-black font-mono"
+                      :class="row.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' : (row.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')"
+                    >
+                      {{ row.actual.totalRealRolls }} Roll Selesai
+                    </span>
+                  </div>
 
-            <!-- Smart Charting UP Details & Trim Info -->
-            <div class="flex items-center justify-between text-[11px] text-zinc-600 pt-1 border-t border-zinc-200/60 font-mono">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-zinc-400 font-sans">Charting UP:</span>
-                <span v-for="up in parseCharting(plan.chartingJson)" :key="up.upNo" class="px-1.5 py-0.2 rounded bg-zinc-200 font-bold text-zinc-800">
-                  UP{{ up.upNo }}: {{ up.lebar }} mm ({{ up.panjang }} m)
-                </span>
-                <span class="px-1.5 py-0.2 rounded bg-red-100 text-red-800 font-black border border-red-200">
-                  Trim Auto: {{ plan.trimAuto }} mm
-                </span>
-              </div>
-              <div v-if="plan.keterangan" class="text-zinc-500 italic">
-                Ket: {{ plan.keterangan }}
+                  <div class="text-xs font-mono text-zinc-700 flex items-center gap-2 flex-wrap">
+                    <strong class="text-emerald-700 font-black">{{ formatNumber(row.actual.totalRealMeter) }} m</strong>
+                    <span class="text-zinc-300">•</span>
+                    <strong class="text-zinc-900 font-bold">{{ formatNumber(row.actual.totalRealKg) }} kg</strong>
+                    <span v-if="row.actual.operator" class="text-zinc-400 text-[10px]">Op: {{ row.actual.operator }}</span>
+                  </div>
+
+                  <!-- QC Badges -->
+                  <div class="flex items-center gap-1.5 text-[10.5px] font-mono font-bold pt-1 border-t border-zinc-100">
+                    <span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900">Pass: {{ row.actual.passCount }}</span>
+                    <span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">Hold: {{ row.actual.holdCount }}</span>
+                    <span class="px-1.5 py-0.2 rounded bg-red-100 text-red-900">Reject: {{ row.actual.rejectCount }}</span>
+                    <span v-if="row.actual.latestLot" class="text-zinc-400 text-[9.5px] ml-auto">Lot: {{ row.actual.latestLot }}</span>
+                  </div>
+                </div>
+
+                <!-- If Pending / Waiting for Machine (Right side blank) -->
+                <div
+                  v-else
+                  class="w-full max-w-md bg-zinc-50/50 border border-dashed border-zinc-200 rounded-2xl p-4 text-left flex items-center justify-center text-zinc-400 text-xs font-mono select-none"
+                >
+                  <span>⏱️ Menunggu giliran pemotongan mesin...</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1572,6 +1683,163 @@ const formatMinutes = (minutes) => {
 // ── HIGH PERFORMANCE MEMOIZED SPK COMPUTED MAP (NO MAIN-THREAD BLOCK) ──
 
 // Cache plan analytics in a single computed map (1x evaluation per tick instead of 500,000 nested loops)
+// ── DUAL-SIDED CENTRAL TIMELINE ENGINE (WITH H+1 WINDOW & UNPLANNED SLOTS) ──
+
+const timelineRows = computed(() => {
+  const batch = spkStore.activeBatch;
+  const rawPlans = batch ? spkStore.plans.filter(p => p.batchId === batch.uuid) : spkStore.plans;
+  
+  // 1. Urutkan rencana strictly sesuai urutan pengerjaan (seq/no/id) dari atas ke bawah
+  const plannedList = [...rawPlans].sort((a, b) => (a.seq || a.no || a.id) - (b.seq || b.no || b.id));
+
+  // 2. Kumpulkan grup produksi aktual dari spkRealtimeDataMap (sudah terfilter jendela H+1)
+  const dataMap = spkStore.spkRealtimeDataMap || new Map();
+  const actualRuns = [];
+
+  for (const [spkKey, spkData] of dataMap.entries()) {
+    if (spkData && spkData.totalRealRolls > 0) {
+      let firstTime = Infinity;
+      let lastTime = 0;
+      let latestLot = '';
+      let operator = '';
+      for (const lt of spkData.lots.values()) {
+        const t = lt.date ? new Date(lt.date).getTime() : 0;
+        if (t > 0 && t < firstTime) firstTime = t;
+        if (t > lastTime) {
+          lastTime = t;
+          latestLot = lt.lot;
+          operator = lt.operator;
+        }
+      }
+      actualRuns.push({
+        spkNo: spkKey,
+        totalRealRolls: spkData.totalRealRolls,
+        totalRealMeter: spkData.totalRealMeter,
+        totalRealKg: spkData.totalRealKg,
+        passCount: spkData.passCount,
+        holdCount: spkData.holdCount,
+        rejectCount: spkData.rejectCount,
+        firstTime: firstTime === Infinity ? 0 : firstTime,
+        lastTime,
+        latestLot,
+        operator,
+        latestTimeFormatted: lastTime > 0 ? new Date(lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : ''
+      });
+    }
+  }
+
+  // Urutkan produksi aktual secara kronologis berdasarkan waktu pertama kali dipotong
+  actualRuns.sort((a, b) => a.firstTime - b.firstTime);
+
+  const cleanSpk = (s) => String(s || '').toUpperCase().replace(/[\s\-_/]/g, '');
+  const isMatch = (s1, s2) => {
+    const c1 = cleanSpk(s1);
+    const c2 = cleanSpk(s2);
+    if (!c1 || !c2) return false;
+    return c1 === c2 || c1.includes(c2) || c2.includes(c1);
+  };
+
+  const rows = [];
+  const handledActualIndices = new Set();
+  let cumulativeMinutes = 0;
+  const baseDate = new Date();
+  baseDate.setHours(8, 0, 0, 0); // Asumsi shift mulai pukul 08:00
+
+  for (let pIdx = 0; pIdx < plannedList.length; pIdx++) {
+    const plan = plannedList[pIdx];
+    const planAnalytics = spkStore.getSpkRealtimeAnalytics(plan.spkNo, plan) || {};
+
+    // A. Periksa apakah ada pengerjaan aktual yang TIDAK ADA DI PLAN (Order Sisipan seperti SPK 5)
+    for (let aIdx = 0; aIdx < actualRuns.length; aIdx++) {
+      if (handledActualIndices.has(aIdx)) continue;
+      const act = actualRuns[aIdx];
+
+      if (isMatch(act.spkNo, plan.spkNo)) {
+        break; // Cocok dengan plan saat ini, akan dipasangkan di bawah
+      }
+
+      // Cek apakah actual ini cocok dengan plan MASA DEPAN
+      const matchesFuture = plannedList.slice(pIdx + 1).some(fPlan => isMatch(act.spkNo, fPlan.spkNo));
+      if (!matchesFuture) {
+        // Ini adalah SPK Sisipan Tanpa Plan! (Sisi kiri KOSONG, Sisi kanan ADA)
+        rows.push({
+          id: `unplanned_${act.spkNo}_${aIdx}`,
+          type: 'UNPLANNED',
+          plan: null,
+          actual: act,
+          status: 'UNPLANNED',
+          warning: 'Order Sisipan / Revisi Lapangan (Tidak Ada dalam Planned SPK)'
+        });
+        handledActualIndices.add(aIdx);
+      } else {
+        break;
+      }
+    }
+
+    // B. Pasangkan plan saat ini dengan pengerjaan aktual jika ada
+    let matchedActual = null;
+    for (let aIdx = 0; aIdx < actualRuns.length; aIdx++) {
+      if (handledActualIndices.has(aIdx)) continue;
+      const act = actualRuns[aIdx];
+      if (isMatch(act.spkNo, plan.spkNo)) {
+        matchedActual = act;
+        handledActualIndices.add(aIdx);
+        break;
+      }
+    }
+
+    // Hitung estimasi waktu pengerjaan kumulatif
+    const speed = planAnalytics.speed || 600;
+    const durMinutes = planAnalytics.totalMinutes || 45;
+    const startM = cumulativeMinutes;
+    const endM = cumulativeMinutes + durMinutes;
+    cumulativeMinutes = endM;
+
+    const startClock = new Date(baseDate.getTime() + startM * 60000);
+    const endClock = new Date(baseDate.getTime() + endM * 60000);
+    const estStartTime = startClock.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const estEndTime = endClock.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+    let status = 'UPCOMING';
+    if (matchedActual) {
+      const targetRolls = plan.totalPlannedRolls || 1;
+      status = matchedActual.totalRealRolls >= targetRolls ? 'COMPLETED' : 'IN_PROGRESS';
+    }
+
+    rows.push({
+      id: `plan_${plan.id || pIdx}`,
+      type: 'PLANNED',
+      plan,
+      actual: matchedActual,
+      status,
+      speed,
+      planDurationMinutes: durMinutes,
+      estStartTime,
+      estEndTime,
+      achievementPercent: planAnalytics.achievementPercent || 0
+    });
+  }
+
+  // C. Sisa pengerjaan aktual di akhir yang tidak ada dalam rencana
+  for (let aIdx = 0; aIdx < actualRuns.length; aIdx++) {
+    if (!handledActualIndices.has(aIdx)) {
+      const act = actualRuns[aIdx];
+      rows.push({
+        id: `unplanned_${act.spkNo}_${aIdx}`,
+        type: 'UNPLANNED',
+        plan: null,
+        actual: act,
+        status: 'UNPLANNED',
+        warning: 'Order Sisipan / Revisi Lapangan (Tidak Ada dalam Planned SPK)'
+      });
+      handledActualIndices.add(aIdx);
+    }
+  }
+
+  return rows;
+});
+
+
 const planAnalyticsMap = computed(() => {
   const res = {};
   for (const p of (spkStore.plans || [])) {
