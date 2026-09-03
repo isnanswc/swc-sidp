@@ -310,6 +310,7 @@ export function postProcessExtractedRows(rawRows, filmConfigs = [], scheduleDate
       : [rawSpkText];
 
     for (let tokenIdx = 0; tokenIdx < spkTokens.length; tokenIdx++) {
+      const token = spkTokens[tokenIdx];
       const rawJenis = matchedFilm?.jenis || String(raw.jenis || 'CPP').toUpperCase().trim();
       const standardSpk = normalizeSpkToFullStandard(token, executionSeq, scheduleDate, isSupplierInhouse ? '' : supplier, rawJenis);
 
