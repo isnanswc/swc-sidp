@@ -1098,95 +1098,167 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- MODAL LEMBAR VERIFIKASI MANDIRI (ALA DE REPORT)                   -->
+    <!-- MODAL LEMBAR VERIFIKASI MANDIRI (TRUE EXCEL SPREADSHEET ENGINE)   -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div v-if="showVerificationModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
-      <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden border border-zinc-300 max-h-[90vh] flex flex-col justify-between">
+    <div
+      v-if="showVerificationModal"
+      class="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-xs p-2 sm:p-4 animate-fade-in select-none"
+      @keydown="handleVerificationKeydown"
+      tabindex="0"
+    >
+      <div class="bg-white w-full max-w-7xl h-[94vh] rounded-3xl shadow-2xl overflow-hidden border border-zinc-300 flex flex-col justify-between">
         
         <!-- Header Verifikasi -->
-        <div class="p-4 border-b border-zinc-200 bg-gradient-to-r from-zinc-950 to-zinc-900 text-white flex items-center justify-between">
+        <div class="p-3.5 border-b border-zinc-200 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 text-white flex items-center justify-between">
           <div class="flex items-center gap-2.5">
-            <span class="text-xl">🔍</span>
+            <span class="text-xl">📊</span>
             <div>
-              <h3 class="text-sm font-black text-white">LEMBAR VERIFIKASI HASIL SCAN SPK SLITTING (1 BATCH HARIAN)</h3>
-              <p class="text-xs text-zinc-400 mt-0.5">Setiap dokumen yang dipindai disimpan menjadi 1 Batch Rencana Kerja harian</p>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-black text-white">LEMBAR VERIFIKASI SPREADSHEET EXCEL (1 BATCH HARIAN)</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Mode Interaktif Excel
+                </span>
+              </div>
+              <p class="text-[11px] text-zinc-400 mt-0.5">Navigasi Tombol Arah • Shift+Arah (Pilih Range) • Ctrl+D (Duplikat Bawah) • Ctrl+C/V • F2/Enter (Edit Cell)</p>
             </div>
           </div>
-          <button @click="showVerificationModal = false" class="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white cursor-pointer">
-            ✕
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              @click="addVerificationRow"
+              class="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-colors cursor-pointer"
+              title="Tambah baris kosong"
+            >
+              + Baris
+            </button>
+            <button
+              @click="deleteSelectedVerificationRows"
+              class="px-2.5 py-1.5 rounded-xl bg-red-950/60 hover:bg-red-900 text-red-300 text-xs font-bold transition-colors cursor-pointer"
+              title="Hapus baris yang diseleksi"
+            >
+              🗑️ Hapus Baris
+            </button>
+            <button @click="showVerificationModal = false" class="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white cursor-pointer ml-1">
+              ✕
+            </button>
+          </div>
         </div>
 
-        <!-- BATCH METADATA CONTROLS -->
-        <div class="p-3 bg-zinc-100 border-b border-zinc-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div>
-            <label class="block font-bold text-zinc-700 mb-1">Nama Batch Dokumen *</label>
-            <input v-model="verificationBatchName" class="w-full p-2 bg-white border border-zinc-300 rounded-xl font-mono font-bold" placeholder="Mis: JADWAL SLITTING 3-Sep-26" />
+        <!-- BATCH METADATA CONTROLS & EXCEL FORMULA BAR -->
+        <div class="bg-zinc-100 border-b border-zinc-300 p-2.5 space-y-2 text-xs">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-zinc-700 text-[11px] mb-0.5">Nama Batch Dokumen *</label>
+              <input v-model="verificationBatchName" class="w-full p-1.5 bg-white border border-zinc-300 rounded-lg font-mono font-bold text-xs outline-none" placeholder="Mis: JADWAL SLITTING 3-Sep-26" />
+            </div>
+            <div>
+              <label class="block font-bold text-zinc-700 text-[11px] mb-0.5">Tanggal Jadwal *</label>
+              <input v-model="verificationBatchDate" type="date" class="w-full p-1.5 bg-white border border-zinc-300 rounded-lg font-mono font-bold text-xs outline-none" />
+            </div>
+            <div class="flex items-end">
+              <div class="w-full p-1.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 font-mono text-[11px] flex items-center justify-between">
+                <span>Total Item Teridentifikasi:</span>
+                <strong class="text-sm font-black">{{ verificationStagingList.length }} SPK</strong>
+              </div>
+            </div>
           </div>
-          <div>
-            <label class="block font-bold text-zinc-700 mb-1">Tanggal Jadwal *</label>
-            <input v-model="verificationBatchDate" type="date" class="w-full p-2 bg-white border border-zinc-300 rounded-xl font-mono font-bold" />
+
+          <!-- EXCEL FORMULA & ACTIVE CELL BAR -->
+          <div class="flex items-center gap-2 bg-white p-1 rounded-lg border border-zinc-300 font-mono text-xs">
+            <div class="w-16 px-2 py-0.5 bg-zinc-100 rounded text-center font-black text-zinc-800 border border-zinc-200">
+              {{ activeCellAddress }}
+            </div>
+            <div class="text-zinc-400 font-bold px-1 select-none">fx</div>
+            <div class="flex-1 text-zinc-800 font-medium px-1 overflow-hidden truncate">
+              {{ activeCellValue }}
+            </div>
+            <div class="text-[10px] text-zinc-400 font-sans pr-2">
+              <span v-if="vMinR < vMaxR" class="font-bold text-blue-600">Range: {{ vMaxR - vMinR + 1 }} Baris (Tekan Ctrl+D untuk duplikat)</span>
+              <span v-else>Tekan F2 atau Enter untuk edit</span>
+            </div>
           </div>
         </div>
 
-        <!-- Spreadsheet Verification Table (Editable Cells) -->
-        <div class="p-4 overflow-y-auto flex-1 font-mono text-xs">
-          <table class="w-full border-collapse border border-zinc-300">
-            <thead class="bg-zinc-800 text-white text-[11px] font-bold">
-              <tr>
-                <th class="border border-zinc-600 p-2 text-center w-8">#</th>
-                <th class="border border-zinc-600 p-2 text-left">Nomor SPK</th>
-                <th class="border border-zinc-600 p-2 text-left">Formula</th>
-                <th class="border border-zinc-600 p-2 text-center">Tebal</th>
-                <th class="border border-zinc-600 p-2 text-right">Lebar JR</th>
-                <th class="border border-zinc-600 p-2 text-right">P. JR</th>
-                <th class="border border-zinc-600 p-2 text-center bg-zinc-700">UP 1</th>
-                <th class="border border-zinc-600 p-2 text-center bg-zinc-700">UP 2</th>
-                <th class="border border-zinc-600 p-2 text-center bg-zinc-700">UP 3</th>
-                <th class="border border-zinc-600 p-2 text-center bg-zinc-700">UP 4</th>
-                <th class="border border-zinc-600 p-2 text-center">Jml JR</th>
-                <th class="border border-zinc-600 p-2 text-center text-red-400">Trim</th>
-                <th class="border border-zinc-600 p-2 text-left">Ket</th>
+        <!-- TRUE EXCEL SPREADSHEET GRID -->
+        <div
+          class="overflow-auto flex-1 bg-zinc-200 font-mono text-xs relative"
+          @mouseup="handleSpreadsheetMouseUp"
+          @mouseleave="handleSpreadsheetMouseUp"
+        >
+          <table class="border-collapse bg-white w-full table-fixed text-[11.5px]">
+            <!-- Excel Column Headers (Letters) -->
+            <thead class="sticky top-0 z-20 bg-zinc-100 text-zinc-700 select-none shadow-2xs">
+              <tr class="border-b border-zinc-300">
+                <th class="w-10 border-r border-zinc-300 bg-zinc-200 text-center font-bold text-[10px] py-1 text-zinc-500"></th>
+                <th
+                  v-for="(col, cIdx) in vColumns"
+                  :key="col.key"
+                  class="border-r border-zinc-300 px-2 py-1 text-center font-bold text-[10.5px]"
+                  :style="{ width: col.width }"
+                  :class="{ 'bg-blue-100 text-blue-900': cIdx >= vMinC && cIdx <= vMaxC }"
+                >
+                  <div class="text-[10px] text-zinc-400">{{ col.colLetter }}</div>
+                  <div>{{ col.label }}</div>
+                </th>
               </tr>
             </thead>
+
+            <!-- Excel Data Rows -->
             <tbody>
-              <tr v-for="(vRow, vIdx) in verificationStagingList" :key="vIdx" class="hover:bg-amber-50/50">
-                <td class="border border-zinc-300 p-1.5 text-center text-zinc-500 font-bold">{{ vIdx + 1 }}</td>
-                <td class="border border-zinc-300 p-1">
-                  <input v-model="vRow.spkNo" class="w-full p-1 border border-zinc-300 rounded font-bold uppercase" />
+              <tr v-if="verificationStagingList.length === 0">
+                <td :colspan="vColumns.length + 1" class="py-16 text-center text-zinc-400 font-sans">
+                  Belum ada baris jadwal. Gunakan scan atau klik "+ Baris" untuk menambah manual.
                 </td>
-                <td class="border border-zinc-300 p-1">
-                  <input v-model="vRow.formula" class="w-20 p-1 border border-zinc-300 rounded font-bold uppercase text-red-600" />
+              </tr>
+              <tr
+                v-for="(row, rIdx) in verificationStagingList"
+                :key="rIdx"
+                class="border-b border-zinc-200 hover:bg-zinc-50/50"
+              >
+                <!-- Row Number Header -->
+                <td
+                  class="border-r border-zinc-300 bg-zinc-100 text-center font-bold text-[10.5px] text-zinc-500 select-none"
+                  :class="{ 'bg-blue-100 text-blue-900 font-black': rIdx >= vMinR && rIdx <= vMaxR }"
+                >
+                  {{ rIdx + 1 }}
                 </td>
-                <td class="border border-zinc-300 p-1">
-                  <input v-model.number="vRow.thickness" type="number" class="w-14 p-1 border border-zinc-300 rounded text-center" />
-                </td>
-                <td class="border border-zinc-300 p-1">
-                  <input v-model.number="vRow.lebarParent" type="number" class="w-20 p-1 border border-zinc-300 rounded text-right font-bold" />
-                </td>
-                <td class="border border-zinc-300 p-1">
-                  <input v-model.number="vRow.panjangParent" type="number" class="w-20 p-1 border border-zinc-300 rounded text-right" />
-                </td>
-                <td class="border border-zinc-300 p-1 bg-zinc-50">
-                  <input v-model.number="vRow.up1" type="number" class="w-16 p-1 border border-zinc-300 rounded text-center font-bold text-blue-900" />
-                </td>
-                <td class="border border-zinc-300 p-1 bg-zinc-50">
-                  <input v-model.number="vRow.up2" type="number" class="w-16 p-1 border border-zinc-300 rounded text-center font-bold text-blue-900" />
-                </td>
-                <td class="border border-zinc-300 p-1 bg-zinc-50">
-                  <input v-model.number="vRow.up3" type="number" class="w-16 p-1 border border-zinc-300 rounded text-center font-bold text-blue-900" />
-                </td>
-                <td class="border border-zinc-300 p-1 bg-zinc-50">
-                  <input v-model.number="vRow.up4" type="number" class="w-16 p-1 border border-zinc-300 rounded text-center font-bold text-blue-900" />
-                </td>
-                <td class="border border-zinc-300 p-1">
-                  <input v-model.number="vRow.jumlahJumbo" type="number" class="w-12 p-1 border border-zinc-300 rounded text-center font-black text-purple-900" />
-                </td>
-                <td class="border border-zinc-300 p-1.5 text-center font-black text-red-600 bg-red-50">
-                  {{ calculateRowTrim(vRow) }}
-                </td>
-                <td class="border border-zinc-300 p-1">
-                  <input v-model="vRow.keterangan" class="w-full p-1 border border-zinc-300 rounded" />
+
+                <!-- Cells -->
+                <td
+                  v-for="(col, cIdx) in vColumns"
+                  :key="col.key"
+                  class="border-r border-zinc-200 px-2 py-1 relative truncate outline-none select-none cursor-cell"
+                  :class="[
+                    col.align === 'right' ? 'text-right' : (col.align === 'center' ? 'text-center' : 'text-left'),
+                    isCellSelected(rIdx, cIdx) ? 'bg-blue-100/70' : '',
+                    isCellActive(rIdx, cIdx) ? 'ring-2 ring-blue-600 ring-inset z-10 font-bold bg-white' : '',
+                    col.key === 'trimAuto' ? 'bg-red-50/60 font-black text-red-600' : '',
+                    col.key === 'formula' ? 'font-black text-red-600' : '',
+                    col.key === 'up1' || col.key === 'up2' || col.key === 'up3' || col.key === 'up4' ? 'font-bold text-blue-900' : ''
+                  ]"
+                  @mousedown="handleCellMouseDown(rIdx, cIdx, $event)"
+                  @mouseover="handleCellMouseOver(rIdx, cIdx)"
+                  @dblclick="enterCellEdit(rIdx, cIdx)"
+                >
+                  <!-- Edit Input Mode -->
+                  <template v-if="editingCell.r === rIdx && editingCell.c === cIdx">
+                    <input
+                      ref="cellInputRef"
+                      v-model="cellEditValue"
+                      class="absolute inset-0 w-full h-full px-2 py-1 bg-white text-zinc-900 font-mono font-bold text-xs border-2 border-blue-600 outline-none z-30"
+                      @keydown.enter.prevent="commitCellEdit(1, 0)"
+                      @keydown.tab.prevent="commitCellEdit(0, $event.shiftKey ? -1 : 1)"
+                      @keydown.esc.prevent="cancelCellEdit"
+                      @keydown.up.prevent="commitCellEdit(-1, 0)"
+                      @keydown.down.prevent="commitCellEdit(1, 0)"
+                      @blur="commitCellEdit(0, 0)"
+                    />
+                  </template>
+
+                  <!-- Normal Display Mode -->
+                  <template v-else>
+                    <span v-if="col.key === 'trimAuto'">{{ calculateRowTrim(row) }}</span>
+                    <span v-else>{{ row[col.key] !== undefined && row[col.key] !== null ? row[col.key] : '-' }}</span>
+                  </template>
                 </td>
               </tr>
             </tbody>
@@ -1194,16 +1266,24 @@
         </div>
 
         <!-- Footer Verifikasi -->
-        <div class="p-4 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between">
-          <div class="text-xs text-zinc-500 font-medium">
-            Total Teridentifikasi: <strong class="text-zinc-900">{{ verificationStagingList.length }} Item SPK</strong>
+        <div class="p-3.5 border-t border-zinc-300 bg-zinc-50 flex items-center justify-between flex-wrap gap-3">
+          <div class="text-xs text-zinc-600 font-medium">
+            Status: <strong class="text-zinc-900">{{ verificationStagingList.length }} baris terverifikasi</strong>
+            <span class="mx-2 text-zinc-300">•</span>
+            <span class="text-zinc-500 font-mono text-[11px]">Gunakan <strong>Ctrl+D</strong> untuk duplikat ke bawah</span>
           </div>
           <div class="flex items-center gap-2">
-            <button @click="showVerificationModal = false" class="px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer">
+            <button
+              @click="showVerificationModal = false"
+              class="px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer"
+            >
               Batal
             </button>
-            <button @click="commitVerificationToPlans" class="px-5 py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors cursor-pointer">
-              ✓ Simpan ke Rencana Kerja
+            <button
+              @click="commitVerificationToPlans"
+              class="px-5 py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              ✓ Simpan {{ verificationStagingList.length }} Item ke Rencana Kerja
             </button>
           </div>
         </div>
@@ -1780,6 +1860,398 @@ const calculateRowTrim = (row) => {
   const up4 = parseFloat(row.up4) || 0;
   return Math.max(0, parent - (up1 + up2 + up3 + up4));
 };
+
+// ── TRUE EXCEL SPREADSHEET ENGINE FOR SPK VERIFICATION ──
+
+const vColumns = [
+  { key: 'no', label: 'NO', colLetter: 'A', width: '45px', align: 'center', readonly: true },
+  { key: 'spkNo', label: 'NOMOR SPK', colLetter: 'B', width: '160px', align: 'left' },
+  { key: 'formula', label: 'TYPE', colLetter: 'C', width: '85px', align: 'left' },
+  { key: 'thickness', label: 'TEBAL', colLetter: 'D', width: '65px', align: 'center' },
+  { key: 'lebarParent', label: 'LEBAR JR', colLetter: 'E', width: '90px', align: 'right' },
+  { key: 'panjangParent', label: 'P. JR', colLetter: 'F', width: '90px', align: 'right' },
+  { key: 'up1', label: 'UP 1', colLetter: 'G', width: '80px', align: 'center' },
+  { key: 'up2', label: 'UP 2', colLetter: 'H', width: '80px', align: 'center' },
+  { key: 'up3', label: 'UP 3', colLetter: 'I', width: '80px', align: 'center' },
+  { key: 'up4', label: 'UP 4', colLetter: 'J', width: '80px', align: 'center' },
+  { key: 'panjangChild', label: 'P. CHILD', colLetter: 'K', width: '85px', align: 'right' },
+  { key: 'jumlahJumbo', label: 'JML JR', colLetter: 'L', width: '70px', align: 'center' },
+  { key: 'trimAuto', label: 'TRIM', colLetter: 'M', width: '70px', align: 'center', readonly: true },
+  { key: 'keterangan', label: 'KETERANGAN', colLetter: 'N', width: '130px', align: 'left' },
+  { key: 'supplier', label: 'SUPPLIER', colLetter: 'O', width: '130px', align: 'left' }
+];
+
+const selStart = ref({ r: 0, c: 1 });
+const selEnd = ref({ r: 0, c: 1 });
+const isSpreadsheetMouseDown = ref(false);
+const editingCell = ref({ r: null, c: null });
+const cellEditValue = ref('');
+const cellInputRef = ref(null);
+
+const vMinR = computed(() => Math.min(selStart.value.r, selEnd.value.r));
+const vMaxR = computed(() => Math.max(selStart.value.r, selEnd.value.r));
+const vMinC = computed(() => Math.min(selStart.value.c, selEnd.value.c));
+const vMaxC = computed(() => Math.max(selStart.value.c, selEnd.value.c));
+
+const activeCellAddress = computed(() => {
+  const col = vColumns[selStart.value.c];
+  if (!col) return 'A1';
+  return `${col.colLetter}${selStart.value.r + 1}`;
+});
+
+const activeCellValue = computed(() => {
+  const r = selStart.value.r;
+  const c = selStart.value.c;
+  const item = verificationStagingList.value[r];
+  if (!item) return '';
+  const col = vColumns[c];
+  if (!col) return '';
+  if (col.key === 'trimAuto') return calculateRowTrim(item);
+  return item[col.key] !== undefined && item[col.key] !== null ? String(item[col.key]) : '';
+});
+
+const isCellSelected = (r, c) => {
+  return r >= vMinR.value && r <= vMaxR.value && c >= vMinC.value && c <= vMaxC.value;
+};
+
+const isCellActive = (r, c) => {
+  return selStart.value.r === r && selStart.value.c === c;
+};
+
+const moveActiveCell = (dr, dc, isShift = false) => {
+  const maxRows = Math.max(0, verificationStagingList.value.length - 1);
+  const maxCols = vColumns.length - 1;
+
+  if (isShift) {
+    selEnd.value = {
+      r: Math.max(0, Math.min(maxRows, selEnd.value.r + dr)),
+      c: Math.max(1, Math.min(maxCols, selEnd.value.c + dc))
+    };
+  } else {
+    const nextR = Math.max(0, Math.min(maxRows, selStart.value.r + dr));
+    const nextC = Math.max(1, Math.min(maxCols, selStart.value.c + dc));
+    selStart.value = { r: nextR, c: nextC };
+    selEnd.value = { r: nextR, c: nextC };
+  }
+};
+
+const handleCellMouseDown = (r, c, e) => {
+  if (editingCell.value.r !== null) {
+    commitCellEdit(0, 0);
+  }
+  if (e.shiftKey) {
+    selEnd.value = { r, c };
+  } else {
+    selStart.value = { r, c };
+    selEnd.value = { r, c };
+    isSpreadsheetMouseDown.value = true;
+  }
+};
+
+const handleCellMouseOver = (r, c) => {
+  if (isSpreadsheetMouseDown.value) {
+    selEnd.value = { r, c };
+  }
+};
+
+const handleSpreadsheetMouseUp = () => {
+  isSpreadsheetMouseDown.value = false;
+};
+
+const enterCellEdit = (r, c, initChar = null) => {
+  const col = vColumns[c];
+  if (!col || col.readonly) return;
+  const item = verificationStagingList.value[r];
+  if (!item) return;
+
+  editingCell.value = { r, c };
+  cellEditValue.value = initChar !== null ? initChar : (item[col.key] !== undefined && item[col.key] !== null ? String(item[col.key]) : '');
+  
+  nextTick(() => {
+    if (cellInputRef.value && cellInputRef.value[0]) {
+      cellInputRef.value[0].focus();
+      if (initChar === null) {
+        cellInputRef.value[0].select();
+      }
+    }
+  });
+};
+
+const commitCellEdit = (dr = 0, dc = 0) => {
+  const r = editingCell.value.r;
+  const c = editingCell.value.c;
+  if (r === null || c === null) return;
+
+  const item = verificationStagingList.value[r];
+  const col = vColumns[c];
+
+  if (item && col && !col.readonly) {
+    let val = cellEditValue.value.trim();
+    if (['thickness', 'lebarParent', 'panjangParent', 'up1', 'up2', 'up3', 'up4', 'panjangChild', 'jumlahJumbo'].includes(col.key)) {
+      item[col.key] = val !== '' ? (parseFloat(val) || 0) : null;
+    } else {
+      item[col.key] = val;
+    }
+    recalcVerificationRow(item);
+  }
+
+  editingCell.value = { r: null, c: null };
+  if (dr !== 0 || dc !== 0) {
+    moveActiveCell(dr, dc, false);
+  }
+};
+
+const cancelCellEdit = () => {
+  editingCell.value = { r: null, c: null };
+};
+
+const recalcVerificationRow = (row) => {
+  const lebar = parseFloat(row.lebarParent) || 0;
+  const u1 = row.up1 !== null && row.up1 !== '' ? parseFloat(row.up1) : null;
+  const u2 = row.up2 !== null && row.up2 !== '' ? parseFloat(row.up2) : null;
+  const u3 = row.up3 !== null && row.up3 !== '' ? parseFloat(row.up3) : null;
+  const u4 = row.up4 !== null && row.up4 !== '' ? parseFloat(row.up4) : null;
+
+  // Domain rule: jika parent tidak memiliki UP atau chart pada plan, barang di-rewind dengan ukuran yang sama
+  if (!u1 && !u2 && !u3 && !u4) {
+    row.up1 = lebar;
+    row.trimAuto = 0;
+    if (!row.keterangan || row.keterangan === '-') row.keterangan = 'REWIND (UKURAN SAMA)';
+  } else {
+    const sumUp = (u1 || 0) + (u2 || 0) + (u3 || 0) + (u4 || 0);
+    row.trimAuto = Math.max(0, lebar - sumUp);
+  }
+};
+
+// EXCEL FILL DOWN (CTRL + D)
+const handleExcelFillDown = () => {
+  const items = verificationStagingList.value;
+  if (!items.length) return;
+
+  const minR = vMinR.value;
+  const maxR = vMaxR.value;
+  const minC = vMinC.value;
+  const maxC = vMaxC.value;
+
+  if (minR < maxR) {
+    // Multi-row range: copy values from top row of selection downwards
+    for (let c = minC; c <= maxC; c++) {
+      const col = vColumns[c];
+      if (col.readonly) continue;
+      const topVal = items[minR][col.key];
+      for (let r = minR + 1; r <= maxR; r++) {
+        items[r][col.key] = topVal;
+        recalcVerificationRow(items[r]);
+      }
+    }
+  } else if (minR > 0) {
+    // Single row: copy from cell above
+    for (let c = minC; c <= maxC; c++) {
+      const col = vColumns[c];
+      if (col.readonly) continue;
+      const aboveVal = items[minR - 1][col.key];
+      items[minR][col.key] = aboveVal;
+      recalcVerificationRow(items[minR]);
+    }
+  }
+};
+
+// EXCEL COPY (CTRL + C)
+const handleExcelCopy = async () => {
+  const items = verificationStagingList.value;
+  if (!items.length) return;
+
+  const minR = vMinR.value;
+  const maxR = vMaxR.value;
+  const minC = vMinC.value;
+  const maxC = vMaxC.value;
+
+  const lines = [];
+  for (let r = minR; r <= maxR; r++) {
+    const item = items[r];
+    if (!item) continue;
+    const rowVals = [];
+    for (let c = minC; c <= maxC; c++) {
+      const col = vColumns[c];
+      const val = item[col.key] !== undefined && item[col.key] !== null ? String(item[col.key]) : '';
+      rowVals.push(val);
+    }
+    lines.push(rowVals.join('\t'));
+  }
+
+  const tsv = lines.join('\n');
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(tsv);
+    }
+  } catch (e) {
+    console.warn('Clipboard copy error:', e);
+  }
+};
+
+// EXCEL PASTE (CTRL + V)
+const handleExcelPaste = async () => {
+  let clipboardText = '';
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      clipboardText = await navigator.clipboard.readText();
+    }
+  } catch (e) {
+    console.warn('Clipboard read error:', e);
+  }
+
+  if (!clipboardText || !clipboardText.trim()) return;
+
+  const items = verificationStagingList.value;
+  const lines = clipboardText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const pasteGrid = lines.filter(l => l.length > 0).map(l => l.split('\t'));
+  if (pasteGrid.length === 0) return;
+
+  const startR = selStart.value.r;
+  const startC = selStart.value.c;
+
+  // Single cell clipboard pasted into multi-cell selection
+  if (pasteGrid.length === 1 && pasteGrid[0].length === 1 && (vMinR.value < vMaxR.value || vMinC.value < vMaxC.value)) {
+    const pasteVal = pasteGrid[0][0].trim();
+    for (let r = vMinR.value; r <= vMaxR.value; r++) {
+      const targetItem = items[r];
+      if (!targetItem) continue;
+      for (let c = vMinC.value; c <= vMaxC.value; c++) {
+        const col = vColumns[c];
+        if (col.readonly) continue;
+        targetItem[col.key] = pasteVal;
+        recalcVerificationRow(targetItem);
+      }
+    }
+  } else {
+    // Standard block paste
+    for (let rOff = 0; rOff < pasteGrid.length; rOff++) {
+      const r = startR + rOff;
+      if (r >= items.length) break;
+      const targetItem = items[r];
+      if (!targetItem) continue;
+
+      const rowVals = pasteGrid[rOff];
+      for (let cOff = 0; cOff < rowVals.length; cOff++) {
+        const c = startC + cOff;
+        if (c >= vColumns.length) break;
+        const col = vColumns[c];
+        if (col.readonly) continue;
+        targetItem[col.key] = rowVals[cOff].trim();
+        recalcVerificationRow(targetItem);
+      }
+    }
+  }
+};
+
+// SPREADSHEET GLOBAL KEYDOWN DISPATCHER
+const handleVerificationKeydown = (e) => {
+  if (!showVerificationModal.value) return;
+
+  // If currently editing inside cell input, let input handle standard keystrokes
+  if (editingCell.value.r !== null && editingCell.value.c !== null) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelCellEdit();
+    }
+    return;
+  }
+
+  const isCtrl = e.ctrlKey || e.metaKey;
+  const isShift = e.shiftKey;
+
+  // Ctrl + D: Fill Down
+  if (isCtrl && (e.key === 'd' || e.key === 'D')) {
+    e.preventDefault();
+    handleExcelFillDown();
+    return;
+  }
+
+  // Ctrl + C: Copy
+  if (isCtrl && (e.key === 'c' || e.key === 'C')) {
+    e.preventDefault();
+    handleExcelCopy();
+    return;
+  }
+
+  // Ctrl + V: Paste
+  if (isCtrl && (e.key === 'v' || e.key === 'V')) {
+    e.preventDefault();
+    handleExcelPaste();
+    return;
+  }
+
+  // Arrow Keys Navigation
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    moveActiveCell(-1, 0, isShift);
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    moveActiveCell(1, 0, isShift);
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    moveActiveCell(0, -1, isShift);
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    moveActiveCell(0, 1, isShift);
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    moveActiveCell(0, isShift ? -1 : 1, false);
+  } else if (e.key === 'Enter' || e.key === 'F2') {
+    e.preventDefault();
+    enterCellEdit(selStart.value.r, selStart.value.c);
+  } else if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    const r = selStart.value.r;
+    const c = selStart.value.c;
+    const col = vColumns[c];
+    if (col && !col.readonly && verificationStagingList.value[r]) {
+      verificationStagingList.value[r][col.key] = '';
+      recalcVerificationRow(verificationStagingList.value[r]);
+    }
+  } else if (!isCtrl && !e.altKey && e.key.length === 1) {
+    const col = vColumns[selStart.value.c];
+    if (col && !col.readonly) {
+      e.preventDefault();
+      enterCellEdit(selStart.value.r, selStart.value.c, e.key);
+    }
+  }
+};
+
+const addVerificationRow = () => {
+  const newRow = {
+    no: verificationStagingList.value.length + 1,
+    spkNo: '04/VIII',
+    formula: 'M07',
+    thickness: 25,
+    lebarParent: 2320,
+    panjangParent: 12000,
+    up1: 1145,
+    up2: 1145,
+    up3: null,
+    up4: null,
+    panjangChild: 12000,
+    jumlahJumbo: 1,
+    trimAuto: 30,
+    keterangan: '',
+    supplier: 'INHOUSE (PT. SWC)'
+  };
+  verificationStagingList.value.push(newRow);
+  selStart.value = { r: verificationStagingList.value.length - 1, c: 1 };
+  selEnd.value = { r: verificationStagingList.value.length - 1, c: 1 };
+};
+
+const deleteSelectedVerificationRows = () => {
+  const minR = vMinR.value;
+  const maxR = vMaxR.value;
+  if (confirm(`Hapus ${maxR - minR + 1} baris yang diseleksi?`)) {
+    verificationStagingList.value.splice(minR, maxR - minR + 1);
+    const nextR = Math.max(0, Math.min(verificationStagingList.value.length - 1, minR));
+    selStart.value = { r: nextR, c: 1 };
+    selEnd.value = { r: nextR, c: 1 };
+  }
+};
+
 
 const commitVerificationToPlans = async () => {
   const batchMeta = {

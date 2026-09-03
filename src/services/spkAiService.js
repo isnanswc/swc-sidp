@@ -99,7 +99,7 @@ Ekstrak tabel jadwal potong ke dalam array JSON dengan format persis berikut:
 [
   {
     "no": 1,
-    "spkNo": "Nomor SPK (contoh: 04/VIII, 07/XII/25 & 02/I, 01/IX, PANVERTA)",
+    "spkNo": "Nomor SPK (contoh: 04/VIII, 07/XII/25 & 02/I, 07/VI, 01/IX, PANVERTA)",
     "formula": "Kode formula (contoh: M07, M06, CMGX)",
     "thickness": 35,
     "lebarParent": 2320,
@@ -115,12 +115,14 @@ Ekstrak tabel jadwal potong ke dalam array JSON dengan format persis berikut:
   }
 ]
 
-Petunjuk Ekstraksi:
-1. Kolom SPK bisa memuat lebih dari satu nomor SPK dalam satu baris (misal "07/XII/25 & 02/I"), catat keduanya dengan pemisah "&".
-2. Nilai UP 1, UP 2, UP 3, UP 4 adalah lebar potongan child roll dalam mm. Jika kosong atau tanda strip "-", isi dengan null.
+ATURAN DAN PETUNJUK KHUSUS SLITTING & REWIND:
+1. Kolom SPK: Jika ada nomor SPK gabungan (multi-SPK dengan tanda "&"), pastikan kedua nomor SPK terekstrak UTUH DAN LENGKAP dengan bulan Romawi dan tahunnya (contoh: "07/XII/25 & 02/I" atau "07/XII/25 & 02/I/26"). JANGAN biarkan terpotong menjadi "02/".
+2. Kolom UP 1, UP 2, UP 3, UP 4:
+   - Jika tertulis angka lebar potong (contoh: 1.145, 1.220, 1.180), ekstrak sebagai angka mm.
+   - PENTING: Jika kolom UP kosong atau strip "-" karena jumbo roll tersebut TIDAK DIBELAH (hanya di-REWIND dengan ukuran yang sama), maka set up1 = lebarParent, dan up2..up4 = null.
 3. Nilai TEBAL dalam mikron (angka), LEBAR parent dalam mm (angka), PANJANG parent dalam meter (angka).
-4. JUMLAH JR adalah jumlah Jumbo Roll.
-5. Keluarkan HANYA format JSON valid tanpa teks pengantar.
+4. JUMLAH JR adalah angka jumlah Jumbo Roll.
+5. Keluarkan HANYA array JSON murni tanpa markdown atau teks tambahan.
 `;
 
   // Gunakan header resmi x-goog-api-key
@@ -217,13 +219,17 @@ export function postProcessExtractedRows(rawRows, filmConfigs = []) {
     // 2. Standardize SPK Number format based on inhouse vs supplier luar
     let spkNo = String(row.spkNo || '').trim();
     if (isSupplierInhouse) {
-      // Format standard inhouse: Bersihkan spasi berlebih, standarisasi multi-SPK dengan ' & '
+      // Standard Inhouse: Rapikan multi-SPK "07/XII/25 & 02/I"
       spkNo = spkNo.split('&').map(part => {
-        return part.trim().toUpperCase()
-          .replace(/\s*\/\s*/g, '/'); // rapikan slash
+        let p = part.trim().toUpperCase().replace(/\s*\/\s*/g, '/');
+        // Jika terpotong di akhir dengan tanda slash misalnya "02/", lengkapi dengan "I" sesuai standar dokumen SWC
+        if (p.endsWith('/')) {
+          p = p + 'I';
+        }
+        return p;
       }).join(' & ');
     } else {
-      // Format supplier luar: pertahankan format identitas pemesan eksternal
+      // Supplier luar: pertahankan nama supplier / order eksternal
       spkNo = spkNo.trim().toUpperCase();
     }
 
@@ -243,8 +249,33 @@ export function postProcessExtractedRows(rawRows, filmConfigs = []) {
       upList.push({ upNo: 4, lebar: parseFloat(row.up4), panjang: parseFloat(row.panjangChild) || 12000 });
     }
 
-    const sumUp = upList.reduce((sum, u) => sum + u.lebar, 0);
-    const trimAuto = Math.max(0, lebarParent - sumUp);
+    // ATURAN SPK REWIND LEBAR SAMA:
+    // "TERKADANG ADA PARENT YANG TIDAK MEMILIKI UP ATAU CHART PADA PLAN, BIASANYA BARANG ITU AKAN DI REWIND DENGAN UKURAN YANG SAMA"
+    let finalUp1 = row.up1 ? parseFloat(row.up1) : null;
+    let finalUp2 = row.up2 ? parseFloat(row.up2) : null;
+    let finalUp3 = row.up3 ? parseFloat(row.up3) : null;
+    let finalUp4 = row.up4 ? parseFloat(row.up4) : null;
+    let trimAuto = 0;
+    let keterangan = row.keterangan ? String(row.keterangan).trim() : '';
+
+    if (upList.length === 0 || (upList.length === 1 && upList[0].lebar === lebarParent)) {
+      // Tidak ada pisau belah -> Di-rewind dengan ukuran yang sama!
+      finalUp1 = lebarParent;
+      finalUp2 = null;
+      finalUp3 = null;
+      finalUp4 = null;
+      trimAuto = 0;
+      if (upList.length === 0) {
+        upList.push({ upNo: 1, lebar: lebarParent, panjang: parseFloat(row.panjangParent) || parseFloat(row.panjangChild) || 12000 });
+      }
+      if (!keterangan || keterangan === '-') {
+        keterangan = 'REWIND (UKURAN SAMA)';
+      }
+    } else {
+      const sumUp = upList.reduce((sum, u) => sum + u.lebar, 0);
+      trimAuto = Math.max(0, lebarParent - sumUp);
+    }
+
     const jumlahJumbo = parseInt(row.jumlahJumbo, 10) || 1;
     const totalPlannedRolls = upList.length * jumlahJumbo;
 
@@ -257,17 +288,17 @@ export function postProcessExtractedRows(rawRows, filmConfigs = []) {
       thickness: parseFloat(row.thickness) || matchedFilm?.thickness || 25,
       lebarParent,
       panjangParent: parseFloat(row.panjangParent) || 0,
-      up1: row.up1 || null,
-      up2: row.up2 || null,
-      up3: row.up3 || null,
-      up4: row.up4 || null,
+      up1: finalUp1,
+      up2: finalUp2,
+      up3: finalUp3,
+      up4: finalUp4,
       panjangChild: parseFloat(row.panjangChild) || 12000,
       upList,
       trimAuto,
       jumlahJumbo,
       totalPlannedRolls,
       totalPlannedMeter: parseFloat(row.totalPlannedMeter) || ((parseFloat(row.panjangChild) || 12000) * jumlahJumbo),
-      keterangan: row.keterangan || '',
+      keterangan,
       supplier,
       isSupplierInhouse,
       formatStandard: isSupplierInhouse ? 'INHOUSE' : 'SUPPLIER_LUAR',
