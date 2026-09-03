@@ -472,7 +472,17 @@ Pedoman Jawaban:
         body: JSON.stringify({
           contents,
           systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: { temperature: 0.5, maxOutputTokens: 800 }
+          generationConfig: {
+            temperature: 0.5,
+            maxOutputTokens: 8192 // Kapasitas penuh agar jawaban tidak pernah terpotong
+          },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+          ]
         })
       });
 
@@ -571,7 +581,17 @@ Instruksi: Jawablah pertanyaan pengguna secara luwes, cerdas, solutif, dan profe
     body: JSON.stringify({
       contents,
       systemInstruction: { parts: [{ text: systemInstruction }] },
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1000 }
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 8192
+      },
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+      ]
     })
   });
 
