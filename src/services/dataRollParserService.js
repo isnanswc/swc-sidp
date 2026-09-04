@@ -576,8 +576,24 @@ export function parseDataRollRow(row) {
   if (!kodeFg && lotRaw) kodeFg = lotRaw;
   if (!lotRaw && kodeFg) lotRaw = kodeFg.split(/\s+/)[0];
 
-  // If row has neither lot nor SPK nor Kode Pack, skip empty row
-  if (!kodeFg && !lotRaw && !spk && !kodePackRaw) {
+  // Clean strings
+  const cleanLot = (lotRaw || '').trim();
+  const cleanFg = (kodeFg || '').trim();
+  const cleanSpk = (spk || '').trim();
+
+  // Strict validation: row MUST have a valid identifier (cannot be empty, '0', '-', or summary headers)
+  const isInvalidLot = !cleanLot || cleanLot === '0' || cleanLot === '-' || /^(total|grand total|subtotal|sub total|jumlah|no lot|kode fg|deskripsi)$/i.test(cleanLot);
+  const isInvalidFg = !cleanFg || cleanFg === '0' || cleanFg === '-' || /^(total|grand total|subtotal|sub total|jumlah|no lot|kode fg|deskripsi)$/i.test(cleanFg);
+  const isInvalidSpk = !cleanSpk || cleanSpk === '0' || cleanSpk === '-' || /^(total|grand total|subtotal|sub total|jumlah)$/i.test(cleanSpk);
+
+  if (isInvalidLot && isInvalidFg && isInvalidSpk) {
+    return null;
+  }
+
+  // If lot is invalid/empty, dimensions must be non-zero
+  const testW = parseFloat(widthRaw || 0) || 0;
+  const testL = parseFloat(lengthRaw || 0) || 0;
+  if (isInvalidLot && isInvalidFg && testW === 0 && testL === 0) {
     return null;
   }
 
@@ -714,7 +730,12 @@ export function parseDataRollRow(row) {
   // Ensure full kodeFg description has the parsedLot representation
   let normalizedKodeFg = kodeFg;
   if (!kodeFg || kodeFg === fullLotStr) {
-    normalizedKodeFg = `${lot} ${jenis || 'VMCPP'} ${kodeFormula || 'M07'} ${thickness || '20'}MC X ${width || '1000'}MM = ${length || '4000'}`;
+    const dimParts = [];
+    if (thickness) dimParts.push(`${thickness}MC`);
+    if (width) dimParts.push(`X ${width}MM`);
+    if (length) dimParts.push(`= ${length}`);
+    const dimStr = dimParts.join(' ');
+    normalizedKodeFg = `${lot}${jenis ? ' ' + jenis : ''}${kodeFormula ? ' ' + kodeFormula : ''}${dimStr ? ' ' + dimStr : ''}`.trim();
   } else if (fullLotStr && kodeFg.startsWith(fullLotStr)) {
     normalizedKodeFg = kodeFg.replace(fullLotStr, lot);
   }
@@ -732,16 +753,16 @@ export function parseDataRollRow(row) {
     density = 0.92;
   }
 
-  const numThick = parseFloat(thickness) || 20;
-  const numWidth = parseFloat(width) || 1000;
-  const numLength = parseFloat(length) || 4000;
+  const numThick = parseFloat(thickness) || 0;
+  const numWidth = parseFloat(width) || 0;
+  const numLength = parseFloat(length) || 0;
   const numCore = parseInt(core, 10) || 6;
 
   // Rumus Berat Teori Netto (Rotogravure standard): (Tebal * Lebar * Panjang * Density) / 1,000,000
-  const beratTeori = parseFloat(((numThick * numWidth * numLength * density) / 1000000).toFixed(2));
+  const beratTeori = (numThick && numWidth && numLength) ? parseFloat(((numThick * numWidth * numLength * density) / 1000000).toFixed(2)) : 0;
   
   // Rumus Berat Paper Core: (((0.003077 * Lebar + 3.01532) * Core) / 6)
-  const paperCore = parseFloat((((0.003077 * numWidth + 3.01532) * numCore) / 6).toFixed(2));
+  const paperCore = numWidth ? parseFloat((((0.003077 * numWidth + 3.01532) * numCore) / 6).toFixed(2)) : 0;
 
   // Berat Bruto Teori
   const brutoTeori = parseFloat((beratTeori + paperCore).toFixed(2));
@@ -814,6 +835,8 @@ export function parseCopasTextDataRoll(text) {
   for (let i = startIndex; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
+    // Skip lines with only whitespace, delimiters, zeroes, or dashes
+    if (/^[\s\t,;0\-_]+$/.test(line)) continue;
 
     // Detect delimiter: tab (\t), comma (,), semicolon (;)
     let cols = [];
@@ -826,6 +849,13 @@ export function parseCopasTextDataRoll(text) {
     } else {
       cols = line.split(/\s{2,}/); // 2 or more spaces
     }
+
+    // Skip if all columns are empty, 0, or dash
+    const hasMeaningfulCol = cols.some(c => {
+      const v = String(c || '').trim();
+      return v && v !== '0' && v !== '-';
+    });
+    if (!hasMeaningfulCol) continue;
 
     const parsed = parseDataRollRow(cols);
     if (parsed) {

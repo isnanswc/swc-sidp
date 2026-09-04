@@ -332,7 +332,7 @@ const configStore = useConfigStore();
 const viewMode = ref('month'); // 'month' | 'week' | 'day'
 const selectedGroupFilter = ref('ALL');
 const currentDate = ref(new Date());
-const activeDayDateStr = ref(new Date().toISOString().slice(0, 10));
+const activeDayDateStr = ref(scheduleStore.getWorkDate(new Date()));
 
 const currentShiftLive = computed(() => scheduleStore.getCurrentShiftInfo());
 
@@ -403,8 +403,9 @@ const navigatePeriod = (direction) => {
 };
 
 const goToToday = () => {
-  currentDate.value = new Date();
-  activeDayDateStr.value = new Date().toISOString().slice(0, 10);
+  const wDate = scheduleStore.getWorkDate(new Date());
+  currentDate.value = new Date(wDate);
+  activeDayDateStr.value = wDate;
 };
 
 const selectDayFromMonth = (dateStr) => {
@@ -424,8 +425,7 @@ const monthGridCells = computed(() => {
 
   const startDate = new Date(year, month, 1 - startDayIdx);
 
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayStr = scheduleStore.getWorkDate(new Date());
   const cells = [];
 
   for (let i = 0; i < 42; i++) {
@@ -470,7 +470,7 @@ const weekDaysList = computed(() => {
 
   const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = scheduleStore.getWorkDate(new Date());
   const list = [];
 
   for (let i = 0; i < 7; i++) {

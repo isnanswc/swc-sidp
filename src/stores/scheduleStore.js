@@ -118,11 +118,33 @@ export const SHIFT_DEFINITIONS = {
 /**
  * Anchor Date: 2026-08-31 (Senin)
  * Pada minggu ini:
- * - Grup C: Pola 1 (Shift 1)
- * - Grup A: Pola 2 (Shift 2)
- * - Grup B: Pola 3 (Shift 3)
+ * - Grup C: Pola 1 (Shift 1) -> index 0
+ * - Grup A: Pola 2 (Shift 2) -> index 2
+ * - Grup B: Pola 3 (Shift 3) -> index 1
  */
 export const DEFAULT_ANCHOR_DATE = '2026-08-31';
+
+/**
+ * Menghitung tanggal hari kerja (Work Date) produksi.
+ * Aturan perusahaan:
+ * Pergantian hari kerja di-reset setiap jam 07:00 pagi.
+ * - Jam 07:00:00 s/d 23:59:59 = Tanggal hari ini (kalender berjalan)
+ * - Jam 00:00:00 s/d 06:59:59 = Masih terhitung tanggal kemarin (Shift 3 / LS2 semalam)
+ */
+export const getWorkDate = (dateInput = null) => {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
+
+  const currentHour = d.getHours();
+  const workDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if (currentHour < 7) {
+    workDate.setDate(workDate.getDate() - 1);
+  }
+  const year = workDate.getFullYear();
+  const month = String(workDate.getMonth() + 1).padStart(2, '0');
+  const day = String(workDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export const useScheduleStore = defineStore('scheduleStore', () => {
   const configStore = useConfigStore();
@@ -206,12 +228,12 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
     // At anchor week (2026-08-31):
     // Grup C = Index 0 (Pattern 1: Shift 1)
-    // Grup A = Index 1 (Pattern 3: Shift 3)
-    // Grup B = Index 2 (Pattern 2: Shift 2)
+    // Grup A = Index 2 (Pattern 2: Shift 2)
+    // Grup B = Index 1 (Pattern 3: Shift 3)
     let basePatternIdx = 0;
     if (cleanGroup === 'C' || cleanGroup === 'GRUP C') basePatternIdx = 0;
-    else if (cleanGroup === 'A' || cleanGroup === 'GRUP A') basePatternIdx = 1;
-    else if (cleanGroup === 'B' || cleanGroup === 'GRUP B') basePatternIdx = 2;
+    else if (cleanGroup === 'A' || cleanGroup === 'GRUP A') basePatternIdx = 2;
+    else if (cleanGroup === 'B' || cleanGroup === 'GRUP B') basePatternIdx = 1;
 
     // Rotation progression: each week moves to next pattern in ROTATION_CYCLE [Pattern 1, Pattern 3, Pattern 2]
     const cycleIdx = ((basePatternIdx + weekOffset) % 3 + 3) % 3;
@@ -222,26 +244,34 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
   /**
    * Mendeteksi shift mana yang sedang berjalan saat ini (berdasarkan jam lokal sekarang).
+   * Pergantian hari kerja di-reset setiap jam 07:00 pagi.
    */
   const getCurrentShiftInfo = (customDate = null) => {
     const nowDate = customDate || currentNow.value;
-    const year = nowDate.getFullYear();
-    const month = String(nowDate.getMonth() + 1).padStart(2, '0');
-    const day = String(nowDate.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
+
+    // 1. Tanggal Hari Kerja Produksi (reset setiap jam 07:00 pagi)
+    const workDateStr = getWorkDate(nowDate);
+
+    // Tanggal aktual kalender
+    const actualYear = nowDate.getFullYear();
+    const actualMonth = String(nowDate.getMonth() + 1).padStart(2, '0');
+    const actualDay = String(nowDate.getDate()).padStart(2, '0');
+    const actualDateStr = `${actualYear}-${actualMonth}-${actualDay}`;
 
     const hours = nowDate.getHours();
     const minutes = nowDate.getMinutes();
     const timeVal = hours + minutes / 60; // e.g. 17.5 = 17:30
 
-    const dayIdx = getDayIndex(todayStr);
-    const isWeekendLongShiftDay = dayIdx >= 4; // Jumat(4), Sabtu(5), Minggu(6)
+    // Evaluasi pola hari berdasarkan HARI KERJA (workDateStr)
+    const workDayIdx = getDayIndex(workDateStr);
+    const isWeekendLongShiftDay = workDayIdx >= 4; // Jumat(4), Sabtu(5), Minggu(6)
 
     let currentShiftCode = '1';
-    let currentShiftGroup = 'C';
 
     if (isWeekendLongShiftDay) {
       // Long shift days (Jumat, Sabtu, Minggu)
+      // LS1: 07:00 - 19:00
+      // LS2: 19:00 - 07:00 (mencakup 19:00-23:59 hari kerja dan 00:00-06:59 keesokan harinya)
       if (timeVal >= 7 && timeVal < 19) {
         currentShiftCode = 'LS1';
       } else {
@@ -249,6 +279,9 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
       }
     } else {
       // Weekdays (Senin-Kamis 8 jam)
+      // Shift 1: 07:00 - 15:00
+      // Shift 2: 15:00 - 23:00
+      // Shift 3: 23:00 - 07:00 (mencakup 23:00-23:59 hari kerja dan 00:00-06:59 keesokan harinya)
       if (timeVal >= 7 && timeVal < 15) {
         currentShiftCode = '1';
       } else if (timeVal >= 15 && timeVal < 23) {
@@ -258,10 +291,11 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
       }
     }
 
-    // Find which group is assigned to currentShiftCode on todayStr
+    // Cari grup yang ditugaskan pada currentShiftCode pada HARI KERJA workDateStr
+    let currentShiftGroup = 'C';
     const groups = ['A', 'B', 'C'];
     for (const g of groups) {
-      if (getShiftForGroupAndDate(g, todayStr) === currentShiftCode) {
+      if (getShiftForGroupAndDate(g, workDateStr) === currentShiftCode) {
         currentShiftGroup = g;
         break;
       }
@@ -270,7 +304,8 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     const definition = SHIFT_DEFINITIONS[currentShiftCode] || SHIFT_DEFINITIONS['1'];
 
     return {
-      date: todayStr,
+      date: workDateStr, // Tanggal hari kerja (tercatat di label & laporan)
+      actualDate: actualDateStr, // Tanggal kalender aktual saat label dibuat
       timeString: nowDate.toTimeString().slice(0, 5),
       shiftCode: currentShiftCode,
       group: currentShiftGroup,
@@ -282,72 +317,90 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
   /**
    * Mendapatkan pasangan shift untuk Serah Terima (Handover):
    * 1. previousShift: Shift yang TELAH bekerja / baru saja selesai
-   * 2. upcomingShift: Shift yang AKAN bekerja / bertugas berikutnya
+   * 2. upcomingShift: Shift yang AKAN bekerja / bertugas berikutnya (atau shift yang sedang berjalan)
+   * Mengikuti aturan pergantian hari kerja jam 07:00 pagi.
    */
   const getHandoverShifts = (customDate = null) => {
     const nowDate = customDate || currentNow.value;
-    const year = nowDate.getFullYear();
-    const month = String(nowDate.getMonth() + 1).padStart(2, '0');
-    const day = String(nowDate.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
 
-    // Tanggal kemarin
-    const yDate = new Date(nowDate);
-    yDate.setDate(yDate.getDate() - 1);
-    const yesterdayStr = `${yDate.getFullYear()}-${String(yDate.getMonth() + 1).padStart(2, '0')}-${String(yDate.getDate()).padStart(2, '0')}`;
+    // Tanggal aktual kalender
+    const calYear = nowDate.getFullYear();
+    const calMonth = String(nowDate.getMonth() + 1).padStart(2, '0');
+    const calDay = String(nowDate.getDate()).padStart(2, '0');
+    const calendarDateStr = `${calYear}-${calMonth}-${calDay}`;
 
-    // Tanggal besok
-    const tDate = new Date(nowDate);
-    tDate.setDate(tDate.getDate() + 1);
-    const tomorrowStr = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}-${String(tDate.getDate()).padStart(2, '0')}`;
+    // Tanggal kemarin kalender
+    const yCalDate = new Date(nowDate);
+    yCalDate.setDate(yCalDate.getDate() - 1);
+    const yesterdayCalStr = `${yCalDate.getFullYear()}-${String(yCalDate.getMonth() + 1).padStart(2, '0')}-${String(yCalDate.getDate()).padStart(2, '0')}`;
 
     const hours = nowDate.getHours();
     const minutes = nowDate.getMinutes();
-    const timeVal = hours + minutes / 60; // Desimal jam
+    const timeVal = hours + minutes / 60; // Desimal jam (misal 18:05 = 18.083)
 
-    const dayIdx = getDayIndex(todayStr);
-    const isWeekendLongShiftDay = dayIdx >= 4; // Jumat(4), Sabtu(5), Minggu(6)
+    // Tentukan hari kerja saat ini (reset setiap jam 07:00 pagi)
+    const workDateStr = getWorkDate(nowDate);
+    const workDayIdx = getDayIndex(workDateStr); // 0=Senin, 1=Selasa, ..., 4=Jumat, 5=Sabtu, 6=Minggu
+    const isWorkWeekend = workDayIdx >= 4; // Jumat, Sabtu, Minggu menggunakan Long Shift (LS1 & LS2)
 
     let prevShiftCode = '1';
-    let prevDate = todayStr;
+    let prevDate = workDateStr;
     let upShiftCode = '2';
-    let upDate = todayStr;
+    let upDate = workDateStr;
 
-    if (isWeekendLongShiftDay) {
-      // Long Shift (LS1: 07:00 - 19:00, LS2: 19:00 - 07:00)
-      if (timeVal >= 6.5 && timeVal < 18.5) {
-        // Pagi hingga sore: Serah terima dari LS2 semalam ke LS1 hari ini
-        prevShiftCode = 'LS2';
-        prevDate = yesterdayStr;
+    // EVALUASI POLA HARI KERJA:
+    if (isWorkWeekend) {
+      // Hari Long Shift: LS1 (07:00 - 19:00), LS2 (19:00 - 07:00)
+      if (timeVal >= 7.0 && timeVal < 19.0) {
+        // Saat ini sedang berlangsung LS1 (atau handover masuk ke LS1)
         upShiftCode = 'LS1';
-        upDate = todayStr;
+        upDate = workDateStr;
+
+        // Shift sebelumnya adalah shift malam yang baru selesai di jam 07:00 pagi (hari kerja kemarin)
+        prevDate = yesterdayCalStr;
+        const prevWorkDayIdx = getDayIndex(prevDate);
+        // Jika kemarin adalah Kamis (dayIdx = 3), shift malamnya adalah Shift 3!
+        // Jika kemarin adalah Jumat/Sabtu/Minggu, shift malamnya adalah LS2!
+        prevShiftCode = (prevWorkDayIdx >= 4) ? 'LS2' : '3';
       } else {
-        // Sore hingga malam: Serah terima dari LS1 hari ini ke LS2 malam
-        prevShiftCode = 'LS1';
-        prevDate = (timeVal < 6.5) ? yesterdayStr : todayStr;
+        // Saat ini sedang berlangsung LS2 (19:00 - 07:00)
         upShiftCode = 'LS2';
-        upDate = (timeVal < 6.5) ? yesterdayStr : todayStr;
+        upDate = workDateStr;
+
+        // Shift sebelumnya adalah LS1 pada hari kerja yang sama
+        prevShiftCode = 'LS1';
+        prevDate = workDateStr;
       }
     } else {
-      // Reguler 8 Jam (Shift 1: 07-15, Shift 2: 15-23, Shift 3: 23-07)
-      if (timeVal >= 6.5 && timeVal < 14.5) {
-        // Pagi (06:30 - 14:30): Serah terima dari Shift 3 (semalam) ke Shift 1 (yang akan bekerja hari ini)
-        prevShiftCode = '3';
-        prevDate = yesterdayStr;
+      // Hari Reguler 8 Jam (Senin - Kamis):
+      // Shift 1: 07:00 - 15:00
+      // Shift 2: 15:00 - 23:00
+      // Shift 3: 23:00 - 07:00 (reset jam 07:00 pagi)
+      if (timeVal >= 7.0 && timeVal < 15.0) {
+        // Shift 1 (Pagi)
         upShiftCode = '1';
-        upDate = todayStr;
-      } else if (timeVal >= 14.5 && timeVal < 22.5) {
-        // Siang/Sore (14:30 - 22:30): Serah terima dari Shift 1 ke Shift 2 (yang akan bekerja)
-        prevShiftCode = '1';
-        prevDate = todayStr;
+        upDate = workDateStr;
+
+        // Shift sebelumnya adalah Shift 3 hari kemarin
+        prevDate = yesterdayCalStr;
+        const prevWorkDayIdx = getDayIndex(prevDate);
+        prevShiftCode = (prevWorkDayIdx >= 4) ? 'LS2' : '3';
+      } else if (timeVal >= 15.0 && timeVal < 23.0) {
+        // Shift 2 (Sore)
         upShiftCode = '2';
-        upDate = todayStr;
+        upDate = workDateStr;
+
+        // Shift sebelumnya adalah Shift 1 pada hari yang sama
+        prevShiftCode = '1';
+        prevDate = workDateStr;
       } else {
-        // Malam (22:30 - 06:30): Serah terima dari Shift 2 ke Shift 3 (yang akan bekerja)
-        prevShiftCode = '2';
-        prevDate = (timeVal < 6.5) ? yesterdayStr : todayStr;
+        // Shift 3 (Malam)
         upShiftCode = '3';
-        upDate = (timeVal < 6.5) ? yesterdayStr : todayStr;
+        upDate = workDateStr;
+
+        // Shift sebelumnya adalah Shift 2 pada hari kerja yang sama
+        prevShiftCode = '2';
+        prevDate = workDateStr;
       }
     }
 
@@ -460,6 +513,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     tickLiveClock,
     currentShift,
     currentHandoverShifts,
+    getWorkDate,
     getWeekOffset,
     getDayIndex,
     getShiftForGroupAndDate,

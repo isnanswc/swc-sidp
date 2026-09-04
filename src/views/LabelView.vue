@@ -2626,7 +2626,7 @@
                 <span class="text-[9.5px] text-amber-800 font-medium">Validasi Unik & Alasan Hold/Reject</span>
               </div>
 
-              <!-- Baris 1: Tgl Shift, Manual, Kode Pack, Sub Kode Pack -->
+              <!-- Baris 1: Tgl Shift, Manual, Shift, Kode Pack, Sub Kode Pack -->
               <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
                 <div class="md:col-span-2">
                   <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Tgl Shift (07:00)</label>
@@ -2637,12 +2637,22 @@
                   <input v-model="form.tanggalManual" type="date" @change="updateAutoFields" class="w-full px-1 py-0.5 text-[11px] border border-amber-300 rounded-lg bg-white" />
                 </div>
                 <div class="md:col-span-2">
+                  <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Shift</label>
+                  <select v-model="form.shift" class="w-full px-1 py-0.5 text-[11px] border border-amber-300 rounded-lg bg-white font-bold text-zinc-800 outline-none">
+                    <option value="1">Shift 1</option>
+                    <option value="2">Shift 2</option>
+                    <option value="3">Shift 3</option>
+                    <option value="LS1">LS 1 (Siang)</option>
+                    <option value="LS2">LS 2 (Malam)</option>
+                  </select>
+                </div>
+                <div class="md:col-span-2">
                   <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Kode Pack</label>
                   <input :value="form.kodePack" readonly class="w-full px-1.5 py-0.5 text-xs border border-amber-200 rounded-lg bg-white font-mono font-bold text-zinc-800" />
                 </div>
 
                 <!-- Sub Kode Pack -->
-                <div class="md:col-span-6">
+                <div class="md:col-span-4">
                   <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Status & Sub Kode Pack</label>
                   <div class="flex items-center gap-1.5 pt-0.2 flex-wrap">
                     <label class="inline-flex items-center gap-1 cursor-pointer bg-white px-1.5 py-0.5 border border-amber-300 rounded-lg shadow-2xs">
@@ -5244,6 +5254,7 @@ const form = reactive({
   tanggal: '',
   tanggalManual: '',
   tanggalShift: '',
+  shift: '',
   mesin: 'SLITTING',
   jenis: '',
   alias: '',
@@ -5314,6 +5325,9 @@ const currentDateTimeString = computed(() => {
 });
 
 function calculateShiftDate() {
+  if (scheduleStore && typeof scheduleStore.getWorkDate === 'function') {
+    return scheduleStore.getWorkDate(new Date());
+  }
   const now = new Date();
   const currentHour = now.getHours();
   const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -5613,6 +5627,10 @@ const updateAutoFields = () => {
   form.kodePack = generateKodePack(finalDate, form.mesin);
   form.paperCore = calculatePaperCore(form.width, form.diameterCore || 6);
   form.netto = calculateNetto(form.thickness, form.width, form.length, form.jenis, form.kode);
+  if (!form.shift) {
+    const shiftInfo = scheduleStore.getCurrentShiftInfo();
+    form.shift = shiftInfo.shiftCode;
+  }
   handleSubKode();
 };
 
@@ -5940,6 +5958,7 @@ const resetFormToDefaults = () => {
   form.tanggal = '';
   form.tanggalManual = '';
   form.tanggalShift = '';
+  form.shift = '';
   form.mesin = 'SLITTING';
   form.jenis = '';
   form.alias = '';
@@ -5992,6 +6011,7 @@ const openModal = (item = -1) => {
     form.id = item.id;
     form.tanggal = item.tanggalFormatted || item.tanggal || form.tanggal;
     form.tanggalShift = item.tanggalShift || form.tanggal;
+    form.shift = item.shift || scheduleStore.getCurrentShiftInfo().shiftCode;
     form.diameterCore = Number(item.diameterCore) || (parseFloat(item.paperCore) < 4.5 && parseFloat(item.paperCore) > 0 ? 3 : 6);
     form.treatment = item.treatment || 'INSIDE';
     form.operator = item.operator || getOperatorFromTurunan(item.turunan, item.mesin) || '';
@@ -6025,6 +6045,8 @@ const openModal = (item = -1) => {
       ? labelStore.filterMesin
       : (mesinOptions.value[0] || 'SLITTING');
     form.mesin = activeSheetMesin;
+    const currentShift = scheduleStore.getCurrentShiftInfo();
+    form.shift = currentShift.shiftCode;
     // Ambil default operator aktif shift untuk mesin ini
     const activeOp = getActiveShiftOperator(form.mesin);
     const activeOpCode = activeOp ? activeOp.kodeOperator : 'H';
@@ -6081,6 +6103,9 @@ const handleFormSubmit = async () => {
   }
 
   const payload = { ...form };
+  if (!payload.shift) {
+    payload.shift = scheduleStore.getCurrentShiftInfo().shiftCode;
+  }
   if (isEditing.value && payload.id) {
     await labelStore.updateLabel(payload.id, payload);
   } else {
@@ -6098,6 +6123,7 @@ const duplicateData = (item) => {
   Object.assign(form, item);
   form.id = null;
   form.uniqId = '';
+  form.shift = item.shift || scheduleStore.getCurrentShiftInfo().shiftCode;
 
   // Hitung tanggal shift & kode pack otomatis terlebih dahulu
   const tglShift = calculateShiftDate();

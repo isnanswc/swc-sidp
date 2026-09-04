@@ -37,6 +37,9 @@
     <!-- Floating Global AI Copilot Widget -->
     <AiCopilotWidget />
   </div>
+
+  <!-- Global Loading & Long-Running Responsiveness Overlay -->
+  <GlobalLoadingOverlay />
 </template>
 
 <script setup>
@@ -45,6 +48,7 @@ import { useRoute } from 'vue-router';
 import Sidebar from '@/components/Sidebar.vue';
 import Navbar from '@/components/Navbar.vue';
 import AiCopilotWidget from '@/components/ai/AiCopilotWidget.vue';
+import GlobalLoadingOverlay from '@/components/GlobalLoadingOverlay.vue';
 
 const route = useRoute();
 

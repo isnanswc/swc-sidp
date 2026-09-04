@@ -19,6 +19,7 @@ export default defineConfig({
           'vendor-core': ['vue', 'vue-router', 'pinia'],
           'vendor-db': ['dexie'],
           'vendor-xlsx': ['xlsx'],
+          'vendor-exceljs': ['exceljs'],
           'vendor-chart': ['chart.js']
         }
       }

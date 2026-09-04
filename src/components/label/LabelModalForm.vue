@@ -354,7 +354,7 @@
             <span class="text-[9.5px] text-amber-800 font-medium">Validasi Unik & Alasan Hold/Reject</span>
           </div>
 
-          <!-- Baris 1: Tgl Shift, Manual, Kode Pack, Sub Kode Pack -->
+          <!-- Baris 1: Tgl Shift, Manual, Shift, Kode Pack, Sub Kode Pack -->
           <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
             <div class="md:col-span-2">
               <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Tgl Shift (07:00)</label>
@@ -365,12 +365,22 @@
               <input v-model="form.tanggalManual" type="date" @change="$emit('update-auto-fields')" class="w-full px-1 py-0.5 text-[11px] border border-amber-300 rounded-lg bg-white" />
             </div>
             <div class="md:col-span-2">
+              <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Shift</label>
+              <select v-model="form.shift" class="w-full px-1 py-0.5 text-[11px] border border-amber-300 rounded-lg bg-white font-bold text-zinc-800 outline-none">
+                <option value="1">Shift 1</option>
+                <option value="2">Shift 2</option>
+                <option value="3">Shift 3</option>
+                <option value="LS1">LS 1 (Siang)</option>
+                <option value="LS2">LS 2 (Malam)</option>
+              </select>
+            </div>
+            <div class="md:col-span-2">
               <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Kode Pack</label>
               <input :value="form.kodePack" readonly class="w-full px-1.5 py-0.5 text-xs border border-amber-200 rounded-lg bg-white font-mono font-bold text-zinc-800" />
             </div>
 
             <!-- Sub Kode Pack -->
-            <div class="md:col-span-6">
+            <div class="md:col-span-4">
               <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Status & Sub Kode Pack</label>
               <div class="flex items-center gap-1.5 pt-0.2 flex-wrap">
                 <label class="inline-flex items-center gap-1 cursor-pointer bg-white px-1.5 py-0.5 border border-amber-300 rounded-lg shadow-2xs">

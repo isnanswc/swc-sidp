@@ -3,6 +3,7 @@ import { db, generateUniqID, getSetting, saveSetting } from '@/db';
 import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
+import { useGlobalLoading } from '@/services/loadingService';
 
 export const useLabelStore = defineStore('labelStore', {
   state: () => ({
@@ -255,8 +256,13 @@ export const useLabelStore = defineStore('labelStore', {
   },
 
   actions: {
-    async loadLabels() {
+    async loadLabels(force = false) {
+      if (!force && this.labels.length > 0 && !this.loading) {
+        return;
+      }
       this.loading = true;
+      const { startLoading, stopLoading } = useGlobalLoading();
+      startLoading('Memuat data label...');
       try {
         const raw = await db.labels.orderBy('id').toArray();
         
@@ -331,14 +337,16 @@ export const useLabelStore = defineStore('labelStore', {
                 }
               }
 
-              const thick = String(r.thickness || '20');
-              const width = String(r.width || '1000');
-              const length = String(r.length || '4000');
+              const thick = String(r.thickness || '');
+              const width = String(r.width || '');
+              const length = String(r.length || r.meter || '');
               const jenis = r.jenis || 'VMCPP';
               const density = ["VMPET", "PET"].includes(jenis) ? 1.4 : 0.91;
-              const calcNetto = ((parseFloat(thick) * parseFloat(width) * parseFloat(length) * density) / 1000000).toFixed(2);
+              const calcNetto = (parseFloat(thick) && parseFloat(width) && parseFloat(length))
+                ? ((parseFloat(thick) * parseFloat(width) * parseFloat(length) * density) / 1000000).toFixed(2)
+                : '0.00';
               const core = r.core || 6;
-              const calcCore = (((0.003077 * parseFloat(width) + 3.01532) * core) / 6).toFixed(2);
+              const calcCore = parseFloat(width) ? (((0.003077 * parseFloat(width) + 3.01532) * core) / 6).toFixed(2) : '0.00';
               const status = (r.qualityStatus || 'PASS').toUpperCase();
 
               return {
@@ -347,7 +355,7 @@ export const useLabelStore = defineStore('labelStore', {
                 isDataRoll: true,
                 uniqId: r.uuid || `DR-${r.id}`,
                 supplier,
-                spk: r.spk || 'SPK/INHOUSE/2026',
+                spk: r.spk || '',
                 tanggal: r.tanggalFormatted || r.tanggal || new Date().toISOString().slice(0, 10),
                 tanggalShift: r.tanggalFormatted || r.tanggal || new Date().toISOString().slice(0, 10),
                 shift,
@@ -355,7 +363,7 @@ export const useLabelStore = defineStore('labelStore', {
                 mesin: (r.machineName || 'SLITTING').toUpperCase(),
                 jenis,
                 type: jenis === 'VMCPP' ? 'METALIZED' : 'TRANSPARENT',
-                kode: r.kodeFormula || 'M07',
+                kode: r.kodeFormula || '',
                 thickness: thick,
                 width,
                 length,
@@ -364,7 +372,7 @@ export const useLabelStore = defineStore('labelStore', {
                 netto: String(r.netto || calcNetto),
                 paperCore: String(calcCore),
                 diameterCore: String(core),
-                kodePack: r.kodePack || '3B0826',
+                kodePack: r.kodePack || '',
                 subKode: r.subKode || '0000',
                 status,
                 treatment: r.treatment || 'INSIDE',
@@ -389,6 +397,7 @@ export const useLabelStore = defineStore('labelStore', {
         console.error('Failed to load labels:', err);
       } finally {
         this.loading = false;
+        stopLoading();
       }
     },
 
@@ -539,14 +548,23 @@ export const useLabelStore = defineStore('labelStore', {
     async verifyLabels(ids, verifiedBy = 'Data Entry') {
       const now = new Date().toISOString();
       const idList = Array.isArray(ids) ? ids : [ids];
-      for (const id of idList) {
-        await db.labels.update(id, {
+      for (const rawId of idList) {
+        const cleanId = (typeof rawId === 'string' && /^\d+$/.test(rawId)) ? parseInt(rawId, 10) : rawId;
+        const updated = await db.labels.update(cleanId, {
           verified: 1,
           verifiedAt: now,
           verifiedBy,
           updatedAt: now
         });
-        const idx = this.labels.findIndex(l => l.id === id);
+        if (updated === 0 && db.data_rolls) {
+          await db.data_rolls.update(cleanId, {
+            verified: 1,
+            verifiedAt: now,
+            verifiedBy,
+            updatedAt: now
+          });
+        }
+        const idx = this.labels.findIndex(l => l.id === cleanId || l.id == rawId);
         if (idx !== -1) {
           this.labels[idx] = {
             ...this.labels[idx],
@@ -558,11 +576,14 @@ export const useLabelStore = defineStore('labelStore', {
         }
       }
 
+      await this.loadLabels();
+
       // Auto-sync verified rolls into dataRollStore history batch
       try {
         const { useDataRollStore } = await import('@/stores/dataRollStore');
         const dataRollStore = useDataRollStore();
         await dataRollStore.syncVerifiedDeBatches();
+        await dataRollStore.loadRolls();
       } catch (err) {
         console.warn('Auto-sync to dataRollStore:', err);
       }
@@ -571,14 +592,23 @@ export const useLabelStore = defineStore('labelStore', {
     async unverifyLabels(ids) {
       const now = new Date().toISOString();
       const idList = Array.isArray(ids) ? ids : [ids];
-      for (const id of idList) {
-        await db.labels.update(id, {
+      for (const rawId of idList) {
+        const cleanId = (typeof rawId === 'string' && /^\d+$/.test(rawId)) ? parseInt(rawId, 10) : rawId;
+        const updated = await db.labels.update(cleanId, {
           verified: 0,
           verifiedAt: null,
           verifiedBy: null,
           updatedAt: now
         });
-        const idx = this.labels.findIndex(l => l.id === id);
+        if (updated === 0 && db.data_rolls) {
+          await db.data_rolls.update(cleanId, {
+            verified: 0,
+            verifiedAt: null,
+            verifiedBy: null,
+            updatedAt: now
+          });
+        }
+        const idx = this.labels.findIndex(l => l.id === cleanId || l.id == rawId);
         if (idx !== -1) {
           this.labels[idx] = {
             ...this.labels[idx],
@@ -589,13 +619,28 @@ export const useLabelStore = defineStore('labelStore', {
           };
         }
       }
+
+      await this.loadLabels();
+
+      try {
+        const { useDataRollStore } = await import('@/stores/dataRollStore');
+        const dataRollStore = useDataRollStore();
+        await dataRollStore.syncVerifiedDeBatches();
+        await dataRollStore.loadRolls();
+      } catch (err) {
+        console.warn('Auto-sync to dataRollStore:', err);
+      }
     },
 
     async updateLabelCell(id, field, value) {
       const now = new Date().toISOString();
+      const cleanId = (typeof id === 'string' && /^\d+$/.test(id)) ? parseInt(id, 10) : id;
       const payload = { [field]: value, updatedAt: now };
-      await db.labels.update(id, payload);
-      const idx = this.labels.findIndex(l => l.id === id);
+      const updated = await db.labels.update(cleanId, payload);
+      if (updated === 0 && db.data_rolls) {
+        await db.data_rolls.update(cleanId, payload);
+      }
+      const idx = this.labels.findIndex(l => l.id === cleanId || l.id == id);
       if (idx !== -1) {
         this.labels[idx] = { ...this.labels[idx], ...payload };
       }

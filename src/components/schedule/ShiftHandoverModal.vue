@@ -1,6 +1,6 @@
 <template>
   <div v-if="scheduleStore.showShiftHandoverModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 animate-fade-in">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-zinc-200 flex flex-col max-h-[92vh]">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-zinc-200 flex flex-col max-h-[94vh]">
       
       <!-- Top Step Indicator Header -->
       <div class="px-5 py-2.5 bg-zinc-900 text-white flex items-center justify-between border-b border-zinc-800 select-none">
@@ -63,69 +63,108 @@
               <span class="text-sm font-semibold opacity-90">({{ currentStep === 1 ? previousShift.definition.startTime : upcomingShift.definition.startTime }} - {{ currentStep === 1 ? previousShift.definition.endTime : upcomingShift.definition.endTime }})</span>
             </h3>
             <div class="text-[11px] text-white/80 font-mono mt-0.5 flex items-center gap-2">
-              <span>📅 Tanggal: <strong>{{ currentStep === 1 ? previousShift.date : upcomingShift.date }}</strong></span>
+              <span>📅 Tanggal Kerja: <strong>{{ currentStep === 1 ? previousShift.date : upcomingShift.date }}</strong></span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Modal Body (Step 1 vs Step 2) -->
-      <div class="p-5 space-y-4 overflow-y-auto bg-zinc-50/50 flex-1">
+      <div class="p-4 sm:p-5 space-y-4 overflow-y-auto bg-zinc-50/50 flex-1">
         
         <!-- ═══════════════════════════════════════════════════════════════ -->
-        <!-- STEP 1: PROGRESS DARI SHIFT SEBELUMNYA                        -->
+        <!-- STEP 1: PROGRESS DARI SHIFT SEBELUMNYA (PER MESIN TABS)       -->
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <div v-if="currentStep === 1" class="space-y-4 animate-fade-in">
-          <!-- Info Banner -->
-          <div class="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl flex items-start gap-3">
+          
+          <!-- Machine Sheets / Tabs Bar -->
+          <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-zinc-200">
+            <button
+              v-for="tab in machineTabs"
+              :key="tab.id"
+              @click="switchMachineTab(tab.id)"
+              class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs cursor-pointer transition-all shrink-0"
+              :class="activeMachineTab === tab.id 
+                ? 'bg-zinc-900 text-white shadow-sm ring-2 ring-zinc-900/20' 
+                : 'bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border border-zinc-200'"
+            >
+              <span>{{ tab.icon }}</span>
+              <span>MESIN {{ tab.name }}</span>
+              <span 
+                class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
+                :class="activeMachineTab === tab.id ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-600'"
+              >
+                {{ currentMachineSummary.totalChild }} FG
+              </span>
+            </button>
+          </div>
+
+          <!-- Info Banner for Active Machine -->
+          <div class="p-3 bg-blue-50/80 border border-blue-200 rounded-xl flex items-start gap-3">
             <span class="text-blue-600 text-lg shrink-0">ℹ️</span>
             <div class="text-xs text-blue-950 leading-relaxed">
-              <p class="font-bold">Laporan Serah Terima dari Shift Sebelumnya</p>
+              <p class="font-bold">Laporan Serah Terima Mesin {{ activeMachineTab }}</p>
               <p class="text-blue-800 text-[11px] mt-0.5">
-                Berikut adalah rekapitulasi pekerjaan yang telah diselesaikan oleh <strong>Shift {{ previousShift.definition.shortName }} (Grup {{ previousShift.group }})</strong>. Periksa persentase kualitas, alasan defect, dan perhatian khusus pada SPK terkait sebelum shift Anda dimulai.
+                Rekapitulasi pengerjaan roll oleh <strong>Shift {{ previousShift.definition.shortName }} (Grup {{ previousShift.group }})</strong> pada mesin <strong>{{ activeMachineTab }}</strong>. Periksa rasio kualitas, rincian SPK, serta catatan reject/hold sebelum melanjutkan.
               </p>
             </div>
           </div>
 
-          <!-- 1. Ringkasan Output Produksi -->
+          <!-- 1. Ringkasan Parent, Child, Berat, dan Panjang -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div class="p-3.5 bg-white rounded-xl border border-zinc-200 shadow-2xs">
-              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Total Roll Output</div>
+            <div class="p-3 bg-white rounded-xl border border-zinc-200 shadow-2xs">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Total Parent (Jumbo)</span>
+                <span>📦</span>
+              </div>
+              <div class="text-xl font-black text-indigo-600 font-mono mt-1">
+                {{ currentMachineSummary.totalParent }} <span class="text-xs text-zinc-400 font-sans font-bold">Jumbo</span>
+              </div>
+              <div class="text-[10px] text-zinc-400 mt-0.5">Lot induk diproses</div>
+            </div>
+
+            <div class="p-3 bg-white rounded-xl border border-zinc-200 shadow-2xs">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Total Child (FG)</span>
+                <span>🎯</span>
+              </div>
               <div class="text-xl font-black text-zinc-900 font-mono mt-1">
-                {{ shiftSummary.totalRolls }} <span class="text-xs text-zinc-400 font-sans font-bold">Roll</span>
+                {{ currentMachineSummary.totalChild }} <span class="text-xs text-zinc-400 font-sans font-bold">Roll</span>
               </div>
+              <div class="text-[10px] text-zinc-400 mt-0.5">Roll turunan jadi</div>
             </div>
 
-            <div class="p-3.5 bg-white rounded-xl border border-zinc-200 shadow-2xs">
-              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Total Netto Bersih</div>
+            <div class="p-3 bg-white rounded-xl border border-zinc-200 shadow-2xs">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Total Berat (Netto)</span>
+                <span>⚖️</span>
+              </div>
               <div class="text-xl font-black text-emerald-600 font-mono mt-1">
-                {{ formatNumber(shiftSummary.totalNetto) }} <span class="text-xs text-zinc-400 font-sans font-bold">kg</span>
+                {{ formatNumber(currentMachineSummary.totalNetto) }} <span class="text-xs text-zinc-400 font-sans font-bold">kg</span>
               </div>
+              <div class="text-[10px] text-zinc-400 mt-0.5">Berat netto selesai</div>
             </div>
 
-            <div class="p-3.5 bg-white rounded-xl border border-zinc-200 shadow-2xs">
-              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Total Panjang</div>
+            <div class="p-3 bg-white rounded-xl border border-zinc-200 shadow-2xs">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Total Panjang</span>
+                <span>📏</span>
+              </div>
               <div class="text-xl font-black text-blue-600 font-mono mt-1">
-                {{ formatNumber(shiftSummary.totalMeter) }} <span class="text-xs text-zinc-400 font-sans font-bold">M</span>
+                {{ formatNumber(currentMachineSummary.totalMeter) }} <span class="text-xs text-zinc-400 font-sans font-bold">M</span>
               </div>
-            </div>
-
-            <div class="p-3.5 bg-white rounded-xl border border-zinc-200 shadow-2xs">
-              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">SPK Dikerjakan</div>
-              <div class="text-xl font-black text-purple-600 font-mono mt-1">
-                {{ shiftSummary.spkList.length }} <span class="text-xs text-zinc-400 font-sans font-bold">SPK</span>
-              </div>
+              <div class="text-[10px] text-zinc-400 mt-0.5">Panjang meter linear</div>
             </div>
           </div>
 
-          <!-- 2. Persentase Kualitas: PASS, HOLD, REJECT -->
+          <!-- 2. Rasio Kualitas: PASS, HOLD, REJECT (Grafik Angka & Persen) -->
           <div class="p-4 bg-white rounded-xl border border-zinc-200 shadow-2xs space-y-3">
             <div class="flex items-center justify-between text-xs">
               <span class="font-black text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
-                <span>🎯</span> Persentase Kualitas Shift Sebelumnya
+                <span>📊</span> Rasio Kualitas Mesin {{ activeMachineTab }}
               </span>
               <span class="text-[11px] font-mono font-bold text-zinc-500">
-                Total Evaluasi: {{ shiftSummary.totalRolls }} Roll
+                Total Output: {{ currentMachineSummary.totalChild }} Roll
               </span>
             </div>
 
@@ -133,169 +172,276 @@
             <div class="h-4 w-full bg-zinc-100 rounded-full overflow-hidden flex shadow-inner">
               <div 
                 class="bg-emerald-500 transition-all duration-500" 
-                :style="{ width: `${shiftSummary.passPercent}%` }"
-                :title="`PASS: ${shiftSummary.passCount} roll (${shiftSummary.passPercent}%)`"
+                :style="{ width: `${currentMachineSummary.passPercent}%` }"
+                :title="`PASS: ${currentMachineSummary.passCount} roll (${currentMachineSummary.passPercent}%)`"
               ></div>
               <div 
                 class="bg-amber-500 transition-all duration-500" 
-                :style="{ width: `${shiftSummary.holdPercent}%` }"
-                :title="`HOLD: ${shiftSummary.holdCount} roll (${shiftSummary.holdPercent}%)`"
+                :style="{ width: `${currentMachineSummary.holdPercent}%` }"
+                :title="`HOLD: ${currentMachineSummary.holdCount} roll (${currentMachineSummary.holdPercent}%)`"
               ></div>
               <div 
-                class="bg-red-600 transition-all duration-500" 
-                :style="{ width: `${shiftSummary.rejectPercent}%` }"
-                :title="`REJECT: ${shiftSummary.rejectCount} roll (${shiftSummary.rejectPercent}%)`"
+                class="bg-rose-600 transition-all duration-500" 
+                :style="{ width: `${currentMachineSummary.rejectPercent}%` }"
+                :title="`REJECT: ${currentMachineSummary.rejectCount} roll (${currentMachineSummary.rejectPercent}%)`"
               ></div>
             </div>
 
-            <!-- Quality Cards Breakdown -->
+            <!-- Quality Cards Breakdown (Grafik Angka & Persen) -->
             <div class="grid grid-cols-3 gap-3 text-center text-xs">
-              <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+              <div class="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200">
                 <div class="font-black text-emerald-800 flex items-center justify-center gap-1">
                   <span>✓</span> PASS
                 </div>
-                <div class="text-base font-black text-emerald-700 font-mono mt-0.5">
-                  {{ shiftSummary.passPercent }}%
+                <div class="text-lg font-black text-emerald-700 font-mono mt-0.5">
+                  {{ currentMachineSummary.passPercent }}%
                 </div>
-                <div class="text-[10px] text-emerald-600 font-medium">
-                  {{ shiftSummary.passCount }} Roll
+                <div class="text-[11px] text-emerald-600 font-bold">
+                  {{ currentMachineSummary.passCount }} Roll
                 </div>
               </div>
 
-              <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+              <div class="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200">
                 <div class="font-black text-amber-800 flex items-center justify-center gap-1">
                   <span>⚠️</span> HOLD
                 </div>
-                <div class="text-base font-black text-amber-700 font-mono mt-0.5">
-                  {{ shiftSummary.holdPercent }}%
+                <div class="text-lg font-black text-amber-700 font-mono mt-0.5">
+                  {{ currentMachineSummary.holdPercent }}%
                 </div>
-                <div class="text-[10px] text-amber-600 font-medium">
-                  {{ shiftSummary.holdCount }} Roll
+                <div class="text-[11px] text-amber-600 font-bold">
+                  {{ currentMachineSummary.holdCount }} Roll
                 </div>
               </div>
 
-              <div class="p-2.5 rounded-xl bg-red-50 border border-red-200">
-                <div class="font-black text-red-800 flex items-center justify-center gap-1">
+              <div class="p-2.5 rounded-xl bg-rose-50/80 border border-rose-200">
+                <div class="font-black text-rose-800 flex items-center justify-center gap-1">
                   <span>✕</span> REJECT
                 </div>
-                <div class="text-base font-black text-red-700 font-mono mt-0.5">
-                  {{ shiftSummary.rejectPercent }}%
+                <div class="text-lg font-black text-rose-700 font-mono mt-0.5">
+                  {{ currentMachineSummary.rejectPercent }}%
                 </div>
-                <div class="text-[10px] text-red-600 font-medium">
-                  {{ shiftSummary.rejectCount }} Roll
+                <div class="text-[11px] text-rose-600 font-bold">
+                  {{ currentMachineSummary.rejectCount }} Roll
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 3. Analisis Defect: Terbanyak & Terakhir -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <!-- Defect Terbanyak -->
-            <div class="p-4 bg-white rounded-xl border border-zinc-200 shadow-2xs space-y-2.5">
-              <div class="text-xs font-black text-zinc-800 uppercase tracking-wider flex items-center justify-between border-b border-zinc-100 pb-1.5">
-                <span class="flex items-center gap-1.5"><span>📊</span> Defect Terbanyak (Top 3)</span>
-                <span class="text-[10px] text-zinc-400 font-normal">Shift {{ previousShift.definition.shortName }}</span>
-              </div>
-
-              <div v-if="shiftSummary.topDefects.length > 0" class="space-y-1.5">
-                <div 
-                  v-for="(def, dIdx) in shiftSummary.topDefects" 
-                  :key="def.name"
-                  class="flex items-center justify-between p-2 rounded-lg bg-zinc-50 border border-zinc-200 text-xs"
-                >
-                  <div class="flex items-center gap-2">
-                    <span class="w-4 h-4 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-black flex items-center justify-center">
-                      {{ dIdx + 1 }}
-                    </span>
-                    <span class="font-bold text-zinc-800 truncate max-w-[160px]">{{ def.name }}</span>
-                  </div>
-                  <span class="font-mono font-black text-red-600 bg-red-50 px-2 py-0.5 rounded text-[11px] border border-red-100 shrink-0">
-                    {{ def.count }} roll
-                  </span>
-                </div>
-              </div>
-              <div v-else class="text-center py-4 text-xs text-emerald-600 font-bold bg-emerald-50/50 rounded-lg border border-emerald-100">
-                🎉 Tidak ada defect tercatat pada shift ini!
-              </div>
-            </div>
-
-            <!-- Defect Terakhir -->
-            <div class="p-4 bg-white rounded-xl border border-zinc-200 shadow-2xs space-y-2.5">
-              <div class="text-xs font-black text-zinc-800 uppercase tracking-wider flex items-center justify-between border-b border-zinc-100 pb-1.5">
-                <span class="flex items-center gap-1.5"><span>⏱️</span> Defect Terakhir Terjadi</span>
-                <span class="text-[10px] text-zinc-400 font-normal">Roll Terbaru</span>
-              </div>
-
-              <div v-if="shiftSummary.latestDefect" class="p-2.5 rounded-lg bg-amber-50/70 border border-amber-200 text-xs space-y-1">
-                <div class="flex items-center justify-between">
-                  <span class="font-black text-amber-900 truncate max-w-[170px]">{{ shiftSummary.latestDefect.reason }}</span>
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-black" :class="shiftSummary.latestDefect.status === 'REJECT' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'">
-                    {{ shiftSummary.latestDefect.status }}
-                  </span>
-                </div>
-                <div class="text-[11px] text-zinc-600 font-mono">
-                  Lot: <strong class="text-zinc-900">{{ shiftSummary.latestDefect.lot }}</strong>
-                  <span v-if="shiftSummary.latestDefect.turunan" class="text-zinc-500 ml-1">/ {{ shiftSummary.latestDefect.turunan }}</span>
-                </div>
-                <div class="text-[10px] text-zinc-500">
-                  SPK: <strong class="text-zinc-700">{{ shiftSummary.latestDefect.spk || '—' }}</strong> • Mesin: {{ shiftSummary.latestDefect.mesin }}
-                </div>
-              </div>
-              <div v-else class="text-center py-4 text-xs text-emerald-600 font-bold bg-emerald-50/50 rounded-lg border border-emerald-100">
-                ✓ Bersih dari cacat di akhir shift.
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. SPK DENGAN PERHATIAN KHUSUS (KARENA REJECT ATAU HOLD) -->
+          <!-- 3. List Data SPK Yang Dikerjakan di Mesin Ini -->
           <div class="p-4 bg-white rounded-xl border border-zinc-200 shadow-2xs space-y-3">
-            <div class="text-xs font-black text-zinc-800 uppercase tracking-wider flex items-center justify-between border-b border-zinc-100 pb-1.5">
-              <span class="flex items-center gap-1.5 text-rose-700">
-                <span>⚠️</span> SPK dengan Perhatian Khusus (Ada Reject / Hold)
+            <div class="flex items-center justify-between text-xs border-b border-zinc-100 pb-2">
+              <span class="font-black text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span>📑</span> Daftar SPK Dikerjakan di Mesin {{ activeMachineTab }}
               </span>
-              <span class="text-[10px] text-zinc-500 font-mono">Wajib Diwaspadai Shift Baru</span>
+              <span class="text-[11px] font-mono font-bold text-zinc-500">
+                Total: {{ currentMachineSummary.spkList.length }} SPK
+              </span>
             </div>
 
-            <div v-if="shiftSummary.attentionSpks.length > 0" class="space-y-2">
-              <div 
-                v-for="spk in shiftSummary.attentionSpks" 
-                :key="spk.spk"
-                class="p-3 rounded-xl bg-rose-50/70 border border-rose-200 text-xs space-y-1.5"
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="font-mono font-black text-rose-950 text-sm">{{ spk.spk }}</span>
-                    <span v-if="spk.jenis" class="text-[10px] px-1.5 py-0.5 rounded bg-white text-zinc-700 font-bold border border-rose-200">
-                      {{ spk.jenis }} {{ spk.thickness ? spk.thickness + 'MC' : '' }}
+            <div v-if="currentMachineSummary.spkList.length > 0" class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-zinc-100/80 text-zinc-700 uppercase text-[10px] font-black border-b border-zinc-200">
+                    <th class="py-2 px-2.5">No. SPK</th>
+                    <th class="py-2 px-2.5 text-center">Jml Jumbo</th>
+                    <th class="py-2 px-2.5 text-center">Hasil FG</th>
+                    <th class="py-2 px-2.5 text-right">Total Meter</th>
+                    <th class="py-2 px-2.5 text-right">Berat Hasil</th>
+                    <th class="py-2 px-2.5 text-center">Status & Rasio Kualitas</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100 text-zinc-800">
+                  <tr v-for="spk in currentMachineSummary.spkList" :key="spk.spk" class="hover:bg-zinc-50/70 transition-colors">
+                    <td class="py-2 px-2.5">
+                      <div class="font-mono font-black text-zinc-900 text-xs">{{ spk.spk }}</div>
+                      <div v-if="spk.jenis" class="text-[10px] text-zinc-500">
+                        {{ spk.jenis }} {{ spk.thickness ? spk.thickness + 'MC' : '' }}
+                      </div>
+                    </td>
+                    <td class="py-2 px-2.5 text-center font-mono font-bold text-indigo-700">
+                      {{ spk.parentCount }}
+                    </td>
+                    <td class="py-2 px-2.5 text-center font-mono font-black text-zinc-900">
+                      {{ spk.childCount }}
+                    </td>
+                    <td class="py-2 px-2.5 text-right font-mono text-blue-700">
+                      {{ formatNumber(spk.meter) }} M
+                    </td>
+                    <td class="py-2 px-2.5 text-right font-mono font-bold text-emerald-700">
+                      {{ formatNumber(spk.netto) }} kg
+                    </td>
+                    <td class="py-2 px-2.5">
+                      <div class="flex items-center justify-center gap-1 text-[10px] font-bold font-mono">
+                        <span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800" :title="`${spk.pass} roll`">
+                          ✓ {{ spk.passPercent }}%
+                        </span>
+                        <span v-if="spk.hold > 0" class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" :title="`${spk.hold} roll`">
+                          ⚠️ {{ spk.holdPercent }}% ({{ spk.hold }})
+                        </span>
+                        <span v-if="spk.reject > 0" class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800" :title="`${spk.reject} roll`">
+                          ✕ {{ spk.rejectPercent }}% ({{ spk.reject }})
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="text-center py-5 text-xs text-zinc-400 bg-zinc-50 rounded-xl border border-zinc-200">
+              Tidak ada SPK yang dikerjakan di mesin {{ activeMachineTab }} pada shift ini.
+            </div>
+          </div>
+
+          <!-- 4. Rincian Keterangan Defect (DIPISAH: REJECT & HOLD) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Kolom REJECT -->
+            <div class="p-3.5 bg-rose-50/50 rounded-xl border border-rose-200 shadow-2xs space-y-2.5">
+              <div class="flex items-center justify-between border-b border-rose-200 pb-1.5">
+                <span class="text-xs font-black text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>🛑</span> Keterangan Roll REJECT
+                </span>
+                <span class="text-[10px] font-mono font-black bg-rose-600 text-white px-2 py-0.5 rounded-full">
+                  {{ currentMachineSummary.rejectCount }} Roll
+                </span>
+              </div>
+
+              <div v-if="currentMachineSummary.rejectBreakdown.length > 0" class="space-y-2">
+                <div 
+                  v-for="(item, rIdx) in currentMachineSummary.rejectBreakdown" 
+                  :key="rIdx"
+                  class="p-2.5 bg-white rounded-lg border border-rose-200 text-xs space-y-1"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="font-black text-rose-900">{{ item.reason }}</span>
+                    <span class="font-mono font-black text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 text-[10px]">
+                      {{ item.count }} roll
                     </span>
                   </div>
-                  <div class="flex items-center gap-1.5">
-                    <span v-if="spk.reject > 0" class="px-2 py-0.5 rounded bg-red-600 text-white font-black text-[10px]">
-                      {{ spk.reject }} REJECT
-                    </span>
-                    <span v-if="spk.hold > 0" class="px-2 py-0.5 rounded bg-amber-500 text-white font-black text-[10px]">
-                      {{ spk.hold }} HOLD
+                  <div class="text-[11px] text-zinc-600 flex flex-wrap gap-1">
+                    <span class="font-semibold text-zinc-500">SPK Terkait:</span>
+                    <span v-for="s in item.spks" :key="s" class="font-mono font-bold bg-zinc-100 px-1 rounded text-zinc-800">
+                      {{ s }}
                     </span>
                   </div>
+                  <div v-if="item.lots && item.lots.length > 0" class="text-[10px] text-zinc-400 truncate">
+                    Lot: {{ item.lots.join(', ') }}
+                  </div>
                 </div>
-
-                <div class="text-[11px] text-rose-900">
-                  <strong>Penyebab Cacat:</strong> {{ spk.defectList.join(', ') || 'Cacat produksi/hold QC' }}
-                </div>
-
-                <div class="p-2 rounded-lg bg-white/80 border border-rose-200 text-[10.5px] text-rose-800 leading-snug">
-                  📌 <strong>Pesan untuk Shift Berikutnya:</strong> Harap cek kembali pengaturan mesin (tension, pisau, suhu, dan roll guide) sebelum memotong sisa lot pada SPK ini.
-                </div>
+              </div>
+              <div v-else class="text-center py-4 text-xs text-emerald-700 font-bold bg-emerald-50/50 rounded-lg border border-emerald-200">
+                🎉 Bersih! Tidak ada roll Reject di mesin ini.
               </div>
             </div>
 
-            <div v-else class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
-              <span class="text-base">✅</span>
-              <div>
-                <strong>Seluruh SPK Berjalan Normal!</strong> Tidak ada SPK yang mengalami status Reject atau Hold pada shift sebelumnya.
+            <!-- Kolom HOLD -->
+            <div class="p-3.5 bg-amber-50/50 rounded-xl border border-amber-200 shadow-2xs space-y-2.5">
+              <div class="flex items-center justify-between border-b border-amber-200 pb-1.5">
+                <span class="text-xs font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>⚠️</span> Keterangan Roll HOLD
+                </span>
+                <span class="text-[10px] font-mono font-black bg-amber-500 text-white px-2 py-0.5 rounded-full">
+                  {{ currentMachineSummary.holdCount }} Roll
+                </span>
+              </div>
+
+              <div v-if="currentMachineSummary.holdBreakdown.length > 0" class="space-y-2">
+                <div 
+                  v-for="(item, hIdx) in currentMachineSummary.holdBreakdown" 
+                  :key="hIdx"
+                  class="p-2.5 bg-white rounded-lg border border-amber-200 text-xs space-y-1"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="font-black text-amber-900">{{ item.reason }}</span>
+                    <span class="font-mono font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-[10px]">
+                      {{ item.count }} roll
+                    </span>
+                  </div>
+                  <div class="text-[11px] text-zinc-600 flex flex-wrap gap-1">
+                    <span class="font-semibold text-zinc-500">SPK Terkait:</span>
+                    <span v-for="s in item.spks" :key="s" class="font-mono font-bold bg-zinc-100 px-1 rounded text-zinc-800">
+                      {{ s }}
+                    </span>
+                  </div>
+                  <div v-if="item.lots && item.lots.length > 0" class="text-[10px] text-zinc-400 truncate">
+                    Lot: {{ item.lots.join(', ') }}
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center py-4 text-xs text-emerald-700 font-bold bg-emerald-50/50 rounded-lg border border-emerald-200">
+                ✓ Aman! Tidak ada roll Hold yang tertahan di mesin ini.
               </div>
             </div>
           </div>
+
+          <!-- 5. AI Handover Intelligence (Real Google Gemini AI) -->
+          <div class="p-4 bg-gradient-to-br from-indigo-950 via-zinc-900 to-slate-900 rounded-2xl text-white shadow-md border border-indigo-500/20 space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2 border-b border-white/10 pb-2.5">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">🤖</span>
+                <div>
+                  <div class="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <span>AI Handover Intelligence</span>
+                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-indigo-500/30 text-indigo-300 border border-indigo-400/30">
+                      {{ currentAiData?.model || 'Gemini' }}
+                    </span>
+                  </div>
+                  <div class="text-[10px] text-zinc-400">
+                    Analisis cerdas serah terima khusus Mesin {{ activeMachineTab }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Button Generate Ulang AI -->
+              <button
+                @click="generateAiHandover(activeMachineTab, true)"
+                :disabled="aiLoading[activeMachineTab]"
+                class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span :class="{ 'animate-spin': aiLoading[activeMachineTab] }">🔄</span>
+                <span>{{ aiLoading[activeMachineTab] ? 'Menganalisis...' : 'Generate Ulang AI' }}</span>
+              </button>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="aiLoading[activeMachineTab]" class="py-6 flex flex-col items-center justify-center gap-2 text-indigo-200 text-xs">
+              <div class="w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+              <p class="font-medium animate-pulse">Gemini AI sedang menganalisis data shift mesin {{ activeMachineTab }}...</p>
+            </div>
+
+            <!-- Error State -->
+            <div v-else-if="aiError[activeMachineTab]" class="p-3 bg-red-950/40 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-start gap-2">
+              <span class="text-base">⚠️</span>
+              <div class="flex-1">
+                <div class="font-bold">Gagal Menghasilkan Analisis AI</div>
+                <div class="text-[11px] text-red-300/80 mt-0.5">{{ aiError[activeMachineTab] }}</div>
+                <button 
+                  @click="generateAiHandover(activeMachineTab, true)" 
+                  class="mt-2 px-2.5 py-1 bg-red-600/50 hover:bg-red-600 text-white rounded text-[10px] font-bold cursor-pointer"
+                >
+                  Coba Lagi
+                </button>
+              </div>
+            </div>
+
+            <!-- AI Content Output -->
+            <div v-else-if="currentAiData?.content" class="space-y-2">
+              <div 
+                class="text-xs text-zinc-200 leading-relaxed space-y-1.5 prose-sm max-w-none text-left"
+                v-html="renderMarkdown(currentAiData.content)"
+              ></div>
+              
+              <div class="text-[10px] text-zinc-400/70 pt-2 border-t border-white/10 flex items-center justify-between">
+                <span>Dianalisis pada: {{ currentAiData.generatedAt }}</span>
+                <span>Status: Tersimpan Lokal (IndexedDB)</span>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else class="py-4 text-center text-xs text-zinc-400">
+              Belum ada analisis AI untuk mesin {{ activeMachineTab }}. Klik tombol di atas untuk memulai analisis.
+            </div>
+          </div>
+
         </div>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -431,13 +577,24 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useConfigStore } from '@/stores/configStore';
-import { db } from '@/db';
+import { db, getSetting, saveSetting } from '@/db';
+import { getResolvedGeminiApiKey } from '@/services/spkAiService';
 
 const scheduleStore = useScheduleStore();
 const configStore = useConfigStore();
 
 // Step State: 1 = Laporan Shift Sebelumnya, 2 = Briefing Shift Selanjutnya
 const currentStep = ref(1);
+
+// Urutan Sheet per Mesin sesuai instruksi: SLITTING, REWIND, CASTING, METALIZE
+const machineTabs = [
+  { id: 'SLITTING', name: 'SLITTING', icon: '✂️' },
+  { id: 'REWIND', name: 'REWIND', icon: '🔄' },
+  { id: 'CASTING', name: 'CASTING', icon: '🏭' },
+  { id: 'METALIZE', name: 'METALIZE', icon: '✨' },
+];
+
+const activeMachineTab = ref('SLITTING');
 
 const stations = [
   { machine: 'CASTING', icon: '🏭' },
@@ -447,15 +604,14 @@ const stations = [
 ];
 
 // Pasangan Shift Serah Terima (Handover):
-// previousShift: Shift yang telah bekerja / baru saja selesai
-// upcomingShift: Shift yang AKAN bekerja / bertugas berikutnya
 const handoverShifts = computed(() => scheduleStore.currentHandoverShifts);
 const previousShift = computed(() => handoverShifts.value?.previousShift);
 const upcomingShift = computed(() => handoverShifts.value?.upcomingShift);
 
-// Summary Data Shift Sebelumnya
-const shiftSummary = reactive({
-  totalRolls: 0,
+// Summary Data per Machine Sheet
+const emptyMachineSummary = () => ({
+  totalParent: 0,
+  totalChild: 0,
   totalNetto: 0,
   totalMeter: 0,
   passCount: 0,
@@ -464,10 +620,46 @@ const shiftSummary = reactive({
   passPercent: 0,
   holdPercent: 0,
   rejectPercent: 0,
-  topDefects: [],
-  latestDefect: null,
   spkList: [],
-  attentionSpks: []
+  rejectBreakdown: [],
+  holdBreakdown: []
+});
+
+const machineSummaries = reactive({
+  SLITTING: emptyMachineSummary(),
+  REWIND: emptyMachineSummary(),
+  CASTING: emptyMachineSummary(),
+  METALIZE: emptyMachineSummary(),
+});
+
+const currentMachineSummary = computed(() => {
+  return machineSummaries[activeMachineTab.value] || emptyMachineSummary();
+});
+
+// AI State per Machine
+const aiSummaries = reactive({
+  SLITTING: null,
+  REWIND: null,
+  CASTING: null,
+  METALIZE: null,
+});
+
+const aiLoading = reactive({
+  SLITTING: false,
+  REWIND: false,
+  CASTING: false,
+  METALIZE: false,
+});
+
+const aiError = reactive({
+  SLITTING: '',
+  REWIND: '',
+  CASTING: '',
+  METALIZE: '',
+});
+
+const currentAiData = computed(() => {
+  return aiSummaries[activeMachineTab.value];
 });
 
 const formatNumber = (val) => {
@@ -475,6 +667,29 @@ const formatNumber = (val) => {
   const num = parseFloat(val);
   if (isNaN(num)) return '0';
   return num.toLocaleString('id-ID');
+};
+
+const switchMachineTab = (tabId) => {
+  activeMachineTab.value = tabId;
+  loadOrGenerateAiSummary(tabId);
+};
+
+// Helper matching mesin
+const isMatchingMachine = (item, machineKey) => {
+  const m = String(item.mesin || item.machineName || item.station || '').toUpperCase().trim();
+  if (machineKey === 'SLITTING') {
+    return m.includes('SLIT') || m.includes('SML') || (!m && true); // default ke SLITTING jika tidak tercatat
+  }
+  if (machineKey === 'REWIND') {
+    return m.includes('REWIND') || m.includes('RWD');
+  }
+  if (machineKey === 'CASTING') {
+    return m.includes('CASTING') || m.includes('CST');
+  }
+  if (machineKey === 'METALIZE') {
+    return m.includes('METALIZE') || m.includes('MET');
+  }
+  return false;
 };
 
 const loadShiftSummary = async () => {
@@ -523,89 +738,316 @@ const loadShiftSummary = async () => {
     console.error('Error loading shift summary:', e);
   }
 
-  // Hitung metrik ringkasan
-  const total = items.length;
-  let netto = 0;
-  let meter = 0;
-  let pass = 0;
-  let hold = 0;
-  let reject = 0;
-  const defectCounts = {};
-  let lastDefect = null;
-  const spkMap = {};
+  // Proses summary untuk setiap mesin
+  for (const tab of machineTabs) {
+    const mKey = tab.id;
+    const mItems = items.filter(it => isMatchingMachine(it, mKey));
 
-  items.forEach(i => {
-    netto += parseFloat(i.netto || i.berat || 0) || 0;
-    meter += parseFloat(i.length || i.meter || 0) || 0;
+    const childCount = mItems.length;
+    let netto = 0;
+    let meter = 0;
+    let pass = 0;
+    let hold = 0;
+    let reject = 0;
 
-    const st = String(i.qualityStatus || i.status || 'PASS').toUpperCase();
-    if (st === 'PASS' || st === 'OK') {
-      pass++;
-    } else if (st === 'HOLD') {
-      hold++;
-    } else if (st === 'REJECT') {
-      reject++;
+    const parentSet = new Set();
+    const spkMap = {};
+    const rejectReasons = {};
+    const holdReasons = {};
+
+    mItems.forEach(i => {
+      // Parent lot identification
+      const rawParent = (i.parentLot || i.lotInduk || i.lot || '').toString().trim();
+      const parentLotClean = rawParent.split('/')[0].trim().toUpperCase();
+      if (parentLotClean) {
+        parentSet.add(parentLotClean);
+      }
+
+      netto += parseFloat(i.netto || i.berat || 0) || 0;
+      meter += parseFloat(i.length || i.meter || 0) || 0;
+
+      const st = String(i.qualityStatus || i.status || 'PASS').toUpperCase();
+      if (st === 'PASS' || st === 'OK') {
+        pass++;
+      } else if (st === 'HOLD') {
+        hold++;
+      } else if (st === 'REJECT') {
+        reject++;
+      } else {
+        pass++;
+      }
+
+      // SPK aggregation
+      const spkName = (i.spk || 'Tanpa SPK').trim().toUpperCase();
+      if (!spkMap[spkName]) {
+        spkMap[spkName] = {
+          spk: spkName,
+          childCount: 0,
+          parentLots: new Set(),
+          netto: 0,
+          meter: 0,
+          pass: 0,
+          hold: 0,
+          reject: 0,
+          jenis: i.jenis || '',
+          thickness: i.thickness || ''
+        };
+      }
+      spkMap[spkName].childCount++;
+      if (parentLotClean) spkMap[spkName].parentLots.add(parentLotClean);
+      spkMap[spkName].netto += parseFloat(i.netto || i.berat || 0) || 0;
+      spkMap[spkName].meter += parseFloat(i.length || i.meter || 0) || 0;
+
+      if (st === 'PASS' || st === 'OK') spkMap[spkName].pass++;
+      else if (st === 'HOLD') spkMap[spkName].hold++;
+      else if (st === 'REJECT') spkMap[spkName].reject++;
+
+      // Defect Reason Aggregation
+      const reasonRaw = (i.reasonDefect || i.keterangan || '').trim();
+      if (st === 'REJECT') {
+        const rName = reasonRaw || 'REJECT PRODUKSI';
+        if (!rejectReasons[rName]) {
+          rejectReasons[rName] = { reason: rName, count: 0, spks: new Set(), lots: [] };
+        }
+        rejectReasons[rName].count++;
+        if (spkName) rejectReasons[rName].spks.add(spkName);
+        if (i.lot && rejectReasons[rName].lots.length < 5) rejectReasons[rName].lots.push(i.lot + (i.turunan ? `/${i.turunan}` : ''));
+      } else if (st === 'HOLD') {
+        const hName = reasonRaw || 'HOLD QC';
+        if (!holdReasons[hName]) {
+          holdReasons[hName] = { reason: hName, count: 0, spks: new Set(), lots: [] };
+        }
+        holdReasons[hName].count++;
+        if (spkName) holdReasons[hName].spks.add(spkName);
+        if (i.lot && holdReasons[hName].lots.length < 5) holdReasons[hName].lots.push(i.lot + (i.turunan ? `/${i.turunan}` : ''));
+      }
+    });
+
+    const spkList = Object.values(spkMap).map(s => {
+      const tot = s.childCount || 1;
+      return {
+        ...s,
+        parentCount: s.parentLots.size || (s.childCount > 0 ? 1 : 0),
+        netto: Math.round(s.netto * 100) / 100,
+        meter: Math.round(s.meter),
+        passPercent: Math.round((s.pass / tot) * 100),
+        holdPercent: Math.round((s.hold / tot) * 100),
+        rejectPercent: Math.round((s.reject / tot) * 100),
+      };
+    });
+
+    machineSummaries[mKey] = {
+      totalParent: parentSet.size,
+      totalChild: childCount,
+      totalNetto: Math.round(netto * 100) / 100,
+      totalMeter: Math.round(meter),
+      passCount: pass,
+      holdCount: hold,
+      rejectCount: reject,
+      passPercent: childCount > 0 ? Math.round((pass / childCount) * 100) : 0,
+      holdPercent: childCount > 0 ? Math.round((hold / childCount) * 100) : 0,
+      rejectPercent: childCount > 0 ? Math.round((reject / childCount) * 100) : 0,
+      spkList,
+      rejectBreakdown: Object.values(rejectReasons).map(r => ({ ...r, spks: Array.from(r.spks) })),
+      holdBreakdown: Object.values(holdReasons).map(h => ({ ...h, spks: Array.from(h.spks) })),
+    };
+  }
+
+  // Muat atau generate AI untuk tab aktif
+  loadOrGenerateAiSummary(activeMachineTab.value);
+};
+
+// Markdown Renderer Safe for AI Output
+const escapeHtml = (text) => {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+const renderMarkdown = (content) => {
+  if (!content) return '';
+  const lines = content.split('\n');
+  let html = '';
+  let inList = false;
+
+  for (let line of lines) {
+    line = escapeHtml(line);
+    line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    line = line.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    line = line.replace(/`(.*?)`/g, '<code class="bg-white/10 px-1 py-0.5 rounded text-amber-300 font-mono text-[11px]">$1</code>');
+
+    if (line.startsWith('### ')) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h4 class="font-black text-indigo-200 text-xs mt-2 mb-1">${line.substring(4)}</h4>`;
+    } else if (line.startsWith('## ') || line.startsWith('# ')) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h3 class="font-black text-white text-sm mt-2.5 mb-1">${line.replace(/^#+\s*/, '')}</h3>`;
+    } else if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
+      if (!inList) { html += '<ul class="list-disc list-inside space-y-1 my-1 text-zinc-200">'; inList = true; }
+      html += `<li>${line.trim().substring(2)}</li>`;
     } else {
-      pass++;
+      if (inList) { html += '</ul>'; inList = false; }
+      if (line.trim().length > 0) {
+        html += `<p class="my-1 text-zinc-200 leading-relaxed">${line}</p>`;
+      }
     }
+  }
+  if (inList) html += '</ul>';
+  return html;
+};
 
-    // SPK tracking
-    const spkName = (i.spk || 'Tanpa SPK').trim().toUpperCase();
-    if (!spkMap[spkName]) {
-      spkMap[spkName] = {
-        spk: spkName,
-        total: 0,
-        pass: 0,
-        hold: 0,
-        reject: 0,
-        defects: new Set(),
-        jenis: i.jenis || '',
-        thickness: i.thickness || ''
-      };
+// AI Handover Generation & Cache Logic
+const getCacheKey = (machineKey) => {
+  const pShift = previousShift.value;
+  if (!pShift) return null;
+  return `handover_ai_${pShift.date}_${pShift.shiftCode}_${machineKey}`;
+};
+
+const loadOrGenerateAiSummary = async (machineKey) => {
+  const cacheKey = getCacheKey(machineKey);
+  if (!cacheKey) return;
+
+  try {
+    const cached = await getSetting(cacheKey);
+    if (cached && cached.content) {
+      aiSummaries[machineKey] = cached;
+      return;
     }
-    spkMap[spkName].total++;
-    if (st === 'PASS' || st === 'OK') spkMap[spkName].pass++;
-    else if (st === 'HOLD') spkMap[spkName].hold++;
-    else if (st === 'REJECT') spkMap[spkName].reject++;
+  } catch (e) {
+    console.warn('Failed reading handover cache:', e);
+  }
 
-    // Defect tracking
-    const reason = (i.reasonDefect || i.keterangan || '').trim();
-    if (st === 'HOLD' || st === 'REJECT' || (reason && !reason.toUpperCase().includes('PASS'))) {
-      const defName = reason || (st === 'HOLD' ? 'HOLD QC' : 'REJECT PRODUKSI');
-      defectCounts[defName] = (defectCounts[defName] || 0) + 1;
-      spkMap[spkName].defects.add(defName);
-      lastDefect = {
-        reason: defName,
-        status: st,
-        lot: i.lot || '—',
-        turunan: i.turunan || '',
-        spk: i.spk || '',
-        mesin: i.mesin || i.machineName || 'SLITTING'
-      };
+  // Jika belum ada di cache, jalankan generasi AI otomatis
+  generateAiHandover(machineKey, false);
+};
+
+const generateAiHandover = async (machineKey, forceRegenerate = false) => {
+  const pShift = previousShift.value;
+  const uShift = upcomingShift.value;
+  if (!pShift) return;
+
+  const cacheKey = getCacheKey(machineKey);
+  if (!forceRegenerate && cacheKey) {
+    try {
+      const cached = await getSetting(cacheKey);
+      if (cached && cached.content) {
+        aiSummaries[machineKey] = cached;
+        return;
+      }
+    } catch (e) {}
+  }
+
+  const apiKey = await getResolvedGeminiApiKey();
+  if (!apiKey) {
+    aiError[machineKey] = 'API Key Google AI / Gemini belum dikonfigurasi di Pengaturan.';
+    return;
+  }
+
+  aiLoading[machineKey] = true;
+  aiError[machineKey] = '';
+
+  const summary = machineSummaries[machineKey] || emptyMachineSummary();
+
+  const spkLines = summary.spkList.map(s => 
+    `- SPK: ${s.spk} | Parent: ${s.parentCount} jumbo | FG: ${s.childCount} roll | Netto: ${s.netto} kg | Meter: ${s.meter} m | Pass: ${s.passPercent}% | Hold: ${s.hold} roll | Reject: ${s.reject} roll`
+  ).join('\n') || '- Tidak ada SPK dikerjakan.';
+
+  const rejectLines = summary.rejectBreakdown.map(r => 
+    `- Alasan: ${r.reason} (${r.count} roll) | SPK: ${r.spks.join(', ')} | Lot: ${r.lots.join(', ')}`
+  ).join('\n') || '- Tidak ada reject.';
+
+  const holdLines = summary.holdBreakdown.map(h => 
+    `- Alasan: ${h.reason} (${h.count} roll) | SPK: ${h.spks.join(', ')} | Lot: ${h.lots.join(', ')}`
+  ).join('\n') || '- Tidak ada hold.';
+
+  const prompt = `Anda adalah Asisten Supervisor AI Pabrik Manufaktur Plastik Film/Packaging (PT Sumber Waras Cemerlang).
+Buat ringkasan serah terima (shift handover summary) yang tajam, profesional, dan actionable untuk:
+- MESIN: ${machineKey}
+- Shift Selesai: ${pShift.definition.name} (Grup ${pShift.group}), Tanggal Kerja: ${pShift.date}
+- Shift Baru Masuk: ${uShift?.definition.name || 'Shift Berikutnya'} (Grup ${uShift?.group || '-'}), Tanggal: ${uShift?.date || pShift.date}
+
+DATA AKTUAL PRODUKSI MESIN ${machineKey}:
+- Total Parent (Jumbo): ${summary.totalParent} roll
+- Total Child (FG): ${summary.totalChild} roll
+- Total Berat Netto: ${summary.totalNetto} kg
+- Total Panjang Meter: ${summary.totalMeter} M
+- Rasio Kualitas: PASS ${summary.passCount} roll (${summary.passPercent}%), HOLD ${summary.holdCount} roll (${summary.holdPercent}%), REJECT ${summary.rejectCount} roll (${summary.rejectPercent}%)
+
+DATA SPK DIKERJAKAN:
+${spkLines}
+
+KETERANGAN ROLL REJECT:
+${rejectLines}
+
+KETERANGAN ROLL HOLD:
+${holdLines}
+
+INSTRUKSI FORMAT OUTPUT:
+Gunakan format Markdown ringkas & padat dengan poin-poin terstruktur:
+1. **Ringkasan Output & Pencapaian**: Evaluasi performa output mesin dan rasio kualitas.
+2. **Sorotan Masalah & Defect**: Sebutkan defect/hold kritis yang terjadi pada SPK/lot tertentu dan potensi akar masalahnya.
+3. **Instruksi Prioritas Shift Baru**: Instruksi operasional konkret untuk Grup ${uShift?.group || 'berikutnya'} saat mengoperasikan mesin ${machineKey} (misal: kalibrasi pisau, cek tension roll, follow-up lot hold).
+Gunakan bahasa Indonesia baku pabrik industri yang lugas dan informatif.`;
+
+  const modelCandidates = [
+    'gemini-2.5-flash',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-pro'
+  ];
+
+  let success = false;
+  let lastErrMsg = '';
+
+  for (const model of modelCandidates) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 800
+          }
+        })
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson?.error?.message || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (generatedText) {
+        const resultObj = {
+          content: generatedText,
+          model,
+          generatedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        aiSummaries[machineKey] = resultObj;
+        if (cacheKey) {
+          await saveSetting(cacheKey, resultObj);
+        }
+        success = true;
+        break;
+      }
+    } catch (err) {
+      lastErrMsg = err.message;
+      console.warn(`Gemini handover attempt with model ${model} failed:`, err);
     }
-  });
+  }
 
-  shiftSummary.totalRolls = total;
-  shiftSummary.totalNetto = Math.round(netto * 100) / 100;
-  shiftSummary.totalMeter = Math.round(meter);
-  shiftSummary.passCount = pass;
-  shiftSummary.holdCount = hold;
-  shiftSummary.rejectCount = reject;
-  shiftSummary.passPercent = total > 0 ? Math.round((pass / total) * 100) : 0;
-  shiftSummary.holdPercent = total > 0 ? Math.round((hold / total) * 100) : 0;
-  shiftSummary.rejectPercent = total > 0 ? Math.round((reject / total) * 100) : 0;
-
-  shiftSummary.topDefects = Object.entries(defectCounts)
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
-
-  shiftSummary.latestDefect = lastDefect;
-  shiftSummary.spkList = Object.keys(spkMap);
-
-  shiftSummary.attentionSpks = Object.values(spkMap)
-    .filter(s => s.hold > 0 || s.reject > 0)
-    .map(s => ({ ...s, defectList: Array.from(s.defects) }));
+  aiLoading[machineKey] = false;
+  if (!success) {
+    aiError[machineKey] = lastErrMsg || 'Gagal menghubungi layanan Google Gemini AI.';
+  }
 };
 
 const rosterForm = reactive({
@@ -624,6 +1066,7 @@ const getOperatorsForMachine = (machineName) => {
 // Inisialisasi roster penugasan untuk Shift Yang AKAN Bekerja (Upcoming Shift)
 const initRosterFromSchedule = () => {
   const shift = upcomingShift.value;
+  if (!shift) return;
   const scheduled = scheduleStore.getScheduledOperators(shift.date, shift.shiftCode, shift.group);
 
   for (const station of stations) {
@@ -664,6 +1107,7 @@ watch(() => scheduleStore.showShiftHandoverModal, (newVal) => {
   if (newVal) {
     scheduleStore.tickLiveClock();
     currentStep.value = 1; // Selalu mulai dari Step 1 (Laporan Shift Sebelumnya)
+    activeMachineTab.value = 'SLITTING'; // Mesin pertama slitting sesuai instruksi
     loadShiftSummary();
     initRosterFromSchedule();
   }
@@ -705,3 +1149,4 @@ onMounted(() => {
   initRosterFromSchedule();
 });
 </script>
+

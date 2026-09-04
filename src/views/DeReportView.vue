@@ -31,9 +31,9 @@
       <div class="flex items-center bg-zinc-100 p-1 rounded-xl border border-zinc-200 gap-1 text-xs">
         <!-- Tab 1: Portal Sesi (Per Hari & Mesin) -->
         <button
-          @click="activeTab = 'dashboard'"
+          @click="activeTab = 'dashboard'; isViewingVerifiedBatch = false; selectedVerifiedBatch = null;"
           :class="[
-            'px-3.5 py-1.5 rounded-lg font-black transition-all flex items-center gap-1.5',
+            'px-3.5 py-1.5 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer',
             activeTab === 'dashboard'
               ? 'bg-zinc-900 text-white shadow-xs'
               : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200/50'
@@ -56,9 +56,9 @@
 
         <!-- Tab 2: Tabel Report (Arsip Terverifikasi) -->
         <button
-          @click="activeTab = 'report'"
+          @click="activeTab = 'report'; isViewingVerifiedBatch = false; selectedVerifiedBatch = null;"
           :class="[
-            'px-3.5 py-1.5 rounded-lg font-black transition-all flex items-center gap-1.5',
+            'px-3.5 py-1.5 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer',
             activeTab === 'report'
               ? 'bg-zinc-900 text-white shadow-xs'
               : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200/50'
@@ -70,13 +70,26 @@
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
           </svg>
-          <span>2. Tabel Report (Arsip Terverifikasi)</span>
+          <span>2. Tabel Report (Arsip Batch Terverifikasi)</span>
           <span
-            v-if="verifiedList.length > 0"
+            v-if="verifiedBatches.length > 0"
             class="px-1.5 py-0.2 rounded-full text-[9px] font-black font-mono bg-zinc-700 text-white"
           >
-            {{ verifiedList.length }}
+            {{ verifiedBatches.length }} Batch
           </span>
+        </button>
+
+        <!-- Tab Active Sheet Indicator (When inside Excel Spreadsheet) -->
+        <button
+          v-if="activeTab === 'verifikasi'"
+          @click="activeTab = 'verifikasi'"
+          class="px-3.5 py-1.5 rounded-lg font-black transition-all flex items-center gap-1.5 bg-emerald-700 text-white shadow-xs cursor-pointer"
+        >
+          <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18M9 21V9" />
+          </svg>
+          <span>{{ isViewingVerifiedBatch ? `📄 Batch: ${selectedVerifiedBatch?.batchName || selectedVerifiedBatch?.fileName || 'Terverifikasi'}` : `✏️ Lembar Verifikasi: ${selectedMachine}` }}</span>
         </button>
       </div>
     </div>
@@ -84,82 +97,53 @@
     <!-- TAB 1: PORTAL SESI (TABEL DROPDOWN MINIMALIS PER HARI & PER MESIN) -->
     <div v-if="activeTab === 'dashboard'" class="space-y-4 animate-fade-in">
       
-      <!-- Top KPI Summary Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <!-- Card 1: Total Tanggal Aktif -->
-        <div class="p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs flex items-center gap-3.5">
-          <div class="w-11 h-11 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-800 flex items-center justify-center shrink-0">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-          </div>
-          <div>
-            <p class="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">Hari / Tanggal Terdata</p>
-            <h3 class="text-xl font-black text-zinc-900 font-mono">{{ availableDates.length }} Hari</h3>
-          </div>
-        </div>
-
-        <!-- Card 2: Perlu Verifikasi -->
-        <div class="p-4 rounded-2xl bg-white border border-amber-200/80 shadow-xs flex items-center gap-3.5">
-          <div class="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-          </div>
-          <div>
-            <p class="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">Belum Diverifikasi</p>
-            <h3 class="text-xl font-black text-amber-900 font-mono">{{ totalGlobalUnverifiedCount }} Roll</h3>
-          </div>
-        </div>
-
-        <!-- Card 3: Sudah Terverifikasi -->
-        <div class="p-4 rounded-2xl bg-white border border-emerald-200/80 shadow-xs flex items-center gap-3.5">
-          <div class="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-          </div>
-          <div>
-            <p class="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">Sudah Terverifikasi</p>
-            <h3 class="text-xl font-black text-emerald-900 font-mono">{{ totalGlobalVerifiedCount }} Roll</h3>
-          </div>
-        </div>
-
-        <!-- Card 4: Total Berat Produksi -->
-        <div class="p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs flex items-center gap-3.5">
-          <div class="w-11 h-11 rounded-xl bg-red-50 border border-red-100 text-red-600 flex items-center justify-center shrink-0">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-          </div>
-          <div>
-            <p class="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">Total Berat Label</p>
-            <h3 class="text-xl font-black text-zinc-900 font-mono">{{ totalGlobalWeightKg.toLocaleString('id-ID', { minimumFractionDigits: 1 }) }} kg</h3>
-          </div>
-        </div>
-      </div>
-
-      <!-- Portal Filter & Search Toolbar -->
-      <div class="bg-white p-3 rounded-2xl border border-zinc-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center flex-wrap gap-2">
+      <!-- Portal Filter & Search Toolbar (Spacious, Clean & Minimalist) -->
+      <div class="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center flex-wrap gap-2.5">
           <!-- Search Input -->
           <div class="relative w-64 sm:w-80">
             <input
               v-model="portalSearch"
               type="text"
               placeholder="Cari tanggal, mesin, operator, SPK, lot..."
-              class="w-full pl-8 pr-6 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none bg-zinc-50/50 font-medium"
+              class="w-full pl-8 pr-6 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none bg-zinc-50/50 font-medium"
             />
             <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <button v-if="portalSearch" @click="portalSearch = ''" class="absolute right-2.5 top-2 text-xs text-zinc-400 hover:text-zinc-600 font-bold">✕</button>
+          </div>
+
+          <!-- Filter Sumber Data Buttons (Data Label vs Export Excel Data Roll) -->
+          <div class="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200 text-xs">
+            <span class="text-[11px] font-bold text-zinc-500 px-1.5">Sumber:</span>
+            <button
+              @click="portalSourceFilter = 'MANUAL'"
+              :class="[
+                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
+                portalSourceFilter === 'MANUAL' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
+              ]"
+            >
+              Data Label
+            </button>
+            <button
+              @click="portalSourceFilter = 'DATA_ROLL'"
+              :class="[
+                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
+                portalSourceFilter === 'DATA_ROLL' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
+              ]"
+            >
+              Export Excel Data Roll
+            </button>
+            <button
+              @click="portalSourceFilter = 'ALL'"
+              :class="[
+                'px-2 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
+                portalSourceFilter === 'ALL' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
+              ]"
+            >
+              Semua
+            </button>
           </div>
 
           <!-- Filter Mesin Buttons -->
@@ -170,55 +154,21 @@
               :key="m"
               @click="portalMachineFilter = m"
               :class="[
-                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all',
+                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
                 portalMachineFilter === m ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
               ]"
             >
               {{ m === 'ALL' ? 'Semua' : m }}
             </button>
           </div>
-
-          <!-- Filter Sumber Data Batch: SEMUA | VERIFIKASI EXCEL | BATCH UPLOAD DATA ROLL -->
-          <div class="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200 text-xs">
-            <span class="text-[11px] font-bold text-zinc-500 px-1.5">Sumber:</span>
-            <button
-              @click="portalSourceFilter = 'ALL'"
-              :class="[
-                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
-                portalSourceFilter === 'ALL' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
-              ]"
-            >
-              Semua Batch
-            </button>
-            <button
-              @click="portalSourceFilter = 'EXCEL'"
-              :class="[
-                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1',
-                portalSourceFilter === 'EXCEL' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
-              ]"
-            >
-              <span>📊</span>
-              <span>Verifikasi Excel</span>
-            </button>
-            <button
-              @click="portalSourceFilter = 'DATA_ROLL'"
-              :class="[
-                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1',
-                portalSourceFilter === 'DATA_ROLL' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
-              ]"
-            >
-              <span>📥</span>
-              <span>Upload Data Roll</span>
-            </button>
-          </div>
         </div>
 
-        <!-- Filter Status Verifikasi -->
+        <!-- Filter Status Verifikasi (Clean Monochrome) -->
         <div class="flex items-center gap-1.5 text-xs">
           <button
             @click="portalStatusFilter = 'ALL'"
             :class="[
-              'px-3 py-1.5 rounded-xl font-bold text-xs transition-all border',
+              'px-3 py-1.5 rounded-xl font-bold text-xs transition-all border cursor-pointer',
               portalStatusFilter === 'ALL' ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50'
             ]"
           >
@@ -227,20 +177,22 @@
           <button
             @click="portalStatusFilter = 'PENDING'"
             :class="[
-              'px-3 py-1.5 rounded-xl font-bold text-xs transition-all border flex items-center gap-1',
-              portalStatusFilter === 'PENDING' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
+              'px-3 py-1.5 rounded-xl font-bold text-xs transition-all border flex items-center gap-1.5 cursor-pointer',
+              portalStatusFilter === 'PENDING' ? 'bg-zinc-800 text-white border-zinc-800' : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50'
             ]"
           >
-            <span>⚠️ Perlu Verifikasi</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>Belum Verifikasi</span>
           </button>
           <button
             @click="portalStatusFilter = 'VERIFIED'"
             :class="[
-              'px-3 py-1.5 rounded-xl font-bold text-xs transition-all border flex items-center gap-1',
-              portalStatusFilter === 'VERIFIED' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50'
+              'px-3 py-1.5 rounded-xl font-bold text-xs transition-all border flex items-center gap-1.5 cursor-pointer',
+              portalStatusFilter === 'VERIFIED' ? 'bg-zinc-800 text-white border-zinc-800' : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50'
             ]"
           >
-            <span>✅ Selesai</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Selesai</span>
           </button>
         </div>
       </div>
@@ -255,15 +207,15 @@
           <div class="flex items-center gap-2 text-xs">
             <button
               @click="expandAllDates"
-              class="px-2.5 py-1 rounded-lg font-bold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60 transition-all text-[11px]"
+              class="px-2.5 py-1 rounded-lg font-bold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60 transition-all text-[11px] cursor-pointer"
             >
-              Buka Semua (Expand)
+              Buka Semua
             </button>
             <button
               @click="collapseAllDates"
-              class="px-2.5 py-1 rounded-lg font-bold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60 transition-all text-[11px]"
+              class="px-2.5 py-1 rounded-lg font-bold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60 transition-all text-[11px] cursor-pointer"
             >
-              Tutup Semua (Collapse)
+              Tutup Semua
             </button>
           </div>
         </div>
@@ -294,7 +246,7 @@
                   <td class="py-3 px-3 text-center text-zinc-400">
                     <svg
                       class="w-4 h-4 transition-transform duration-200 mx-auto"
-                      :class="isDateExpanded(group.date) ? 'rotate-90 text-red-600' : 'text-zinc-400'"
+                      :class="isDateExpanded(group.date) ? 'rotate-90 text-zinc-900' : 'text-zinc-400'"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -314,20 +266,15 @@
                     </div>
                   </td>
 
-                  <!-- Mesin Aktif Badges -->
+                  <!-- Mesin Aktif Badges (Minimalist Monochrome) -->
                   <td class="py-3 px-3">
                     <div class="flex items-center gap-1.5 flex-wrap">
                       <span
                         v-for="m in group.machinesList"
                         :key="m.mesin"
-                        class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-zinc-100 text-zinc-800 border border-zinc-200 flex items-center gap-1"
+                        class="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200 font-mono"
                       >
-                        <span v-if="m.mesin === 'SLITTING'">✂️</span>
-                        <span v-else-if="m.mesin === 'REWIND'">🔄</span>
-                        <span v-else-if="m.mesin === 'CASTING'">🏭</span>
-                        <span v-else-if="m.mesin === 'METALIZE'">⚡</span>
-                        <span v-else-if="m.mesin === 'SML'">📦</span>
-                        <span>{{ m.mesin }} ({{ m.totalRolls }})</span>
+                        {{ m.mesin }} ({{ m.totalRolls }})
                       </span>
                     </div>
                   </td>
@@ -342,14 +289,14 @@
                     <div class="space-y-1">
                       <div class="flex justify-between text-[11px] font-bold">
                         <span class="text-zinc-500">{{ group.verifiedCount }}/{{ group.totalRolls }} Roll</span>
-                        <span :class="group.unverifiedCount === 0 ? 'text-emerald-700 font-black' : 'text-amber-700'">
+                        <span :class="group.unverifiedCount === 0 ? 'text-zinc-900 font-black' : 'text-zinc-600'">
                           {{ group.totalRolls > 0 ? Math.round((group.verifiedCount / group.totalRolls) * 100) : 0 }}%
                         </span>
                       </div>
                       <div class="w-full bg-zinc-200 rounded-full h-1.5 overflow-hidden">
                         <div
                           class="h-full rounded-full transition-all duration-300"
-                          :class="group.unverifiedCount === 0 ? 'bg-emerald-600' : 'bg-amber-500'"
+                          :class="group.unverifiedCount === 0 ? 'bg-zinc-900' : 'bg-zinc-500'"
                           :style="{ width: `${group.totalRolls > 0 ? (group.verifiedCount / group.totalRolls) * 100 : 0}%` }"
                         ></div>
                       </div>
@@ -365,15 +312,15 @@
                   <td class="py-3 px-3 text-center">
                     <span
                       v-if="group.unverifiedCount === 0"
-                      class="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 inline-block"
+                      class="px-2.5 py-0.5 rounded text-[10.5px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200 inline-block"
                     >
-                      ✓ Selesai
+                      Selesai
                     </span>
                     <span
                       v-else
-                      class="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-block animate-pulse"
+                      class="px-2.5 py-0.5 rounded text-[10.5px] font-bold bg-zinc-900 text-white inline-block"
                     >
-                      ⚠️ {{ group.unverifiedCount }} Pending
+                      {{ group.unverifiedCount }} Belum Verifikasi
                     </span>
                   </td>
 
@@ -391,17 +338,17 @@
                 <tr v-if="isDateExpanded(group.date)" class="bg-zinc-50/80">
                   <td colspan="8" class="p-3 pl-8 pr-6 border-b border-zinc-200">
                     <div class="bg-white rounded-xl border border-zinc-300 shadow-xs overflow-hidden">
-                      <div class="bg-zinc-100/90 px-3.5 py-2 text-[11px] font-black text-zinc-700 border-b border-zinc-200 flex items-center justify-between flex-wrap gap-2">
+                      <div class="bg-zinc-100/90 px-3.5 py-2 text-[11px] font-bold text-zinc-700 border-b border-zinc-200 flex items-center justify-between flex-wrap gap-2">
                         <span class="flex items-center gap-1.5">
-                          <span>🏭 DAFTAR MESIN BEROPERASI:</span>
+                          <span class="text-zinc-500 font-mono text-[10.5px]">DAFTAR MESIN:</span>
                           <strong class="text-zinc-900">{{ formatDateNice(group.date) }}</strong>
                         </span>
-                        <span class="text-zinc-500 font-normal">Klik salah satu mesin di bawah untuk langsung membuka lembar verifikasi</span>
+                        <span class="text-zinc-500 text-[10.5px]">Klik baris mesin di bawah untuk langsung membuka lembar verifikasi</span>
                       </div>
                       <table class="w-full text-left text-xs border-collapse">
                         <thead class="text-zinc-500 font-bold border-b border-zinc-100 text-[11px] bg-zinc-50">
                           <tr>
-                            <th class="py-2 px-3">Mesin & Sumber</th>
+                            <th class="py-2 px-3">Mesin</th>
                             <th class="py-2 px-3">Operator Shift</th>
                             <th class="py-2 px-3 text-center">Total Roll</th>
                             <th class="py-2 px-3 text-center">QC Status</th>
@@ -414,32 +361,13 @@
                           <tr
                             v-for="m in group.machinesList"
                             :key="m.mesin"
-                            class="hover:bg-red-50/30 transition-colors"
+                            @click.stop="openVerificationForSession(group.date, m.mesin)"
+                            class="hover:bg-zinc-50 transition-colors cursor-pointer"
                           >
-                            <td class="py-2.5 px-3 font-black text-zinc-900">
-                              <div class="flex items-center gap-2 flex-wrap">
-                                <span class="text-base">
-                                  <span v-if="m.mesin === 'SLITTING'">✂️</span>
-                                  <span v-else-if="m.mesin === 'REWIND'">🔄</span>
-                                  <span v-else-if="m.mesin === 'CASTING'">🏭</span>
-                                  <span v-else-if="m.mesin === 'METALIZE'">⚡</span>
-                                  <span v-else-if="m.mesin === 'SML'">📦</span>
-                                  <span v-else>⚙️</span>
-                                </span>
-                                <span>MESIN {{ m.mesin }}</span>
-                                <span
-                                  v-if="m.sourceType === 'DATA_ROLL'"
-                                  class="px-1.5 py-0.5 rounded text-[9.5px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200"
-                                >
-                                  📥 Upload Data Roll
-                                </span>
-                                <span
-                                  v-else
-                                  class="px-1.5 py-0.5 rounded text-[9.5px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                >
-                                  📊 Verifikasi Excel
-                                </span>
-                              </div>
+                            <td class="py-2.5 px-3 font-bold text-zinc-900">
+                              <span class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-zinc-100 text-zinc-800 border border-zinc-200 font-mono">
+                                MESIN {{ m.mesin }}
+                              </span>
                             </td>
                             <td class="py-2.5 px-3 text-zinc-600 text-[11.5px]">
                               {{ m.operatorsList.length ? m.operatorsList.join(', ') : 'Operator Shift' }}
@@ -448,9 +376,9 @@
                               {{ m.totalRolls }} Roll
                             </td>
                             <td class="py-2.5 px-3 text-center font-mono text-[11px]">
-                              <span class="text-emerald-700 font-bold">{{ m.passCount }} PASS</span>
-                              <span v-if="m.holdCount > 0" class="text-amber-700 font-bold ml-1.5">• {{ m.holdCount }} HOLD</span>
-                              <span v-if="m.rejectCount > 0" class="text-red-700 font-bold ml-1.5">• {{ m.rejectCount }} REJ</span>
+                              <span class="text-zinc-800 font-bold">{{ m.passCount }} PASS</span>
+                              <span v-if="m.holdCount > 0" class="text-zinc-500 font-bold ml-1.5">• {{ m.holdCount }} HOLD</span>
+                              <span v-if="m.rejectCount > 0" class="text-zinc-500 font-bold ml-1.5">• {{ m.rejectCount }} REJ</span>
                             </td>
                             <td class="py-2.5 px-3 text-right font-mono font-bold text-zinc-900">
                               {{ m.totalKg.toLocaleString('id-ID') }} kg
@@ -458,29 +386,24 @@
                             <td class="py-2.5 px-3 text-center">
                               <span
                                 v-if="m.unverifiedCount === 0"
-                                class="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                class="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200"
                               >
-                                ✓ Semua Selesai ({{ m.verifiedCount }})
+                                Selesai ({{ m.verifiedCount }})
                               </span>
                               <span
                                 v-else
-                                class="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200"
+                                class="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-900 text-white"
                               >
-                                ⚠️ {{ m.unverifiedCount }} Belum Verifikasi
+                                {{ m.unverifiedCount }} Belum Verifikasi
                               </span>
                             </td>
                             <td class="py-2.5 px-3 text-center">
                               <button
                                 @click.stop="openVerificationForSession(group.date, m.mesin)"
-                                :class="[
-                                  'px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer mx-auto',
-                                  m.unverifiedCount > 0
-                                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/20'
-                                    : 'bg-zinc-900 hover:bg-zinc-800 text-white'
-                                ]"
+                                class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer mx-auto bg-zinc-900 hover:bg-black text-white shadow-xs"
                               >
-                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>
-                                <span>{{ m.unverifiedCount > 0 ? `Buka Verifikasi (${m.unverifiedCount})` : 'Buka Verifikasi' }}</span>
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>
+                                <span>{{ m.unverifiedCount > 0 ? `Verifikasi (${m.unverifiedCount})` : 'Buka Lembar' }}</span>
                               </button>
                             </td>
                           </tr>
@@ -616,8 +539,81 @@
     <!-- TAB 2: VERIFIKASI SLITTING (EXCEL SPREADSHEET ENGINE WITH 5-GROUP SLITTING COLUMNS & RESIZABLE WIDTHS) -->
     <div v-if="activeTab === 'verifikasi'" class="space-y-2 animate-fade-in">
       
-      <!-- ACTIVE SESSION CONTEXT BAR (NAVIGASI & QUICK SWITCHER) -->
-      <div class="bg-gradient-to-r from-zinc-900 via-zinc-850 to-zinc-900 p-3 rounded-2xl border border-zinc-800 text-white shadow-md flex flex-wrap items-center justify-between gap-3">
+      <!-- VERIFIED BATCH BANNER (WHEN VIEWING VERIFIED BATCH FROM TAB 2) -->
+      <div
+        v-if="isViewingVerifiedBatch && selectedVerifiedBatch"
+        class="bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 p-3.5 rounded-2xl border border-zinc-700 text-white shadow-md flex flex-wrap items-center justify-between gap-3"
+      >
+        <div class="flex items-center gap-3 flex-wrap">
+          <button
+            @click="closeVerifiedBatchView"
+            class="px-3 py-1.5 rounded-xl text-xs font-black bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-600 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Kembali ke Tabel Report / Arsip Batch"
+          >
+            <svg class="w-3.5 h-3.5 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6" /></svg>
+            <span>Kembali ke Arsip Batch</span>
+          </button>
+
+          <span class="text-zinc-700">|</span>
+
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10.5px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono">
+              ✓ BATCH TERVERIFIKASI
+            </span>
+            <h2 class="text-sm font-black text-white">
+              {{ selectedVerifiedBatch.batchName || selectedVerifiedBatch.fileName }}
+            </h2>
+            <span class="text-xs text-zinc-400 font-mono hidden sm:inline">
+              ({{ selectedVerifiedBatch.tanggal || formatDateOnly(selectedVerifiedBatch.uploadDate || selectedVerifiedBatch.createdAt) }} • {{ selectedVerifiedBatch.machine || selectedVerifiedBatch.mesin || 'SLITTING' }})
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- Mini KPI Stats -->
+          <div class="flex items-center gap-2 text-xs font-mono bg-zinc-800/80 px-3 py-1.5 rounded-xl border border-zinc-700">
+            <span class="text-zinc-400">Total:</span>
+            <strong class="text-white">{{ activeSpreadsheetList.length }} Roll</strong>
+            <span class="text-zinc-600">|</span>
+            <strong class="text-white">{{ batchDetailTotalKg }} kg</strong>
+            <span class="text-zinc-600">|</span>
+            <span class="text-emerald-400 font-bold">{{ batchDetailPassCount }} PASS</span>
+            <span v-if="batchDetailHoldCount > 0" class="text-amber-400 font-bold">• {{ batchDetailHoldCount }} HOLD</span>
+            <span v-if="batchDetailRejectCount > 0" class="text-red-400 font-bold">• {{ batchDetailRejectCount }} REJ</span>
+          </div>
+
+          <!-- Download Excel -->
+          <button
+            @click="exportSingleBatch(selectedVerifiedBatch)"
+            class="px-3 py-1.5 rounded-xl text-xs font-black bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-600 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Download File Excel Resmi untuk Batch Ini"
+          >
+            <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+            </svg>
+            <span>Download Excel</span>
+          </button>
+
+          <!-- Buka Kunci Batch (Revisi) -->
+          <button
+            @click="unverifyBatch(selectedVerifiedBatch)"
+            class="px-3 py-1.5 rounded-xl text-xs font-black bg-red-600 hover:bg-red-500 text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-red-600/20"
+            title="Buka kunci batch ini dan kembalikan ke lembar verifikasi untuk revisi / koreksi"
+          >
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+            </svg>
+            <span>Buka Kunci Batch (Revisi)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ACTIVE SESSION CONTEXT BAR (NAVIGASI & QUICK SWITCHER FOR UNVERIFIED SESSIONS) -->
+      <div
+        v-else
+        class="bg-gradient-to-r from-zinc-900 via-zinc-850 to-zinc-900 p-3 rounded-2xl border border-zinc-800 text-white shadow-md flex flex-wrap items-center justify-between gap-3"
+      >
         <div class="flex items-center gap-2.5 flex-wrap">
           <!-- Back to Sessions Portal Button -->
           <button
@@ -660,7 +656,7 @@
           </div>
         </div>
 
-        <!-- Session Status & Batch Approval Action -->
+        <!-- Session Status & Batch Approval Action (1-Click Batch Verification) -->
         <div class="flex items-center gap-2 flex-wrap">
           <!-- Session Badge Info -->
           <div class="flex items-center gap-1.5 text-xs font-mono bg-zinc-800/80 px-2.5 py-1 rounded-xl border border-zinc-700">
@@ -695,9 +691,9 @@
               <line x1="20" y1="4" x2="8.12" y2="15.88" />
               <line x1="14.47" y1="14.48" x2="20" y2="20" />
             </svg>
-            <span>LEMBAR {{ selectedMachine === 'ALL' ? 'SEMUA MESIN' : selectedMachine }}</span>
+            <span>LEMBAR {{ isViewingVerifiedBatch ? (selectedVerifiedBatch?.batchName || selectedMachine) : (selectedMachine === 'ALL' ? 'SEMUA MESIN' : selectedMachine) }}</span>
             <span class="px-1.5 py-0.2 rounded-full text-[9px] font-black font-mono bg-red-600 text-white ml-1">
-              {{ filteredUnverifiedList.length }}
+              {{ activeSpreadsheetList.length }}
             </span>
           </div>
         </div>
@@ -716,7 +712,7 @@
           <button
             @click="densityMode = 'compact'"
             :class="[
-              'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all',
+              'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
               densityMode === 'compact' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'
             ]"
             title="Tampilan Padat / Rapat"
@@ -726,7 +722,7 @@
           <button
             @click="densityMode = 'normal'"
             :class="[
-              'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all',
+              'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
               densityMode === 'normal' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'
             ]"
             title="Tampilan Sedang"
@@ -736,7 +732,7 @@
           <button
             @click="densityMode = 'comfortable'"
             :class="[
-              'px-2.5 py-1 rounded-lg font-black text-[11px] transition-all',
+              'px-2.5 py-1 rounded-lg font-black text-[11px] transition-all cursor-pointer',
               densityMode === 'comfortable' ? 'bg-blue-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-100'
             ]"
             title="Tampilan Lebar & Leluasa (Auto Expand)"
@@ -745,7 +741,7 @@
           </button>
           <button
             @click="resetColWidths"
-            class="px-2 py-1 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 text-[11px] font-bold"
+            class="px-2 py-1 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 text-[11px] font-bold cursor-pointer"
             title="Reset Lebar Seluruh Kolom ke Default"
           >
             Reset
@@ -757,79 +753,51 @@
       <div class="bg-white p-2.5 rounded-2xl border border-zinc-300 shadow-xs flex flex-wrap items-center justify-between gap-2">
         <!-- Left Tools -->
         <div class="flex items-center flex-wrap gap-1.5">
-          <!-- Tombol Import / Paste Excel Modal -->
-          <button
-            @click="showImportModal = true"
-            class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-600/20 transition-all flex items-center gap-1.5"
-            title="Import File Excel atau Paste Data Report Slitting langsung dengan Auto Forward-Fill"
+          <!-- Locked Batch Indicator when in verified mode -->
+          <div
+            v-if="isViewingVerifiedBatch"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-zinc-100 text-zinc-800 border border-zinc-300 flex items-center gap-1.5"
           >
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
+            <svg class="w-3.5 h-3.5 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            <span>📥 Import / Paste Slitting</span>
-          </button>
+            <span>Mode Baca Batch Terverifikasi (Terkunci)</span>
+          </div>
 
-          <!-- Tombol Approve Range -->
-          <button
-            @click="approveSelectedRange"
-            class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20 transition-all flex items-center gap-1.5"
-            title="Approve baris terpilih dan pindahkan ke Tabel Report"
-          >
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <span>Approve ({{ selectedRowCount }})</span>
-          </button>
+          <!-- Unverified Mode Editing Tools -->
+          <template v-else>
+            <!-- Tombol Import / Paste Excel Modal -->
+            <button
+              @click="showImportModal = true"
+              class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Import File Excel atau Paste Data Report Slitting langsung dengan Auto Forward-Fill"
+            >
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>📥 Import / Paste Slitting</span>
+            </button>
 
-          <!-- Tombol Approve Semua -->
-          <button
-            v-if="filteredUnverifiedList.length > 0"
-            @click="approveAll"
-            class="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-300 transition-all flex items-center gap-1"
-            title="Approve seluruh data di sub-sheet ini"
-          >
-            <svg class="w-3.5 h-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            <span>Approve Semua ({{ filteredUnverifiedList.length }})</span>
-          </button>
+            <!-- Tombol Approve Semua Sesi (Batch Verification) -->
+            <button
+              v-if="filteredUnverifiedList.length > 0"
+              @click="approveCurrentSessionBatch"
+              class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+              title="Approve seluruh data di sub-sheet ini"
+            >
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>Approve Semua ({{ filteredUnverifiedList.length }})</span>
+            </button>
+          </template>
 
           <span class="text-zinc-300">|</span>
 
-          <!-- Fill Down Button (Ctrl + D) -->
-          <button
-            @click="handleFillDown"
-            class="px-2.5 py-1.5 rounded-xl text-xs font-black bg-zinc-900 hover:bg-black text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            title="Duplikasi nilai dari cell atas ke seluruh baris terpilih di bawah (Shortcut: Ctrl + D)"
-          >
-            <svg class="w-3.5 h-3.5 text-yellow-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <polyline points="19 12 12 19 5 12" />
-            </svg>
-            <span>Fill Down</span>
-            <kbd class="px-1 py-0.2 text-[9px] bg-zinc-800 text-yellow-300 rounded font-mono font-bold">Ctrl+D</kbd>
-          </button>
-
-          <!-- Fill Right Button (Ctrl + R) -->
-          <button
-            @click="handleFillRight"
-            class="px-2.5 py-1.5 rounded-xl text-xs font-black bg-zinc-900 hover:bg-black text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            title="Duplikasi nilai dari cell kiri ke seluruh kolom terpilih di kanan (Shortcut: Ctrl + R)"
-          >
-            <svg class="w-3.5 h-3.5 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12" />
-              <polyline points="12 5 19 12 12 19" />
-            </svg>
-            <span>Fill Right</span>
-            <kbd class="px-1 py-0.2 text-[9px] bg-zinc-800 text-cyan-300 rounded font-mono font-bold">Ctrl+R</kbd>
-          </button>
-
-          <span class="text-zinc-300">|</span>
-
-          <!-- Copy Cells (Ctrl + C) -->
+          <!-- Copy Cells (Ctrl + C - Available in both unverified and verified batch modes) -->
           <button
             @click="handleCopySelection"
             class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 transition-all flex items-center gap-1 cursor-pointer"
@@ -843,64 +811,63 @@
             <kbd class="px-1 py-0.2 text-[9px] bg-zinc-200 text-zinc-600 rounded font-mono">Ctrl+C</kbd>
           </button>
 
-          <!-- Paste Cells (Ctrl + V) -->
-          <button
-            @click="handlePasteSelection"
-            class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 transition-all flex items-center gap-1 cursor-pointer"
-            title="Paste nilai clipboard ke cell (Shortcut: Ctrl + V)"
-          >
-            <svg class="w-3.5 h-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-            </svg>
-            <span>Paste</span>
-            <kbd class="px-1 py-0.2 text-[9px] bg-zinc-200 text-zinc-600 rounded font-mono">Ctrl+V</kbd>
-          </button>
+          <!-- Editing tools available only when NOT in locked verified mode -->
+          <template v-if="!isViewingVerifiedBatch">
+            <!-- Paste Cells (Ctrl + V) -->
+            <button
+              @click="handlePasteSelection"
+              class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 transition-all flex items-center gap-1 cursor-pointer"
+              title="Paste nilai clipboard ke cell (Shortcut: Ctrl + V)"
+            >
+              <svg class="w-3.5 h-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+              </svg>
+              <span>Paste</span>
+              <kbd class="px-1 py-0.2 text-[9px] bg-zinc-200 text-zinc-600 rounded font-mono">Ctrl+V</kbd>
+            </button>
 
-          <span class="text-zinc-300">|</span>
+            <!-- Undo Button (Ctrl+Z) -->
+            <button
+              :disabled="undoStack.length === 0"
+              @click="handleUndo"
+              class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-800 border border-zinc-300 transition-all flex items-center gap-1 cursor-pointer"
+              title="Undo (Ctrl + Z)"
+            >
+              <svg class="w-3.5 h-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+              <span>Undo</span>
+            </button>
 
-          <!-- Undo Button (Ctrl+Z) -->
-          <button
-            :disabled="undoStack.length === 0"
-            @click="handleUndo"
-            class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-800 border border-zinc-300 transition-all flex items-center gap-1"
-            title="Undo (Ctrl + Z)"
-          >
-            <svg class="w-3.5 h-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
-            <span>Undo</span>
-          </button>
+            <!-- Redo Button (Ctrl+Y) -->
+            <button
+              :disabled="redoStack.length === 0"
+              @click="handleRedo"
+              class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-800 border border-zinc-300 transition-all flex items-center gap-1 cursor-pointer"
+              title="Redo (Ctrl + Y)"
+            >
+              <svg class="w-3.5 h-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+              <span>Redo</span>
+            </button>
 
-          <!-- Redo Button (Ctrl+Y) -->
-          <button
-            :disabled="redoStack.length === 0"
-            @click="handleRedo"
-            class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-800 border border-zinc-300 transition-all flex items-center gap-1"
-            title="Redo (Ctrl + Y)"
-          >
-            <svg class="w-3.5 h-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 4 23 10 17 10" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-            </svg>
-            <span>Redo</span>
-          </button>
-
-          <span class="text-zinc-300">|</span>
-
-          <!-- Add Blank Row -->
-          <button
-            @click="addNewBlankRow"
-            class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-300 transition-all flex items-center gap-1 cursor-pointer"
-            title="Tambah baris baru di bawah"
-          >
-            <svg class="w-3.5 h-3.5 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            <span>+ Baris Baru</span>
-          </button>
+            <!-- Add Blank Row -->
+            <button
+              @click="addNewBlankRow"
+              class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-300 transition-all flex items-center gap-1 cursor-pointer"
+              title="Tambah baris baru di bawah"
+            >
+              <svg class="w-3.5 h-3.5 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>+ Baris Baru</span>
+            </button>
+          </template>
 
           <!-- Download Template Excel -->
           <button
@@ -1017,7 +984,7 @@
             
             <!-- 2-TIER COLUMN HEADERS (TIER 1: GROUPS, TIER 2: EXCEL COLUMNS A, B, C...) -->
             <thead class="sticky top-0 z-20 font-sans shadow-2xs">
-              <!-- TIER 1: 5 SLITTING FUNCTIONAL GROUPS -->
+              <!-- TIER 1: 5 FUNCTIONAL GROUPS (SLITTING VS REWIND) -->
               <tr class="text-white font-bold uppercase tracking-wider text-[10px] select-none">
                 <!-- Select All Corner Box -->
                 <th class="w-12 text-center bg-[#217346] border border-[#1b5e39] py-1" rowspan="2" title="Pilih Semua (Ctrl+A)">
@@ -1025,30 +992,52 @@
                     <span class="w-2.5 h-2.5 border-r-2 border-b-2 border-white/70 rotate-45 transform translate-y-[-1px]"></span>
                   </div>
                 </th>
-                <!-- Group 1: Shift & Parent Material (Deep Blue) -->
-                <th colspan="11" class="text-center py-1 bg-[#1e40af] border border-[#1d4ed8]">
-                  1. IDENTITAS SHIFT & PARENT MATERIAL INDUK
-                </th>
-                <!-- Group 2: Output Child Slitting (Cyan/Slate) -->
-                <th colspan="11" class="text-center py-1 bg-[#0369a1] border border-[#0284c7]">
-                  2. OUTPUT CHILD ROLL HASIL SLITTING
-                </th>
-                <!-- Group 3: QC & Defect (Emerald Green) -->
-                <th colspan="2" class="text-center py-1 bg-[#15803d] border border-[#16a34a]">
-                  3. QUALITY CONTROL & DEFECT
-                </th>
-                <!-- Group 4: Jumbo Sisa (Purple) -->
-                <th colspan="3" class="text-center py-1 bg-[#6b21a8] border border-[#7e22ce]">
-                  4. JUMBO SISA
-                </th>
-                <!-- Group 5: Waste & Note (Amber) -->
-                <th colspan="4" class="text-center py-1 bg-[#c2410c] border border-[#ea580c]">
-                  5. WASTE SHIFT & CATATAN
-                </th>
-                <!-- Action Column -->
-                <th class="w-20 text-center bg-[#217346] border border-[#1b5e39] py-1" rowspan="2">
-                  Aksi
-                </th>
+                <!-- REWIND 23-COLUMN GROUPS -->
+                <template v-if="isRewindSession">
+                  <!-- Group 1: Identitas & Proses (5 Kolom: Tanggal, Grup Shift, Jenis Proses, No SPK, No Lot) -->
+                  <th colspan="5" class="text-center py-1 bg-[#1e40af] border border-[#1d4ed8]">
+                    1. IDENTITAS & PROSES
+                  </th>
+                  <!-- Group 2: Spesifikasi & Dimensi (6 Kolom: Jenis, Kode Formula, Thickness, Width, Length, Weight) -->
+                  <th colspan="6" class="text-center py-1 bg-[#0369a1] border border-[#0284c7]">
+                    2. SPESIFIKASI & DIMENSI BAHAN
+                  </th>
+                  <!-- Group 3: Hasil & Quality (4 Kolom: Turunan, Pack, Quality Status, Reason Of Deffect) -->
+                  <th colspan="4" class="text-center py-1 bg-[#15803d] border border-[#16a34a]">
+                    3. HASIL REWIND & QUALITY
+                  </th>
+                  <!-- Group 4: Keterangan & Waste (4 Kolom: Keterangan Bahan, Keterangan Hasil, Length Waste, Weight Waste) -->
+                  <th colspan="4" class="text-center py-1 bg-[#c2410c] border border-[#ea580c]">
+                    4. KETERANGAN & WASTE
+                  </th>
+                  <!-- Group 5: Atribut & Core (4 Kolom: Core, Tanda, Bahan, Input Atribut metalize) -->
+                  <th colspan="4" class="text-center py-1 bg-[#334155] border border-[#475569]">
+                    5. ATRIBUT & CORE
+                  </th>
+                </template>
+                <!-- SLITTING 31-COLUMN GROUPS -->
+                <template v-else>
+                  <!-- Group 1: Shift & Parent Material (Deep Blue) -->
+                  <th colspan="11" class="text-center py-1 bg-[#1e40af] border border-[#1d4ed8]">
+                    1. IDENTITAS SHIFT & PARENT MATERIAL INDUK
+                  </th>
+                  <!-- Group 2: Output Child Slitting (Cyan/Slate) -->
+                  <th colspan="11" class="text-center py-1 bg-[#0369a1] border border-[#0284c7]">
+                    2. OUTPUT CHILD ROLL HASIL SLITTING
+                  </th>
+                  <!-- Group 3: QC & Defect (Emerald Green) -->
+                  <th colspan="2" class="text-center py-1 bg-[#15803d] border border-[#16a34a]">
+                    3. QUALITY CONTROL & DEFECT
+                  </th>
+                  <!-- Group 4: Jumbo Sisa (Purple) -->
+                  <th colspan="3" class="text-center py-1 bg-[#6b21a8] border border-[#7e22ce]">
+                    4. JUMBO SISA
+                  </th>
+                  <!-- Group 5: Waste & Note (Amber) -->
+                  <th colspan="4" class="text-center py-1 bg-[#c2410c] border border-[#ea580c]">
+                    5. WASTE SHIFT & CATATAN
+                  </th>
+                </template>
               </tr>
 
               <!-- TIER 2: AUTHENTIC EXCEL COLUMN HEADERS (A, B, C...) -->
@@ -1083,7 +1072,7 @@
             <!-- EXCEL ROWS (AUTHENTIC GRID CELLS) -->
             <tbody class="text-[11.5px] text-zinc-900">
               <tr
-                v-for="(item, rIdx) in paginatedUnverifiedList"
+                v-for="(item, rIdx) in paginatedSpreadsheetList"
                 :key="item.id || item.uniqId"
                 :class="[
                   getRowClass(item, rIdx),
@@ -1155,8 +1144,22 @@
 
                   <!-- Cell Value Display with Excel High-Precision Typography -->
                   <span v-else class="block whitespace-nowrap overflow-hidden text-ellipsis leading-tight">
+                    <!-- No Lot Column (In Rewind, HASIL row is highlighted pink/red matching screenshot) -->
+                    <template v-if="col.key === 'lot' && isRewindSession && item.jenisProses === 'HASIL'">
+                      <span class="bg-[#fca5a5] text-red-950 font-bold px-1.5 py-0.5 rounded shadow-2xs block truncate">
+                        {{ formatCellValue(item.lot, 'lot', item, rIdx) }}
+                      </span>
+                    </template>
+
+                    <!-- Jenis Proses Column (BAHAN vs HASIL) -->
+                    <template v-else-if="col.key === 'jenisProses'">
+                      <span :class="item.jenisProses === 'HASIL' ? 'text-blue-700 font-black' : 'text-zinc-600 font-bold'">
+                        {{ item.jenisProses || 'BAHAN' }}
+                      </span>
+                    </template>
+
                     <!-- Shift Kolom (Kombinasi Kode Operator + Shift, misal G1, H3, W2) -->
-                    <template v-if="col.key === 'shiftCombined'">
+                    <template v-else-if="col.key === 'shiftCombined'">
                       <span class="font-bold text-zinc-950 font-mono tracking-tight">{{ getShiftCombined(item) }}</span>
                     </template>
 
@@ -1194,10 +1197,13 @@
                       <span
                         :class="[
                           'px-1.5 py-0.2 rounded text-[10px] font-black inline-block',
-                          item.status === 'HOLD' ? 'bg-amber-600 text-white' : (item.status === 'REJECT' ? 'bg-red-600 text-white' : 'bg-emerald-100 text-emerald-800 border border-emerald-300')
+                          item.status === 'PASS' ? 'bg-[#86efac] text-emerald-950 border border-emerald-400' :
+                          (item.status === 'REJECT' ? 'bg-[#ef4444] text-white font-black' :
+                          (item.status === 'HOLD' ? 'bg-amber-600 text-white' :
+                          'bg-zinc-100 text-zinc-700 border border-zinc-300'))
                         ]"
                       >
-                        {{ item.status || 'PASS' }}
+                        {{ item.status || (item.jenisProses === 'BAHAN' ? 'SORTIR' : 'PASS') }}
                       </span>
                     </template>
 
@@ -1229,33 +1235,23 @@
                     title="Fill Handle (Tarik atau tekan Ctrl+D)"
                   ></div>
                 </td>
-
-                <!-- Row Quick Action (Approve) -->
-                <td class="border border-[#d4d4d8] text-center py-1 px-1 bg-[#f8fafc]">
-                  <button
-                    @click="approveSingle(item)"
-                    class="px-2 py-0.5 rounded text-[10.5px] font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition-colors flex items-center justify-center gap-1 mx-auto cursor-pointer"
-                    title="Approve baris ini ke Report"
-                  >
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    <span>Approve</span>
-                  </button>
-                </td>
               </tr>
 
               <!-- Empty State -->
-              <tr v-if="filteredUnverifiedList.length === 0">
-                <td :colspan="columns.length + 2" class="p-12 text-center text-zinc-400 font-sans bg-white">
+              <tr v-if="activeSpreadsheetList.length === 0">
+                <td :colspan="columns.length + 1" class="p-12 text-center text-zinc-400 font-sans bg-white">
                   <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto mb-2">
                     <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                       <polyline points="22 4 12 14.01 9 11.01" />
                     </svg>
                   </div>
-                  <p class="font-bold text-sm text-zinc-700">Semua data label telah terverifikasi!</p>
-                  <p class="text-xs text-zinc-400 mt-0.5">Silakan gunakan tombol <strong>📥 Import / Paste Slitting</strong> untuk memasukkan data baru.</p>
+                  <p class="font-bold text-sm text-zinc-700">
+                    {{ isViewingVerifiedBatch ? 'Tidak ada data dalam batch ini.' : 'Semua data label pada sesi ini telah terverifikasi!' }}
+                  </p>
+                  <p class="text-xs text-zinc-400 mt-0.5">
+                    {{ isViewingVerifiedBatch ? 'Silakan kembali ke Arsip Batch Terverifikasi.' : 'Silakan gunakan tombol 📥 Import / Paste Slitting untuk memasukkan data baru.' }}
+                  </p>
                 </td>
               </tr>
             </tbody>
@@ -1265,7 +1261,7 @@
         <!-- Excel Status Bar (Bottom) -->
         <div class="bg-[#f3f4f6] px-3 py-1.5 border-t border-zinc-300 flex items-center justify-between text-xs text-zinc-600 font-mono">
           <div>
-            SHEET: <strong class="text-zinc-900">SLITTING</strong> ({{ filteredUnverifiedList.length }} baris)
+            SHEET: <strong class="text-zinc-900">SLITTING ({{ isViewingVerifiedBatch ? 'BATCH TERVERIFIKASI' : 'VERIFIKASI' }})</strong> ({{ activeSpreadsheetList.length }} baris)
             <span class="mx-2 text-zinc-300">•</span>
             CELL: <strong class="text-blue-700 font-bold">{{ selectedRangeLabel }}</strong>
             <span v-if="rangeCellCount > 1" class="ml-1 text-zinc-500 font-normal">
@@ -1283,7 +1279,7 @@
         <!-- SPREADSHEET FULL-FEATURED PAGINATION BAR -->
         <div class="bg-white px-4 py-2.5 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div class="flex items-center gap-3 text-zinc-600 font-medium">
-            <span>Menampilkan baris <strong class="text-zinc-900 font-bold font-mono">{{ unverifiedStartRow }} – {{ unverifiedEndRow }}</strong> dari <strong class="text-zinc-900 font-bold font-mono">{{ filteredUnverifiedList.length }}</strong> roll ({{ selectedMachine }})</span>
+            <span>Menampilkan baris <strong class="text-zinc-900 font-bold font-mono">{{ unverifiedStartRow }} – {{ unverifiedEndRow }}</strong> dari <strong class="text-zinc-900 font-bold font-mono">{{ activeSpreadsheetList.length }}</strong> roll ({{ selectedMachine }})</span>
             <div class="flex items-center gap-1.5 ml-2 border-l border-zinc-300 pl-3">
               <span class="text-zinc-500 text-[11px]">Baris per hal:</span>
               <select
@@ -1373,7 +1369,7 @@
       </div>
     </div>
 
-    <!-- TAB 3: TABEL REPORT -->
+    <!-- TAB 2: TABEL REPORT (ARSIP BATCH TERVERIFIKASI) -->
     <div v-if="activeTab === 'report'" class="space-y-3 animate-fade-in">
       <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2.5">
@@ -1386,188 +1382,278 @@
             </svg>
           </div>
           <div>
-            <h3 class="text-sm font-black text-zinc-900">Rekap Data Terverifikasi</h3>
-            <p class="text-xs text-zinc-500 font-medium">Data label yang sudah diapprove oleh tim Data Entry</p>
+            <h3 class="text-sm font-black text-zinc-900">Arsip Batch Terverifikasi</h3>
+            <p class="text-xs text-zinc-500 font-medium">Daftar batch verifikasi DE dan ekspor/impor Data Roll yang telah disetujui</p>
           </div>
         </div>
 
         <div class="flex items-center flex-wrap gap-2">
-          <div class="relative w-48 sm:w-60">
+          <!-- Filter Search Batch -->
+          <div class="relative w-48 sm:w-64">
             <input
-              v-model="reportSearch"
+              v-model="batchReportSearch"
               type="text"
-              placeholder="Cari SPK, Lot, Turunan..."
+              placeholder="Cari nama batch, tanggal, mesin, verifier..."
               class="w-full pl-7 pr-6 py-1.5 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none bg-white font-medium"
             />
             <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <button v-if="reportSearch" @click="reportSearch = ''" class="absolute right-2 top-1.5 text-xs text-zinc-400 hover:text-zinc-600 font-bold">✕</button>
+            <button v-if="batchReportSearch" @click="batchReportSearch = ''" class="absolute right-2 top-1.5 text-xs text-zinc-400 hover:text-zinc-600 font-bold">✕</button>
           </div>
 
+          <!-- Filter Sumber Data for Batches -->
+          <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 text-xs">
+            <span class="text-[11px] font-bold text-zinc-500 px-1.5">Sumber:</span>
+            <button
+              @click="batchSourceFilter = 'MANUAL'"
+              :class="[
+                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
+                batchSourceFilter === 'MANUAL' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
+              ]"
+            >
+              Data Label
+            </button>
+            <button
+              @click="batchSourceFilter = 'DATA_ROLL'"
+              :class="[
+                'px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
+                batchSourceFilter === 'DATA_ROLL' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
+              ]"
+            >
+              Export Excel Data Roll
+            </button>
+            <button
+              @click="batchSourceFilter = 'ALL'"
+              :class="[
+                'px-2 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
+                batchSourceFilter === 'ALL' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
+              ]"
+            >
+              Semua
+            </button>
+          </div>
+
+          <!-- Machine Filter for Batches -->
+          <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 text-xs">
+            <button
+              v-for="m in ['ALL', 'SLITTING', 'REWIND', 'CASTING', 'SML']"
+              :key="m"
+              @click="batchMachineFilter = m"
+              :class="[
+                'px-2 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer',
+                batchMachineFilter === m ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:bg-zinc-200/60'
+              ]"
+            >
+              {{ m === 'ALL' ? 'Semua' : m }}
+            </button>
+          </div>
+
+          <!-- Export All Button -->
           <button
-            @click="exportVerifiedExcel"
-            class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-zinc-900 hover:bg-black text-white shadow-xs transition-all flex items-center gap-1.5"
-            title="Download Laporan Excel Data Terverifikasi"
+            @click="exportAllVerifiedBatchesExcel"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-zinc-900 hover:bg-black text-white shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Download Semua Data Terverifikasi ke Excel"
           >
             <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
               <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
             </svg>
-            <span>Export Report (.xlsx)</span>
+            <span>Export Semua (.xlsx)</span>
           </button>
         </div>
       </div>
 
+      <!-- Tabel Batch List -->
       <div class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse">
             <thead>
-              <tr class="bg-zinc-100 text-zinc-800 border-b border-zinc-200 font-bold uppercase tracking-wider text-[11px] whitespace-nowrap">
-                <th class="py-3 px-3 text-center">No</th>
-                <th class="py-3 px-3">Waktu Verifikasi</th>
-                <th class="py-3 px-3">Verifier</th>
-                <th class="py-3 px-3">Tanggal Roll</th>
-                <th class="py-3 px-3">Mesin</th>
-                <th class="py-3 px-3">Shift</th>
-                <th class="py-3 px-3">SPK</th>
-                <th class="py-3 px-3">No Lot Induk</th>
-                <th class="py-3 px-3">Turunan</th>
-                <th class="py-3 px-3">Dimensi Hasil</th>
-                <th class="py-3 px-3 text-right">Netto</th>
-                <th class="py-3 px-3">Packing</th>
-                <th class="py-3 px-3 text-center">Status</th>
-                <th class="py-3 px-3 text-center">Aksi</th>
+              <tr class="bg-zinc-50 border-b border-zinc-200 text-[11px] font-black text-zinc-600 uppercase tracking-wider">
+                <th class="py-3 px-3 text-center w-12">No</th>
+                <th class="py-3 px-3">Nama Batch / Dokumen</th>
+                <th class="py-3 px-3">Asal Sumber</th>
+                <th class="py-3 px-3 text-center">Tanggal & Mesin</th>
+                <th class="py-3 px-3 text-center">Waktu Verifikasi / Selesai</th>
+                <th class="py-3 px-3 text-center">Total Roll</th>
+                <th class="py-3 px-3 text-right">Total Berat (Kg)</th>
+                <th class="py-3 px-3 text-center">Quality Breakdown</th>
+                <th class="py-3 px-3 text-center">Petugas / Verifier</th>
+                <th class="py-3 px-3 text-center w-36">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-zinc-100 text-zinc-700">
-              <tr
-                v-for="(item, idx) in paginatedVerifiedList"
-                :key="item.id || item.uniqId"
-                class="hover:bg-zinc-50 transition-colors"
-              >
-                <td class="py-2.5 px-3 font-mono text-zinc-600 font-bold text-center whitespace-nowrap">
-                  #{{ (verifiedPageSize === -1 ? 0 : (verifiedPage - 1) * verifiedPageSize) + idx + 1 }}
-                </td>
-                <td class="py-2.5 px-3 font-mono text-[11px] text-zinc-500 whitespace-nowrap">
-                  {{ item.verifiedAt ? new Date(item.verifiedAt).toLocaleString('id-ID') : '-' }}
-                </td>
-                <td class="py-2.5 px-3 whitespace-nowrap">
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    {{ item.verifiedBy || 'Data Entry' }}
-                  </span>
-                </td>
-                <td class="py-2.5 px-3 whitespace-nowrap font-medium text-zinc-900">
-                  {{ item.tanggal }}
-                </td>
-                <td class="py-2.5 px-3 whitespace-nowrap font-bold text-zinc-800">
-                  {{ item.mesin }}
-                </td>
-                <td class="py-2.5 px-3 whitespace-nowrap font-mono font-bold text-zinc-800">
-                  {{ getShiftCombined(item) }}
-                </td>
-                <td class="py-2.5 px-3 font-mono font-bold text-zinc-900 whitespace-nowrap">
-                  {{ item.spk }}
-                </td>
-                <td class="py-2.5 px-3 whitespace-nowrap font-mono font-bold">
-                  <span class="text-zinc-900 uppercase">{{ item.lot }}</span>
-                </td>
-                <td class="py-2.5 px-3 whitespace-nowrap font-mono font-bold text-red-600">
-                  {{ item.turunan }}
-                </td>
-                <td class="py-2.5 px-3 whitespace-nowrap font-medium text-zinc-700">
-                  {{ item.width }}MM × {{ item.length }}M
-                </td>
-                <td class="py-2.5 px-3 font-mono font-bold text-zinc-900 text-right whitespace-nowrap">
-                  {{ item.netto }} kg
-                </td>
-                <td class="py-2.5 px-3 font-mono whitespace-nowrap">
-                  {{ getPackingEndNumber(item) }}
-                </td>
-                <td class="py-2.5 px-3 text-center whitespace-nowrap">
-                  <span :class="[
-                    'px-2 py-0.5 rounded-full text-[10px] font-bold border inline-block',
-                    item.status === 'PASS' || item.status === 'OK' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                    item.status === 'HOLD' ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-red-100 text-red-800 border-red-300'
-                  ]">
-                    {{ item.status }}
-                  </span>
-                </td>
-                <td class="py-2.5 px-3 text-center whitespace-nowrap">
-                  <button
-                    @click="unverifySingle(item)"
-                    class="px-2.5 py-1 rounded-lg text-[10.5px] font-bold text-zinc-600 hover:text-red-600 hover:bg-red-50 border border-zinc-200 transition-colors flex items-center gap-1 mx-auto cursor-pointer"
-                    title="Batalkan verifikasi (kembalikan ke Sheet Verifikasi)"
-                  >
-                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="1 4 1 10 7 10" />
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                    </svg>
-                    <span>Batal Approve</span>
-                  </button>
-                </td>
-              </tr>
-
-              <tr v-if="filteredVerifiedList.length === 0">
-                <td colspan="14" class="py-12 text-center text-zinc-400">
+            <tbody class="divide-y divide-zinc-200/70">
+              <tr v-if="filteredVerifiedBatches.length === 0" class="text-center py-10">
+                <td colspan="10" class="py-12 text-zinc-400">
                   <div class="w-12 h-12 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-400 flex items-center justify-center mx-auto mb-2">
                     <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="2" y="4" width="20" height="16" rx="2" />
                       <path d="M7 15h0M2 9.5h20" />
                     </svg>
                   </div>
-                  <p class="font-bold text-sm text-zinc-700">Belum ada data di Tabel Report.</p>
-                  <p class="text-xs text-zinc-400 mt-0.5">Silakan lakukan verifikasi pada Sheet Verifikasi.</p>
+                  <p class="font-bold text-sm text-zinc-700">Belum ada batch terverifikasi.</p>
+                  <p class="text-xs text-zinc-400 mt-0.5">Lakukan verifikasi sesi di Sheet Verifikasi atau ekspor data roll untuk mencatat batch.</p>
+                </td>
+              </tr>
+
+              <tr
+                v-for="(batch, bIdx) in paginatedVerifiedBatches"
+                :key="batch.id || batch.uuid || bIdx"
+                @click="openBatchDetail(batch)"
+                class="hover:bg-zinc-50 transition-colors cursor-pointer group"
+              >
+                <!-- No -->
+                <td class="py-3 px-3 text-center text-zinc-400 font-mono text-[11px]">
+                  {{ (batchPageSize === -1 ? 0 : (batchPage - 1) * batchPageSize) + bIdx + 1 }}
+                </td>
+
+                <!-- Nama Batch & File -->
+                <td class="py-3 px-3">
+                  <div class="font-bold text-zinc-900 group-hover:text-red-700 transition-colors">
+                    {{ batch.batchName || batch.fileName }}
+                  </div>
+                  <div v-if="batch.fileName && batch.batchName !== batch.fileName" class="text-[10.5px] text-zinc-400 font-mono mt-0.5">
+                    File: {{ batch.fileName }}
+                  </div>
+                </td>
+
+                <!-- Asal Sumber Badge -->
+                <td class="py-3 px-3 whitespace-nowrap">
+                  <span
+                    v-if="batch.source && (batch.source.includes('Verifikasi') || batch.source.includes('DE'))"
+                    class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200 inline-block"
+                  >
+                    Verifikasi Sesi DE
+                  </span>
+                  <span
+                    v-else-if="batch.source && batch.source.includes('Export')"
+                    class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-800 border border-zinc-300 inline-block"
+                  >
+                    Export Data Roll
+                  </span>
+                  <span
+                    v-else
+                    class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200 inline-block"
+                  >
+                    {{ batch.source || 'Upload Data Roll' }}
+                  </span>
+                </td>
+
+                <!-- Tanggal & Mesin -->
+                <td class="py-3 px-3 text-center whitespace-nowrap">
+                  <div class="font-mono text-xs font-bold text-zinc-800">{{ batch.tanggal || formatDateOnly(batch.uploadDate || batch.createdAt) }}</div>
+                  <span class="inline-block px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-zinc-100 text-zinc-600 border border-zinc-200 mt-0.5">
+                    {{ batch.machine || batch.mesin || 'ALL' }}
+                  </span>
+                </td>
+
+                <!-- Waktu Verifikasi -->
+                <td class="py-3 px-3 text-center whitespace-nowrap font-mono text-[11px] text-zinc-600">
+                  {{ formatHistoryTimestamp(batch.verifiedAt || batch.uploadDate || batch.createdAt) }}
+                </td>
+
+                <!-- Total Roll -->
+                <td class="py-3 px-3 text-center font-bold font-mono text-zinc-900 whitespace-nowrap">
+                  {{ batch.totalRolls || 0 }} Roll
+                </td>
+
+                <!-- Total Berat -->
+                <td class="py-3 px-3 text-right font-bold font-mono text-zinc-900 whitespace-nowrap">
+                  {{ (batch.totalKg || 0).toLocaleString('id-ID') }} kg
+                </td>
+
+                <!-- Quality Status Breakdown -->
+                <td class="py-3 px-3 text-center whitespace-nowrap font-mono text-[11px]">
+                  <span class="text-zinc-800 font-bold">{{ batch.passCount || 0 }} PASS</span>
+                  <span v-if="batch.holdCount > 0" class="text-zinc-500 font-bold ml-1.5">• {{ batch.holdCount }} HOLD</span>
+                  <span v-if="batch.rejectCount > 0" class="text-zinc-500 font-bold ml-1.5">• {{ batch.rejectCount }} REJ</span>
+                </td>
+
+                <!-- Uploader / Verifier -->
+                <td class="py-3 px-3 text-center text-zinc-600 whitespace-nowrap text-[11px]">
+                  {{ batch.verifiedBy || batch.uploadedBy || 'Data Entry' }}
+                </td>
+
+                <!-- Aksi Buttons -->
+                <td class="py-3 px-3 text-center whitespace-nowrap" @click.stop>
+                  <div class="flex items-center justify-center gap-1.5">
+                    <button
+                      @click="openBatchDetail(batch)"
+                      class="px-2.5 py-1 rounded-lg text-xs font-bold bg-zinc-900 hover:bg-black text-white transition-colors cursor-pointer flex items-center gap-1"
+                      title="Lihat Data Roll dalam Batch ini"
+                    >
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <span>Lihat Roll</span>
+                    </button>
+                    <button
+                      @click="exportSingleBatch(batch)"
+                      class="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 border border-zinc-200 transition-colors cursor-pointer"
+                      title="Export Batch ke Excel"
+                    >
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                      </svg>
+                    </button>
+                    <button
+                      @click="unverifyBatch(batch)"
+                      class="p-1.5 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50 border border-zinc-200 transition-colors cursor-pointer"
+                      title="Batalkan Verifikasi Batch (Kembalikan ke Lembar Verifikasi)"
+                    >
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="1 4 1 10 7 10" />
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- REPORT FULL-FEATURED PAGINATION BAR -->
+        <!-- Batch Pagination Bar -->
         <div class="bg-zinc-50 px-4 py-3 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div class="flex items-center gap-3 text-zinc-600 font-medium">
-            <span>Menampilkan <strong class="text-zinc-900 font-bold font-mono">{{ verifiedStartRow }} – {{ verifiedEndRow }}</strong> dari <strong class="text-zinc-900 font-bold font-mono">{{ filteredVerifiedList.length }}</strong> roll terverifikasi</span>
+            <span>Menampilkan batch <strong class="text-zinc-900 font-bold font-mono">{{ batchStartRow }} – {{ batchEndRow }}</strong> dari <strong class="text-zinc-900 font-bold font-mono">{{ filteredVerifiedBatches.length }}</strong> batch</span>
             <div class="flex items-center gap-1.5 ml-2 border-l border-zinc-300 pl-3">
-              <span class="text-zinc-500 text-[11px]">Baris per hal:</span>
+              <span class="text-zinc-500 text-[11px]">Batch per hal:</span>
               <select
-                v-model.number="verifiedPageSize"
+                v-model.number="batchPageSize"
                 class="bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-zinc-900 cursor-pointer font-mono"
               >
                 <option :value="10">10</option>
                 <option :value="25">25</option>
                 <option :value="50">50</option>
-                <option :value="100">100</option>
                 <option :value="-1">Semua</option>
               </select>
             </div>
           </div>
 
-          <div v-if="verifiedTotalPages > 1" class="flex items-center gap-1.5 flex-wrap">
+          <div v-if="batchTotalPages > 1" class="flex items-center gap-1.5 flex-wrap">
             <button
-              :disabled="verifiedPage === 1"
-              @click="changeVerifiedPage(1)"
+              :disabled="batchPage === 1"
+              @click="changeBatchPage(1)"
               class="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white font-bold text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
               title="Halaman Pertama"
             >
               «
             </button>
             <button
-              :disabled="verifiedPage === 1"
-              @click="changeVerifiedPage(verifiedPage - 1)"
+              :disabled="batchPage === 1"
+              @click="changeBatchPage(batchPage - 1)"
               class="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white font-bold text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
               title="Halaman Sebelumnya"
             >
               ‹
             </button>
 
-            <template v-for="(p, pIdx) in verifiedVisiblePages" :key="pIdx">
+            <template v-for="(p, pIdx) in batchVisiblePages" :key="pIdx">
               <span v-if="p === '...'" class="px-1.5 py-1 text-zinc-400 font-bold">...</span>
               <button
                 v-else
-                @click="changeVerifiedPage(p)"
+                @click="changeBatchPage(p)"
                 :class="[
                   'px-3 py-1 rounded-lg font-bold transition-all cursor-pointer font-mono text-xs',
-                  verifiedPage === p
+                  batchPage === p
                     ? 'bg-zinc-900 text-white shadow-xs'
                     : 'bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-100'
                 ]"
@@ -1577,40 +1663,21 @@
             </template>
 
             <button
-              :disabled="verifiedPage === verifiedTotalPages"
-              @click="changeVerifiedPage(verifiedPage + 1)"
+              :disabled="batchPage === batchTotalPages"
+              @click="changeBatchPage(batchPage + 1)"
               class="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white font-bold text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
               title="Halaman Selanjutnya"
             >
               ›
             </button>
             <button
-              :disabled="verifiedPage === verifiedTotalPages"
-              @click="changeVerifiedPage(verifiedTotalPages)"
+              :disabled="batchPage === batchTotalPages"
+              @click="changeBatchPage(batchTotalPages)"
               class="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white font-bold text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
               title="Halaman Terakhir"
             >
               »
             </button>
-
-            <div class="flex items-center gap-1 ml-2 border-l border-zinc-300 pl-2">
-              <span class="text-zinc-500 text-[11px]">Ke:</span>
-              <input
-                v-model="jumpToVerifiedPage"
-                @keyup.enter="handleJumpVerifiedPage"
-                type="number"
-                min="1"
-                :max="verifiedTotalPages"
-                placeholder="#"
-                class="w-12 px-1.5 py-0.5 text-center text-xs border border-zinc-300 rounded-lg outline-none bg-white font-mono"
-              />
-              <button
-                @click="handleJumpVerifiedPage"
-                class="px-2 py-0.5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-              >
-                Go
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -1852,7 +1919,7 @@ import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useConfigStore } from '@/stores/configStore';
 import { db, generateUniqID } from '@/db';
-import { parseDateToIso } from '@/services/dataRollParserService';
+import { parseDateToIso, parseDataRollRow } from '@/services/dataRollParserService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 
@@ -1860,15 +1927,20 @@ const labelStore = useLabelStore();
 const dataRollStore = useDataRollStore();
 const configStore = useConfigStore();
 
-// Main Sheet Tabs
+// Main Sheet Tabs & Verified Batch Unified View State
 const activeTab = ref('dashboard'); // Start on Dashboard / Sesi Portal
+const isViewingVerifiedBatch = ref(false);
+const selectedVerifiedBatch = ref(null);
 
 // Sesi Filter: Tanggal & Mesin Aktif
 const selectedDate = ref('ALL');
 const selectedMachine = ref('ALL');
 
-// Sumber Data Batch Filter: 'ALL' | 'EXCEL' | 'DATA_ROLL'
-const portalSourceFilter = ref('ALL');
+// Sumber Data Batch Filter: 'MANUAL' (Default) | 'DATA_ROLL' | 'ALL'
+const portalSourceFilter = ref('MANUAL');
+
+// Batch Archive Filters
+const batchSourceFilter = ref('MANUAL'); // 'MANUAL' (Default) | 'DATA_ROLL' | 'ALL'
 
 // Accordion Dropdown State for Minimal Daily Table
 const expandedDates = ref(new Set());
@@ -1893,14 +1965,39 @@ const collapseAllDates = () => {
   expandedDates.value.clear();
 };
 
-// Portal Filters
+// Search States with Debouncing (Optimasi Performa 10K+ Data)
 const portalSearch = ref('');
-const portalStatusFilter = ref('ALL'); // 'ALL' | 'PENDING' | 'VERIFIED'
+const debouncedPortalSearch = ref('');
+let portalSearchTimer = null;
+watch(portalSearch, (val) => {
+  clearTimeout(portalSearchTimer);
+  portalSearchTimer = setTimeout(() => {
+    debouncedPortalSearch.value = val;
+  }, 250);
+});
+
+const portalStatusFilter = ref('PENDING'); // Default 'PENDING' (Belum Verifikasi)
 const portalMachineFilter = ref('ALL');
 
-// Search States
 const verifySearch = ref('');
+const debouncedVerifySearch = ref('');
+let verifySearchTimer = null;
+watch(verifySearch, (val) => {
+  clearTimeout(verifySearchTimer);
+  verifySearchTimer = setTimeout(() => {
+    debouncedVerifySearch.value = val;
+  }, 250);
+});
+
 const reportSearch = ref('');
+const debouncedReportSearch = ref('');
+let reportSearchTimer = null;
+watch(reportSearch, (val) => {
+  clearTimeout(reportSearchTimer);
+  reportSearchTimer = setTimeout(() => {
+    debouncedReportSearch.value = val;
+  }, 250);
+});
 
 // Helper: Format Tanggal Ramah Indonesia
 const formatDateNice = (dateStr) => {
@@ -1923,38 +2020,30 @@ const formatDateNice = (dateStr) => {
 // UNIFIED DATA SOURCES WITH CLEAN BATCH SEPARATION
 // =========================================================================
 const allSourceItems = computed(() => {
-  // Sumber 1: Verifikasi Excel (Labels dari DE Report / Slitting Import)
-  const excelItems = (labelStore.labels || []).map(l => ({
+  const manualItems = (labelStore.labels || []).map(l => ({
     ...l,
-    sourceType: 'EXCEL',
-    sourceLabel: 'Verifikasi Excel',
+    sourceType: 'MANUAL',
+    sourceLabel: 'Data Label (Input Manual)',
     batchTitle: l.batchName || `DE Report ${l.mesin || 'SLITTING'} (${l.tanggal || 'Harian'})`
   }));
 
-  // Sumber 2: Batch Upload Data Roll (dari db.data_rolls / upload file data roll)
   const dataRollItems = (dataRollStore.rolls || [])
-    .filter(r => !r.id || !String(r.id).startsWith('de_label_'))
+    .filter(r => !String(r.id || '').startsWith('de_label') && !r.originalLabelId)
     .map(r => ({
       ...r,
-      id: r.id || r.uuid,
-      originalDataRollId: r.id,
-      uniqId: r.uuid || `dr_${r.id}`,
-      mesin: String(r.machineName || (r.slitting ? 'SLITTING' : (r.rewind ? 'REWIND' : (r.sml ? 'SML' : 'CASTING')))).toUpperCase(),
-      kode: r.kodeFormula || r.kode || 'M06',
-      paperCore: String(r.core || '6'),
-      status: r.qualityStatus || 'PASS',
       sourceType: 'DATA_ROLL',
-      sourceLabel: 'Upload Data Roll',
-      batchTitle: r.uploadId ? `Batch Upload: ${r.uploadId}` : 'Upload Data Roll'
+      sourceLabel: 'Export Excel Data Roll',
+      batchTitle: r.uploadId || `Upload Excel ${r.machineName || 'SLITTING'} (${r.tanggal || 'Harian'})`,
+      mesin: r.machineName || (r.slitting ? 'SLITTING' : (r.rewind ? 'REWIND' : 'CASTING'))
     }));
 
-  if (portalSourceFilter.value === 'EXCEL') {
-    return excelItems;
-  }
-  if (portalSourceFilter.value === 'DATA_ROLL') {
+  if (portalSourceFilter.value === 'MANUAL') {
+    return manualItems;
+  } else if (portalSourceFilter.value === 'DATA_ROLL') {
     return dataRollItems;
+  } else {
+    return [...manualItems, ...dataRollItems];
   }
-  return [...excelItems, ...dataRollItems];
 });
 
 // Available Dates & Machines
@@ -1979,12 +2068,30 @@ const availableMachines = computed(() => {
   return Array.from(machines);
 });
 
-// Global Summary Counts
-const totalGlobalUnverifiedCount = computed(() => allSourceItems.value.filter(item => !item.verified || item.verified === 0).length);
-const totalGlobalVerifiedCount = computed(() => allSourceItems.value.filter(item => item.verified === 1).length);
-const totalGlobalWeightKg = computed(() => {
-  return allSourceItems.value.reduce((sum, item) => sum + (parseFloat(item.netto || item.berat || 0) || 0), 0);
+// Global Summary Counts (Optimasi 1-Pass Loop untuk 10K+ Data)
+const globalSummary = computed(() => {
+  let unverified = 0;
+  let verified = 0;
+  let totalWeight = 0;
+  const items = allSourceItems.value;
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.verified === 1) {
+      verified++;
+    } else {
+      unverified++;
+    }
+    totalWeight += (parseFloat(item.netto || item.berat || 0) || 0);
+  }
+  return {
+    unverified,
+    verified,
+    totalWeight: parseFloat(totalWeight.toFixed(2))
+  };
 });
+const totalGlobalUnverifiedCount = computed(() => globalSummary.value.unverified);
+const totalGlobalVerifiedCount = computed(() => globalSummary.value.verified);
+const totalGlobalWeightKg = computed(() => globalSummary.value.totalWeight);
 
 // Grouped Sessions: Tanggal ➔ Mesin
 const groupedSessions = computed(() => {
@@ -2062,8 +2169,8 @@ const groupedSessions = computed(() => {
     return new Date(b.date) - new Date(a.date);
   });
 
-  // Apply filters in portal
-  const term = portalSearch.value.toLowerCase().trim();
+  // Apply filters in portal (Menggunakan debounced search agar tidak lag)
+  const term = debouncedPortalSearch.value.toLowerCase().trim();
   if (term || portalMachineFilter.value !== 'ALL' || portalStatusFilter.value !== 'ALL') {
     result = result.map(g => {
       let filteredMachines = g.machinesList;
@@ -2194,11 +2301,13 @@ const approveCurrentSessionBatch = async () => {
   const dateText = selectedDate.value === 'ALL' ? 'Semua Tanggal' : formatDateNice(selectedDate.value);
   const machineText = selectedMachine.value === 'ALL' ? 'Semua Mesin' : `Mesin ${selectedMachine.value}`;
   if (confirm(`Approve seluruh ${items.length} roll untuk ${dateText} (${machineText}) ke Tabel Report?`)) {
-    const excelIds = items.filter(i => i.sourceType === 'EXCEL' || !i.sourceType).map(i => i.id);
-    const dataRollItems = items.filter(i => i.sourceType === 'DATA_ROLL');
+    const labelIds = items
+      .filter(i => i.sourceType === 'MANUAL' || i.sourceType === 'EXCEL' || !i.sourceType || (!i.isDataRoll && !String(i.id).startsWith('roll_')))
+      .map(i => typeof i.id === 'string' && /^\d+$/.test(i.id) ? parseInt(i.id, 10) : i.id);
+    const dataRollItems = items.filter(i => i.sourceType === 'DATA_ROLL' || i.isDataRoll || String(i.id).startsWith('roll_'));
 
-    if (excelIds.length > 0) {
-      await labelStore.verifyLabels(excelIds);
+    if (labelIds.length > 0) {
+      await labelStore.verifyLabels(labelIds);
     }
     if (dataRollItems.length > 0) {
       const now = new Date().toISOString();
@@ -2211,6 +2320,8 @@ const approveCurrentSessionBatch = async () => {
       await dataRollStore.loadRolls();
       await dataRollStore.syncVerifiedDeBatches();
     }
+    await labelStore.loadLabels();
+    alert(`Berhasil memverifikasi ${items.length} roll untuk ${dateText} (${machineText}).`);
   }
 };
 
@@ -2252,23 +2363,101 @@ const defaultColWidths = {
   noteOperator: 190
 };
 
+// Active Machine Detection: Mesin Rewind vs Slitting/Casting
+const isRewindSession = computed(() => {
+  if (isViewingVerifiedBatch.value && selectedVerifiedBatch.value) {
+    const m = String(selectedVerifiedBatch.value.machine || selectedVerifiedBatch.value.mesin || '').toUpperCase();
+    return m === 'REWIND';
+  }
+  return String(selectedMachine.value).toUpperCase() === 'REWIND';
+});
+
+// DEFAULT COLUMN WIDTH SPECIFICATIONS FOR REWIND (23 Kolom)
+const defaultRewindColWidths = {
+  tanggal: 125,
+  shiftCombined: 80,
+  jenisProses: 95,
+  spk: 165,
+  lot: 235,
+  jenis: 85,
+  kode: 105,
+  thickness: 75,
+  width: 75,
+  length: 85,
+  netto: 75,
+  turunan: 80,
+  packing: 75,
+  status: 105,
+  reasonDefect: 185,
+  keteranganBahan: 120,
+  keterangan: 120,
+  lengthWaste: 95,
+  weightWaste: 95,
+  paperCore: 65,
+  tanda: 65,
+  bahan: 85,
+  od: 135
+};
+
 // Reactive custom column widths
 const customColWidths = reactive({ ...defaultColWidths });
 
 const getColumnWidth = (key) => {
-  const base = customColWidths[key] || defaultColWidths[key] || 110;
+  const fallback = isRewindSession.value ? (defaultRewindColWidths[key] || 100) : (defaultColWidths[key] || 110);
+  const base = customColWidths[key] || fallback;
   if (densityMode.value === 'compact') return Math.max(55, Math.round(base * 0.75));
   if (densityMode.value === 'normal') return Math.max(70, Math.round(base * 0.9));
-  return Math.round(base * 1.1); // Comfortable / Leluasa
+  return Math.round(base * 1.05); // Comfortable / Leluasa
 };
 
 const resetColWidths = () => {
-  Object.assign(customColWidths, defaultColWidths);
+  const defaults = isRewindSession.value ? defaultRewindColWidths : defaultColWidths;
+  Object.assign(customColWidths, defaults);
   densityMode.value = 'comfortable';
 };
 
-// SPREADSHEET 5-GROUP COLUMNS SPECIFICATION (KHUSUS MESIN SLITTING)
-const columns = [
+// ═════════════════════════════════════════════════════════════════════════
+// 1. FORMAT REWIND RESMI (23 KOLOM BERBASIS EVENT VERTIKAL BAHAN VS HASIL)
+// ═════════════════════════════════════════════════════════════════════════
+const rewindColumns = [
+  // GROUP 1: IDENTITAS & PROSES (Biru Tua)
+  { key: 'tanggal', name: 'Tanggal', letter: 'A', group: 'identitas', align: 'center' },
+  { key: 'shiftCombined', name: 'Grup Shift', letter: 'B', group: 'identitas', align: 'center' },
+  { key: 'jenisProses', name: 'Jenis Proses', letter: 'C', group: 'identitas', align: 'center' },
+  { key: 'spk', name: 'No SPK', letter: 'D', group: 'identitas', align: 'left' },
+  { key: 'lot', name: 'No Lot', letter: 'E', group: 'identitas', align: 'left' },
+
+  // GROUP 2: SPESIFIKASI & DIMENSI BAHAN (Sky Blue)
+  { key: 'jenis', name: 'Jenis', letter: 'F', group: 'spesifikasi', align: 'center' },
+  { key: 'kode', name: 'Kode Formula', letter: 'G', group: 'spesifikasi', align: 'center' },
+  { key: 'thickness', name: 'Thickness', letter: 'H', group: 'spesifikasi', align: 'right' },
+  { key: 'width', name: 'Width', letter: 'I', group: 'spesifikasi', align: 'right' },
+  { key: 'length', name: 'Length', letter: 'J', group: 'spesifikasi', align: 'right' },
+  { key: 'netto', name: 'Weight', letter: 'K', group: 'spesifikasi', align: 'right' },
+
+  // GROUP 3: HASIL REWIND & QUALITY (Green)
+  { key: 'turunan', name: 'Turunan', letter: 'L', group: 'hasil', align: 'center' },
+  { key: 'packing', name: 'Pack', letter: 'M', group: 'hasil', align: 'center' },
+  { key: 'status', name: 'Quality Status', letter: 'N', group: 'hasil', align: 'center' },
+  { key: 'reasonDefect', name: 'Reason Of Deffect', letter: 'O', group: 'hasil', align: 'left' },
+
+  // GROUP 4: KETERANGAN & WASTE (Amber / Orange)
+  { key: 'keteranganBahan', name: 'Keterangan Bahan', letter: 'P', group: 'keterangan', align: 'left' },
+  { key: 'keterangan', name: 'Keterangan Hasil', letter: 'Q', group: 'keterangan', align: 'left' },
+  { key: 'lengthWaste', name: 'Length Waste', letter: 'R', group: 'keterangan', align: 'right' },
+  { key: 'weightWaste', name: 'Weight Waste', letter: 'S', group: 'keterangan', align: 'right' },
+
+  // GROUP 5: ATRIBUT & CORE (Slate / Grey)
+  { key: 'paperCore', name: 'Core', letter: 'T', group: 'atribut', align: 'center' },
+  { key: 'tanda', name: 'Tanda', letter: 'U', group: 'atribut', align: 'center' },
+  { key: 'bahan', name: 'Bahan', letter: 'V', group: 'atribut', align: 'left' },
+  { key: 'od', name: 'Input Atribut metalize', letter: 'W', group: 'atribut', align: 'center' }
+];
+
+// ═════════════════════════════════════════════════════════════════════════
+// 2. FORMAT SLITTING RESMI (31 KOLOM 5-GROUP PARENT-CHILD HORIZONTAL)
+// ═════════════════════════════════════════════════════════════════════════
+const slittingColumns = [
   // GROUP 1: IDENTITAS SHIFT & PARENT MATERIAL (Biru)
   { key: 'tanggal', name: 'Tanggal', letter: 'A', group: 'parent', align: 'center' },
   { key: 'operator', name: 'Operator', letter: 'B', group: 'parent', align: 'left' },
@@ -2311,6 +2500,9 @@ const columns = [
   { key: 'noteOperator', name: 'Note Operator', letter: 'AE', group: 'waste', sparseShift: true, align: 'left' }
 ];
 
+// Active Columns Computed (Dynamic Switching between Rewind & Slitting)
+const columns = computed(() => isRewindSession.value ? rewindColumns : slittingColumns);
+
 // COLUMN DRAG RESIZING LOGIC
 const resizingCol = ref(null);
 const startX = ref(0);
@@ -2338,8 +2530,8 @@ const stopColResize = () => {
 };
 
 const autoFitCol = (key) => {
-  const items = filteredUnverifiedList.value;
-  let maxChars = (columns.find(c => c.key === key)?.name || '').length;
+  const items = paginatedSpreadsheetList.value;
+  let maxChars = (columns.value.find(c => c.key === key)?.name || '').length;
   for (const item of items) {
     const val = String(item[key] || '');
     if (val.length > maxChars) maxChars = val.length;
@@ -2399,7 +2591,7 @@ const totalWasteUnverified = computed(() => {
 
 const filteredUnverifiedList = computed(() => {
   let list = unverifiedList.value;
-  const term = verifySearch.value.toLowerCase().trim();
+  const term = debouncedVerifySearch.value.toLowerCase().trim();
   if (!term) return list;
 
   return list.filter(item => {
@@ -2416,7 +2608,7 @@ const filteredUnverifiedList = computed(() => {
 });
 
 const filteredVerifiedList = computed(() => {
-  const term = reportSearch.value.toLowerCase().trim();
+  const term = debouncedReportSearch.value.toLowerCase().trim();
   if (!term) return verifiedList.value;
   return verifiedList.value.filter(item => {
     return (
@@ -2431,33 +2623,123 @@ const filteredVerifiedList = computed(() => {
 });
 
 // =========================================================================
-// 1. SPREADSHEET VERIFIKASI PAGINATION ENGINE
+// 1. SPREADSHEET VERIFIKASI & BATCH PAGINATION ENGINE
 // =========================================================================
 const unverifiedPage = ref(1);
 const unverifiedPageSize = ref(50); // Default 50 baris per halaman untuk performa kilat
 const jumpToUnverifiedPage = ref('');
 
-const paginatedUnverifiedList = computed(() => {
-  if (unverifiedPageSize.value === -1) return filteredUnverifiedList.value;
-  const start = (unverifiedPage.value - 1) * unverifiedPageSize.value;
-  return filteredUnverifiedList.value.slice(start, start + unverifiedPageSize.value);
+// Active list switches dynamically between unverified session queue and locked verified batch
+const activeSpreadsheetList = computed(() => {
+  let list = [];
+  if (isViewingVerifiedBatch.value) {
+    list = selectedBatchRolls.value || [];
+    const term = debouncedVerifySearch.value.toLowerCase().trim();
+    if (term) {
+      list = list.filter(item => {
+        return (
+          (item.spk && item.spk.toLowerCase().includes(term)) ||
+          (item.lot && item.lot.toLowerCase().includes(term)) ||
+          (item.turunan && item.turunan.toLowerCase().includes(term)) ||
+          (item.jenis && item.jenis.toLowerCase().includes(term)) ||
+          (item.kode && item.kode.toLowerCase().includes(term)) ||
+          (item.operator && item.operator.toLowerCase().includes(term)) ||
+          (getShiftCombined(item).toLowerCase().includes(term)) ||
+          (item.status && item.status.toLowerCase().includes(term))
+        );
+      });
+    }
+  } else {
+    list = filteredUnverifiedList.value || [];
+  }
+
+  // If in Rewind mode, transform into Bahan & Hasil vertical pair rows if they are raw single roll records
+  if (isRewindSession.value) {
+    const rewindRows = [];
+    for (let idx = 0; idx < list.length; idx++) {
+      const item = list[idx];
+      if (item.jenisProses) {
+        // Already a formatted rewind row
+        rewindRows.push(item);
+      } else {
+        // Convert single label record into Paired BAHAN + HASIL rows
+        // 1. BAHAN (Input roll)
+        rewindRows.push({
+          ...item,
+          id: `${item.id}_bahan`,
+          originalId: item.id,
+          isBahanRow: true,
+          jenisProses: 'BAHAN',
+          turunan: '',
+          packing: '',
+          status: 'SORTIR',
+          reasonDefect: '',
+          length: item.parentMeter || item.length,
+          netto: item.parentBeratTeori || item.netto,
+          lengthWaste: '',
+          weightWaste: '',
+          paperCore: item.paperCore ? String(item.paperCore).replace(/[^0-9]/g, '') : '6',
+          tanda: '',
+          bahan: '',
+          od: item.od || 'OD2.4+PLASMA'
+        });
+
+        // 2. HASIL (Output roll)
+        const pMeter = parseFloat(item.parentMeter) || 0;
+        const hMeter = parseFloat(item.length) || 0;
+        const calcLengthWaste = (pMeter > hMeter) ? (pMeter - hMeter) : '';
+
+        const pBerat = parseFloat(item.parentBeratTeori) || 0;
+        const hBerat = parseFloat(item.netto || item.berat) || 0;
+        const calcWeightWaste = (pBerat > hBerat) ? parseFloat((pBerat - hBerat).toFixed(1)) : '';
+
+        rewindRows.push({
+          ...item,
+          originalId: item.id,
+          isHasilRow: true,
+          jenisProses: 'HASIL',
+          status: item.status || 'PASS',
+          length: item.length,
+          netto: item.netto || item.berat,
+          lengthWaste: item.lengthWaste !== undefined ? item.lengthWaste : (item.sisaMeter || calcLengthWaste),
+          weightWaste: item.weightWaste !== undefined ? item.weightWaste : ((parseFloat(item.wastePolos || 0) + parseFloat(item.wasteMetal || 0)) || calcWeightWaste),
+          paperCore: item.paperCore ? String(item.paperCore).replace(/[^0-9]/g, '') : '6',
+          tanda: '',
+          bahan: '',
+          od: item.od || 'OD2.4+PLASMA'
+        });
+      }
+    }
+    return rewindRows;
+  }
+
+  return list;
 });
 
+const paginatedSpreadsheetList = computed(() => {
+  if (unverifiedPageSize.value === -1) return activeSpreadsheetList.value;
+  const start = (unverifiedPage.value - 1) * unverifiedPageSize.value;
+  return activeSpreadsheetList.value.slice(start, start + unverifiedPageSize.value);
+});
+
+// Alias for backwards compatibility
+const paginatedUnverifiedList = paginatedSpreadsheetList;
+
 const unverifiedTotalPages = computed(() => {
-  if (unverifiedPageSize.value === -1 || filteredUnverifiedList.value.length === 0) return 1;
-  return Math.ceil(filteredUnverifiedList.value.length / unverifiedPageSize.value);
+  if (unverifiedPageSize.value === -1 || activeSpreadsheetList.value.length === 0) return 1;
+  return Math.ceil(activeSpreadsheetList.value.length / unverifiedPageSize.value);
 });
 
 const unverifiedStartRow = computed(() => {
-  if (filteredUnverifiedList.value.length === 0) return 0;
+  if (activeSpreadsheetList.value.length === 0) return 0;
   if (unverifiedPageSize.value === -1) return 1;
   return (unverifiedPage.value - 1) * unverifiedPageSize.value + 1;
 });
 
 const unverifiedEndRow = computed(() => {
-  if (filteredUnverifiedList.value.length === 0) return 0;
-  if (unverifiedPageSize.value === -1) return filteredUnverifiedList.value.length;
-  return Math.min(unverifiedPage.value * unverifiedPageSize.value, filteredUnverifiedList.value.length);
+  if (activeSpreadsheetList.value.length === 0) return 0;
+  if (unverifiedPageSize.value === -1) return activeSpreadsheetList.value.length;
+  return Math.min(unverifiedPage.value * unverifiedPageSize.value, activeSpreadsheetList.value.length);
 });
 
 const unverifiedVisiblePages = computed(() => {
@@ -2487,65 +2769,341 @@ const handleJumpUnverifiedPage = () => {
   jumpToUnverifiedPage.value = '';
 };
 
-watch([selectedDate, selectedMachine, portalSourceFilter, verifySearch, unverifiedPageSize], () => {
+watch([selectedDate, selectedMachine, portalSourceFilter, verifySearch, unverifiedPageSize, isViewingVerifiedBatch], () => {
   unverifiedPage.value = 1;
 });
 
 // =========================================================================
-// 2. VERIFIED REPORT TABLE PAGINATION ENGINE
+// 2. VERIFIED REPORT BATCH LIST & DETAIL MODAL ENGINE
 // =========================================================================
-const verifiedPage = ref(1);
-const verifiedPageSize = ref(25); // Default 25 baris per halaman
-const jumpToVerifiedPage = ref('');
+const batchReportSearch = ref('');
+const batchMachineFilter = ref('ALL');
+const batchPage = ref(1);
+const batchPageSize = ref(10);
 
-const paginatedVerifiedList = computed(() => {
-  if (verifiedPageSize.value === -1) return filteredVerifiedList.value;
-  const start = (verifiedPage.value - 1) * verifiedPageSize.value;
-  return filteredVerifiedList.value.slice(start, start + verifiedPageSize.value);
+const showBatchDetailModal = ref(false);
+const selectedBatch = ref(null);
+const batchDetailSearchQuery = ref('');
+const batchDetailModalPage = ref(1);
+const batchDetailModalPageSize = ref(50);
+
+// Helper for date formatting
+const formatDateOnly = (dateStr) => {
+  if (!dateStr) return '-';
+  try {
+    return String(dateStr).slice(0, 10);
+  } catch {
+    return String(dateStr);
+  }
+};
+
+const formatHistoryTimestamp = (dateStr) => {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${m}/${y} ${hh}:${mm}`;
+  } catch {
+    return String(dateStr);
+  }
+};
+
+// Verified Batches Collection (From dataRollStore.uploadHistory & verified labels)
+const verifiedBatches = computed(() => {
+  let list = [...(dataRollStore.uploadHistory || [])];
+
+  // Also build batches from verified labels in labelStore.labels to ensure nothing is missed
+  const verifiedLabels = (labelStore.labels || []).filter(l => l.verified === 1);
+  if (verifiedLabels.length > 0) {
+    const map = {};
+    for (const l of verifiedLabels) {
+      const date = l.tanggal || 'Tanpa Tanggal';
+      const machine = (l.mesin || 'SLITTING').toUpperCase();
+      const key = `de_${date}_${machine}`;
+      if (!map[key]) {
+        map[key] = {
+          uuid: key,
+          batchName: `Batch Verifikasi DE - ${date} (${machine})`,
+          source: 'Verifikasi DE Report',
+          fileName: `DE_Report_${machine}_${date}.xlsx`,
+          machine: machine,
+          tanggal: date,
+          uploadDate: l.verifiedAt || l.updatedAt || new Date().toISOString(),
+          verifiedAt: l.verifiedAt || l.updatedAt || new Date().toISOString(),
+          verifiedBy: l.verifiedBy || 'Data Entry',
+          totalRolls: 0,
+          totalKg: 0,
+          passCount: 0,
+          holdCount: 0,
+          rejectCount: 0,
+          status: 'VERIFIED',
+          rolls: []
+        };
+      }
+      map[key].rolls.push(l);
+      map[key].totalRolls++;
+      map[key].totalKg += (parseFloat(l.netto || l.berat || 0) || 0);
+      const st = (l.status || 'PASS').toUpperCase();
+      if (st === 'HOLD') map[key].holdCount++;
+      else if (st === 'REJECT') map[key].rejectCount++;
+      else map[key].passCount++;
+    }
+
+    const existingKeys = new Set(list.map(h => h.uuid || h.batchName));
+    for (const key of Object.keys(map)) {
+      if (!existingKeys.has(key)) {
+        const item = map[key];
+        list.push({
+          ...item,
+          totalKg: parseFloat(item.totalKg.toFixed(2)),
+          rollsJson: JSON.stringify(item.rolls)
+        });
+      }
+    }
+  }
+
+  return list.sort((a, b) => {
+    const tA = new Date(a.verifiedAt || a.uploadDate || a.createdAt || 0).getTime();
+    const tB = new Date(b.verifiedAt || b.uploadDate || b.createdAt || 0).getTime();
+    return tB - tA;
+  });
 });
 
-const verifiedTotalPages = computed(() => {
-  if (verifiedPageSize.value === -1 || filteredVerifiedList.value.length === 0) return 1;
-  return Math.ceil(filteredVerifiedList.value.length / verifiedPageSize.value);
+const filteredVerifiedBatches = computed(() => {
+  let list = verifiedBatches.value;
+
+  if (batchSourceFilter.value !== 'ALL') {
+    list = list.filter(b => {
+      const isManual = b.uuid?.startsWith('de_') || b.source?.includes('DE') || b.source === 'Verifikasi DE Report';
+      if (batchSourceFilter.value === 'MANUAL') return isManual;
+      if (batchSourceFilter.value === 'DATA_ROLL') return !isManual;
+      return true;
+    });
+  }
+
+  if (batchMachineFilter.value !== 'ALL') {
+    list = list.filter(b => (b.machine || b.mesin || '').toUpperCase() === batchMachineFilter.value);
+  }
+
+  const q = batchReportSearch.value.trim().toLowerCase();
+  if (q) {
+    list = list.filter(b =>
+      (b.batchName || '').toLowerCase().includes(q) ||
+      (b.fileName || '').toLowerCase().includes(q) ||
+      (b.source || '').toLowerCase().includes(q) ||
+      (b.tanggal || '').toLowerCase().includes(q) ||
+      (b.machine || b.mesin || '').toLowerCase().includes(q) ||
+      (b.verifiedBy || b.uploadedBy || '').toLowerCase().includes(q)
+    );
+  }
+
+  return list;
 });
 
-const verifiedStartRow = computed(() => {
-  if (filteredVerifiedList.value.length === 0) return 0;
-  if (verifiedPageSize.value === -1) return 1;
-  return (verifiedPage.value - 1) * verifiedPageSize.value + 1;
+const paginatedVerifiedBatches = computed(() => {
+  if (batchPageSize.value === -1) return filteredVerifiedBatches.value;
+  const start = (batchPage.value - 1) * batchPageSize.value;
+  return filteredVerifiedBatches.value.slice(start, start + batchPageSize.value);
 });
 
-const verifiedEndRow = computed(() => {
-  if (filteredVerifiedList.value.length === 0) return 0;
-  if (verifiedPageSize.value === -1) return filteredVerifiedList.value.length;
-  return Math.min(verifiedPage.value * verifiedPageSize.value, filteredVerifiedList.value.length);
+const batchTotalPages = computed(() => {
+  if (batchPageSize.value === -1 || filteredVerifiedBatches.value.length === 0) return 1;
+  return Math.ceil(filteredVerifiedBatches.value.length / batchPageSize.value);
 });
 
-const verifiedVisiblePages = computed(() => {
-  const total = verifiedTotalPages.value;
-  const current = verifiedPage.value;
+const batchStartRow = computed(() => {
+  if (filteredVerifiedBatches.value.length === 0) return 0;
+  if (batchPageSize.value === -1) return 1;
+  return (batchPage.value - 1) * batchPageSize.value + 1;
+});
+
+const batchEndRow = computed(() => {
+  if (filteredVerifiedBatches.value.length === 0) return 0;
+  if (batchPageSize.value === -1) return filteredVerifiedBatches.value.length;
+  return Math.min(batchPage.value * batchPageSize.value, filteredVerifiedBatches.value.length);
+});
+
+const batchVisiblePages = computed(() => {
+  const total = batchTotalPages.value;
+  const current = batchPage.value;
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   if (current <= 4) return [1, 2, 3, 4, 5, '...', total];
   if (current >= total - 3) return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
   return [1, '...', current - 1, current, current + 1, '...', total];
 });
 
-const changeVerifiedPage = (p) => {
-  if (p < 1 || p > verifiedTotalPages.value) return;
-  verifiedPage.value = p;
+const changeBatchPage = (p) => {
+  if (p < 1 || p > batchTotalPages.value) return;
+  batchPage.value = p;
 };
 
-const handleJumpVerifiedPage = () => {
-  const p = parseInt(jumpToVerifiedPage.value, 10);
-  if (!isNaN(p) && p >= 1 && p <= verifiedTotalPages.value) {
-    changeVerifiedPage(p);
-  }
-  jumpToVerifiedPage.value = '';
-};
-
-watch([selectedDate, selectedMachine, portalSourceFilter, reportSearch, verifiedPageSize], () => {
-  verifiedPage.value = 1;
+watch([batchReportSearch, batchMachineFilter, batchSourceFilter, batchPageSize], () => {
+  batchPage.value = 1;
 });
+
+// Modal / Unified View for Clicked Batch
+const openBatchDetail = (batch) => {
+  selectedBatch.value = batch;
+  selectedVerifiedBatch.value = batch;
+  isViewingVerifiedBatch.value = true;
+  selectedDate.value = batch.tanggal || 'ALL';
+  selectedMachine.value = batch.machine || batch.mesin || 'ALL';
+  verifySearch.value = '';
+  unverifiedPage.value = 1;
+  activeTab.value = 'verifikasi';
+  selectionStart.r = 0;
+  selectionStart.c = 0;
+  selectionEnd.r = 0;
+  selectionEnd.c = 0;
+};
+
+const closeVerifiedBatchView = () => {
+  isViewingVerifiedBatch.value = false;
+  selectedVerifiedBatch.value = null;
+  activeTab.value = 'report';
+};
+
+const selectedBatchRolls = computed(() => {
+  if (!selectedBatch.value) return [];
+  try {
+    const parsed = JSON.parse(selectedBatch.value.rollsJson || '[]');
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch (e) {
+    console.error('Failed to parse rollsJson:', e);
+  }
+  // Fallback: match from labelStore.labels
+  const bDate = selectedBatch.value.tanggal || (selectedBatch.value.uploadDate ? selectedBatch.value.uploadDate.slice(0, 10) : '');
+  const bMach = (selectedBatch.value.machine || selectedBatch.value.mesin || '').toUpperCase();
+  return (labelStore.labels || []).filter(l => 
+    l.verified === 1 && 
+    (!bDate || l.tanggal === bDate) && 
+    (!bMach || bMach === 'ALL' || (l.mesin || 'SLITTING').toUpperCase() === bMach)
+  );
+});
+
+const batchDetailRollsCount = computed(() => selectedBatchRolls.value.length);
+const batchDetailTotalKg = computed(() => {
+  return parseFloat(selectedBatchRolls.value.reduce((sum, r) => sum + (parseFloat(r.netto || r.berat || 0) || 0), 0).toFixed(2));
+});
+const batchDetailPassCount = computed(() => selectedBatchRolls.value.filter(r => (r.qualityStatus || r.status || 'PASS').toUpperCase() === 'PASS').length);
+const batchDetailHoldCount = computed(() => selectedBatchRolls.value.filter(r => (r.qualityStatus || r.status || '').toUpperCase() === 'HOLD').length);
+const batchDetailRejectCount = computed(() => selectedBatchRolls.value.filter(r => (r.qualityStatus || r.status || '').toUpperCase() === 'REJECT').length);
+
+const filteredBatchDetailRolls = computed(() => {
+  let list = selectedBatchRolls.value;
+  const q = batchDetailSearchQuery.value.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter(r =>
+    (r.spk && r.spk.toLowerCase().includes(q)) ||
+    (r.lot && r.lot.toLowerCase().includes(q)) ||
+    (r.turunan && r.turunan.toLowerCase().includes(q)) ||
+    (r.kodeFg && r.kodeFg.toLowerCase().includes(q)) ||
+    (r.operator && r.operator.toLowerCase().includes(q)) ||
+    (r.status && r.status.toLowerCase().includes(q))
+  );
+});
+
+const batchDetailTotalPages = computed(() => {
+  return Math.ceil(filteredBatchDetailRolls.value.length / batchDetailModalPageSize.value) || 1;
+});
+
+const paginatedBatchDetailRolls = computed(() => {
+  const start = (batchDetailModalPage.value - 1) * batchDetailModalPageSize.value;
+  return filteredBatchDetailRolls.value.slice(start, start + batchDetailModalPageSize.value);
+});
+
+const batchDetailStartRow = computed(() => {
+  if (filteredBatchDetailRolls.value.length === 0) return 0;
+  return (batchDetailModalPage.value - 1) * batchDetailModalPageSize.value + 1;
+});
+
+const batchDetailEndRow = computed(() => {
+  if (filteredBatchDetailRolls.value.length === 0) return 0;
+  return Math.min(batchDetailModalPage.value * batchDetailModalPageSize.value, filteredBatchDetailRolls.value.length);
+});
+
+const exportSingleBatch = (batch) => {
+  if (!batch) return;
+  let rolls = [];
+  try {
+    if (batch.rollsJson) {
+      rolls = JSON.parse(batch.rollsJson);
+    }
+  } catch (e) {}
+  if (!rolls || rolls.length === 0) {
+    rolls = selectedBatchRolls.value;
+  }
+  if (!rolls || rolls.length === 0) {
+    alert('Tidak ada data roll dalam batch ini.');
+    return;
+  }
+  const isRewind = (batch.machine || batch.mesin || '').toUpperCase().includes('REWIND') ||
+                   rolls.some(r => (r.mesin || '').toUpperCase().includes('REWIND') || r.rewind === 1);
+  const safeName = (batch.fileName || batch.batchName || 'Batch_Report').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  if (isRewind) {
+    exportRewindExcel(rolls, `${safeName}.xlsx`);
+  } else {
+    dataRollStore.exportToExcel(rolls, `${safeName}.xlsx`);
+  }
+};
+
+const unverifyBatch = async (batch) => {
+  if (!batch) return;
+  const countStr = batch.totalRolls ? ` (${batch.totalRolls} roll)` : '';
+  if (confirm(`Batalkan verifikasi untuk batch "${batch.batchName || batch.fileName}"${countStr}?\n\nSemua data roll di dalamnya akan dikembalikan ke lembar verifikasi untuk diedit kembali.`)) {
+    const rolls = selectedBatchRolls.value;
+    const labelIds = [];
+    for (const r of rolls) {
+      if (r.id && typeof r.id === 'number') labelIds.push(r.id);
+      else if (r.originalLabelId) labelIds.push(r.originalLabelId);
+    }
+    if (labelIds.length === 0 && batch.tanggal && batch.machine) {
+      const matched = (labelStore.labels || []).filter(l => 
+        l.tanggal === batch.tanggal && 
+        (l.mesin || 'SLITTING').toUpperCase() === String(batch.machine).toUpperCase()
+      );
+      labelIds.push(...matched.map(m => m.id));
+    }
+
+    if (labelIds.length > 0) {
+      await labelStore.unverifyLabels(labelIds);
+    }
+
+    if (db.data_roll_uploads) {
+      if (batch.id) {
+        await db.data_roll_uploads.delete(batch.id);
+      } else if (batch.uuid) {
+        await db.data_roll_uploads.where('uuid').equals(batch.uuid).delete();
+      }
+    }
+
+    isViewingVerifiedBatch.value = false;
+    selectedVerifiedBatch.value = null;
+    selectedDate.value = batch.tanggal || 'ALL';
+    selectedMachine.value = batch.machine || batch.mesin || 'ALL';
+    activeTab.value = 'verifikasi';
+    unverifiedPage.value = 1;
+
+    await labelStore.loadLabels();
+    await dataRollStore.loadUploadHistory();
+    await dataRollStore.syncVerifiedDeBatches();
+  }
+};
+
+const exportAllVerifiedBatchesExcel = () => {
+  const allVerifiedRolls = (labelStore.labels || []).filter(l => l.verified === 1);
+  if (allVerifiedRolls.length === 0) {
+    alert('Tidak ada data roll terverifikasi untuk diekspor.');
+    return;
+  }
+  dataRollStore.exportToExcel(allVerifiedRolls, `Rekap_Semua_Batch_Terverifikasi_${new Date().toISOString().slice(0, 10)}.xlsx`);
+};
 
 // SELECTION BOUNDS (Operates on Paginated Unverified Grid)
 const minRow = computed(() => Math.min(selectionStart.r, selectionEnd.r));
@@ -2564,15 +3122,15 @@ const rangeCellCount = computed(() => {
 
 const selectedRangeLabel = computed(() => {
   if (paginatedUnverifiedList.value.length === 0) return 'A1';
-  const startColLetter = columns[selectionStart.c]?.letter || 'A';
+  const startColLetter = columns.value[selectionStart.c]?.letter || 'A';
   const startRowNum = selectionStart.r + 1;
   
   if (selectionStart.r === selectionEnd.r && selectionStart.c === selectionEnd.c) {
     return `${startColLetter}${startRowNum}`;
   }
 
-  const minColLetter = columns[minCol.value]?.letter || 'A';
-  const maxColLetter = columns[maxCol.value]?.letter || 'A';
+  const minColLetter = columns.value[minCol.value]?.letter || 'A';
+  const maxColLetter = columns.value[maxCol.value]?.letter || 'A';
   return `${minColLetter}${minRow.value + 1}:${maxColLetter}${maxRow.value + 1}`;
 });
 
@@ -2671,12 +3229,12 @@ const getParentLotInfo = (lotNo) => {
       }
     });
     const sumLen = Array.from(seqMap.values()).reduce((acc, l) => acc + l, 0);
-    parentMeter = sumLen > 0 ? sumLen : (parseFloat(first.meter || first.length || first.panjang) || 4000);
+    parentMeter = sumLen > 0 ? sumLen : (parseFloat(first.meter || first.length || first.panjang) || 0);
   }
 
   // 3. Parent Berat Teori (Berat Bahan Induk)
   const density = getDensity(first.jenis, first.kode);
-  const thick = parseFloat(first.thickness || first.tebal || first.thick || first.ketebalan) || 20;
+  const thick = parseFloat(first.thickness || first.tebal || first.thick || first.ketebalan) || 0;
   let parentBeratTeori = parseFloat(first.parentBeratTeori) || 0;
   if (!parentBeratTeori && thick && parentWidth && parentMeter && density) {
     parentBeratTeori = parseFloat(((thick * parentWidth * parentMeter * density) / 1000000).toFixed(2));
@@ -2693,14 +3251,14 @@ const getParentWidth = (item) => {
   if (!item) return '';
   if (item.parentWidth && parseFloat(item.parentWidth) > 0) return String(item.parentWidth);
   const info = getParentLotInfo(item.lot);
-  return info.parentWidth > 0 ? String(info.parentWidth) : String(item.width || item.lebar || '1000');
+  return info.parentWidth > 0 ? String(info.parentWidth) : String(item.width || item.lebar || '');
 };
 
 const getParentMeter = (item) => {
   if (!item) return '';
   if (item.parentMeter && parseFloat(item.parentMeter) > 0) return String(item.parentMeter);
   const info = getParentLotInfo(item.lot);
-  return info.parentMeter > 0 ? String(info.parentMeter) : String(item.meter || item.length || item.panjang || '4000');
+  return info.parentMeter > 0 ? String(info.parentMeter) : String(item.meter || item.length || item.panjang || '');
 };
 
 const getParentBeratTeori = (item) => {
@@ -2876,18 +3434,51 @@ const isFirstRowOfParent = (rIdx) => {
 };
 
 const isNewParentStart = (rIdx) => {
+  if (isRewindSession.value) {
+    const list = paginatedSpreadsheetList.value;
+    return list[rIdx]?.jenisProses === 'BAHAN';
+  }
   return isFirstRowOfParent(rIdx);
 };
 
 const isParentSparseColumn = (key) => {
+  if (isRewindSession.value) return false;
   return ['lot', 'parentMeter', 'parentBeratTeori'].includes(key);
 };
 
-// Format Cell Value with Single/Sparse Parent Rule
+// Format Cell Value with Single/Sparse Parent Rule and Rewind Schema
 const formatCellValue = (val, key, item, rIdx) => {
   if (!item) return '';
 
-  // 1. Handlers Khusus Kolom Terkalkulasi
+  // REWIND 23-COLUMN SPECIAL FORMATTING
+  if (isRewindSession.value) {
+    if (key === 'jenisProses') return item.jenisProses || 'BAHAN';
+    if (key === 'shiftCombined') return getShiftCombined(item);
+    if (key === 'status') return item.status || (item.jenisProses === 'BAHAN' ? 'SORTIR' : 'PASS');
+    if (key === 'packing') return item.jenisProses === 'BAHAN' ? '' : String(getPackingEndNumber(item) || item.packing || item.subKode || '');
+    if (key === 'turunan') return item.jenisProses === 'BAHAN' ? '' : (item.turunan || '');
+    if (key === 'reasonDefect') return item.reasonDefect || (item.status === 'REJECT' ? (item.keterangan || '') : '');
+    if (key === 'lengthWaste') return item.lengthWaste !== undefined ? String(item.lengthWaste) : '';
+    if (key === 'weightWaste') return item.weightWaste !== undefined ? String(item.weightWaste) : '';
+    if (key === 'paperCore') return item.paperCore ? String(item.paperCore).replace(/[^0-9]/g, '') : '6';
+    if (key === 'od') return item.od || item.treatment || 'OD2.4+PLASMA';
+    if (key === 'tanda') return item.tanda || '';
+    if (key === 'bahan') return item.bahan || '';
+    if (key === 'keteranganBahan') return item.keteranganBahan || '';
+    if (key === 'keterangan') return item.keterangan || '';
+    if (key === 'netto') return String(item.netto || item.berat || '');
+    if (key === 'length') return String(item.length || item.meter || '');
+    if (key === 'width') return String(item.width || item.lebar || '');
+    if (key === 'thickness') return String(item.thickness || item.tebal || '');
+    if (key === 'kode') return item.kode || item.kodeFormula || '';
+    if (key === 'spk') return String(item.spk || item.noSpk || '');
+    if (key === 'lot') return String(item.lot || item.noLot || '');
+    if (key === 'tanggal') return String(item.tanggal || '');
+    if (key === 'jenis') return String(item.jenis || 'VMCPP');
+    return item[key] !== undefined ? String(item[key]) : '';
+  }
+
+  // 1. Handlers Khusus Kolom Terkalkulasi (Slitting)
   if (key === 'paperCore') {
     return getCoreSizeText(item);
   }
@@ -2908,7 +3499,7 @@ const formatCellValue = (val, key, item, rIdx) => {
     return getReasonDefectText(item);
   }
 
-  // 2. Kolom Bahan Induk (Parent Material)
+  // 2. Kolom Bahan Induk (Parent Material Slitting)
   if (key === 'parentWidth') {
     return getParentWidth(item);
   }
@@ -2952,9 +3543,9 @@ const formatCellValue = (val, key, item, rIdx) => {
 // ACTIVE CELL VALUE FOR FORMULA BAR
 const activeCellValue = computed({
   get() {
-    const item = filteredUnverifiedList.value[selectionStart.r];
+    const item = paginatedSpreadsheetList.value[selectionStart.r];
     if (!item) return '';
-    const colKey = columns[selectionStart.c]?.key;
+    const colKey = columns.value[selectionStart.c]?.key;
     if (colKey === 'shiftCombined') return getShiftCombined(item);
     if (colKey === 'parentWidth') return getParentWidth(item);
     if (colKey === 'parentMeter') return getParentMeter(item);
@@ -2971,9 +3562,9 @@ const activeCellValue = computed({
     return item[colKey] !== undefined ? String(item[colKey]) : '';
   },
   set(val) {
-    const item = filteredUnverifiedList.value[selectionStart.r];
+    const item = paginatedSpreadsheetList.value[selectionStart.r];
     if (!item) return;
-    const col = columns[selectionStart.c];
+    const col = columns.value[selectionStart.c];
     if (col && !col.readonly) {
       const colKey = col.key;
       const oldVal = item[colKey] !== undefined ? item[colKey] : '';
@@ -2981,8 +3572,7 @@ const activeCellValue = computed({
         recordHistory(`Edit Cell ${col.letter}${selectionStart.r + 1}`, [
           { id: item.id, field: colKey, oldVal, newVal: val }
         ]);
-        item[colKey] = val;
-        labelStore.updateLabelCell(item.id, colKey, val);
+        saveCellUpdate(item, colKey, val);
       }
     }
   }
@@ -3084,12 +3674,12 @@ const handleRowHeaderMouseDown = (rIdx, event) => {
   if (event.shiftKey) {
     selectionEnd.r = rIdx;
     selectionStart.c = 0;
-    selectionEnd.c = columns.length - 1;
+    selectionEnd.c = columns.value.length - 1;
   } else {
     selectionStart.r = rIdx;
     selectionEnd.r = rIdx;
     selectionStart.c = 0;
-    selectionEnd.c = columns.length - 1;
+    selectionEnd.c = columns.value.length - 1;
     isDragging.value = true;
   }
 };
@@ -3098,7 +3688,7 @@ const handleRowHeaderMouseEnter = (rIdx) => {
   if (isDragging.value) {
     selectionEnd.r = rIdx;
     selectionStart.c = 0;
-    selectionEnd.c = columns.length - 1;
+    selectionEnd.c = columns.value.length - 1;
   }
 };
 
@@ -3108,7 +3698,7 @@ const onRowDragStart = (rIdx, e) => {
     selectionStart.r = rIdx;
     selectionEnd.r = rIdx;
     selectionStart.c = 0;
-    selectionEnd.c = columns.length - 1;
+    selectionEnd.c = columns.value.length - 1;
   }
 
   draggedRowIndex.value = rIdx;
@@ -3188,7 +3778,7 @@ const onRowDrop = (targetIdx) => {
     selectionStart.r = newStartIdx;
     selectionEnd.r = newEndIdx;
     selectionStart.c = 0;
-    selectionEnd.c = columns.length - 1;
+    selectionEnd.c = columns.value.length - 1;
     newSel = { startR: newStartIdx, endR: newEndIdx };
   }
 
@@ -3235,7 +3825,7 @@ const handleUndo = async () => {
       selectionStart.r = action.oldSel.startR;
       selectionEnd.r = action.oldSel.endR;
       selectionStart.c = 0;
-      selectionEnd.c = columns.length - 1;
+      selectionEnd.c = columns.value.length - 1;
     }
   } else {
     for (const ch of action.changes) {
@@ -3261,7 +3851,7 @@ const handleRedo = async () => {
       selectionStart.r = action.newSel.startR;
       selectionEnd.r = action.newSel.endR;
       selectionStart.c = 0;
-      selectionEnd.c = columns.length - 1;
+      selectionEnd.c = columns.value.length - 1;
     }
   } else {
     for (const ch of action.changes) {
@@ -3278,9 +3868,10 @@ const handleRedo = async () => {
 
 // CELL EDITING
 const enterEditMode = (r, c, initialChar = null) => {
-  const col = columns[c];
-  if (col.readonly) return;
-  const item = paginatedUnverifiedList.value[r];
+  if (isViewingVerifiedBatch.value) return; // Locked in verified batch mode
+  const col = columns.value[c];
+  if (!col || col.readonly) return;
+  const item = paginatedSpreadsheetList.value[r];
   if (!item) return;
 
   editingCell.r = r;
@@ -3302,22 +3893,40 @@ const focusSpreadsheet = () => {
 
 const saveCellUpdate = async (item, field, val) => {
   item[field] = val;
+  const targetId = item.originalId || (typeof item.id === 'string' && item.id.includes('_bahan') ? parseInt(item.id, 10) : item.id);
+
+  let dbField = field;
+  if (item.isBahanRow) {
+    if (field === 'length') dbField = 'parentMeter';
+    if (field === 'netto') dbField = 'parentBeratTeori';
+    if (field === 'status') return;
+  }
+  if (item.isHasilRow) {
+    if (field === 'lengthWaste') dbField = 'sisaMeter';
+    if (field === 'weightWaste') dbField = 'wasteMetal';
+  }
+
   if (item.sourceType === 'DATA_ROLL') {
-    const id = item.originalDataRollId || item.id;
+    const id = item.originalDataRollId || targetId;
     if (id) {
-      await db.data_rolls.update(id, { [field]: val, updatedAt: new Date().toISOString() });
+      await db.data_rolls.update(id, { [dbField]: val, updatedAt: new Date().toISOString() });
     }
-  } else {
-    await labelStore.updateLabelCell(item.id, field, val);
+  } else if (targetId) {
+    await labelStore.updateLabelCell(targetId, dbField, val);
   }
 };
 
 const commitCellEdit = async () => {
   if (editingCell.r === null || editingCell.c === null) return;
+  if (isViewingVerifiedBatch.value) {
+    editingCell.r = null;
+    editingCell.c = null;
+    return;
+  }
   const r = editingCell.r;
   const c = editingCell.c;
-  const item = paginatedUnverifiedList.value[r];
-  const col = columns[c];
+  const item = paginatedSpreadsheetList.value[r];
+  const col = columns.value[c];
   if (item && col && !col.readonly) {
     const oldVal = item[col.key] !== undefined ? item[col.key] : '';
     const newVal = String(editInputValue.value || '').trim();
@@ -3385,8 +3994,8 @@ const commitEditAndMove = async (rowDelta, colDelta) => {
 
 // NAVIGATION & FAST JUMP (CTRL + ARROWS)
 const moveActiveCell = (rowDelta, colDelta, isShift = false, isJump = false) => {
-  const maxR = Math.max(0, filteredUnverifiedList.value.length - 1);
-  const maxC = columns.length - 1;
+  const maxR = Math.max(0, paginatedSpreadsheetList.value.length - 1);
+  const maxC = columns.value.length - 1;
 
   let targetR = selectionStart.r;
   let targetC = selectionStart.c;
@@ -3422,7 +4031,8 @@ const moveActiveCell = (rowDelta, colDelta, isShift = false, isJump = false) => 
 
 // TRUE EXCEL FILL DOWN (CTRL + D)
 const handleFillDown = async () => {
-  const items = filteredUnverifiedList.value;
+  if (isViewingVerifiedBatch.value) return;
+  const items = paginatedSpreadsheetList.value;
   if (!items.length) return;
 
   const minR = minRow.value;
@@ -3434,8 +4044,8 @@ const handleFillDown = async () => {
 
   if (minR < maxR) {
     for (let c = minC; c <= maxC; c++) {
-      const col = columns[c];
-      if (col.readonly) continue;
+      const col = columns.value[c];
+      if (!col || col.readonly) continue;
       const sourceVal = items[minR][col.key];
 
       for (let r = minR + 1; r <= maxR; r++) {
@@ -3445,12 +4055,12 @@ const handleFillDown = async () => {
           if (oldVal !== sourceVal) {
             changes.push({ id: targetItem.id, field: col.key, oldVal, newVal: sourceVal });
             targetItem[col.key] = sourceVal;
-            await labelStore.updateLabelCell(targetItem.id, col.key, sourceVal);
+            await saveCellUpdate(targetItem, col.key, sourceVal);
             if (col.key === 'shiftCombined') {
               const num = String(sourceVal).replace(/\D/g, '');
               if (num) {
                 targetItem.shift = num;
-                await labelStore.updateLabelCell(targetItem.id, 'shift', num);
+                await saveCellUpdate(targetItem, 'shift', num);
               }
             }
           }
@@ -3459,8 +4069,8 @@ const handleFillDown = async () => {
     }
   } else if (minR > 0) {
     for (let c = minC; c <= maxC; c++) {
-      const col = columns[c];
-      if (col.readonly) continue;
+      const col = columns.value[c];
+      if (!col || col.readonly) continue;
       const sourceVal = items[minR - 1][col.key];
       const targetItem = items[minR];
       if (targetItem) {
@@ -3468,12 +4078,12 @@ const handleFillDown = async () => {
         if (oldVal !== sourceVal) {
           changes.push({ id: targetItem.id, field: col.key, oldVal, newVal: sourceVal });
           targetItem[col.key] = sourceVal;
-          await labelStore.updateLabelCell(targetItem.id, col.key, sourceVal);
+          await saveCellUpdate(targetItem, col.key, sourceVal);
           if (col.key === 'shiftCombined') {
             const num = String(sourceVal).replace(/\D/g, '');
             if (num) {
               targetItem.shift = num;
-              await labelStore.updateLabelCell(targetItem.id, 'shift', num);
+              await saveCellUpdate(targetItem, 'shift', num);
             }
           }
         }
@@ -3488,7 +4098,8 @@ const handleFillDown = async () => {
 
 // TRUE EXCEL FILL RIGHT (CTRL + R)
 const handleFillRight = async () => {
-  const items = filteredUnverifiedList.value;
+  if (isViewingVerifiedBatch.value) return;
+  const items = paginatedSpreadsheetList.value;
   if (!items.length) return;
 
   const minR = minRow.value;
@@ -3502,22 +4113,22 @@ const handleFillRight = async () => {
     for (let r = minR; r <= maxR; r++) {
       const targetItem = items[r];
       if (!targetItem) continue;
-      const sourceCol = columns[minC];
+      const sourceCol = columns.value[minC];
       const sourceVal = targetItem[sourceCol.key] !== undefined ? targetItem[sourceCol.key] : '';
 
       for (let c = minC + 1; c <= maxC; c++) {
-        const targetCol = columns[c];
-        if (targetCol.readonly) continue;
+        const targetCol = columns.value[c];
+        if (!targetCol || targetCol.readonly) continue;
         const oldVal = targetItem[targetCol.key] !== undefined ? targetItem[targetCol.key] : '';
         if (oldVal !== sourceVal) {
           changes.push({ id: targetItem.id, field: targetCol.key, oldVal, newVal: sourceVal });
           targetItem[targetCol.key] = sourceVal;
-          await labelStore.updateLabelCell(targetItem.id, targetCol.key, sourceVal);
+          await saveCellUpdate(targetItem, targetCol.key, sourceVal);
           if (targetCol.key === 'shiftCombined') {
             const num = String(sourceVal).replace(/\D/g, '');
             if (num) {
               targetItem.shift = num;
-              await labelStore.updateLabelCell(targetItem.id, 'shift', num);
+              await saveCellUpdate(targetItem, 'shift', num);
             }
           }
         }
@@ -3525,9 +4136,9 @@ const handleFillRight = async () => {
     }
   } else if (minC > 0) {
     // Single cell selected: copy from left column
-    const sourceCol = columns[minC - 1];
-    const targetCol = columns[minC];
-    if (!targetCol.readonly) {
+    const sourceCol = columns.value[minC - 1];
+    const targetCol = columns.value[minC];
+    if (targetCol && !targetCol.readonly) {
       for (let r = minR; r <= maxR; r++) {
         const targetItem = items[r];
         if (!targetItem) continue;
@@ -3536,7 +4147,7 @@ const handleFillRight = async () => {
         if (oldVal !== sourceVal) {
           changes.push({ id: targetItem.id, field: targetCol.key, oldVal, newVal: sourceVal });
           targetItem[targetCol.key] = sourceVal;
-          await labelStore.updateLabelCell(targetItem.id, targetCol.key, sourceVal);
+          await saveCellUpdate(targetItem, targetCol.key, sourceVal);
         }
       }
     }
@@ -3549,7 +4160,7 @@ const handleFillRight = async () => {
 
 // COPY SELECTED CELLS TO CLIPBOARD (EXCEL TSV)
 const handleCopySelection = async () => {
-  const items = filteredUnverifiedList.value;
+  const items = paginatedSpreadsheetList.value;
   if (!items.length) return;
 
   const minR = minRow.value;
@@ -3563,7 +4174,8 @@ const handleCopySelection = async () => {
     if (!item) continue;
     const rowVals = [];
     for (let c = minC; c <= maxC; c++) {
-      const col = columns[c];
+      const col = columns.value[c];
+      if (!col) continue;
       const val = formatCellValue(item[col.key], col.key, item, r);
       rowVals.push(val !== undefined && val !== null ? String(val) : '');
     }
@@ -3589,6 +4201,7 @@ const handleCopySelection = async () => {
 
 // PASTE CLIPBOARD GRID INTO SPREADSHEET CELLS
 const handlePasteSelection = async () => {
+  if (isViewingVerifiedBatch.value) return;
   let clipboardText = '';
   try {
     if (navigator.clipboard && navigator.clipboard.readText) {
@@ -3600,7 +4213,7 @@ const handlePasteSelection = async () => {
 
   if (!clipboardText || !clipboardText.trim()) return;
 
-  const items = filteredUnverifiedList.value;
+  const items = paginatedSpreadsheetList.value;
   if (!items.length) return;
 
   const rawLines = clipboardText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
@@ -3623,18 +4236,18 @@ const handlePasteSelection = async () => {
       const targetItem = items[r];
       if (!targetItem) continue;
       for (let c = minC; c <= maxC; c++) {
-        const targetCol = columns[c];
-        if (targetCol.readonly) continue;
+        const targetCol = columns.value[c];
+        if (!targetCol || targetCol.readonly) continue;
         const oldVal = targetItem[targetCol.key] !== undefined ? targetItem[targetCol.key] : '';
         if (oldVal !== pasteVal) {
           changes.push({ id: targetItem.id, field: targetCol.key, oldVal, newVal: pasteVal });
           targetItem[targetCol.key] = pasteVal;
-          await labelStore.updateLabelCell(targetItem.id, targetCol.key, pasteVal);
+          await saveCellUpdate(targetItem, targetCol.key, pasteVal);
           if (targetCol.key === 'shiftCombined') {
             const shiftNum = pasteVal.replace(/\D/g, '');
             if (shiftNum) {
               targetItem.shift = shiftNum;
-              await labelStore.updateLabelCell(targetItem.id, 'shift', shiftNum);
+              await saveCellUpdate(targetItem, 'shift', shiftNum);
             }
           }
         }
@@ -3651,21 +4264,21 @@ const handlePasteSelection = async () => {
       const rowCells = pasteGrid[rOffset];
       for (let cOffset = 0; cOffset < rowCells.length; cOffset++) {
         const c = startC + cOffset;
-        if (c >= columns.length) break;
-        const targetCol = columns[c];
-        if (targetCol.readonly) continue;
+        if (c >= columns.value.length) break;
+        const targetCol = columns.value[c];
+        if (!targetCol || targetCol.readonly) continue;
 
         const pasteVal = cleanCell(rowCells[cOffset]);
         const oldVal = targetItem[targetCol.key] !== undefined ? targetItem[targetCol.key] : '';
         if (oldVal !== pasteVal) {
           changes.push({ id: targetItem.id, field: targetCol.key, oldVal, newVal: pasteVal });
           targetItem[targetCol.key] = pasteVal;
-          await labelStore.updateLabelCell(targetItem.id, targetCol.key, pasteVal);
+          await saveCellUpdate(targetItem, targetCol.key, pasteVal);
           if (targetCol.key === 'shiftCombined') {
             const shiftNum = pasteVal.replace(/\D/g, '');
             if (shiftNum) {
               targetItem.shift = shiftNum;
-              await labelStore.updateLabelCell(targetItem.id, 'shift', shiftNum);
+              await saveCellUpdate(targetItem, 'shift', shiftNum);
             }
           }
         }
@@ -3680,7 +4293,8 @@ const handlePasteSelection = async () => {
 
 // CLEAR SELECTED CELLS (DELETE / BACKSPACE)
 const clearSelectedCells = async () => {
-  const items = filteredUnverifiedList.value;
+  if (isViewingVerifiedBatch.value) return;
+  const items = paginatedSpreadsheetList.value;
   if (!items.length) return;
   const minR = minRow.value;
   const maxR = maxRow.value;
@@ -3691,13 +4305,13 @@ const clearSelectedCells = async () => {
     const item = items[r];
     if (!item) continue;
     for (let c = minC; c <= maxC; c++) {
-      const col = columns[c];
-      if (col.readonly) continue;
+      const col = columns.value[c];
+      if (!col || col.readonly) continue;
       const oldVal = item[col.key] !== undefined ? item[col.key] : '';
       if (oldVal !== '') {
         changes.push({ id: item.id, field: col.key, oldVal, newVal: '' });
         item[col.key] = '';
-        await labelStore.updateLabelCell(item.id, col.key, '');
+        await saveCellUpdate(item, col.key, '');
       }
     }
   }
@@ -3792,7 +4406,7 @@ const handleSpreadsheetKeydown = async (e) => {
     e.preventDefault();
     await clearSelectedCells();
   } else if (!isCtrl && !e.altKey && e.key.length === 1) {
-    const col = columns[selectionStart.c];
+    const col = columns.value[selectionStart.c];
     if (col && !col.readonly) {
       e.preventDefault();
       enterEditMode(selectionStart.r, selectionStart.c, e.key);
@@ -3802,20 +4416,26 @@ const handleSpreadsheetKeydown = async (e) => {
 
 // APPROVE ACTIONS
 const approveSingle = async (item) => {
-  await labelStore.verifyLabels(item.id);
+  const targetId = item.originalId || (typeof item.id === 'string' && item.id.includes('_bahan') ? parseInt(item.id, 10) : item.id);
+  if (targetId) await labelStore.verifyLabels([targetId]);
 };
 
 const approveSelectedRange = async () => {
-  const items = filteredUnverifiedList.value;
+  const items = paginatedSpreadsheetList.value;
   if (!items.length) return;
 
   const idsToApprove = [];
   for (let r = minRow.value; r <= maxRow.value; r++) {
-    if (items[r]) idsToApprove.push(items[r].id);
+    const it = items[r];
+    if (it) {
+      const targetId = it.originalId || (typeof it.id === 'string' && it.id.includes('_bahan') ? parseInt(it.id, 10) : it.id);
+      if (targetId) idsToApprove.push(targetId);
+    }
   }
 
-  if (idsToApprove.length > 0) {
-    await labelStore.verifyLabels(idsToApprove);
+  const uniqueIds = [...new Set(idsToApprove)];
+  if (uniqueIds.length > 0) {
+    await labelStore.verifyLabels(uniqueIds);
   }
 };
 
@@ -3843,41 +4463,47 @@ const unverifySingle = async (item) => {
 
 // ADD BLANK ROW
 const addNewBlankRow = async () => {
+  if (isViewingVerifiedBatch.value) return;
+  const targetDate = selectedDate.value !== 'ALL' ? selectedDate.value : new Date().toISOString().slice(0, 10);
+  const targetMachine = selectedMachine.value !== 'ALL' ? selectedMachine.value : (isRewindSession.value ? 'REWIND' : 'SLITTING');
+
   const newRecord = {
-    tanggal: new Date().toISOString().slice(0, 10),
-    mesin: 'SLITTING',
-    operator: 'UMAR',
+    tanggal: targetDate,
+    mesin: targetMachine,
+    operator: '',
     shift: '1',
     shiftCombined: 'G1',
-    spk: '507358/SPK/2026',
-    lot: 'M0401032100470/01',
+    spk: '',
+    lot: '',
     jenis: 'VMCPP',
     type: 'METALIZED',
     kode: 'M06',
-    thickness: '20',
-    parentWidth: '2165',
-    parentMeter: '26000',
-    parentBeratTeori: '1100',
-    width: '1060',
-    length: '6500',
-    netto: '125.0',
-    paperCore: '6',
-    od: 'OD2.4+PLASMA',
-    turunan: 'A01',
-    packing: '25',
+    thickness: '',
+    parentWidth: '',
+    parentMeter: '',
+    parentBeratTeori: '',
+    width: '',
+    length: '',
+    netto: '',
+    childBeratTeori: '',
+    selisihBerat: '',
+    paperCore: '6"',
+    od: '',
+    turunan: '',
+    packing: '',
     keteranganBahan: '',
     keterangan: '',
     status: 'PASS',
     reasonDefect: '',
-    gradeSisa: 'B-GRADE',
+    gradeSisa: '',
     sisaMeter: '',
     keteranganSisa: '',
     wastePolos: '',
     wasteMetal: '',
     keteranganWaste: '',
     noteOperator: '',
-    kodePack: '3B0826',
-    subKode: '0025',
+    kodePack: '',
+    subKode: '',
     verified: 0
   };
   await labelStore.addLabel(newRecord);
@@ -3989,6 +4615,8 @@ const parsePastedText = () => {
     keteranganBahan: ''
   };
 
+  let curRewindBahan = null;
+
   for (const rawLine of lines) {
     if (!rawLine || !rawLine.trim()) continue;
 
@@ -4011,7 +4639,8 @@ const parsePastedText = () => {
     // Check if line is a table header row (contains 2 or more header keywords)
     const combinedLower = cols.join(' ').toLowerCase();
     const isHeader = (
-      (combinedLower.includes('tanggal') && (combinedLower.includes('operator') || combinedLower.includes('shift') || combinedLower.includes('spk'))) ||
+      (combinedLower.includes('tanggal') && (combinedLower.includes('operator') || combinedLower.includes('shift') || combinedLower.includes('spk') || combinedLower.includes('proses'))) ||
+      (combinedLower.includes('jenis proses')) ||
       (combinedLower.includes('parent lot') || combinedLower.includes('no. lot') || combinedLower.includes('nomor lot') || combinedLower.includes('lot akhir') || combinedLower.includes('kode pack')) ||
       (combinedLower.includes('lebar') && combinedLower.includes('panjang')) ||
       (combinedLower.includes('berat aktual') || combinedLower.includes('berat netto') || combinedLower.includes('netto (kg)'))
@@ -4027,84 +4656,157 @@ const parsePastedText = () => {
       }
     }
 
+    // Handle FORMAT REWIND (23 Kolom: Tanggal, Grup Shift, Jenis Proses [BAHAN/HASIL], SPK, Lot, ...)
+    const c2Upper = (cols[2] || '').toUpperCase().trim();
+    const c1Upper = (cols[1] || '').toUpperCase().trim();
+    const isRewindFormat = (c2Upper === 'BAHAN' || c2Upper === 'HASIL' || c1Upper === 'BAHAN' || c1Upper === 'HASIL');
+
+    if (isRewindFormat) {
+      const offset = (c1Upper === 'BAHAN' || c1Upper === 'HASIL') ? -1 : 0;
+      const tglRaw = offset === 0 ? cols[0] : '';
+      const shiftCombinedRaw = offset === 0 ? cols[1] : '';
+      const jenisProses = (cols[2 + offset] || '').toUpperCase().trim();
+      const spk = cols[3 + offset] || '';
+      const lot = cols[4 + offset] || '';
+      const jenis = cols[5 + offset] || 'VMCPP';
+      const kode = cols[6 + offset] || 'M06';
+      const thickness = cols[7 + offset] || '';
+      const width = cols[8 + offset] || '';
+      const length = cols[9 + offset] || '';
+      const weight = cols[10 + offset] || '';
+      const turunan = cols[11 + offset] || '';
+      const pack = cols[12 + offset] || '';
+      const statusRaw = cols[13 + offset] || (jenisProses === 'BAHAN' ? 'SORTIR' : 'PASS');
+      const reasonDefect = cols[14 + offset] || '';
+      const keteranganBahan = cols[15 + offset] || '';
+      const keteranganHasil = cols[16 + offset] || '';
+      const lengthWaste = cols[17 + offset] || '';
+      const weightWaste = cols[18 + offset] || '';
+      const core = cols[19 + offset] || '6';
+      const od = cols[22 + offset] || 'OD2.4+PLASMA';
+
+      if (tglRaw) curShift.tanggal = parseDateToIso(tglRaw);
+      if (shiftCombinedRaw) curShift.shiftCombined = shiftCombinedRaw;
+
+      if (jenisProses === 'BAHAN') {
+        curRewindBahan = {
+          tanggal: curShift.tanggal,
+          shiftCombined: curShift.shiftCombined,
+          spk,
+          lot,
+          jenis,
+          kode,
+          thickness,
+          width,
+          length,
+          weight,
+          core,
+          od,
+          status: statusRaw,
+          keteranganBahan
+        };
+        continue;
+      } else if (jenisProses === 'HASIL') {
+        const finalTanggal = parseDateToIso(tglRaw || curRewindBahan?.tanggal || curShift.tanggal);
+        const finalShift = shiftCombinedRaw || curRewindBahan?.shiftCombined || curShift.shiftCombined;
+        const finalLot = lot || curRewindBahan?.lot || '';
+        const finalSpk = spk || curRewindBahan?.spk || curShift.spk;
+        const finalJenis = jenis || curRewindBahan?.jenis || 'VMCPP';
+        const finalKode = kode || curRewindBahan?.kode || 'M06';
+        const finalThick = thickness || curRewindBahan?.thickness || '';
+        const parentW = curRewindBahan ? curRewindBahan.width : width;
+        const parentMeter = curRewindBahan ? curRewindBahan.length : '';
+        const parentBerat = curRewindBahan ? curRewindBahan.weight : '';
+
+        const stUpper = statusRaw.toUpperCase();
+        const finalStatus = stUpper.includes('REJECT') ? 'REJECT' : (stUpper.includes('HOLD') ? 'HOLD' : 'PASS');
+
+        rows.push({
+          tanggal: finalTanggal,
+          operator: curShift.operator || '',
+          shift: finalShift.replace(/\D/g, '') || '1',
+          shiftCombined: finalShift,
+          spk: finalSpk,
+          lot: finalLot,
+          jenis: finalJenis,
+          kode: finalKode,
+          thickness: finalThick,
+          parentWidth: parentW,
+          parentMeter: parentMeter,
+          parentBeratTeori: parentBerat,
+          width: width,
+          length: length,
+          netto: weight,
+          childBeratTeori: '',
+          selisihBerat: '',
+          paperCore: core ? `${core}"` : '6"',
+          od: od || curRewindBahan?.od || 'OD2.4+PLASMA',
+          turunan: turunan,
+          packing: pack ? (parseInt(pack, 10) || '') : '',
+          keteranganBahan: keteranganBahan || curRewindBahan?.keteranganBahan || '',
+          keterangan: keteranganHasil,
+          status: finalStatus,
+          reasonDefect: reasonDefect,
+          gradeSisa: '',
+          sisaMeter: lengthWaste,
+          wasteMetal: weightWaste,
+          wastePolos: '',
+          keteranganWaste: '',
+          noteOperator: '',
+          mesin: 'REWIND',
+          kodePack: '',
+          subKode: pack ? String(pack).padStart(4, '0') : '',
+          verified: 1
+        });
+        continue;
+      }
+    }
+
     // Handle FORMAT A: 3 to 8 Columns (e.g. Lot Akhir, Kode Pack, Tanggal or standard Data Roll)
-    if (cols.length <= 8 && cols[0] && (cols[0].includes('/') || cols[0].startsWith('M') || cols[0].length >= 10)) {
-      const lotFull = cols[0].trim();
-      const kodePackRaw = (cols[1] || '').trim();
-      const tanggalRaw = (cols[2] || curShift.tanggal || new Date().toISOString().slice(0, 10)).trim();
-      
-      // Parse dates (supporting "01 Agustus 2026" etc.)
-      const parsedTanggal = parseDateToIso(tanggalRaw);
-
-      let kodePack = '3B0826';
-      let subKode = '0000';
-      if (kodePackRaw.length >= 10) {
-        kodePack = kodePackRaw.slice(0, 6);
-        subKode = kodePackRaw.slice(6);
-      } else if (kodePackRaw.length === 6) {
-        kodePack = kodePackRaw;
-        subKode = '0000';
-      } else if (/^\d{1,4}$/.test(kodePackRaw)) {
-        subKode = kodePackRaw.padStart(4, '0');
+    if (cols.length <= 8 && cols[0] && (cols[0].includes('/') || cols[0].startsWith('M') || cols[0].startsWith('L') || cols[0].length >= 8)) {
+      const parsed = parseDataRollRow(cols);
+      if (parsed) {
+        const status = parsed.qualityStatus || (parsed.subKode === '0000' || parsed.subKode === '0' ? 'HOLD' : 'PASS');
+        rows.push({
+          tanggal: parsed.tanggalFormatted || parseDateToIso(cols[2] || curShift.tanggal || new Date().toISOString().slice(0, 10)),
+          operator: curShift.operator || parsed.kodeOperator || '',
+          shift: curShift.shift || parsed.shift || '1',
+          shiftCombined: curShift.shiftCombined || (parsed.kodeOperator ? `${parsed.kodeOperator}${parsed.shift || '1'}` : 'G1'),
+          spk: parsed.spk || curShift.spk || '',
+          lot: parsed.lot || parsed.fullLot || cols[0].trim(),
+          jenis: parsed.jenis || 'VMCPP',
+          kode: parsed.kodeFormula || 'M07',
+          thickness: parsed.thickness || '',
+          parentWidth: '',
+          parentMeter: '',
+          parentBeratTeori: '',
+          width: parsed.width || '',
+          length: parsed.length || '',
+          netto: '',
+          childBeratTeori: '',
+          selisihBerat: '',
+          paperCore: parsed.core ? `${parsed.core}"` : '6"',
+          od: parsed.od || '',
+          turunan: parsed.turunan || '',
+          packing: parsed.subKode ? (parseInt(parsed.subKode, 10) || '') : '',
+          keteranganBahan: '',
+          keterangan: status === 'HOLD' ? (parsed.reasonDefect || 'Hold') : '',
+          status,
+          reasonDefect: parsed.reasonDefect || (status === 'HOLD' ? 'Non-standard pack' : ''),
+          gradeSisa: '',
+          sisaMeter: '',
+          keteranganSisa: '',
+          wastePolos: '',
+          wasteMetal: '',
+          keteranganWaste: '',
+          noteOperator: '',
+          mesin: parsed.machineName || 'SLITTING',
+          kodePack: parsed.kodePack || '',
+          subKode: parsed.subKode || '',
+          verified: 1
+        });
+        continue;
       }
-
-      // Parse Lot & Turunan
-      let lot = lotFull;
-      let turunan = 'A01';
-      const lotParts = lotFull.split('/');
-      if (lotParts.length >= 2) {
-        turunan = lotParts[lotParts.length - 1];
-      }
-
-      // Formula & Jenis
-      let jenis = 'VMCPP';
-      let kode = 'M07';
-      const fMatch = lotFull.match(/\b([A-Z]\d{2})\b/);
-      if (fMatch) kode = fMatch[1];
-      const jMatch = lotFull.match(/\b(VMCPP|CPP|BOPP|MCPP|PET|NYLON)\b/i);
-      if (jMatch) jenis = jMatch[1].toUpperCase();
-
-      const status = (subKode === '0000' || subKode === '0') ? 'HOLD' : 'PASS';
-
-      rows.push({
-        tanggal: parsedTanggal,
-        operator: curShift.operator || 'Gunawan',
-        shift: curShift.shift || '1',
-        shiftCombined: curShift.shiftCombined || 'G1',
-        spk: curShift.spk || '07/VI/SPK/2026',
-        lot: lotFull,
-        jenis,
-        kode,
-        thickness: '20',
-        parentWidth: '2165',
-        parentMeter: '13000',
-        parentBeratTeori: '240.5',
-        width: '1000',
-        length: '4000',
-        netto: '74.0',
-        childBeratTeori: '72.8',
-        selisihBerat: '1.20',
-        paperCore: '6"',
-        od: 'OD2.4+PLASMA',
-        turunan,
-        packing: parseInt(subKode, 10) || 0,
-        keteranganBahan: '',
-        keterangan: status === 'HOLD' ? 'Roll non-standard / Hold' : '',
-        status,
-        reasonDefect: status === 'HOLD' ? 'Non-standard pack' : '',
-        gradeSisa: 'B-GRADE',
-        sisaMeter: '',
-        keteranganSisa: '',
-        wastePolos: '',
-        wasteMetal: '',
-        keteranganWaste: '',
-        noteOperator: '',
-        mesin: 'SLITTING',
-        kodePack,
-        subKode,
-        verified: 0
-      });
-      continue;
     }
 
     // If still less than 2 columns, skip
@@ -4143,15 +4845,15 @@ const parsePastedText = () => {
     }
 
     // 3. Child Output Columns
-    const parentWidth = cols[8] || curParent.parentWidth || '2165';
-    const width = cols[11] || '1060';
-    const length = cols[12] || '6500';
-    const netto = cols[13] || '125.0';
+    const parentWidth = cols[8] || curParent.parentWidth || '';
+    const width = cols[11] || '';
+    const length = cols[12] || '';
+    const netto = cols[13] || '';
     const paperCore = cols[16] ? (cols[16].includes('3') ? '3"' : '6"') : '6"';
-    const od = cols[17] || 'OD2.4+PLASMA';
-    const turunan = cols[18] || 'A01';
-    const packingRaw = cols[19] || '25';
-    const packing = String(parseInt(packingRaw, 10) || 25);
+    const od = cols[17] || '';
+    const turunan = cols[18] || '';
+    const packingRaw = cols[19] || '';
+    const packing = packingRaw ? String(parseInt(packingRaw, 10) || '') : '';
     const keteranganBahan = cols[20] || curParent.keteranganBahan || '';
     const keterangan = cols[21] || ''; // Ket Hasil per roll
 
@@ -4164,7 +4866,7 @@ const parsePastedText = () => {
     }
 
     // 5. Jumbo Sisa
-    const gradeSisa = cols[24] || 'B-GRADE';
+    const gradeSisa = cols[24] || '';
     const sisaMeter = cols[25] || '';
     const keteranganSisa = cols[26] || '';
 
@@ -4176,28 +4878,40 @@ const parsePastedText = () => {
 
     // Calculate Child Teori & Selisih
     const density = getDensity(curParent.jenis, curParent.kode);
-    const thickNum = parseNumSafe(curParent.thickness, 20);
-    const widthNum = parseNumSafe(width, 1000);
-    const lenNum = parseNumSafe(length, 4000);
+    const thickNum = parseNumSafe(curParent.thickness, 0);
+    const widthNum = parseNumSafe(width, 0);
+    const lenNum = parseNumSafe(length, 0);
     const nettoNum = parseNumSafe(netto, 0);
 
-    const childBeratTeori = ((thickNum * widthNum * lenNum * density) / 1000000).toFixed(2);
+    const childBeratTeori = (thickNum > 0 && widthNum > 0 && lenNum > 0)
+      ? ((thickNum * widthNum * lenNum * density) / 1000000).toFixed(2)
+      : '';
     const childTeoriNum = parseFloat(childBeratTeori) || 0;
-    const selisihBerat = (nettoNum - childTeoriNum).toFixed(2);
+    const selisihBerat = (nettoNum > 0 && childTeoriNum > 0)
+      ? (nettoNum - childTeoriNum).toFixed(2)
+      : '';
+
+    // Discard empty/ghost child rows
+    if (!width && !length && !turunan && !netto && !cols[4]) {
+      continue;
+    }
+    if (widthNum === 0 && lenNum === 0 && !turunan && !netto && !cols[4]) {
+      continue;
+    }
 
     rows.push({
-      tanggal: curShift.tanggal,
-      operator: curShift.operator,
-      shift: curShift.shift,
-      shiftCombined: curShift.shiftCombined,
-      spk: curShift.spk,
-      lot: curParent.lot,
-      jenis: curParent.jenis,
-      kode: curParent.kode,
-      thickness: curParent.thickness,
+      tanggal: curShift.tanggal || new Date().toISOString().slice(0, 10),
+      operator: curShift.operator || '',
+      shift: curShift.shift || '1',
+      shiftCombined: curShift.shiftCombined || 'G1',
+      spk: curShift.spk || '',
+      lot: curParent.lot || '',
+      jenis: curParent.jenis || 'VMCPP',
+      kode: curParent.kode || 'M06',
+      thickness: curParent.thickness || '',
       parentWidth: parentWidth,
-      parentMeter: curParent.parentMeter,
-      parentBeratTeori: curParent.parentBeratTeori,
+      parentMeter: curParent.parentMeter || '',
+      parentBeratTeori: curParent.parentBeratTeori || '',
       width,
       length,
       netto,
@@ -4219,9 +4933,9 @@ const parsePastedText = () => {
       keteranganWaste,
       noteOperator,
       mesin: 'SLITTING',
-      kodePack: '3B0826',
-      subKode: String(packing).padStart(4, '0'),
-      verified: 0
+      kodePack: '',
+      subKode: packing ? String(packing).padStart(4, '0') : '',
+      verified: 1
     });
   }
 
@@ -4250,45 +4964,117 @@ const handleFileUpload = (e) => {
   reader.readAsArrayBuffer(file);
 };
 
-// Commit parsed items to labelStore
+// Commit parsed items to labelStore & auto-record as verified batch
 const commitImportedRows = async () => {
   if (!parsedImportRows.value || parsedImportRows.value.length === 0) return;
 
   try {
+    const now = new Date().toISOString();
     const recordsToInsert = parsedImportRows.value.map(row => ({
       ...row,
       uniqId: generateUniqID('LBL'),
+      verified: 1,
+      verifiedAt: now,
+      verifiedBy: 'Import Excel',
       synced: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: now,
+      updatedAt: now
     }));
 
     await db.labels.bulkAdd(recordsToInsert);
     await labelStore.loadLabels();
 
-    if (recordsToInsert.length > 0) {
-      const firstDate = recordsToInsert[0].tanggal;
-      const firstMesin = recordsToInsert[0].mesin || 'SLITTING';
-      if (firstDate) {
-        expandedDates.value.add(firstDate);
-        selectedDate.value = firstDate;
-        selectedMachine.value = firstMesin;
-        activeTab.value = 'verifikasi';
-      }
+    const firstDate = recordsToInsert[0].tanggal || now.slice(0, 10);
+    const firstMesin = (recordsToInsert[0].mesin || 'SLITTING').toUpperCase();
+    const totalRolls = recordsToInsert.length;
+    const totalKg = parseFloat(recordsToInsert.reduce((sum, r) => sum + (parseFloat(r.netto || r.berat || 0) || 0), 0).toFixed(2));
+    const passCount = recordsToInsert.filter(r => (r.status || 'PASS').toUpperCase() === 'PASS').length;
+    const holdCount = recordsToInsert.filter(r => (r.status || '').toUpperCase() === 'HOLD').length;
+    const rejectCount = recordsToInsert.filter(r => (r.status || '').toUpperCase() === 'REJECT').length;
+
+    const batchKey = `import_${firstDate}_${firstMesin}_${Date.now()}`;
+    const newBatch = {
+      uuid: batchKey,
+      uploadDate: now,
+      batchName: `Import Excel - ${firstDate} (${firstMesin})`,
+      source: 'Import Excel Data Roll',
+      fileName: `Import_${firstMesin}_${firstDate}.xlsx`,
+      machine: firstMesin,
+      tanggal: firstDate,
+      totalRolls,
+      totalKg,
+      passCount,
+      holdCount,
+      rejectCount,
+      uploadedBy: 'Import Excel',
+      status: 'VERIFIED',
+      verifiedAt: now,
+      verifiedBy: 'Import Excel',
+      rollsJson: JSON.stringify(recordsToInsert),
+      createdAt: now,
+      updatedAt: now
+    };
+
+    if (db.data_roll_uploads) {
+      await db.data_roll_uploads.add(newBatch);
     }
+    await dataRollStore.syncVerifiedDeBatches();
+    await dataRollStore.loadUploadHistory();
 
     showImportModal.value = false;
     pasteRawText.value = '';
     parsedImportRows.value = [];
-    alert(`Berhasil mengimpor ${recordsToInsert.length} roll ke lembar verifikasi.`);
+
+    // Directly open the imported verified batch in the Excel spreadsheet view!
+    openBatchDetail(newBatch);
+    alert(`Berhasil mengimpor ${recordsToInsert.length} roll. Data otomatis berstatus TERVERIFIKASI dan tersimpan dalam Batch Arsip.`);
   } catch (err) {
     console.error('Failed to commit imported rows:', err);
     alert('Terjadi kesalahan saat menyimpan data impor: ' + err.message);
   }
 };
 
-// DOWNLOAD SLITTING TEMPLATE EXCEL (MENGIKUTI POLA NYATA SLITTING)
+// DOWNLOAD TEMPLATE EXCEL (SLITTING VS REWIND)
 const downloadSlittingTemplate = () => {
+  if (isRewindSession.value) {
+    const rewindHeaders = [
+      [
+        'Tanggal', 'Grup Shift', 'Jenis Proses', 'No SPK', 'No Lot', 'Jenis', 'Kode Formula', 'Thickness', 'Width', 'Length', 'Weight',
+        'Turunan', 'Pack', 'Quality Status', 'Reason Of Deffect', 'Keterangan Bahan', 'Keterangan Hasil', 'Length Waste', 'Weight Waste',
+        'Core', 'Tanda', 'Bahan', 'Input Atribut metalize'
+      ],
+      // Row 1: BAHAN (Input Roll, Status SORTIR)
+      [
+        '05 Januari 2026', 'K2', 'BAHAN', '04/XII/SPK/2025', 'M06211225C111/D1/05/GA06', 'VMCPP', 'M06', 35, 940, 11500, 338,
+        '', '', 'SORTIR', '', '', '', '', '',
+        6, '', '', 'OD2.4+PLASMA'
+      ],
+      // Row 2: HASIL (Output FG PASS, Turunan K201, Pack 0001, Waste 500m/10kg)
+      [
+        '05 Januari 2026', 'K2', 'HASIL', '04/XII/SPK/2025', 'M06211225C111/D1/05/GA06', 'VMCPP', 'M06', 35, 940, 11000, 328,
+        'K201', '0001', 'PASS', '', '', '', 500, 10,
+        6, '', '', 'OD2.4+PLASMA'
+      ],
+      // Row 3: BAHAN (Input Roll, Status SORTIR JOIN)
+      [
+        '05 Januari 2026', 'K2', 'BAHAN', '04/XII/SPK/2025', 'M06211225C108/D1/06/GA04', 'VMCPP', 'M06', 35, 940, 10600, 313,
+        '', '', 'SORTIR JOIN', '', '', '', '', '',
+        6, '', '', 'OD2.4+PLASMA'
+      ],
+      // Row 4: HASIL (Output REJECT, Reason: EX SORTIR LAP LAP BELANG)
+      [
+        '05 Januari 2026', 'K2', 'HASIL', '04/XII/SPK/2025', 'M06211225C108/D1/06/GA04', 'VMCPP', 'M06', 35, 940, 8530, 254,
+        'K202', '', 'REJECT', 'EX SORTIR LAP LAP BELANG', '', '', 2070, 59,
+        6, '', '', 'OD2.4+PLASMA'
+      ]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rewindHeaders);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'DE Report Rewind');
+    XLSX.writeFile(wb, 'Template_DE_Report_Rewind.xlsx');
+    return;
+  }
+
   const headers = [
     [
       'Tanggal', 'Operator', 'Shift', 'SPK', 'Lot No.', 'Jenis', 'Kode Formula', 'Thickness', 'Lebar Bahan', 'Panjang Bahan', 'Berat Bahan',
@@ -4339,35 +5125,41 @@ const downloadSlittingTemplate = () => {
 
 // EXPORT VERIFICATION SPREADSHEET TO EXCEL TABLE (Ctrl+T) WITH GROUP COLORS
 const exportVerificationExcel = async () => {
-  const items = filteredUnverifiedList.value;
+  const items = activeSpreadsheetList.value;
   if (!items || items.length === 0) {
     alert('Tidak ada data pada lembar verifikasi untuk diekspor.');
     return;
   }
 
+  const isRewind = isRewindSession.value;
+  const currentCols = columns.value;
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'M-Label PT Saptawarna Cemerlang';
   workbook.created = new Date();
 
-  const sheetName = selectedMachine.value === 'ALL' ? 'DE_Verifikasi_Semua' : `DE_Verifikasi_${selectedMachine.value}`;
+  const sheetName = isRewind
+    ? 'DE_Verifikasi_Rewind'
+    : (selectedMachine.value === 'ALL' ? 'DE_Verifikasi_Semua' : `DE_Verifikasi_${selectedMachine.value}`);
+
   const ws = workbook.addWorksheet(sheetName.slice(0, 31), {
     views: [{ showGridLines: true }]
   });
 
   // Table Columns Definition for Excel Table (Ctrl+T)
-  const tableColumns = columns.map(col => ({
+  const tableColumns = currentCols.map(col => ({
     name: col.name,
     filterButton: true
   }));
 
   // Build rows array matching columns
   const tableRows = items.map((item, rIdx) => {
-    return columns.map(col => {
+    return currentCols.map(col => {
       const val = formatCellValue(item[col.key], col.key, item, rIdx);
       if ([
         'netto', 'parentWidth', 'parentMeter', 'parentBeratTeori', 
         'childBeratTeori', 'selisihBerat', 'width', 'length', 
-        'wastePolos', 'wasteMetal', 'sisaMeter'
+        'wastePolos', 'wasteMetal', 'sisaMeter', 'lengthWaste', 'weightWaste', 'thickness'
       ].includes(col.key)) {
         const num = parseFloat(val);
         return !isNaN(num) ? num : (val || '');
@@ -4378,13 +5170,14 @@ const exportVerificationExcel = async () => {
 
   // Add native Excel Table (Ctrl+T) with TableStyleMedium9
   const startRow = 1;
+  const tableName = isRewind ? 'TabelVerifikasiRewind' : 'TabelVerifikasiSlitting';
   ws.addTable({
-    name: 'TabelVerifikasiSlitting',
+    name: tableName,
     ref: `A${startRow}`,
     headerRow: true,
     totalsRow: false,
     style: {
-      theme: 'TableStyleMedium9', // Official Excel Medium Blue Theme with alternating row colors
+      theme: 'TableStyleMedium9',
       showRowStripes: true,
       showFirstColumn: false,
       showLastColumn: false
@@ -4393,8 +5186,16 @@ const exportVerificationExcel = async () => {
     rows: tableRows
   });
 
-  // Group Header Colors (Warna Pembeda Header Berdasarkan 5 Grup Slitting)
-  const groupColors = {
+  // Group Header Colors
+  const rewindGroupColors = {
+    identitas: { bg: '1E40AF', text: 'FFFFFF' }, // Royal Blue (Identitas & Proses)
+    dimensi: { bg: '0369A1', text: 'FFFFFF' },   // Ocean Blue (Dimensi Bahan)
+    hasil: { bg: '15803D', text: 'FFFFFF' },     // Green (Hasil Rewind & Quality)
+    keterangan: { bg: 'D97706', text: 'FFFFFF' },// Amber (Keterangan & Waste)
+    atribut: { bg: '4F46E5', text: 'FFFFFF' }    // Indigo (Atribut & Core)
+  };
+
+  const slittingGroupColors = {
     parent: { bg: '1E3A8A', text: 'FFFFFF' }, // Biru Tua (Identitas Shift & Parent)
     child: { bg: '0284C7', text: 'FFFFFF' },  // Biru Muda / Cyan (Output Hasil Potong)
     qc: { bg: '15803D', text: 'FFFFFF' },     // Hijau (Quality Control & Defect)
@@ -4402,10 +5203,12 @@ const exportVerificationExcel = async () => {
     waste: { bg: 'D97706', text: 'FFFFFF' }   // Orange / Amber (Waste & Catatan)
   };
 
+  const groupColors = isRewind ? rewindGroupColors : slittingGroupColors;
+
   const headerRow = ws.getRow(1);
   headerRow.height = 28;
 
-  columns.forEach((col, idx) => {
+  currentCols.forEach((col, idx) => {
     const cell = headerRow.getCell(idx + 1);
     const grp = groupColors[col.group] || { bg: '18181B', text: 'FFFFFF' };
     cell.fill = {
@@ -4423,7 +5226,7 @@ const exportVerificationExcel = async () => {
   });
 
   // Auto-fit column widths
-  columns.forEach((col, idx) => {
+  currentCols.forEach((col, idx) => {
     const wsCol = ws.getColumn(idx + 1);
     let maxLen = col.name.length;
     items.forEach((item, rIdx) => {
@@ -4433,36 +5236,248 @@ const exportVerificationExcel = async () => {
     wsCol.width = Math.max(12, Math.min(32, maxLen + 4));
   });
 
-  // Conditional formatting: Highlight rows with HOLD (Amber) / REJECT (Red)
+  // Conditional formatting:
   items.forEach((item, rIdx) => {
     const rowNum = rIdx + 2;
     const row = ws.getRow(rowNum);
     row.height = 20;
 
-    if (item.status === 'HOLD') {
-      row.eachCell({ includeEmpty: true }, (cell) => {
-        cell.fill = {
+    if (isRewind) {
+      // 1. Highlight No Lot in pink/light red on HASIL rows
+      const lotIdx = currentCols.findIndex(c => c.key === 'lot') + 1;
+      if (lotIdx > 0 && item.jenisProses === 'HASIL') {
+        const lotCell = row.getCell(lotIdx);
+        lotCell.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: 'FFFEF3C7' } // Light Amber
+          fgColor: { argb: 'FFFCA5A5' } // Pink / Light Red
         };
-      });
-    } else if (item.status === 'REJECT') {
-      row.eachCell({ includeEmpty: true }, (cell) => {
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFFEE2E2' } // Light Red
+        lotCell.font = {
+          name: 'Segoe UI',
+          size: 10,
+          bold: true,
+          color: { argb: 'FF7F1D1D' } // Dark Red
         };
-      });
+      }
+
+      // 2. Status badge formatting (PASS, REJECT, SORTIR)
+      const stIdx = currentCols.findIndex(c => c.key === 'status') + 1;
+      if (stIdx > 0) {
+        const stCell = row.getCell(stIdx);
+        const st = String(item.status || '').toUpperCase();
+        if (st === 'PASS') {
+          stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+          stCell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF14532D' } };
+        } else if (st === 'REJECT') {
+          stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+          stCell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF991B1B' } };
+        }
+      }
+
+      // 3. Jenis Proses formatting (HASIL bold blue, BAHAN slate)
+      const jpIdx = currentCols.findIndex(c => c.key === 'jenisProses') + 1;
+      if (jpIdx > 0) {
+        const jpCell = row.getCell(jpIdx);
+        jpCell.font = {
+          name: 'Segoe UI',
+          size: 10,
+          bold: true,
+          color: { argb: item.jenisProses === 'HASIL' ? 'FF2563EB' : 'FF475569' }
+        };
+      }
+    } else {
+      // Slitting styling
+      if (item.status === 'HOLD') {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFEF3C7' } // Light Amber
+          };
+        });
+      } else if (item.status === 'REJECT') {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFEE2E2' } // Light Red
+          };
+        });
+      }
     }
   });
 
   // Generate & Download File
   const dateStr = selectedDate.value === 'ALL' ? 'Semua_Tanggal' : selectedDate.value;
-  const machineStr = selectedMachine.value === 'ALL' ? 'Semua_Mesin' : selectedMachine.value;
+  const machineStr = isRewind ? 'REWIND' : (selectedMachine.value === 'ALL' ? 'Semua_Mesin' : selectedMachine.value);
   const fileName = `DE_Verifikasi_${machineStr}_${dateStr}_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  window.URL.revokeObjectURL(url);
+};
+
+// EXPORT REWIND BATCH TO OFFICIAL 23-COLUMN EXCEL
+const exportRewindExcel = async (rolls, customFileName) => {
+  if (!rolls || rolls.length === 0) return;
+
+  const rewindRows = [];
+  for (const item of rolls) {
+    if (item.jenisProses) {
+      rewindRows.push(item);
+    } else {
+      // 1. BAHAN
+      rewindRows.push({
+        ...item,
+        isBahanRow: true,
+        jenisProses: 'BAHAN',
+        turunan: '',
+        packing: '',
+        status: 'SORTIR',
+        reasonDefect: '',
+        length: item.parentMeter || item.length,
+        netto: item.parentBeratTeori || item.netto,
+        lengthWaste: '',
+        weightWaste: '',
+        paperCore: item.paperCore ? String(item.paperCore).replace(/[^0-9]/g, '') : '6',
+        tanda: '',
+        bahan: '',
+        od: item.od || 'OD2.4+PLASMA'
+      });
+
+      // 2. HASIL
+      const pMeter = parseFloat(item.parentMeter) || 0;
+      const hMeter = parseFloat(item.length) || 0;
+      const calcLengthWaste = (pMeter > hMeter) ? (pMeter - hMeter) : '';
+
+      const pBerat = parseFloat(item.parentBeratTeori) || 0;
+      const hBerat = parseFloat(item.netto || item.berat) || 0;
+      const calcWeightWaste = (pBerat > hBerat) ? parseFloat((pBerat - hBerat).toFixed(1)) : '';
+
+      rewindRows.push({
+        ...item,
+        isHasilRow: true,
+        jenisProses: 'HASIL',
+        status: item.status || 'PASS',
+        length: item.length,
+        netto: item.netto || item.berat,
+        lengthWaste: item.lengthWaste !== undefined ? item.lengthWaste : (item.sisaMeter || calcLengthWaste),
+        weightWaste: item.weightWaste !== undefined ? item.weightWaste : ((parseFloat(item.wastePolos || 0) + parseFloat(item.wasteMetal || 0)) || calcWeightWaste),
+        paperCore: item.paperCore ? String(item.paperCore).replace(/[^0-9]/g, '') : '6',
+        tanda: '',
+        bahan: '',
+        od: item.od || 'OD2.4+PLASMA'
+      });
+    }
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'M-Label PT Saptawarna Cemerlang';
+  workbook.created = new Date();
+
+  const ws = workbook.addWorksheet('DE_Report_Rewind', {
+    views: [{ showGridLines: true }]
+  });
+
+  const cols = rewindColumns;
+  const tableColumns = cols.map(c => ({ name: c.name, filterButton: true }));
+
+  const tableRows = rewindRows.map((item, rIdx) => {
+    return cols.map(col => {
+      const val = formatCellValue(item[col.key], col.key, item, rIdx);
+      if (['netto', 'width', 'length', 'lengthWaste', 'weightWaste', 'thickness'].includes(col.key)) {
+        const num = parseFloat(val);
+        return !isNaN(num) ? num : (val || '');
+      }
+      return val || '';
+    });
+  });
+
+  ws.addTable({
+    name: 'TabelReportRewind',
+    ref: 'A1',
+    headerRow: true,
+    totalsRow: false,
+    style: {
+      theme: 'TableStyleMedium9',
+      showRowStripes: true,
+      showFirstColumn: false,
+      showLastColumn: false
+    },
+    columns: tableColumns,
+    rows: tableRows
+  });
+
+  const rewindGroupColors = {
+    identitas: { bg: '1E40AF', text: 'FFFFFF' },
+    dimensi: { bg: '0369A1', text: 'FFFFFF' },
+    hasil: { bg: '15803D', text: 'FFFFFF' },
+    keterangan: { bg: 'D97706', text: 'FFFFFF' },
+    atribut: { bg: '4F46E5', text: 'FFFFFF' }
+  };
+
+  const headerRow = ws.getRow(1);
+  headerRow.height = 28;
+  cols.forEach((col, idx) => {
+    const cell = headerRow.getCell(idx + 1);
+    const grp = rewindGroupColors[col.group] || { bg: '18181B', text: 'FFFFFF' };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + grp.bg } };
+    cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF' + grp.text } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+  });
+
+  cols.forEach((col, idx) => {
+    const wsCol = ws.getColumn(idx + 1);
+    let maxLen = col.name.length;
+    rewindRows.forEach((item, rIdx) => {
+      const v = String(formatCellValue(item[col.key], col.key, item, rIdx) || '');
+      if (v.length > maxLen) maxLen = v.length;
+    });
+    wsCol.width = Math.max(12, Math.min(32, maxLen + 4));
+  });
+
+  rewindRows.forEach((item, rIdx) => {
+    const row = ws.getRow(rIdx + 2);
+    row.height = 20;
+
+    const lotIdx = cols.findIndex(c => c.key === 'lot') + 1;
+    if (lotIdx > 0 && item.jenisProses === 'HASIL') {
+      const lotCell = row.getCell(lotIdx);
+      lotCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCA5A5' } };
+      lotCell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF7F1D1D' } };
+    }
+
+    const stIdx = cols.findIndex(c => c.key === 'status') + 1;
+    if (stIdx > 0) {
+      const stCell = row.getCell(stIdx);
+      const st = String(item.status || '').toUpperCase();
+      if (st === 'PASS') {
+        stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+        stCell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF14532D' } };
+      } else if (st === 'REJECT') {
+        stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        stCell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF991B1B' } };
+      }
+    }
+
+    const jpIdx = cols.findIndex(c => c.key === 'jenisProses') + 1;
+    if (jpIdx > 0) {
+      const jpCell = row.getCell(jpIdx);
+      jpCell.font = {
+        name: 'Segoe UI',
+        size: 10,
+        bold: true,
+        color: { argb: item.jenisProses === 'HASIL' ? 'FF2563EB' : 'FF475569' }
+      };
+    }
+  });
+
+  const fileName = customFileName || `Batch_Rewind_${new Date().toISOString().slice(0, 10)}.xlsx`;
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = window.URL.createObjectURL(blob);
@@ -4599,6 +5614,32 @@ onMounted(async () => {
     dataRollStore.loadUploadHistory(),
     configStore.loadAll()
   ]);
+
+  // One-time cleanup for any lingering phantom dummy/ghost records (Disimpan di localStorage agar tidak scan 10K data tiap kali mount)
+  if (!localStorage.getItem('de_phantom_cleaned_v1')) {
+    try {
+      const dummyLabels = await db.labels.filter(l => {
+        const lot = String(l.lot || '').trim();
+        const spk = String(l.spk || '').trim();
+        const w = parseFloat(l.width || 0);
+        const len = parseFloat(l.length || l.meter || 0);
+        const isBlank = (!lot || lot === '0' || lot === '-') && (!spk || spk === '0' || spk === '-');
+        const isZeroDim = (!lot || lot === '0') && w === 0 && len === 0;
+        const isDummyTest = (l.spk === '07/VI/SPK/2026' && String(l.length) === '4000') ||
+          (l.operator === 'Gunawan' && String(l.length) === '4000' && String(l.width) === '1000');
+        return isBlank || isZeroDim || isDummyTest;
+      }).toArray();
+      if (dummyLabels.length > 0) {
+        const dummyIds = dummyLabels.map(d => d.id).filter(Boolean);
+        await db.labels.bulkDelete(dummyIds);
+        await labelStore.loadLabels(true);
+      }
+      localStorage.setItem('de_phantom_cleaned_v1', '1');
+    } catch (e) {
+      console.warn('Cleanup dummy labels failed:', e);
+    }
+  }
+
   // Optimasi kecepatan: Hanya buka tanggal pertama/terbaru secara default agar load seketika & ringan
   if (availableDates.value.length > 0) {
     expandedDates.value.add(availableDates.value[0]);

@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { db } from '@/db';
 import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
+import { useGlobalLoading } from '@/services/loadingService';
 
 export const useDataRollStore = defineStore('dataRollStore', () => {
   const rolls = ref([]);
@@ -144,9 +145,32 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   });
 
   // Load from Dexie DB (Merges explicit data_rolls and all DE Report labels)
-  const loadRolls = async () => {
+  const loadRolls = async (force = false) => {
+    if (!force && rolls.value.length > 0 && !loading.value) {
+      return;
+    }
     loading.value = true;
+    const { startLoading, stopLoading } = useGlobalLoading();
+    startLoading('Memuat data roll (10K+)...');
     try {
+      // Auto-cleanup any lingering ghost/blank records in db.data_rolls
+      if (db.data_rolls) {
+        const ghostList = await db.data_rolls.filter(r => {
+          const lot = String(r.lot || r.kodeFg || '').trim();
+          const spk = String(r.spk || '').trim();
+          const w = parseFloat(r.width || 0);
+          const l = parseFloat(r.length || 0);
+          const isBlank = (!lot || lot === '0' || lot === '-') && (!spk || spk === '0' || spk === '-');
+          const isZeroDim = (!lot || lot === '0') && w === 0 && l === 0;
+          const isHeader = /^(total|grand total|subtotal|sub total|jumlah|no lot|kode fg|deskripsi)$/i.test(lot);
+          return isBlank || isZeroDim || isHeader;
+        }).toArray();
+        if (ghostList.length > 0) {
+          const ghostIds = ghostList.map(g => g.id).filter(Boolean);
+          await db.data_rolls.bulkDelete(ghostIds);
+        }
+      }
+
       const rawExplicit = db.data_rolls ? await db.data_rolls.toArray() : [];
       const explicitRolls = rawExplicit.map(r => {
         let lot = r.lot || '';
@@ -183,9 +207,9 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         deRolls = labelsList.map(l => {
           const rawDate = l.tanggal || (l.verifiedAt ? l.verifiedAt.slice(0, 10) : (l.createdAt ? l.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10)));
           const mesin = (l.mesin || 'SLITTING').toUpperCase();
-          const thickness = String(l.thickness || l.tebal || l.thick || '20');
-          const width = String(l.width || l.lebar || '1000');
-          const length = String(l.length || l.meter || l.panjang || '4000');
+          const thickness = String(l.thickness || l.tebal || l.thick || '');
+          const width = String(l.width || l.lebar || '');
+          const length = String(l.length || l.meter || l.panjang || '');
           const core = l.paperCore ? (String(l.paperCore).includes('3') ? 3 : 6) : 6;
           const status = (l.status || 'PASS').toUpperCase();
 
@@ -249,6 +273,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       rolls.value = [];
     } finally {
       loading.value = false;
+      stopLoading();
     }
   };
 
@@ -313,9 +338,9 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
           turunan: l.turunan || '',
           jenis: l.jenis || 'VMCPP',
           kodeFormula: l.kode || 'M06',
-          thickness: String(l.thickness || '20'),
-          width: String(l.width || '1000'),
-          length: String(l.length || l.meter || '4000'),
+          thickness: String(l.thickness || ''),
+          width: String(l.width || ''),
+          length: String(l.length || l.meter || ''),
           netto: parseFloat(l.netto || l.berat || 0) || 0,
           core: l.paperCore ? (l.paperCore.includes('3') ? 3 : 6) : 6,
           treatment: l.treatment || 'INSIDE',
@@ -381,9 +406,34 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       const now = new Date().toISOString();
       const uploadUuid = 'upload_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
       
-      const sanitized = parsedItems.map(item => ({
+      // Filter out any ghost, empty, or header rows
+      const validItems = (parsedItems || []).filter(item => {
+        if (!item) return false;
+        const lot = String(item.lot || item.fullLot || item.kodeFg || '').trim();
+        const spk = String(item.spk || '').trim();
+        const w = parseFloat(item.width || 0);
+        const l = parseFloat(item.length || 0);
+
+        if (/^(total|grand total|subtotal|sub total|jumlah|no lot|kode fg|deskripsi)$/i.test(lot)) return false;
+        if (/^(total|grand total|subtotal|sub total|jumlah)$/i.test(spk)) return false;
+
+        const hasLot = lot.length >= 2 && !/^0+$/.test(lot) && lot !== '-';
+        const hasSpk = spk.length >= 2 && !/^0+$/.test(spk) && spk !== '-';
+        if (!hasLot && !hasSpk) return false;
+        if (!hasLot && w <= 0 && l <= 0) return false;
+        return true;
+      });
+
+      if (validItems.length === 0) {
+        return { success: false, error: 'Tidak ada baris data roll yang valid ditemukan.' };
+      }
+
+      const sanitized = validItems.map(item => ({
         ...item,
         uploadId: uploadUuid,
+        verified: 1,
+        verifiedAt: item.verifiedAt || now,
+        verifiedBy: meta.uploadedBy || 'Import Excel',
         createdAt: item.createdAt || now,
         updatedAt: now
       }));
@@ -432,7 +482,9 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
           holdCount: hCount,
           rejectCount: rCount,
           uploadedBy: meta.uploadedBy || 'Admin / Operator',
-          status: 'SUCCESS',
+          status: 'VERIFIED',
+          verifiedAt: now,
+          verifiedBy: meta.uploadedBy || 'Import Excel',
           rollsJson: JSON.stringify(sampleRolls),
           createdAt: now,
           updatedAt: now
@@ -560,8 +612,8 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     }
   };
 
-  // Export to Excel
-  const exportToExcel = (itemsToExport = null, customFileName = null) => {
+  // Export to Excel & Auto-record as Verified Batch
+  const exportToExcel = async (itemsToExport = null, customFileName = null) => {
     const list = itemsToExport || filteredRolls.value;
     if (!list || list.length === 0) return;
 
@@ -599,6 +651,42 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = customFileName || `Data_Roll_Identitas_${dateStr}.xlsx`;
     XLSX.writeFile(workbook, fileName);
+
+    // Auto-record export into db.data_roll_uploads as a verified batch
+    try {
+      if (db.data_roll_uploads) {
+        const now = new Date().toISOString();
+        const exportUuid = 'batch_export_' + Date.now();
+        const totalRollsCount = list.length;
+        const totalKgCount = parseFloat(list.reduce((sum, r) => sum + (parseFloat(r.netto || r.berat || 0) || 0), 0).toFixed(2));
+        const pCount = list.filter(r => (r.qualityStatus || r.status || 'PASS').toUpperCase() === 'PASS').length;
+        const hCount = list.filter(r => (r.qualityStatus || r.status || '').toUpperCase() === 'HOLD').length;
+        const rCount = list.filter(r => (r.qualityStatus || r.status || '').toUpperCase() === 'REJECT').length;
+        const machine = list[0]?.machineName || list[0]?.mesin || (list[0]?.slitting ? 'SLITTING' : (list[0]?.rewind ? 'REWIND' : 'ALL'));
+
+        await db.data_roll_uploads.add({
+          uuid: exportUuid,
+          uploadDate: now,
+          batchName: customFileName ? `Export Data Roll: ${customFileName}` : `Batch Export Data Roll (${new Date().toLocaleDateString('id-ID')})`,
+          source: 'Export Excel Data Roll',
+          fileName: fileName,
+          machine: machine,
+          totalRolls: totalRollsCount,
+          totalKg: totalKgCount,
+          passCount: pCount,
+          holdCount: hCount,
+          rejectCount: rCount,
+          uploadedBy: 'Data Roll Export',
+          status: 'VERIFIED',
+          rollsJson: JSON.stringify(list.length > 5000 ? list.slice(0, 1000) : list),
+          createdAt: now,
+          updatedAt: now
+        });
+        await loadUploadHistory();
+      }
+    } catch (err) {
+      console.warn('Failed to auto-record export batch:', err);
+    }
   };
 
   return {
