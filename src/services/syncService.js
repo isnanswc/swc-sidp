@@ -147,6 +147,72 @@ function mapSpkPlanFromSupabase(s) {
   };
 }
 
+// Map Data Rolls
+function mapDataRollToSupabase(r) {
+  return {
+    uuid: r.uuid || `roll_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    upload_id: r.uploadId || '',
+    batch_id: r.batchId || '',
+    kode_fg: r.kodeFg || '',
+    lot: r.lot || '',
+    turunan: r.turunan || '',
+    jenis: r.jenis || '',
+    kode_formula: r.kodeFormula || '',
+    thickness: parseFloat(r.thickness) || 0,
+    width: parseFloat(r.width) || 0,
+    length: parseFloat(r.length) || 0,
+    core: parseFloat(r.core) || 6,
+    treatment: r.treatment || '',
+    od: r.od || '',
+    slitting: String(r.slitting || ''),
+    rewind: String(r.rewind || ''),
+    sml: String(r.sml || ''),
+    machine_name: r.machineName || '',
+    tanggal: r.tanggal || '',
+    tanggal_formatted: r.tanggalFormatted || '',
+    spk: r.spk || '',
+    kode_pack: r.kodePack || '',
+    sub_kode: r.subKode || '',
+    quality_status: r.qualityStatus || r.status || 'PASS',
+    verified: Boolean(r.verified),
+    is_deleted: false,
+    created_at: r.createdAt || new Date().toISOString(),
+    updated_at: r.updatedAt || new Date().toISOString()
+  };
+}
+
+function mapDataRollFromSupabase(s) {
+  return {
+    uuid: s.uuid,
+    uploadId: s.upload_id,
+    batchId: s.batch_id,
+    kodeFg: s.kode_fg,
+    lot: s.lot,
+    turunan: s.turunan,
+    jenis: s.jenis,
+    kodeFormula: s.kode_formula,
+    thickness: s.thickness,
+    width: s.width,
+    length: s.length,
+    core: s.core,
+    treatment: s.treatment,
+    od: s.od,
+    slitting: s.slitting === '1' || s.slitting === 1 ? 1 : 0,
+    rewind: s.rewind === '1' || s.rewind === 1 ? 1 : 0,
+    sml: s.sml === '1' || s.sml === 1 ? 1 : 0,
+    machineName: s.machine_name,
+    tanggal: s.tanggal,
+    tanggalFormatted: s.tanggal_formatted,
+    spk: s.spk,
+    kodePack: s.kode_pack,
+    subKode: s.sub_kode,
+    qualityStatus: s.quality_status,
+    verified: s.verified ? 1 : 0,
+    createdAt: s.created_at,
+    updatedAt: s.updated_at
+  };
+}
+
 // 1. PUSH: Kirim data lokal yang belum tersinkron ke Supabase (PARALLEL & BULK)
 export async function pushLocalToSupabase() {
   if (!navigator.onLine) return;
@@ -203,6 +269,21 @@ export async function pushLocalToSupabase() {
         if (allPlans.length > 0) {
           const payload = allPlans.map(mapSpkPlanToSupabase);
           await supabase.from('spk_plans').upsert(payload, { onConflict: 'uuid' });
+        }
+      })());
+    }
+
+    // 1c-2. Data Rolls Sync (Chunked Bulk Upsert for Thousands of Rolls)
+    if (db.data_rolls) {
+      tasks.push((async () => {
+        const allRolls = await db.data_rolls.toArray();
+        if (allRolls.length > 0) {
+          const CHUNK = 500;
+          for (let i = 0; i < allRolls.length; i += CHUNK) {
+            const chunk = allRolls.slice(i, i + CHUNK);
+            const payload = chunk.map(mapDataRollToSupabase);
+            await supabase.from('data_rolls').upsert(payload, { onConflict: 'uuid' });
+          }
         }
       })());
     }
@@ -455,6 +536,39 @@ export async function pullFromSupabase() {
           await db.transaction('rw', db.spk_plans, async () => {
             if (toUpdate.length > 0) await db.spk_plans.bulkPut(toUpdate);
             if (toAdd.length > 0) await db.spk_plans.bulkAdd(toAdd);
+          });
+        }
+      })());
+    }
+
+    // Pull Data Rolls
+    if (db.data_rolls) {
+      pullTasks.push((async () => {
+        const { data: cloudRolls } = await supabase
+          .from('data_rolls')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10000);
+
+        if (cloudRolls && cloudRolls.length > 0) {
+          const existingLocal = await db.data_rolls.toArray();
+          const localMap = new Map(existingLocal.map(r => [r.uuid, r.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
+          for (const cr of cloudRolls) {
+            const mapped = mapDataRollFromSupabase(cr);
+            const localId = localMap.get(cr.uuid);
+            if (localId) {
+              toUpdate.push({ ...mapped, id: localId });
+            } else {
+              toAdd.push(mapped);
+            }
+          }
+
+          await db.transaction('rw', db.data_rolls, async () => {
+            if (toUpdate.length > 0) await db.data_rolls.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.data_rolls.bulkAdd(toAdd);
           });
         }
       })());

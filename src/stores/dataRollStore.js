@@ -4,6 +4,7 @@ import { db } from '@/db';
 import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot, parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import { useGlobalLoading } from '@/services/loadingService';
+import { pushLocalToSupabase } from '@/services/syncService';
 
 export const useDataRollStore = defineStore('dataRollStore', () => {
   const rolls = ref([]);
@@ -499,6 +500,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
 
       await loadRolls();
       await loadUploadHistory();
+      pushLocalToSupabase().catch(() => {});
       return { success: true, count: sanitized.length };
     } catch (e) {
       console.error('Failed to import rolls:', e);
