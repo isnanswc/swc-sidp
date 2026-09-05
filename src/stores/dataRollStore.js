@@ -4,7 +4,7 @@ import { db } from '@/db';
 import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot, parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import { useGlobalLoading } from '@/services/loadingService';
-import { pushLocalToSupabase } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase } from '@/services/syncService';
 
 export const useDataRollStore = defineStore('dataRollStore', () => {
   const rolls = ref([]);
@@ -522,6 +522,8 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         if (item && item.uuid) {
           // 1. Delete all rolls with this uploadId from db.data_rolls
           await db.data_rolls.where('uploadId').equals(item.uuid).delete();
+          // Sync delete batch rolls from Supabase
+          deleteFromSupabase('data_rolls', 'upload_id', item.uuid).catch(() => {});
 
           // 2. If it is a DE Report Batch (uuid starts with 'de_'), remove matching labels from db.labels
           if (item.uuid.startsWith('de_') && db.labels) {
@@ -532,7 +534,11 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
               const matchingLabels = await db.labels.filter(l => l.tanggal === bDate && (l.mesin || 'SLITTING').toUpperCase() === bMesin).toArray();
               if (matchingLabels.length > 0) {
                 const labelIds = matchingLabels.map(l => l.id);
+                const uniqIds = matchingLabels.map(l => l.uniqId).filter(Boolean);
                 await db.labels.bulkDelete(labelIds);
+                if (uniqIds.length > 0) {
+                  deleteMultipleFromSupabase('labels', 'uniq_id', uniqIds).catch(() => {});
+                }
               }
             }
           }
@@ -590,7 +596,12 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   // Delete roll
   const deleteRoll = async (id) => {
     try {
+      const roll = await db.data_rolls.get(id);
+      const uuid = roll?.uuid;
       await db.data_rolls.delete(id);
+      if (uuid) {
+        deleteFromSupabase('data_rolls', 'uuid', uuid).catch(() => {});
+      }
       await loadRolls();
     } catch (e) {
       console.error('Failed to delete roll:', e);
@@ -601,7 +612,12 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   // Delete multiple rolls
   const deleteMultiple = async (ids) => {
     try {
+      const rollsToDelete = await db.data_rolls.where('id').anyOf(ids).toArray();
+      const uuids = rollsToDelete.map(r => r.uuid).filter(Boolean);
       await db.data_rolls.bulkDelete(ids);
+      if (uuids.length > 0) {
+        deleteMultipleFromSupabase('data_rolls', 'uuid', uuids).catch(() => {});
+      }
       await loadRolls();
     } catch (e) {
       console.error('Failed to delete multiple rolls:', e);

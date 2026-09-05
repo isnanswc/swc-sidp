@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { db, getSetting, saveSetting } from '@/db';
-import { pushLocalToSupabase } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase } from '@/services/syncService';
 
 // ── DEFAULT SEED DATA ──────────────────────────────────────────────────────────
 
@@ -664,9 +664,12 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     async deleteFilmConfig(id) {
+      const item = await db.film_configs.get(id);
       await db.film_configs.delete(id);
       this.filmConfigs = this.filmConfigs.filter(f => f.id !== id);
-      pushLocalToSupabase().catch(() => {});
+      if (item) {
+        deleteFromSupabase('film_configs', 'kode_formula', item.kodeFormula).catch(() => {});
+      }
     },
 
     // ── OPERATORS CRUD ────────────────────────────────────────────────────────
@@ -706,9 +709,12 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     async deleteOperator(id) {
+      const item = await db.operator_list.get(id);
       await db.operator_list.delete(id);
       this.operatorList = this.operatorList.filter(o => o.id !== id);
-      pushLocalToSupabase().catch(() => {});
+      if (item) {
+        deleteFromSupabase('operator_list', 'nama', item.nama).catch(() => {});
+      }
     },
 
     // ── MESIN CRUD ────────────────────────────────────────────────────────────
@@ -736,9 +742,12 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     async deleteMesin(id) {
+      const item = await db.mesin_list.get(id);
       await db.mesin_list.delete(id);
       this.mesinList = this.mesinList.filter(m => m.id !== id);
-      pushLocalToSupabase().catch(() => {});
+      if (item) {
+        deleteFromSupabase('mesin_list', 'nama', item.nama).catch(() => {});
+      }
     },
 
     // ── LABEL SIGNS CRUD ──────────────────────────────────────────────────────
@@ -805,9 +814,12 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     async deleteLocation(id) {
+      const item = await db.location_list.get(id);
       await db.location_list.delete(id);
       this.locationList = this.locationList.filter(l => l.id !== id);
-      pushLocalToSupabase().catch(() => {});
+      if (item) {
+        deleteFromSupabase('location_list', 'nama', item.nama).catch(() => {});
+      }
     },
 
     // Shorthand / Alias Normalizer for Locations
@@ -962,9 +974,12 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     async deleteStandardLength(id) {
+      const item = await db.standard_lengths.get(id);
       await db.standard_lengths.delete(id);
       this.standardLengthList = this.standardLengthList.filter(i => i.id !== id);
-      pushLocalToSupabase().catch(() => {});
+      if (item) {
+        deleteFromSupabase('standard_lengths', 'thickness', item.thickness).catch(() => {});
+      }
     },
 
     // ── RESIN ITEMS CRUD ──────────────────────────────────────────────────────
@@ -1006,9 +1021,12 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     async deleteResinItem(id) {
+      const item = await db.resin_items.get(id);
       await db.resin_items.delete(id);
       this.resinItemList = this.resinItemList.filter(i => i.id !== id);
-      pushLocalToSupabase().catch(() => {});
+      if (item) {
+        deleteFromSupabase('resin_items', 'resin', item.resin).catch(() => {});
+      }
     },
 
     // ── BOM FORMULAS CRUD ─────────────────────────────────────────────────────
@@ -1049,9 +1067,12 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     async deleteBomFormula(id) {
+      const item = await db.bom_formulas.get(id);
       await db.bom_formulas.delete(id);
       this.bomFormulaList = this.bomFormulaList.filter(i => i.id !== id);
-      pushLocalToSupabase().catch(() => {});
+      if (item) {
+        deleteFromSupabase('bom_formulas', 'formula', item.formula).catch(() => {});
+      }
     },
 
     // ── GENERIC LIST ITEM CRUD ────────────────────────────────────────────────

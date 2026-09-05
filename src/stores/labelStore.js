@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
 import { useGlobalLoading } from '@/services/loadingService';
-import { pushLocalToSupabase } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase } from '@/services/syncService';
 
 export const useLabelStore = defineStore('labelStore', {
   state: () => ({
@@ -482,14 +482,24 @@ export const useLabelStore = defineStore('labelStore', {
 
       // 1. Jika data bersumber dari data_rolls, hapus permanen dari db.data_rolls
       if (isRoll && rollId && db.data_rolls) {
+        const rollObj = await db.data_rolls.get(rollId);
+        const rUuid = rollObj?.uuid || item?.uniqId;
         await db.data_rolls.delete(rollId);
+        if (rUuid) {
+          deleteFromSupabase('data_rolls', 'uuid', rUuid).catch(() => {});
+        }
       }
 
       // 2. Hapus dari db.labels jika tersimpan di sana
+      const targetUniqId = item?.uniqId;
       if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
         await db.labels.delete(id);
+        if (targetUniqId) {
+          deleteFromSupabase('labels', 'uniq_id', targetUniqId).catch(() => {});
+        }
       } else if (item && item.uniqId) {
         await db.labels.where('uniqId').equals(item.uniqId).delete();
+        deleteFromSupabase('labels', 'uniq_id', item.uniqId).catch(() => {});
       }
 
       // 3. Hapus dari state lokal
@@ -503,6 +513,8 @@ export const useLabelStore = defineStore('labelStore', {
     async deleteSelectedLabels(ids) {
       const regularLabelIds = [];
       const rollIds = [];
+      const labelUniqIds = [];
+      const rollUuids = [];
 
       for (const id of ids) {
         const item = this.labels.find(l => l.id === id);
@@ -511,17 +523,29 @@ export const useLabelStore = defineStore('labelStore', {
 
         if (isRoll && rollId) {
           rollIds.push(rollId);
+          if (item?.uniqId) rollUuids.push(item.uniqId);
         } else if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
           regularLabelIds.push(id);
+          if (item?.uniqId) labelUniqIds.push(item.uniqId);
         }
       }
 
       // Hapus dari kedua tabel IndexedDB secara permanen
       if (regularLabelIds.length > 0) {
         await db.labels.bulkDelete(regularLabelIds);
+        if (labelUniqIds.length > 0) {
+          deleteMultipleFromSupabase('labels', 'uniq_id', labelUniqIds).catch(() => {});
+        }
       }
       if (rollIds.length > 0 && db.data_rolls) {
+        // Cari uuid yang mungkin belum ada di labelUniqIds
+        const rolls = await db.data_rolls.where('id').anyOf(rollIds).toArray();
+        const foundUuids = rolls.map(r => r.uuid).filter(Boolean);
+        const allRollUuids = [...new Set([...rollUuids, ...foundUuids])];
         await db.data_rolls.bulkDelete(rollIds);
+        if (allRollUuids.length > 0) {
+          deleteMultipleFromSupabase('data_rolls', 'uuid', allRollUuids).catch(() => {});
+        }
       }
 
       const idSet = new Set(ids);

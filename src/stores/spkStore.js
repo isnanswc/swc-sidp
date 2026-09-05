@@ -50,7 +50,7 @@ import { db } from '@/db';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
-import { pushLocalToSupabase } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase } from '@/services/syncService';
 import { extractCleanParentLot } from '@/services/dataRollParserService';
 export const evaluateTargetStatus = (actualRoll, planRoll, isSkipped = false) => {
   if (isSkipped) {
@@ -292,6 +292,7 @@ export const useSpkStore = defineStore('spk', () => {
       const b = await db.spk_batches.where('uuid').equals(batchUuid).first();
       if (b) await db.spk_batches.delete(b.id);
       batches.value = batches.value.filter(b => b.uuid !== batchUuid);
+      deleteFromSupabase('spk_batches', 'uuid', batchUuid).catch(() => {});
     }
     if (db.spk_plans) {
       const childPlans = await db.spk_plans.where('batchId').equals(batchUuid).toArray();
@@ -299,6 +300,7 @@ export const useSpkStore = defineStore('spk', () => {
         await db.spk_plans.bulkDelete(childPlans.map(c => c.id));
         plans.value = plans.value.filter(p => p.batchId !== batchUuid);
       }
+      deleteFromSupabase('spk_plans', 'batch_id', batchUuid).catch(() => {});
     }
     if (selectedBatchId.value === batchUuid) {
       selectedBatchId.value = null;
@@ -403,8 +405,13 @@ export const useSpkStore = defineStore('spk', () => {
   // Delete Plan
   const deletePlan = async (id) => {
     if (db.spk_plans) {
+      const plan = await db.spk_plans.get(id);
+      const uuid = plan?.uuid;
       await db.spk_plans.delete(id);
       plans.value = plans.value.filter(p => p.id !== id);
+      if (uuid) {
+        deleteFromSupabase('spk_plans', 'uuid', uuid).catch(() => {});
+      }
     }
   };
 

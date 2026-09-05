@@ -213,6 +213,37 @@ function mapDataRollFromSupabase(s) {
   };
 }
 
+// ── SYNC DELETES: Hapus data dari Supabase agar tidak ditarik kembali ──────────
+export async function deleteFromSupabase(table, column, value) {
+  if (!navigator.onLine || !value) return;
+  try {
+    const { error } = await supabase.from(table).delete().eq(column, value);
+    if (error) {
+      console.warn(`[SyncDelete] Gagal hapus dari ${table} (${column} = ${value}):`, error.message);
+    } else {
+      console.log(`[SyncDelete] Berhasil hapus dari ${table} (${column} = ${value})`);
+    }
+  } catch (err) {
+    console.warn(`[SyncDelete] Error saat hapus dari ${table}:`, err);
+  }
+}
+
+export async function deleteMultipleFromSupabase(table, column, values) {
+  if (!navigator.onLine || !Array.isArray(values) || values.length === 0) return;
+  try {
+    const CHUNK = 500;
+    for (let i = 0; i < values.length; i += CHUNK) {
+      const chunk = values.slice(i, i + CHUNK);
+      const { error } = await supabase.from(table).delete().in(column, chunk);
+      if (error) {
+        console.warn(`[SyncDelete] Gagal bulk delete dari ${table}:`, error.message);
+      }
+    }
+  } catch (err) {
+    console.warn(`[SyncDelete] Error saat bulk delete dari ${table}:`, err);
+  }
+}
+
 // 1. PUSH: Kirim data lokal yang belum tersinkron ke Supabase (PARALLEL & BULK)
 export async function pushLocalToSupabase() {
   if (!navigator.onLine) return;
@@ -950,8 +981,20 @@ export function startRealtimeSync(onDataChangeCallback) {
         } else {
           await db.spk_plans.add(plan);
         }
+      } else if (payload.eventType === 'DELETE' && payload.old) {
+        const existing = await db.spk_plans.where('uuid').equals(payload.old.uuid).first();
+        if (existing) await db.spk_plans.delete(existing.id);
       }
       if (onDataChangeCallback) onDataChangeCallback('spk_plans');
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'data_rolls' }, async (payload) => {
+      if (payload.eventType === 'DELETE' && payload.old) {
+        const existing = await db.data_rolls.where('uuid').equals(payload.old.uuid).first();
+        if (existing) {
+          await db.data_rolls.delete(existing.id);
+          if (onDataChangeCallback) onDataChangeCallback('data_rolls');
+        }
+      }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'film_configs' }, () => {
       debouncedPull(onDataChangeCallback, 'film_configs');
