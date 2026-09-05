@@ -411,7 +411,11 @@ export const useLabelStore = defineStore('labelStore', {
         this.labels = [];
         this.selectedIds.clear();
         this.currentPage = 1;
-        supabase.from('labels').delete().neq('uniq_id', 'keep_all').catch(() => {});
+        try {
+          await supabase.from('labels').delete().neq('uniq_id', 'keep_all');
+        } catch (errCloud) {
+          console.warn('Supabase clear labels warning:', errCloud);
+        }
       } finally {
         this.loading = false;
       }

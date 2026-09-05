@@ -707,7 +707,11 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       uploadHistory.value = [];
 
       // 6. Delete all from Supabase data_rolls
-      supabase.from('data_rolls').delete().neq('uuid', 'keep_all').catch(() => {});
+      try {
+        await supabase.from('data_rolls').delete().neq('uuid', 'keep_all');
+      } catch (errCloud) {
+        console.warn('Supabase clear data_rolls warning:', errCloud);
+      }
     } catch (e) {
       console.error('Failed to clear data_rolls:', e);
       throw e;
