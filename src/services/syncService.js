@@ -216,8 +216,8 @@ function mapDataRollFromSupabase(s) {
 }
 
 // ── TOMBSTONES: Cegah data yang sudah dihapus diunggah kembali (resurrect loop) ──
-const TOMBSTONE_MAX = 1000;
-function getTombstones(key) {
+const TOMBSTONE_MAX = 50000;
+export function getTombstones(key) {
   try {
     const raw = localStorage.getItem(`mlabel_deleted_${key}`);
     return raw ? JSON.parse(raw) : [];

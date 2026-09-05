@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
 import { useGlobalLoading } from '@/services/loadingService';
-import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones } from '@/services/syncService';
+import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones } from '@/services/syncService';
 
 export const useLabelStore = defineStore('labelStore', {
   state: () => ({
@@ -313,14 +313,20 @@ export const useLabelStore = defineStore('labelStore', {
           };
         });
 
+        const deletedLabelSet = new Set(getTombstones('labels'));
+        const deletedRollSet = new Set(getTombstones('data_rolls'));
+
+        // Filter out any standardLabels that are tombstoned
+        const cleanStandardLabels = standardLabels.filter(l => !l.uniqId || (!deletedLabelSet.has(l.uniqId) && !deletedRollSet.has(l.uniqId)));
+
         // Load and map all imported Data Rolls (db.data_rolls) so they are available for re-printing
         let mappedDataRolls = [];
         if (db.data_rolls) {
           const rawDataRolls = await db.data_rolls.toArray();
-          const existingUuids = new Set(standardLabels.map(l => l.uniqId || l.uuid));
+          const existingUuids = new Set(cleanStandardLabels.map(l => l.uniqId || l.uuid));
 
           mappedDataRolls = rawDataRolls
-            .filter(r => !existingUuids.has(r.uuid))
+            .filter(r => !existingUuids.has(r.uuid) && (!r.uuid || !deletedRollSet.has(r.uuid)))
             .map(r => {
               const lot = r.lot || '';
               const turunan = r.turunan || '';
@@ -383,7 +389,7 @@ export const useLabelStore = defineStore('labelStore', {
             });
         }
 
-        this.labels = [...standardLabels, ...mappedDataRolls];
+        this.labels = [...cleanStandardLabels, ...mappedDataRolls];
       } catch (err) {
         console.error('Failed to load labels:', err);
       } finally {

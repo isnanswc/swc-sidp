@@ -4,7 +4,7 @@ import { db } from '@/db';
 import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot, parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import { useGlobalLoading } from '@/services/loadingService';
-import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones } from '@/services/syncService';
+import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones } from '@/services/syncService';
 
 export const useDataRollStore = defineStore('dataRollStore', () => {
   const rolls = ref([]);
@@ -231,13 +231,30 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         });
       }
 
-      // Combine both sources, avoiding duplicate UUIDs / IDs
+      // Combine both sources, avoiding duplicate UUIDs / IDs and filtering out deleted/tombstoned rolls
+      const deletedRollSet = new Set(getTombstones('data_rolls'));
+      const deletedLabelSet = new Set(getTombstones('labels'));
+
       const combinedMap = new Map();
+      const orphanedExplicitIds = [];
       for (const r of explicitRolls) {
+        if (r.uuid && deletedRollSet.has(r.uuid)) {
+          if (r.id) orphanedExplicitIds.push(r.id);
+          continue;
+        }
         const key = r.uuid || (r.id ? `dr_${r.id}` : `${r.lot}_${r.turunan}_${r.kodePack}_${r.subKode}_${Math.random()}`);
         combinedMap.set(key, r);
       }
+
+      // Cleanup local database from any dead explicit rolls asynchronously
+      if (orphanedExplicitIds.length > 0 && db.data_rolls) {
+        db.data_rolls.bulkDelete(orphanedExplicitIds).catch(() => {});
+      }
+
       for (const r of deRolls) {
+        if (r.uuid && (deletedRollSet.has(r.uuid) || deletedLabelSet.has(r.uuid))) {
+          continue;
+        }
         const key = r.uuid || `de_${r.originalLabelId || r.id}`;
         if (!combinedMap.has(key)) {
           combinedMap.set(key, r);
@@ -644,18 +661,58 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   // Clear all rolls
   const clearAll = async () => {
     try {
-      const allExisting = await db.data_rolls.toArray();
-      const existingUuids = allExisting.map(r => r.uuid).filter(Boolean);
-      if (existingUuids.length > 0) {
-        recordTombstones('data_rolls', existingUuids);
+      loading.value = true;
+      // 1. Gather all existing UUIDs from rolls currently displayed
+      const currentUuids = rolls.value.map(r => r.uuid).filter(Boolean);
+      const deLabelIds = [];
+      const deLabelUniqIds = [];
+
+      for (const r of rolls.value) {
+        if (r.source === 'DE Report' || (typeof r.id === 'string' && r.id.startsWith('de_label_')) || r.originalLabelId) {
+          const lId = r.originalLabelId || (typeof r.id === 'string' ? parseInt(r.id.replace('de_label_', ''), 10) : null);
+          if (lId) deLabelIds.push(lId);
+          if (r.uuid) deLabelUniqIds.push(r.uuid);
+        }
       }
-      await db.data_rolls.clear();
+
+      // 2. Also gather all UUIDs from db.data_rolls directly
+      const allExisting = db.data_rolls ? await db.data_rolls.toArray() : [];
+      const explicitUuids = allExisting.map(r => r.uuid).filter(Boolean);
+
+      const allRollUuids = [...new Set([...currentUuids, ...explicitUuids])];
+      if (allRollUuids.length > 0) {
+        recordTombstones('data_rolls', allRollUuids);
+      }
+      if (deLabelUniqIds.length > 0) {
+        recordTombstones('labels', deLabelUniqIds);
+      }
+
+      // 3. Clear local db.data_rolls
+      if (db.data_rolls) {
+        await db.data_rolls.clear();
+      }
+
+      // 4. Delete matching DE labels if user wants full wipe
+      if (deLabelIds.length > 0 && db.labels) {
+        await db.labels.bulkDelete(deLabelIds);
+        deleteMultipleFromSupabase('labels', 'uniq_id', deLabelUniqIds).catch(() => {});
+      }
+
+      // 5. Clear batch uploads if any
+      if (db.data_roll_uploads) {
+        await db.data_roll_uploads.clear();
+      }
+
       rolls.value = [];
-      // Clean up in Supabase
+      uploadHistory.value = [];
+
+      // 6. Delete all from Supabase data_rolls
       supabase.from('data_rolls').delete().neq('uuid', 'keep_all').catch(() => {});
     } catch (e) {
       console.error('Failed to clear data_rolls:', e);
       throw e;
+    } finally {
+      loading.value = false;
     }
   };
 

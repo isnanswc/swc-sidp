@@ -180,13 +180,47 @@
             @click="handleBulkDelete"
             class="px-3 py-1.5 text-xs font-bold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl cursor-pointer transition-colors flex items-center gap-1"
           >
-            <span>🗑️ ({{ selectedRollIds.length }})</span>
+            <span>🗑️ Hapus ({{ selectedRollIds.length }})</span>
+          </button>
+
+          <button
+            v-if="dataRollStore.totalRolls > 0"
+            @click="handleClearAllRolls"
+            class="px-3 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
+            title="Hapus seluruh data roll secara permanen"
+          >
+            <span>🔥 Hapus Semua Data Roll</span>
           </button>
         </div>
       </div>
 
       <!-- Main Data Table -->
       <div class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+        <!-- Banner Pilih Semua Data di Seluruh Halaman -->
+        <div
+          v-if="selectedRollIds.length > 0 && dataRollStore.filteredRolls.length > paginatedRolls.length"
+          class="bg-indigo-50/90 border-b border-indigo-200 px-4 py-2 text-center text-xs text-indigo-900 font-medium flex items-center justify-center gap-2"
+        >
+          <span v-if="!isAllFilteredSelected">
+            {{ selectedRollIds.length }} roll terpilih di halaman ini.
+            <button
+              @click="selectAllFilteredRolls"
+              class="font-black text-indigo-700 underline hover:text-indigo-900 ml-1 cursor-pointer"
+            >
+              Pilih semua {{ dataRollStore.filteredRolls.length.toLocaleString() }} data roll
+            </button>
+          </span>
+          <span v-else>
+            ✅ Semua <strong>{{ dataRollStore.filteredRolls.length.toLocaleString() }} data roll</strong> telah terpilih.
+            <button
+              @click="clearSelection"
+              class="font-black text-red-600 underline hover:text-red-800 ml-1 cursor-pointer"
+            >
+              Batalkan pilihan
+            </button>
+          </span>
+        </div>
+
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse">
             <thead>
@@ -2387,6 +2421,10 @@ const isAllSelected = computed(() => {
   return paginatedRolls.value.length > 0 && paginatedRolls.value.every(r => selectedRollIds.value.includes(r.id));
 });
 
+const isAllFilteredSelected = computed(() => {
+  return dataRollStore.filteredRolls.length > 0 && selectedRollIds.value.length === dataRollStore.filteredRolls.length;
+});
+
 const toggleSelectAll = () => {
   if (isAllSelected.value) {
     const currentIds = paginatedRolls.value.map(r => r.id);
@@ -2395,6 +2433,14 @@ const toggleSelectAll = () => {
     const currentIds = paginatedRolls.value.map(r => r.id);
     selectedRollIds.value = [...new Set([...selectedRollIds.value, ...currentIds])];
   }
+};
+
+const selectAllFilteredRolls = () => {
+  selectedRollIds.value = dataRollStore.filteredRolls.map(r => r.id);
+};
+
+const clearSelection = () => {
+  selectedRollIds.value = [];
 };
 
 // =========================================================================
@@ -2749,6 +2795,14 @@ const deleteSingleRoll = async (id) => {
 const handleBulkDelete = async () => {
   if (confirm(`Hapus ${selectedRollIds.value.length} roll terpilih?`)) {
     await dataRollStore.deleteMultiple(selectedRollIds.value);
+    selectedRollIds.value = [];
+  }
+};
+
+const handleClearAllRolls = async () => {
+  const count = dataRollStore.totalRolls;
+  if (confirm(`PERINGATAN: Apakah Anda yakin ingin menghapus SEMUA (${count.toLocaleString()}) data roll secara permanen dari perangkat dan cloud? Tindakan ini tidak dapat dibatalkan.`)) {
+    await dataRollStore.clearAll();
     selectedRollIds.value = [];
   }
 };
