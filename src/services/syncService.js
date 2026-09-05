@@ -147,178 +147,201 @@ function mapSpkPlanFromSupabase(s) {
   };
 }
 
-// 1. PUSH: Kirim data lokal yang belum tersinkron (synced === 0) ke Supabase
+// 1. PUSH: Kirim data lokal yang belum tersinkron ke Supabase (PARALLEL & BULK)
 export async function pushLocalToSupabase() {
   if (!navigator.onLine) return;
   syncState.isSyncing = true;
   syncState.lastError = null;
 
   try {
-    // 1a. Labels Sync
-    if (db.labels) {
-      const unsyncedLabels = await db.labels.filter(l => l.synced === 0 || !l.synced).toArray();
-      if (unsyncedLabels.length > 0) {
-        const payload = unsyncedLabels.map(mapLabelToSupabase);
-        const { error } = await supabase.from('labels').upsert(payload, { onConflict: 'uniq_id' });
-        if (error) throw error;
+    const tasks = [];
 
-        // Mark as synced locally
-        await db.transaction('rw', db.labels, async () => {
-          for (const l of unsyncedLabels) {
-            await db.labels.update(l.id, { synced: 1 });
-          }
-        });
-      }
+    // 1a. Labels Sync (Hanya yang belum synced)
+    if (db.labels) {
+      tasks.push((async () => {
+        const unsyncedLabels = await db.labels.filter(l => l.synced === 0 || !l.synced).toArray();
+        if (unsyncedLabels.length > 0) {
+          const payload = unsyncedLabels.map(mapLabelToSupabase);
+          const { error } = await supabase.from('labels').upsert(payload, { onConflict: 'uniq_id' });
+          if (error) throw error;
+
+          await db.transaction('rw', db.labels, async () => {
+            for (const l of unsyncedLabels) {
+              await db.labels.update(l.id, { synced: 1 });
+            }
+          });
+        }
+      })());
     }
 
     // 1b. SPK Batches Sync
     if (db.spk_batches) {
-      const allBatches = await db.spk_batches.toArray();
-      if (allBatches.length > 0) {
-        const payload = allBatches.map(b => ({
-          uuid: b.uuid,
-          batch_name: b.batchName,
-          doc_no: b.docNo || '3B-PROD',
-          tanggal: b.tanggal,
-          total_items: b.totalItems || 0,
-          total_jumbo: b.totalJumbo || 0,
-          total_meter: b.totalMeter || 0,
-          source: b.source || 'AI_SCAN',
-          created_at: b.createdAt || new Date().toISOString(),
-          updated_at: b.updatedAt || new Date().toISOString()
-        }));
-        await supabase.from('spk_batches').upsert(payload, { onConflict: 'uuid' });
-      }
+      tasks.push((async () => {
+        const allBatches = await db.spk_batches.toArray();
+        if (allBatches.length > 0) {
+          const payload = allBatches.map(b => ({
+            uuid: b.uuid,
+            batch_name: b.batchName,
+            doc_no: b.docNo || '3B-PROD',
+            tanggal: b.tanggal,
+            total_items: b.totalItems || 0,
+            total_jumbo: b.totalJumbo || 0,
+            total_meter: b.totalMeter || 0,
+            source: b.source || 'AI_SCAN',
+            created_at: b.createdAt || new Date().toISOString(),
+            updated_at: b.updatedAt || new Date().toISOString()
+          }));
+          await supabase.from('spk_batches').upsert(payload, { onConflict: 'uuid' });
+        }
+      })());
     }
 
     // 1c. SPK Plans Sync
     if (db.spk_plans) {
-      const allPlans = await db.spk_plans.toArray();
-      if (allPlans.length > 0) {
-        const payload = allPlans.map(mapSpkPlanToSupabase);
-        await supabase.from('spk_plans').upsert(payload, { onConflict: 'uuid' });
-      }
+      tasks.push((async () => {
+        const allPlans = await db.spk_plans.toArray();
+        if (allPlans.length > 0) {
+          const payload = allPlans.map(mapSpkPlanToSupabase);
+          await supabase.from('spk_plans').upsert(payload, { onConflict: 'uuid' });
+        }
+      })());
     }
 
     // 1d. Operator List Sync
     if (db.operator_list) {
-      const operators = await db.operator_list.toArray();
-      if (operators.length > 0) {
-        const payload = operators.map(o => ({
-          nama: o.nama,
-          mesin: o.mesin || '',
-          kode_grup: o.kodeGrup || '',
-          kode_operator: o.kodeOperator || '',
-          active: o.active !== false,
-          created_at: o.createdAt || new Date().toISOString(),
-          updated_at: o.updatedAt || new Date().toISOString()
-        }));
-        await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
-      }
+      tasks.push((async () => {
+        const operators = await db.operator_list.toArray();
+        if (operators.length > 0) {
+          const payload = operators.map(o => ({
+            nama: o.nama,
+            mesin: o.mesin || '',
+            kode_grup: o.kodeGrup || '',
+            kode_operator: o.kodeOperator || '',
+            active: o.active !== false,
+            created_at: o.createdAt || new Date().toISOString(),
+            updated_at: o.updatedAt || new Date().toISOString()
+          }));
+          await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
+        }
+      })());
     }
 
     // 1d-2. Mesin List Sync
     if (db.mesin_list) {
-      const machines = await db.mesin_list.toArray();
-      if (machines.length > 0) {
-        const payload = machines.map(m => ({
-          nama: m.nama,
-          pra_kode_pack: m.praKodePack || '',
-          active: m.active !== false,
-          created_at: m.createdAt || new Date().toISOString()
-        }));
-        await supabase.from('mesin_list').upsert(payload, { onConflict: 'nama' });
-      }
+      tasks.push((async () => {
+        const machines = await db.mesin_list.toArray();
+        if (machines.length > 0) {
+          const payload = machines.map(m => ({
+            nama: m.nama,
+            pra_kode_pack: m.praKodePack || '',
+            active: m.active !== false,
+            created_at: m.createdAt || new Date().toISOString()
+          }));
+          await supabase.from('mesin_list').upsert(payload, { onConflict: 'nama' });
+        }
+      })());
     }
 
     // 1e. Film Configs Sync
     if (db.film_configs) {
-      const films = await db.film_configs.toArray();
-      if (films.length > 0) {
-        const payload = films.map(f => ({
-          jenis: f.jenis,
-          kode_formula: f.kodeFormula,
-          alias: f.alias || '',
-          tipe_bahan: f.tipeBahan || '',
-          jenis_bahan: f.jenisBahan || '',
-          kategori_film: f.kategoriFilm || '',
-          keterangan: f.keterangan || '',
-          supplier: f.supplier || '',
-          density: parseFloat(f.density) || 0.91,
-          active: f.active !== false,
-          created_at: f.createdAt || new Date().toISOString(),
-          updated_at: f.updatedAt || new Date().toISOString()
-        }));
-        await supabase.from('film_configs').upsert(payload, { onConflict: 'jenis,kode_formula' });
-      }
+      tasks.push((async () => {
+        const films = await db.film_configs.toArray();
+        if (films.length > 0) {
+          const payload = films.map(f => ({
+            jenis: f.jenis,
+            kode_formula: f.kodeFormula,
+            alias: f.alias || '',
+            tipe_bahan: f.tipeBahan || '',
+            jenis_bahan: f.jenisBahan || '',
+            kategori_film: f.kategoriFilm || '',
+            keterangan: f.keterangan || '',
+            supplier: f.supplier || '',
+            density: parseFloat(f.density) || 0.91,
+            active: f.active !== false,
+            created_at: f.createdAt || new Date().toISOString(),
+            updated_at: f.updatedAt || new Date().toISOString()
+          }));
+          await supabase.from('film_configs').upsert(payload, { onConflict: 'jenis,kode_formula' });
+        }
+      })());
     }
 
     // 1f. Resin Items Sync
     if (db.resin_items) {
-      const resins = await db.resin_items.toArray();
-      if (resins.length > 0) {
-        const payload = resins.map(r => ({
-          resin: r.resin,
-          kode: r.kode || '',
-          nomor_item: r.nomorItem || '',
-          active: r.active !== false,
-          created_at: r.createdAt || new Date().toISOString(),
-          updated_at: r.updatedAt || new Date().toISOString()
-        }));
-        await supabase.from('resin_items').upsert(payload, { onConflict: 'resin' });
-      }
+      tasks.push((async () => {
+        const resins = await db.resin_items.toArray();
+        if (resins.length > 0) {
+          const payload = resins.map(r => ({
+            resin: r.resin,
+            kode: r.kode || '',
+            nomor_item: r.nomorItem || '',
+            active: r.active !== false,
+            created_at: r.createdAt || new Date().toISOString(),
+            updated_at: r.updatedAt || new Date().toISOString()
+          }));
+          await supabase.from('resin_items').upsert(payload, { onConflict: 'resin' });
+        }
+      })());
     }
 
     // 1g. BOM Formulas Sync
     if (db.bom_formulas) {
-      const boms = await db.bom_formulas.toArray();
-      if (boms.length > 0) {
-        const payload = boms.map(b => ({
-          formula: b.formula,
-          rm: b.rm,
-          persen: parseFloat(b.persen) || 0,
-          active: b.active !== false,
-          created_at: b.createdAt || new Date().toISOString(),
-          updated_at: b.updatedAt || new Date().toISOString()
-        }));
-        await supabase.from('bom_formulas').upsert(payload, { onConflict: 'formula,rm' });
-      }
+      tasks.push((async () => {
+        const boms = await db.bom_formulas.toArray();
+        if (boms.length > 0) {
+          const payload = boms.map(b => ({
+            formula: b.formula,
+            rm: b.rm,
+            persen: parseFloat(b.persen) || 0,
+            active: b.active !== false,
+            created_at: b.createdAt || new Date().toISOString(),
+            updated_at: b.updatedAt || new Date().toISOString()
+          }));
+          await supabase.from('bom_formulas').upsert(payload, { onConflict: 'formula,rm' });
+        }
+      })());
     }
 
     // 1h. Location List Sync
     if (db.location_list) {
-      const locs = await db.location_list.toArray();
-      if (locs.length > 0) {
-        const payload = locs.map(l => ({
-          nama: l.nama,
-          jenis: l.jenis || '',
-          alias: l.alias || '',
-          kapasitas: parseInt(l.kapasitas, 10) || 0,
-          keterangan: l.keterangan || '',
-          active: l.active !== false,
-          created_at: l.createdAt || new Date().toISOString(),
-          updated_at: l.updatedAt || new Date().toISOString()
-        }));
-        await supabase.from('location_list').upsert(payload, { onConflict: 'nama' });
-      }
+      tasks.push((async () => {
+        const locs = await db.location_list.toArray();
+        if (locs.length > 0) {
+          const payload = locs.map(l => ({
+            nama: l.nama,
+            jenis: l.jenis || '',
+            alias: l.alias || '',
+            kapasitas: parseInt(l.kapasitas, 10) || 0,
+            keterangan: l.keterangan || '',
+            active: l.active !== false,
+            created_at: l.createdAt || new Date().toISOString(),
+            updated_at: l.updatedAt || new Date().toISOString()
+          }));
+          await supabase.from('location_list').upsert(payload, { onConflict: 'nama' });
+        }
+      })());
     }
 
     // 1i. Standard Lengths Sync
     if (db.standard_lengths) {
-      const lens = await db.standard_lengths.toArray();
-      if (lens.length > 0) {
-        const payload = lens.map(s => ({
-          thickness: parseFloat(s.thickness),
-          max_panjang_fg: parseFloat(s.maxPanjangFg) || 0,
-          max_panjang_jumbo: parseFloat(s.maxPanjangJumbo) || 0,
-          active: s.active !== false,
-          created_at: s.createdAt || new Date().toISOString(),
-          updated_at: s.updatedAt || new Date().toISOString()
-        }));
-        await supabase.from('standard_lengths').upsert(payload, { onConflict: 'thickness' });
-      }
+      tasks.push((async () => {
+        const lens = await db.standard_lengths.toArray();
+        if (lens.length > 0) {
+          const payload = lens.map(s => ({
+            thickness: parseFloat(s.thickness),
+            max_panjang_fg: parseFloat(s.maxPanjangFg) || 0,
+            max_panjang_jumbo: parseFloat(s.maxPanjangJumbo) || 0,
+            active: s.active !== false,
+            created_at: s.createdAt || new Date().toISOString(),
+            updated_at: s.updatedAt || new Date().toISOString()
+          }));
+          await supabase.from('standard_lengths').upsert(payload, { onConflict: 'thickness' });
+        }
+      })());
     }
 
+    // Jalankan seluruh sync push secara PARALEL
+    await Promise.all(tasks);
     await countUnsynced();
   } catch (err) {
     console.error('Error pushing to Supabase:', err);
@@ -328,86 +351,126 @@ export async function pushLocalToSupabase() {
   }
 }
 
-// 2. PULL: Ambil data terbaru dari Supabase ke lokal Dexie
+// 2. PULL: Ambil data terbaru dari Supabase ke lokal Dexie (PARALLEL & BULK UPSERT)
 export async function pullFromSupabase() {
   if (!navigator.onLine) return;
   syncState.isSyncing = true;
   syncState.lastError = null;
 
   try {
+    const pullTasks = [];
+
     // Pull Labels
-    const { data: cloudLabels, error: lErr } = await supabase
-      .from('labels')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(2000);
+    if (db.labels) {
+      pullTasks.push((async () => {
+        const { data: cloudLabels } = await supabase
+          .from('labels')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(2000);
 
-    if (lErr) throw lErr;
+        if (cloudLabels && cloudLabels.length > 0) {
+          const existingLocal = await db.labels.toArray();
+          const localMap = new Map(existingLocal.map(l => [l.uniqId, l.id]));
+          const toUpdate = [];
+          const toAdd = [];
 
-    if (cloudLabels && cloudLabels.length > 0) {
-      await db.transaction('rw', db.labels, async () => {
-        for (const cl of cloudLabels) {
-          const existing = await db.labels.where('uniqId').equals(cl.uniq_id).first();
-          const mapped = mapLabelFromSupabase(cl);
-          if (existing) {
-            await db.labels.update(existing.id, mapped);
-          } else {
-            await db.labels.add(mapped);
+          for (const cl of cloudLabels) {
+            const mapped = mapLabelFromSupabase(cl);
+            const localId = localMap.get(cl.uniq_id);
+            if (localId) {
+              toUpdate.push({ ...mapped, id: localId });
+            } else {
+              toAdd.push(mapped);
+            }
           }
+
+          await db.transaction('rw', db.labels, async () => {
+            if (toUpdate.length > 0) await db.labels.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.labels.bulkAdd(toAdd);
+          });
         }
-      });
+      })());
     }
 
     // Pull SPK Batches
-    const { data: cloudBatches, error: bErr } = await supabase.from('spk_batches').select('*');
-    if (!bErr && cloudBatches && cloudBatches.length > 0) {
-      await db.transaction('rw', db.spk_batches, async () => {
-        for (const cb of cloudBatches) {
-          const existing = await db.spk_batches.where('uuid').equals(cb.uuid).first();
-          const bRecord = {
-            uuid: cb.uuid,
-            batchName: cb.batch_name,
-            docNo: cb.doc_no,
-            tanggal: cb.tanggal,
-            totalItems: cb.total_items,
-            totalJumbo: cb.total_jumbo,
-            totalMeter: cb.total_meter,
-            source: cb.source,
-            createdAt: cb.created_at,
-            updatedAt: cb.updated_at
-          };
-          if (existing) {
-            await db.spk_batches.update(existing.id, bRecord);
-          } else {
-            await db.spk_batches.add(bRecord);
+    if (db.spk_batches) {
+      pullTasks.push((async () => {
+        const { data: cloudBatches } = await supabase.from('spk_batches').select('*');
+        if (cloudBatches && cloudBatches.length > 0) {
+          const existingLocal = await db.spk_batches.toArray();
+          const localMap = new Map(existingLocal.map(b => [b.uuid, b.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
+          for (const cb of cloudBatches) {
+            const bRecord = {
+              uuid: cb.uuid,
+              batchName: cb.batch_name,
+              docNo: cb.doc_no,
+              tanggal: cb.tanggal,
+              totalItems: cb.total_items,
+              totalJumbo: cb.total_jumbo,
+              totalMeter: cb.total_meter,
+              source: cb.source,
+              createdAt: cb.created_at,
+              updatedAt: cb.updated_at
+            };
+            const localId = localMap.get(cb.uuid);
+            if (localId) {
+              toUpdate.push({ ...bRecord, id: localId });
+            } else {
+              toAdd.push(bRecord);
+            }
           }
+
+          await db.transaction('rw', db.spk_batches, async () => {
+            if (toUpdate.length > 0) await db.spk_batches.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.spk_batches.bulkAdd(toAdd);
+          });
         }
-      });
+      })());
     }
 
     // Pull SPK Plans
-    const { data: cloudPlans, error: pErr } = await supabase.from('spk_plans').select('*');
-    if (!pErr && cloudPlans && cloudPlans.length > 0) {
-      await db.transaction('rw', db.spk_plans, async () => {
-        for (const cp of cloudPlans) {
-          const existing = await db.spk_plans.where('uuid').equals(cp.uuid).first();
-          const pRecord = mapSpkPlanFromSupabase(cp);
-          if (existing) {
-            await db.spk_plans.update(existing.id, pRecord);
-          } else {
-            await db.spk_plans.add(pRecord);
+    if (db.spk_plans) {
+      pullTasks.push((async () => {
+        const { data: cloudPlans } = await supabase.from('spk_plans').select('*');
+        if (cloudPlans && cloudPlans.length > 0) {
+          const existingLocal = await db.spk_plans.toArray();
+          const localMap = new Map(existingLocal.map(p => [p.uuid, p.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
+          for (const cp of cloudPlans) {
+            const pRecord = mapSpkPlanFromSupabase(cp);
+            const localId = localMap.get(cp.uuid);
+            if (localId) {
+              toUpdate.push({ ...pRecord, id: localId });
+            } else {
+              toAdd.push(pRecord);
+            }
           }
+
+          await db.transaction('rw', db.spk_plans, async () => {
+            if (toUpdate.length > 0) await db.spk_plans.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.spk_plans.bulkAdd(toAdd);
+          });
         }
-      });
+      })());
     }
 
     // Pull Operators
     if (db.operator_list) {
-      const { data: cloudOps } = await supabase.from('operator_list').select('*');
-      if (cloudOps && cloudOps.length > 0) {
-        await db.transaction('rw', db.operator_list, async () => {
+      pullTasks.push((async () => {
+        const { data: cloudOps } = await supabase.from('operator_list').select('*');
+        if (cloudOps && cloudOps.length > 0) {
+          const existing = await db.operator_list.toArray();
+          const localMap = new Map(existing.map(o => [o.nama.toUpperCase(), o.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
           for (const co of cloudOps) {
-            const existing = await db.operator_list.where('nama').equals(co.nama).first();
             const rec = {
               nama: co.nama,
               mesin: co.mesin,
@@ -417,46 +480,66 @@ export async function pullFromSupabase() {
               createdAt: co.created_at,
               updatedAt: co.updated_at
             };
-            if (existing) {
-              await db.operator_list.update(existing.id, rec);
+            const localId = localMap.get(co.nama.toUpperCase());
+            if (localId) {
+              toUpdate.push({ ...rec, id: localId });
             } else {
-              await db.operator_list.add(rec);
+              toAdd.push(rec);
             }
           }
-        });
-      }
+
+          await db.transaction('rw', db.operator_list, async () => {
+            if (toUpdate.length > 0) await db.operator_list.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.operator_list.bulkAdd(toAdd);
+          });
+        }
+      })());
     }
 
     // Pull Mesin
     if (db.mesin_list) {
-      const { data: cloudMachines } = await supabase.from('mesin_list').select('*');
-      if (cloudMachines && cloudMachines.length > 0) {
-        await db.transaction('rw', db.mesin_list, async () => {
+      pullTasks.push((async () => {
+        const { data: cloudMachines } = await supabase.from('mesin_list').select('*');
+        if (cloudMachines && cloudMachines.length > 0) {
+          const existing = await db.mesin_list.toArray();
+          const localMap = new Map(existing.map(m => [m.nama.toUpperCase(), m.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
           for (const cm of cloudMachines) {
-            const existing = await db.mesin_list.where('nama').equals(cm.nama).first();
             const rec = {
               nama: cm.nama,
               praKodePack: cm.pra_kode_pack,
               active: cm.active,
               createdAt: cm.created_at
             };
-            if (existing) {
-              await db.mesin_list.update(existing.id, rec);
+            const localId = localMap.get(cm.nama.toUpperCase());
+            if (localId) {
+              toUpdate.push({ ...rec, id: localId });
             } else {
-              await db.mesin_list.add(rec);
+              toAdd.push(rec);
             }
           }
-        });
-      }
+
+          await db.transaction('rw', db.mesin_list, async () => {
+            if (toUpdate.length > 0) await db.mesin_list.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.mesin_list.bulkAdd(toAdd);
+          });
+        }
+      })());
     }
 
     // Pull Film Configs
     if (db.film_configs) {
-      const { data: cloudFilms } = await supabase.from('film_configs').select('*');
-      if (cloudFilms && cloudFilms.length > 0) {
-        await db.transaction('rw', db.film_configs, async () => {
+      pullTasks.push((async () => {
+        const { data: cloudFilms } = await supabase.from('film_configs').select('*');
+        if (cloudFilms && cloudFilms.length > 0) {
+          const existing = await db.film_configs.toArray();
+          const localMap = new Map(existing.map(f => [`${f.jenis}_${f.kodeFormula}`.toUpperCase(), f.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
           for (const cf of cloudFilms) {
-            const existing = await db.film_configs.filter(f => f.jenis === cf.jenis && f.kodeFormula === cf.kode_formula).first();
             const rec = {
               jenis: cf.jenis,
               kodeFormula: cf.kode_formula,
@@ -471,23 +554,34 @@ export async function pullFromSupabase() {
               createdAt: cf.created_at,
               updatedAt: cf.updated_at
             };
-            if (existing) {
-              await db.film_configs.update(existing.id, rec);
+            const key = `${cf.jenis}_${cf.kode_formula}`.toUpperCase();
+            const localId = localMap.get(key);
+            if (localId) {
+              toUpdate.push({ ...rec, id: localId });
             } else {
-              await db.film_configs.add(rec);
+              toAdd.push(rec);
             }
           }
-        });
-      }
+
+          await db.transaction('rw', db.film_configs, async () => {
+            if (toUpdate.length > 0) await db.film_configs.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.film_configs.bulkAdd(toAdd);
+          });
+        }
+      })());
     }
 
     // Pull Resin Items
     if (db.resin_items) {
-      const { data: cloudResins } = await supabase.from('resin_items').select('*');
-      if (cloudResins && cloudResins.length > 0) {
-        await db.transaction('rw', db.resin_items, async () => {
+      pullTasks.push((async () => {
+        const { data: cloudResins } = await supabase.from('resin_items').select('*');
+        if (cloudResins && cloudResins.length > 0) {
+          const existing = await db.resin_items.toArray();
+          const localMap = new Map(existing.map(r => [(r.resin || '').toUpperCase(), r.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
           for (const cr of cloudResins) {
-            const existing = await db.resin_items.filter(r => (r.resin || '').toUpperCase() === (cr.resin || '').toUpperCase()).first();
             const rec = {
               resin: cr.resin,
               kode: cr.kode,
@@ -496,23 +590,33 @@ export async function pullFromSupabase() {
               createdAt: cr.created_at,
               updatedAt: cr.updated_at
             };
-            if (existing) {
-              await db.resin_items.update(existing.id, rec);
+            const localId = localMap.get((cr.resin || '').toUpperCase());
+            if (localId) {
+              toUpdate.push({ ...rec, id: localId });
             } else {
-              await db.resin_items.add(rec);
+              toAdd.push(rec);
             }
           }
-        });
-      }
+
+          await db.transaction('rw', db.resin_items, async () => {
+            if (toUpdate.length > 0) await db.resin_items.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.resin_items.bulkAdd(toAdd);
+          });
+        }
+      })());
     }
 
     // Pull BOM Formulas
     if (db.bom_formulas) {
-      const { data: cloudBoms } = await supabase.from('bom_formulas').select('*');
-      if (cloudBoms && cloudBoms.length > 0) {
-        await db.transaction('rw', db.bom_formulas, async () => {
+      pullTasks.push((async () => {
+        const { data: cloudBoms } = await supabase.from('bom_formulas').select('*');
+        if (cloudBoms && cloudBoms.length > 0) {
+          const existing = await db.bom_formulas.toArray();
+          const localMap = new Map(existing.map(b => [`${b.formula}_${b.rm}`.toUpperCase(), b.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
           for (const cb of cloudBoms) {
-            const existing = await db.bom_formulas.filter(b => b.formula === cb.formula && b.rm === cb.rm).first();
             const rec = {
               formula: cb.formula,
               rm: cb.rm,
@@ -521,23 +625,34 @@ export async function pullFromSupabase() {
               createdAt: cb.created_at,
               updatedAt: cb.updated_at
             };
-            if (existing) {
-              await db.bom_formulas.update(existing.id, rec);
+            const key = `${cb.formula}_${cb.rm}`.toUpperCase();
+            const localId = localMap.get(key);
+            if (localId) {
+              toUpdate.push({ ...rec, id: localId });
             } else {
-              await db.bom_formulas.add(rec);
+              toAdd.push(rec);
             }
           }
-        });
-      }
+
+          await db.transaction('rw', db.bom_formulas, async () => {
+            if (toUpdate.length > 0) await db.bom_formulas.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.bom_formulas.bulkAdd(toAdd);
+          });
+        }
+      })());
     }
 
     // Pull Location List
     if (db.location_list) {
-      const { data: cloudLocs } = await supabase.from('location_list').select('*');
-      if (cloudLocs && cloudLocs.length > 0) {
-        await db.transaction('rw', db.location_list, async () => {
+      pullTasks.push((async () => {
+        const { data: cloudLocs } = await supabase.from('location_list').select('*');
+        if (cloudLocs && cloudLocs.length > 0) {
+          const existing = await db.location_list.toArray();
+          const localMap = new Map(existing.map(l => [l.nama.toUpperCase(), l.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
           for (const cl of cloudLocs) {
-            const existing = await db.location_list.where('nama').equals(cl.nama).first();
             const rec = {
               nama: cl.nama,
               jenis: cl.jenis,
@@ -548,23 +663,33 @@ export async function pullFromSupabase() {
               createdAt: cl.created_at,
               updatedAt: cl.updated_at
             };
-            if (existing) {
-              await db.location_list.update(existing.id, rec);
+            const localId = localMap.get(cl.nama.toUpperCase());
+            if (localId) {
+              toUpdate.push({ ...rec, id: localId });
             } else {
-              await db.location_list.add(rec);
+              toAdd.push(rec);
             }
           }
-        });
-      }
+
+          await db.transaction('rw', db.location_list, async () => {
+            if (toUpdate.length > 0) await db.location_list.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.location_list.bulkAdd(toAdd);
+          });
+        }
+      })());
     }
 
     // Pull Standard Lengths
     if (db.standard_lengths) {
-      const { data: cloudLens } = await supabase.from('standard_lengths').select('*');
-      if (cloudLens && cloudLens.length > 0) {
-        await db.transaction('rw', db.standard_lengths, async () => {
+      pullTasks.push((async () => {
+        const { data: cloudLens } = await supabase.from('standard_lengths').select('*');
+        if (cloudLens && cloudLens.length > 0) {
+          const existing = await db.standard_lengths.toArray();
+          const localMap = new Map(existing.map(s => [parseFloat(s.thickness), s.id]));
+          const toUpdate = [];
+          const toAdd = [];
+
           for (const cl of cloudLens) {
-            const existing = await db.standard_lengths.filter(s => parseFloat(s.thickness) === parseFloat(cl.thickness)).first();
             const rec = {
               thickness: cl.thickness,
               maxPanjangFg: cl.max_panjang_fg,
@@ -573,15 +698,24 @@ export async function pullFromSupabase() {
               createdAt: cl.created_at,
               updatedAt: cl.updated_at
             };
-            if (existing) {
-              await db.standard_lengths.update(existing.id, rec);
+            const localId = localMap.get(parseFloat(cl.thickness));
+            if (localId) {
+              toUpdate.push({ ...rec, id: localId });
             } else {
-              await db.standard_lengths.add(rec);
+              toAdd.push(rec);
             }
           }
-        });
-      }
+
+          await db.transaction('rw', db.standard_lengths, async () => {
+            if (toUpdate.length > 0) await db.standard_lengths.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.standard_lengths.bulkAdd(toAdd);
+          });
+        }
+      })());
     }
+
+    // Jalankan seluruh pull secara PARALEL
+    await Promise.all(pullTasks);
 
     syncState.lastSyncTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     localStorage.setItem('mlabel_last_sync_time', syncState.lastSyncTime);
@@ -615,6 +749,15 @@ export async function syncAll() {
 
 // 5. REALTIME LISTENER: Menerima perubahan langsung dari Supabase saat user lain menginput
 let realtimeChannel = null;
+let debounceConfigPullTimer = null;
+
+function debouncedPull(callback, table) {
+  if (debounceConfigPullTimer) clearTimeout(debounceConfigPullTimer);
+  debounceConfigPullTimer = setTimeout(async () => {
+    await pullFromSupabase();
+    if (callback) callback(table);
+  }, 1000);
+}
 
 export function startRealtimeSync(onDataChangeCallback) {
   if (realtimeChannel) return;
@@ -649,17 +792,14 @@ export function startRealtimeSync(onDataChangeCallback) {
       }
       if (onDataChangeCallback) onDataChangeCallback('spk_plans');
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'film_configs' }, async () => {
-      await pullFromSupabase();
-      if (onDataChangeCallback) onDataChangeCallback('film_configs');
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'film_configs' }, () => {
+      debouncedPull(onDataChangeCallback, 'film_configs');
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'resin_items' }, async () => {
-      await pullFromSupabase();
-      if (onDataChangeCallback) onDataChangeCallback('resin_items');
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'resin_items' }, () => {
+      debouncedPull(onDataChangeCallback, 'resin_items');
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'bom_formulas' }, async () => {
-      await pullFromSupabase();
-      if (onDataChangeCallback) onDataChangeCallback('bom_formulas');
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'bom_formulas' }, () => {
+      debouncedPull(onDataChangeCallback, 'bom_formulas');
     })
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') {
