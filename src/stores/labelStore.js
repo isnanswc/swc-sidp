@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
 import { useGlobalLoading } from '@/services/loadingService';
-import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase } from '@/services/syncService';
+import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones } from '@/services/syncService';
 
 export const useLabelStore = defineStore('labelStore', {
   state: () => ({
@@ -405,11 +405,17 @@ export const useLabelStore = defineStore('labelStore', {
     async clearAllLabels() {
       this.loading = true;
       try {
+        const allExisting = await db.labels.toArray();
+        const existingUniqIds = allExisting.map(l => l.uniqId).filter(Boolean);
+        if (existingUniqIds.length > 0) {
+          recordTombstones('labels', existingUniqIds);
+        }
         await db.labels.clear();
         await saveSetting('labels_initialized_flag_v1', true);
         this.labels = [];
         this.selectedIds.clear();
         this.currentPage = 1;
+        supabase.from('labels').delete().neq('uniq_id', 'keep_all').catch(() => {});
       } finally {
         this.loading = false;
       }
@@ -760,3 +766,16 @@ export const useLabelStore = defineStore('labelStore', {
     }
   }
 });
+
+// Auto-reload labelStore whenever cloud sync or realtime updates labels
+if (typeof window !== 'undefined' && !window.__mlabel_label_sync_listener_attached) {
+  window.__mlabel_label_sync_listener_attached = true;
+  window.addEventListener('sync:labels-updated', async () => {
+    try {
+      const store = useLabelStore();
+      await store.loadLabels();
+    } catch (e) {
+      console.warn('Auto reload labelStore failed:', e);
+    }
+  });
+}

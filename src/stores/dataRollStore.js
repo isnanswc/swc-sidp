@@ -4,7 +4,7 @@ import { db } from '@/db';
 import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot, parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import { useGlobalLoading } from '@/services/loadingService';
-import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase } from '@/services/syncService';
+import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones } from '@/services/syncService';
 
 export const useDataRollStore = defineStore('dataRollStore', () => {
   const rolls = ref([]);
@@ -593,14 +593,27 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     }
   };
 
-  // Delete roll
+  // Delete roll (supports both db.data_rolls and db.labels from DE Report)
   const deleteRoll = async (id) => {
     try {
-      const roll = await db.data_rolls.get(id);
-      const uuid = roll?.uuid;
-      await db.data_rolls.delete(id);
-      if (uuid) {
-        deleteFromSupabase('data_rolls', 'uuid', uuid).catch(() => {});
+      const isDeLabel = typeof id === 'string' && id.startsWith('de_label_');
+      const itemInMemory = rolls.value.find(r => r.id === id);
+
+      if (isDeLabel || itemInMemory?.originalLabelId) {
+        const labelId = itemInMemory?.originalLabelId || parseInt(id.replace('de_label_', ''), 10);
+        const labelObj = db.labels ? await db.labels.get(labelId) : null;
+        const uId = labelObj?.uniqId || itemInMemory?.uuid;
+        if (db.labels) await db.labels.delete(labelId);
+        if (uId) {
+          deleteFromSupabase('labels', 'uniq_id', uId).catch(() => {});
+        }
+      } else {
+        const roll = await db.data_rolls.get(id);
+        const uuid = roll?.uuid || itemInMemory?.uuid;
+        await db.data_rolls.delete(id);
+        if (uuid) {
+          deleteFromSupabase('data_rolls', 'uuid', uuid).catch(() => {});
+        }
       }
       await loadRolls();
     } catch (e) {
@@ -609,15 +622,47 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     }
   };
 
-  // Delete multiple rolls
+  // Delete multiple rolls (supports both db.data_rolls and db.labels)
   const deleteMultiple = async (ids) => {
     try {
-      const rollsToDelete = await db.data_rolls.where('id').anyOf(ids).toArray();
-      const uuids = rollsToDelete.map(r => r.uuid).filter(Boolean);
-      await db.data_rolls.bulkDelete(ids);
-      if (uuids.length > 0) {
-        deleteMultipleFromSupabase('data_rolls', 'uuid', uuids).catch(() => {});
+      const rollIds = [];
+      const deLabelIds = [];
+      const rollUuids = [];
+      const labelUniqIds = [];
+
+      for (const id of ids) {
+        const item = rolls.value.find(r => r.id === id);
+        const isDeLabel = (typeof id === 'string' && id.startsWith('de_label_')) || item?.originalLabelId;
+        if (isDeLabel) {
+          const lId = item?.originalLabelId || (typeof id === 'string' ? parseInt(id.replace('de_label_', ''), 10) : id);
+          deLabelIds.push(lId);
+          if (item?.uuid) labelUniqIds.push(item.uuid);
+        } else {
+          rollIds.push(id);
+          if (item?.uuid) rollUuids.push(item.uuid);
+        }
       }
+
+      if (rollIds.length > 0 && db.data_rolls) {
+        const rollsToDelete = await db.data_rolls.where('id').anyOf(rollIds).toArray();
+        const foundUuids = rollsToDelete.map(r => r.uuid).filter(Boolean);
+        const allUuids = [...new Set([...rollUuids, ...foundUuids])];
+        await db.data_rolls.bulkDelete(rollIds);
+        if (allUuids.length > 0) {
+          deleteMultipleFromSupabase('data_rolls', 'uuid', allUuids).catch(() => {});
+        }
+      }
+
+      if (deLabelIds.length > 0 && db.labels) {
+        const labelsToDelete = await db.labels.where('id').anyOf(deLabelIds).toArray();
+        const foundUniqIds = labelsToDelete.map(l => l.uniqId).filter(Boolean);
+        const allUniqIds = [...new Set([...labelUniqIds, ...foundUniqIds])];
+        await db.labels.bulkDelete(deLabelIds);
+        if (allUniqIds.length > 0) {
+          deleteMultipleFromSupabase('labels', 'uniq_id', allUniqIds).catch(() => {});
+        }
+      }
+
       await loadRolls();
     } catch (e) {
       console.error('Failed to delete multiple rolls:', e);
@@ -628,8 +673,15 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   // Clear all rolls
   const clearAll = async () => {
     try {
+      const allExisting = await db.data_rolls.toArray();
+      const existingUuids = allExisting.map(r => r.uuid).filter(Boolean);
+      if (existingUuids.length > 0) {
+        recordTombstones('data_rolls', existingUuids);
+      }
       await db.data_rolls.clear();
       rolls.value = [];
+      // Clean up in Supabase
+      supabase.from('data_rolls').delete().neq('uuid', 'keep_all').catch(() => {});
     } catch (e) {
       console.error('Failed to clear data_rolls:', e);
       throw e;
@@ -742,3 +794,16 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     exportToExcel
   };
 });
+
+// Auto-reload dataRollStore whenever cloud sync or realtime updates data_rolls
+if (typeof window !== 'undefined' && !window.__mlabel_data_roll_sync_listener_attached) {
+  window.__mlabel_data_roll_sync_listener_attached = true;
+  window.addEventListener('sync:data-rolls-updated', async () => {
+    try {
+      const store = useDataRollStore();
+      await store.loadRolls();
+    } catch (e) {
+      console.warn('Auto reload dataRollStore failed:', e);
+    }
+  });
+}

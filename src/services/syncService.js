@@ -2,6 +2,8 @@ import { ref, reactive } from 'vue';
 import { supabase } from './supabaseClient';
 import { db } from '@/db';
 
+export { supabase };
+
 export const syncState = reactive({
   isOnline: navigator.onLine,
   isSyncing: false,
@@ -213,9 +215,44 @@ function mapDataRollFromSupabase(s) {
   };
 }
 
+// ── TOMBSTONES: Cegah data yang sudah dihapus diunggah kembali (resurrect loop) ──
+const TOMBSTONE_MAX = 1000;
+function getTombstones(key) {
+  try {
+    const raw = localStorage.getItem(`mlabel_deleted_${key}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export function recordTombstones(key, ids) {
+  try {
+    const list = Array.isArray(ids) ? ids : [ids];
+    const current = new Set(getTombstones(key));
+    list.forEach(id => { if (id) current.add(id); });
+    const arr = Array.from(current);
+    const trimmed = arr.length > TOMBSTONE_MAX ? arr.slice(arr.length - TOMBSTONE_MAX) : arr;
+    localStorage.setItem(`mlabel_deleted_${key}`, JSON.stringify(trimmed));
+  } catch (e) {
+    console.warn('Failed to record tombstones:', e);
+  }
+}
+
+export function isTombstoned(key, id) {
+  if (!id) return false;
+  const current = getTombstones(key);
+  return current.includes(id);
+}
+
 // ── SYNC DELETES: Hapus data dari Supabase agar tidak ditarik kembali ──────────
 export async function deleteFromSupabase(table, column, value) {
-  if (!navigator.onLine || !value) return;
+  if (!value) return;
+  // Catat ke tombstone lokal agar device ini tidak pernah re-push jika masih tersisa
+  if (column === 'uuid' || column === 'uniq_id') {
+    recordTombstones(table, [value]);
+  }
+  if (!navigator.onLine) return;
   try {
     const { error } = await supabase.from(table).delete().eq(column, value);
     if (error) {
@@ -229,7 +266,11 @@ export async function deleteFromSupabase(table, column, value) {
 }
 
 export async function deleteMultipleFromSupabase(table, column, values) {
-  if (!navigator.onLine || !Array.isArray(values) || values.length === 0) return;
+  if (!Array.isArray(values) || values.length === 0) return;
+  if (column === 'uuid' || column === 'uniq_id') {
+    recordTombstones(table, values);
+  }
+  if (!navigator.onLine) return;
   try {
     const CHUNK = 500;
     for (let i = 0; i < values.length; i += CHUNK) {
@@ -307,11 +348,22 @@ export async function pushLocalToSupabase() {
     // 1c-2. Data Rolls Sync (Chunked Bulk Upsert for Thousands of Rolls)
     if (db.data_rolls) {
       tasks.push((async () => {
+        const deletedRollSet = new Set(getTombstones('data_rolls'));
         const allRolls = await db.data_rolls.toArray();
-        if (allRolls.length > 0) {
+
+        // 1. Bersihkan roll lokal yang ada di daftar tombstone agar Device ini bersih
+        const zombieRolls = allRolls.filter(r => r.uuid && deletedRollSet.has(r.uuid));
+        if (zombieRolls.length > 0) {
+          console.log(`[SyncPush] Menghapus ${zombieRolls.length} zombie roll lokal yang sudah dihapus...`);
+          await db.data_rolls.bulkDelete(zombieRolls.map(z => z.id));
+        }
+
+        // 2. Hanya push roll yang valid dan BUKAN yang pernah dihapus
+        const validRolls = allRolls.filter(r => !r.uuid || !deletedRollSet.has(r.uuid));
+        if (validRolls.length > 0) {
           const CHUNK = 500;
-          for (let i = 0; i < allRolls.length; i += CHUNK) {
-            const chunk = allRolls.slice(i, i + CHUNK);
+          for (let i = 0; i < validRolls.length; i += CHUNK) {
+            const chunk = validRolls.slice(i, i + CHUNK);
             const payload = chunk.map(mapDataRollToSupabase);
             await supabase.from('data_rolls').upsert(payload, { onConflict: 'uuid' });
           }
@@ -523,13 +575,18 @@ export async function pullFromSupabase() {
           .order('updated_at', { ascending: false })
           .limit(2000);
 
-        if (cloudLabels && cloudLabels.length > 0) {
+        const deletedLabelSet = new Set(getTombstones('labels'));
+
+        if (cloudLabels) {
           const existingLocal = await db.labels.toArray();
+          const cloudUniqIds = new Set(cloudLabels.map(cl => cl.uniq_id));
           const localMap = new Map(existingLocal.map(l => [l.uniqId, l.id]));
           const toUpdate = [];
           const toAdd = [];
 
+          // 1. Tambah / Update data dari cloud yang tidak ada di blacklist tombstone
           for (const cl of cloudLabels) {
+            if (deletedLabelSet.has(cl.uniq_id)) continue; // Abaikan item yang sudah dihapus oleh user lokal
             const mapped = mapLabelFromSupabase(cl);
             const localId = localMap.get(cl.uniq_id);
             if (localId) {
@@ -539,9 +596,23 @@ export async function pullFromSupabase() {
             }
           }
 
+          // 2. REKONSILIASI DELETE: Jika cloud tidak kosong, dan ada item di Dexie lokal yang:
+          //    - Memiliki uniqId yang masuk tombstone, ATAU
+          //    - uniqId-nya tidak ada di cloudLabels dan item tersebut sudah pernah tersinkron (synced === 1)
+          const staleLocalLabels = existingLocal.filter(l => {
+            if (!l.uniqId) return false;
+            if (deletedLabelSet.has(l.uniqId)) return true;
+            if (l.synced === 1 && !cloudUniqIds.has(l.uniqId)) return true;
+            return false;
+          });
+
           await db.transaction('rw', db.labels, async () => {
             if (toUpdate.length > 0) await db.labels.bulkPut(toUpdate);
             if (toAdd.length > 0) await db.labels.bulkAdd(toAdd);
+            if (staleLocalLabels.length > 0) {
+              console.log(`[SyncPull] Menghapus ${staleLocalLabels.length} label di lokal yang telah dihapus di cloud`);
+              await db.labels.bulkDelete(staleLocalLabels.map(s => s.id));
+            }
           });
         }
       })());
@@ -623,13 +694,17 @@ export async function pullFromSupabase() {
           .order('created_at', { ascending: false })
           .limit(10000);
 
-        if (cloudRolls && cloudRolls.length > 0) {
+        const deletedRollSet = new Set(getTombstones('data_rolls'));
+
+        if (cloudRolls) {
           const existingLocal = await db.data_rolls.toArray();
+          const cloudUuids = new Set(cloudRolls.map(cr => cr.uuid));
           const localMap = new Map(existingLocal.map(r => [r.uuid, r.id]));
           const toUpdate = [];
           const toAdd = [];
 
           for (const cr of cloudRolls) {
+            if (deletedRollSet.has(cr.uuid)) continue; // Abaikan jika sudah dihapus
             const mapped = mapDataRollFromSupabase(cr);
             const localId = localMap.get(cr.uuid);
             if (localId) {
@@ -639,9 +714,33 @@ export async function pullFromSupabase() {
             }
           }
 
+          // REKONSILIASI DELETE UNTUK DATA ROLLS:
+          // Jika ada roll lokal yang:
+          // 1. Masuk dalam blacklist deletedRollSet (tombstone)
+          // 2. ATAU UUID-nya sudah tidak ada di cloudRolls (artinya dihapus oleh device lain)
+          //    dan roll tersebut bukan data baru yang belum pernah memiliki UUID / bukan offline-created dalam 1 menit terakhir
+          const nowMs = Date.now();
+          const staleLocalRolls = existingLocal.filter(r => {
+            if (!r.uuid) return false;
+            if (deletedRollSet.has(r.uuid)) return true;
+            if (!cloudUuids.has(r.uuid)) {
+              // Jika roll baru dibuat kurang dari 60 detik lalu, jangan hapus dulu (mungkin belum ter-push)
+              if (r.createdAt) {
+                const ageMs = nowMs - new Date(r.createdAt).getTime();
+                if (!isNaN(ageMs) && ageMs < 60000) return false;
+              }
+              return true;
+            }
+            return false;
+          });
+
           await db.transaction('rw', db.data_rolls, async () => {
             if (toUpdate.length > 0) await db.data_rolls.bulkPut(toUpdate);
             if (toAdd.length > 0) await db.data_rolls.bulkAdd(toAdd);
+            if (staleLocalRolls.length > 0) {
+              console.log(`[SyncPull] Menghapus ${staleLocalRolls.length} roll di lokal yang telah dihapus di cloud`);
+              await db.data_rolls.bulkDelete(staleLocalRolls.map(s => s.id));
+            }
           });
         }
       })());
@@ -907,6 +1006,8 @@ export async function pullFromSupabase() {
     // Kirim notifikasi event ke store (agar Pinia langsung refresh tanpa perlu reload browser)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sync:config-updated'));
+      window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
+      window.dispatchEvent(new CustomEvent('sync:labels-updated'));
     }
 
     syncState.lastSyncTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -968,9 +1069,13 @@ export function startRealtimeSync(onDataChangeCallback) {
       } else if (payload.eventType === 'DELETE' && payload.old) {
         const targetId = payload.old.uniq_id || payload.old.uniqId || payload.old.id;
         if (targetId) {
+          recordTombstones('labels', [targetId]);
           const existing = await db.labels.where('uniqId').equals(targetId).first();
           if (existing) await db.labels.delete(existing.id);
         }
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:labels-updated'));
       }
       if (onDataChangeCallback) onDataChangeCallback('labels');
     })
@@ -991,19 +1096,26 @@ export function startRealtimeSync(onDataChangeCallback) {
           if (existing) await db.spk_plans.delete(existing.id);
         }
       }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:spk-plans-updated'));
+      }
       if (onDataChangeCallback) onDataChangeCallback('spk_plans');
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'data_rolls' }, async (payload) => {
       if (payload.eventType === 'DELETE' && payload.old) {
         const targetUuid = payload.old.uuid;
         if (targetUuid) {
+          recordTombstones('data_rolls', [targetUuid]);
           const existing = await db.data_rolls.where('uuid').equals(targetUuid).first();
           if (existing) {
             await db.data_rolls.delete(existing.id);
-            if (onDataChangeCallback) onDataChangeCallback('data_rolls');
           }
         }
       }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
+      }
+      if (onDataChangeCallback) onDataChangeCallback('data_rolls');
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'film_configs' }, () => {
       debouncedPull(onDataChangeCallback, 'film_configs');
