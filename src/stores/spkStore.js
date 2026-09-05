@@ -50,6 +50,7 @@ import { db } from '@/db';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
+import { extractCleanParentLot } from '@/services/dataRollParserService';
 
 export const useSpkStore = defineStore('spk', () => {
   const plans = ref([]);
@@ -352,6 +353,11 @@ export const useSpkStore = defineStore('spk', () => {
       return spkMap.get(spkKey);
     };
 
+    // Tracking sets to prevent double counting between labelStore and dataRollStore
+    const processedRollUuids = new Set();
+    const processedRollIds = new Set();
+    const processedSignatures = new Set();
+
     // Index labels in single O(N) pass
     for (let i = 0; i < labels.length; i++) {
       const l = labels[i];
@@ -366,22 +372,50 @@ export const useSpkStore = defineStore('spk', () => {
         }
       }
       const s = String(l.spk).trim().toUpperCase();
-      const spkObj = getOrInitSpk(s);
-      const lotKey = l.lot || l.barcode || l.uniqId || `L_${i}`;
+      const rawLot = String(l.lot || '').trim();
+      const turunan = String(l.turunan || '').trim();
+      const cleanParentLot = extractCleanParentLot(rawLot, turunan) || rawLot.split('/')[0] || rawLot;
 
-      if (!spkObj.lots.has(lotKey)) {
+      // Unique identifier for this child roll
+      const rollKey = (l.uniqId || l.uuid)
+        ? `L_UID_${l.uniqId || l.uuid}`
+        : (l.id ? `L_ID_${l.id}` : (l.barcode ? `L_BC_${l.barcode}` : `L_${cleanParentLot}_${turunan}_${i}`));
+
+      const spkObj = getOrInitSpk(s);
+
+      // Track to avoid duplicate indexing from data rolls
+      if (l.uniqId) processedRollUuids.add(String(l.uniqId));
+      if (l.uuid) processedRollUuids.add(String(l.uuid));
+      if (l.originalRollId) processedRollIds.add(String(l.originalRollId));
+      if (typeof l.id === 'number') processedRollIds.add(String(l.id));
+      if (turunan) {
+        processedSignatures.add(`${s}::${cleanParentLot.toUpperCase()}::${turunan.toUpperCase()}`);
+      }
+
+      if (!spkObj.lots.has(rollKey)) {
+        let displayLot = rawLot;
+        if (turunan && !rawLot.toUpperCase().includes(turunan.toUpperCase())) {
+          displayLot = rawLot ? `${rawLot} / ${turunan}` : turunan;
+        }
+        if (!displayLot) {
+          displayLot = l.barcode || l.uniqId || `ROLL_${l.id || i + 1}`;
+        }
+
         const w = parseFloat(l.width) || 0;
         const m = parseFloat(l.length) || parseFloat(l.meter) || 0;
         const kg = parseFloat(l.netto) || parseFloat(l.beratNetto) || 0;
         const st = String(l.status || 'PASS').toUpperCase();
 
-        spkObj.lots.set(lotKey, {
-          lot: lotKey,
+        spkObj.lots.set(rollKey, {
+          id: l.id || rollKey,
+          lot: displayLot,
+          parentLot: cleanParentLot,
+          turunan: turunan,
           width: w,
           length: m,
           weight: kg,
           status: st,
-          source: 'LABEL',
+          source: l.isDataRoll ? 'DATA_ROLL' : 'LABEL',
           date: l.tanggal || l.createdAt,
           formula: l.kodeFormula || l.formula || l.type || l.jenis || '',
           thickness: parseFloat(l.thickness) || 0,
@@ -416,6 +450,18 @@ export const useSpkStore = defineStore('spk', () => {
       const r = rolls[i];
       if (!r || !r.spk) continue;
 
+      if (r.uuid && processedRollUuids.has(String(r.uuid))) continue;
+      if (r.id && processedRollIds.has(String(r.id))) continue;
+
+      const s = String(r.spk).trim().toUpperCase();
+      const rawLot = String(r.lot || '').trim();
+      const turunan = String(r.turunan || '').trim();
+      const cleanParentLot = extractCleanParentLot(rawLot, turunan) || rawLot.split('/')[0] || rawLot;
+
+      if (turunan && processedSignatures.has(`${s}::${cleanParentLot.toUpperCase()}::${turunan.toUpperCase()}`)) {
+        continue;
+      }
+
       // Filter tanggal aktual: data masa lampau diabaikan, hanya berlaku [startDate ... H+1]
       const rawDateStr = r.tanggal || r.tanggalFormatted || r.createdAt;
       if (wnd && rawDateStr) {
@@ -424,18 +470,31 @@ export const useSpkStore = defineStore('spk', () => {
           if (itemTime < minTime || itemTime > maxTime) continue;
         }
       }
-      const s = String(r.spk).trim().toUpperCase();
-      const spkObj = getOrInitSpk(s);
-      const lotKey = r.lot || r.kodeFg || r.uuid || `R_${i}`;
 
-      if (!spkObj.lots.has(lotKey)) {
+      const spkObj = getOrInitSpk(s);
+      const rollKey = (r.uuid)
+        ? `R_UID_${r.uuid}`
+        : (r.id ? `R_ID_${r.id}` : `R_${cleanParentLot}_${turunan}_${i}`);
+
+      if (!spkObj.lots.has(rollKey)) {
+        let displayLot = rawLot;
+        if (turunan && !rawLot.toUpperCase().includes(turunan.toUpperCase())) {
+          displayLot = rawLot ? `${rawLot} / ${turunan}` : turunan;
+        }
+        if (!displayLot) {
+          displayLot = r.kodeFg || `ROLL_${r.id || i + 1}`;
+        }
+
         const w = parseFloat(r.width) || 0;
         const m = parseFloat(r.length) || 0;
         const kg = parseFloat(r.netto) || 0;
         const st = String(r.qualityStatus || 'PASS').toUpperCase();
 
-        spkObj.lots.set(lotKey, {
-          lot: lotKey,
+        spkObj.lots.set(rollKey, {
+          id: r.id || rollKey,
+          lot: displayLot,
+          parentLot: cleanParentLot,
+          turunan: turunan,
           width: w,
           length: m,
           weight: kg,
@@ -489,28 +548,50 @@ export const useSpkStore = defineStore('spk', () => {
     const allLots = [];
     const aggregatedWidthMap = new Map();
 
-    // Check exact match or token matches in O(1)
-    const matchedSpkKeys = new Set([cleanSpk, ...subSpkTokens]);
-    for (const key of matchedSpkKeys) {
-      const spkData = dataMap.get(key);
-      if (spkData) {
-        totalRealRolls += spkData.totalRealRolls;
-        totalRealMeter += spkData.totalRealMeter;
-        totalRealKg += spkData.totalRealKg;
-        passCount += spkData.passCount;
-        holdCount += spkData.holdCount;
-        rejectCount += spkData.rejectCount;
-        spkData.lots.forEach(lotObj => allLots.push(lotObj));
-        spkData.widthMap.forEach((wObj, w) => {
-          if (!aggregatedWidthMap.has(w)) {
-            aggregatedWidthMap.set(w, { width: w, totalRoll: 0, totalMeter: 0, totalKg: 0 });
-          }
-          const tgt = aggregatedWidthMap.get(w);
-          tgt.totalRoll += wObj.totalRoll;
-          tgt.totalMeter += wObj.totalMeter;
-          tgt.totalKg += wObj.totalKg;
-        });
+    const normalizeKey = (str) => String(str || '').toUpperCase().replace(/[\s\-_/]/g, '');
+    const targetNorm = normalizeKey(cleanSpk);
+    const subNorms = subSpkTokens.map(normalizeKey).filter(Boolean);
+
+    const matchedSpkDataList = [];
+    const matchedKeys = new Set();
+
+    // 1. Direct key match (exact SPK or token)
+    for (const key of [cleanSpk, ...subSpkTokens]) {
+      if (dataMap.has(key) && !matchedKeys.has(key)) {
+        matchedSpkDataList.push(dataMap.get(key));
+        matchedKeys.add(key);
       }
+    }
+
+    // 2. Normalized fallback if exact match wasn't found
+    if (matchedSpkDataList.length === 0) {
+      for (const [mapKey, spkData] of dataMap.entries()) {
+        if (matchedKeys.has(mapKey)) continue;
+        const normKey = normalizeKey(mapKey);
+        if (normKey === targetNorm || subNorms.some(sn => normKey === sn || (normKey.length >= 4 && sn.includes(normKey)))) {
+          matchedSpkDataList.push(spkData);
+          matchedKeys.add(mapKey);
+        }
+      }
+    }
+
+    for (const spkData of matchedSpkDataList) {
+      totalRealRolls += spkData.totalRealRolls;
+      totalRealMeter += spkData.totalRealMeter;
+      totalRealKg += spkData.totalRealKg;
+      passCount += spkData.passCount;
+      holdCount += spkData.holdCount;
+      rejectCount += spkData.rejectCount;
+      spkData.lots.forEach(lotObj => allLots.push(lotObj));
+      spkData.widthMap.forEach((wObj, w) => {
+        if (!aggregatedWidthMap.has(w)) {
+          aggregatedWidthMap.set(w, { width: w, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+        }
+        const tgt = aggregatedWidthMap.get(w);
+        tgt.totalRoll += wObj.totalRoll;
+        tgt.totalMeter += wObj.totalMeter;
+        tgt.totalKg += wObj.totalKg;
+      });
     }
 
     const widthSummaries = Array.from(aggregatedWidthMap.values()).sort((a, b) => b.width - a.width);

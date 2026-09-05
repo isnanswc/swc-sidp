@@ -4,9 +4,9 @@ import * as XLSX from 'xlsx';
  * Robust date parser for Indonesian text dates, Excel serials, ISO dates, and DMY
  */
 export function parseDateToIso(rawDate) {
-  if (!rawDate) return new Date().toISOString().slice(0, 10);
+  if (!rawDate) return '';
   const s = String(rawDate).trim();
-  if (!s) return new Date().toISOString().slice(0, 10);
+  if (!s) return '';
 
   // Check Excel Serial Number (e.g. 40000 - 65000)
   const numDate = parseFloat(s);
@@ -55,6 +55,26 @@ export function parseDateToIso(rawDate) {
   }
 
   return s;
+}
+
+/**
+ * Extract real production date from Lot string if formatted with [Formula 3-chars][DDMMYY 6-digits]
+ * Examples: L01050125C2A12 -> 2025-01-05 | M07260626A201 -> 2026-06-26
+ */
+export function extractDateFromLot(lotStr) {
+  if (!lotStr) return '';
+  const s = String(lotStr).trim().toUpperCase();
+  const m = s.match(/^[A-Z]\d{2}(\d{2})(\d{2})(\d{2})/);
+  if (m) {
+    const dd = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10);
+    const yy = parseInt(m[3], 10);
+    if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) {
+      const yyyy = 2000 + yy;
+      return `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+    }
+  }
+  return '';
 }
 
 /**
@@ -616,8 +636,14 @@ export function parseDataRollRow(row) {
     machineName = 'SLITTING';
   }
 
+  const fgParts = kodeFg.split(/\s+/).filter(Boolean);
+  const fullLotStr = fgParts.length > 0 ? fgParts[0] : (lotRaw || '');
+
   // Format Tanggal (Standardized ISO YYYY-MM-DD)
-  const tanggalFormatted = parseDateToIso(tanggalRaw);
+  let tanggalFormatted = parseDateToIso(tanggalRaw);
+  if (!tanggalFormatted) {
+    tanggalFormatted = extractDateFromLot(fullLotStr || kodeFg || lotRaw) || '';
+  }
 
   // Parse Kode Pack & Sub Kode (e.g. 3B08260001, R3B06250085, 3B01250000)
   let kodePack = kodePackRaw;
@@ -644,9 +670,6 @@ export function parseDataRollRow(row) {
     kodePack = '3B0826';
     subKode = kodePackRaw.padStart(4, '0');
   }
-
-  const fgParts = kodeFg.split(/\s+/).filter(Boolean);
-  const fullLotStr = fgParts.length > 0 ? fgParts[0] : (lotRaw || '');
 
   // Detect Supplier (INHOUSE vs External like PANVERTA, KHM)
   const supplier = detectSupplier(fullLotStr || kodeFg, spk);

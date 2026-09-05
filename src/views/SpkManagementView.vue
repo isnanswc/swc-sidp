@@ -802,14 +802,19 @@
               </tr>
               <tr
                 v-for="(lot, lIdx) in paginatedDetailPageLots"
-                :key="lot.lot"
+                :key="lot.id || (lot.lot + '_' + lIdx)"
                 class="hover:bg-blue-50/30 transition-colors"
               >
                 <td class="px-4 py-2.5 text-center text-zinc-400 font-bold">
                   {{ (detailPageLotCurrentPage - 1) * detailPageLotPageSize + lIdx + 1 }}
                 </td>
                 <td class="px-4 py-2.5 font-black text-zinc-900 text-sm">
-                  {{ lot.lot }}
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span>{{ lot.lot }}</span>
+                    <span v-if="lot.turunan && !lot.lot.includes(lot.turunan)" class="px-1.5 py-0.5 rounded text-[10.5px] font-mono font-bold bg-blue-100 text-blue-800">
+                      {{ lot.turunan }}
+                    </span>
+                  </div>
                 </td>
                 <td class="px-4 py-2.5 text-right font-bold text-zinc-700">
                   {{ lot.width }} mm × {{ formatNumber(lot.length) }} m
@@ -1269,12 +1274,15 @@
             </div>
             <div class="max-h-56 overflow-y-auto space-y-1 font-mono text-[11px]">
               <div
-                v-for="lot in filteredDrawerLots"
-                :key="lot.lot"
+                v-for="(lot, lIdx) in filteredDrawerLots"
+                :key="lot.id || (lot.lot + '_' + lIdx)"
                 class="p-2 bg-white rounded-lg border border-zinc-200 flex items-center justify-between"
               >
                 <div>
                   <strong class="text-zinc-900">{{ lot.lot }}</strong>
+                  <span v-if="lot.turunan && !lot.lot.includes(lot.turunan)" class="ml-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold bg-blue-100 text-blue-800">
+                    {{ lot.turunan }}
+                  </span>
                   <span class="text-zinc-400 text-[10px] ml-2 font-sans">({{ lot.width }} mm × {{ formatNumber(lot.length) }} m • {{ formatNumber(lot.weight) }} kg)</span>
                   <span v-if="lot.operator" class="text-zinc-500 text-[9.5px] block font-sans">Operator: {{ lot.operator }}</span>
                 </div>
@@ -2263,7 +2271,11 @@ const filteredDrawerLots = computed(() => {
   const lots = selectedSpkAnalytics.value?.realLots || [];
   const q = (drawerLotSearch.value || '').trim().toLowerCase();
   if (!q) return lots;
-  return lots.filter(l => String(l.lot || '').toLowerCase().includes(q) || String(l.operator || '').toLowerCase().includes(q));
+  return lots.filter(l => 
+    String(l.lot || '').toLowerCase().includes(q) || 
+    String(l.turunan || '').toLowerCase().includes(q) || 
+    String(l.operator || '').toLowerCase().includes(q)
+  );
 });
 
 const selectedDetailSpk = ref(null);
@@ -2277,6 +2289,7 @@ const filteredDetailPageLots = computed(() => {
   if (!q) return lots;
   return lots.filter(l => 
     String(l.lot || '').toLowerCase().includes(q) ||
+    String(l.turunan || '').toLowerCase().includes(q) ||
     String(l.operator || '').toLowerCase().includes(q)
   );
 });
