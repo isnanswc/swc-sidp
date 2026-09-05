@@ -51,6 +51,7 @@ import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { pushLocalToSupabase } from '@/services/syncService';
+import { extractCleanParentLot } from '@/services/dataRollParserService';
 export const evaluateTargetStatus = (actualRoll, planRoll, isSkipped = false) => {
   if (isSkipped) {
     return {
