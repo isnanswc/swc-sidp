@@ -966,8 +966,11 @@ export function startRealtimeSync(onDataChangeCallback) {
           await db.labels.add(item);
         }
       } else if (payload.eventType === 'DELETE' && payload.old) {
-        const existing = await db.labels.where('uniqId').equals(payload.old.uniq_id).first();
-        if (existing) await db.labels.delete(existing.id);
+        const targetId = payload.old.uniq_id || payload.old.uniqId || payload.old.id;
+        if (targetId) {
+          const existing = await db.labels.where('uniqId').equals(targetId).first();
+          if (existing) await db.labels.delete(existing.id);
+        }
       }
       if (onDataChangeCallback) onDataChangeCallback('labels');
     })
@@ -982,17 +985,23 @@ export function startRealtimeSync(onDataChangeCallback) {
           await db.spk_plans.add(plan);
         }
       } else if (payload.eventType === 'DELETE' && payload.old) {
-        const existing = await db.spk_plans.where('uuid').equals(payload.old.uuid).first();
-        if (existing) await db.spk_plans.delete(existing.id);
+        const targetUuid = payload.old.uuid;
+        if (targetUuid) {
+          const existing = await db.spk_plans.where('uuid').equals(targetUuid).first();
+          if (existing) await db.spk_plans.delete(existing.id);
+        }
       }
       if (onDataChangeCallback) onDataChangeCallback('spk_plans');
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'data_rolls' }, async (payload) => {
       if (payload.eventType === 'DELETE' && payload.old) {
-        const existing = await db.data_rolls.where('uuid').equals(payload.old.uuid).first();
-        if (existing) {
-          await db.data_rolls.delete(existing.id);
-          if (onDataChangeCallback) onDataChangeCallback('data_rolls');
+        const targetUuid = payload.old.uuid;
+        if (targetUuid) {
+          const existing = await db.data_rolls.where('uuid').equals(targetUuid).first();
+          if (existing) {
+            await db.data_rolls.delete(existing.id);
+            if (onDataChangeCallback) onDataChangeCallback('data_rolls');
+          }
         }
       }
     })
