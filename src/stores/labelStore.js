@@ -322,21 +322,11 @@ export const useLabelStore = defineStore('labelStore', {
           mappedDataRolls = rawDataRolls
             .filter(r => !existingUuids.has(r.uuid))
             .map(r => {
-              let lot = r.lot || '';
-              let turunan = r.turunan || '';
-              let kodeOperator = r.kodeOperator || '';
-              let shift = r.shift || '';
+              const lot = r.lot || '';
+              const turunan = r.turunan || '';
+              const kodeOperator = r.kodeOperator || (turunan ? turunan.charAt(0) : 'G');
+              const shift = r.shift || '';
               const supplier = r.supplier || detectSupplier(r.kodeFg || lot, r.spk);
-
-              if (lot && !lot.includes('/')) {
-                const parsed = parseContinuousLot(lot, r.machineName || (r.slitting ? 'SLITTING' : 'REWIND'), supplier);
-                if (parsed && parsed.parsedLot) {
-                  lot = parsed.parsedLot;
-                  turunan = turunan || parsed.turunan;
-                  kodeOperator = kodeOperator || parsed.kodeOperator;
-                  shift = shift || parsed.shift || '';
-                }
-              }
 
               const thick = String(r.thickness || '');
               const width = String(r.width || '');
@@ -381,7 +371,7 @@ export const useLabelStore = defineStore('labelStore', {
                 lot,
                 turunan,
                 operator: r.operator || (kodeOperator ? `OPERATOR ${kodeOperator}` : 'OPERATOR'),
-                kodeOperator: kodeOperator || (turunan ? turunan.charAt(0) : 'G'),
+                kodeOperator,
                 reasonDefect: r.reasonDefect || '',
                 keterangan: r.reasonDefect || r.keterangan || (status === 'PASS' ? 'QC Pass' : (status === 'HOLD' ? 'Hold non-standard' : 'Reject defect')),
                 jenisPrint: 'FINISH GOODS',
@@ -767,15 +757,19 @@ export const useLabelStore = defineStore('labelStore', {
   }
 });
 
-// Auto-reload labelStore whenever cloud sync or realtime updates labels
+// Auto-reload labelStore whenever cloud sync or realtime updates labels (debounced)
 if (typeof window !== 'undefined' && !window.__mlabel_label_sync_listener_attached) {
   window.__mlabel_label_sync_listener_attached = true;
-  window.addEventListener('sync:labels-updated', async () => {
-    try {
-      const store = useLabelStore();
-      await store.loadLabels();
-    } catch (e) {
-      console.warn('Auto reload labelStore failed:', e);
-    }
+  let reloadTimer = null;
+  window.addEventListener('sync:labels-updated', () => {
+    if (reloadTimer) clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(async () => {
+      try {
+        const store = useLabelStore();
+        await store.loadLabels(true);
+      } catch (e) {
+        console.warn('Auto reload labelStore failed:', e);
+      }
+    }, 1500);
   });
 }

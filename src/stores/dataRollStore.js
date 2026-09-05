@@ -152,46 +152,17 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     }
     loading.value = true;
     const { startLoading, stopLoading } = useGlobalLoading();
-    startLoading('Memuat data roll (10K+)...');
+    startLoading('Memuat data roll...');
     try {
-      // Auto-cleanup any lingering ghost/blank records in db.data_rolls
-      if (db.data_rolls) {
-        const ghostList = await db.data_rolls.filter(r => {
-          const lot = String(r.lot || r.kodeFg || '').trim();
-          const spk = String(r.spk || '').trim();
-          const w = parseFloat(r.width || 0);
-          const l = parseFloat(r.length || 0);
-          const isBlank = (!lot || lot === '0' || lot === '-') && (!spk || spk === '0' || spk === '-');
-          const isZeroDim = (!lot || lot === '0') && w === 0 && l === 0;
-          const isHeader = /^(total|grand total|subtotal|sub total|jumlah|no lot|kode fg|deskripsi)$/i.test(lot);
-          return isBlank || isZeroDim || isHeader;
-        }).toArray();
-        if (ghostList.length > 0) {
-          const ghostIds = ghostList.map(g => g.id).filter(Boolean);
-          await db.data_rolls.bulkDelete(ghostIds);
-        }
-      }
-
       const rawExplicit = db.data_rolls ? await db.data_rolls.toArray() : [];
       const explicitRolls = rawExplicit.map(r => {
-        let lot = r.lot || '';
-        let turunan = r.turunan || '';
-        let kodeOperator = r.kodeOperator || '';
-        let shift = r.shift || '';
+        const lot = r.lot || '';
+        const turunan = r.turunan || '';
+        const kodeOperator = r.kodeOperator || (turunan ? turunan.charAt(0) : 'G');
+        const shift = r.shift || '';
         const supplier = r.supplier || detectSupplier(r.kodeFg || lot, r.spk);
-
-        if (lot && !lot.includes('/')) {
-          const parsed = parseContinuousLot(lot, r.machineName || (r.slitting ? 'SLITTING' : 'REWIND'), supplier);
-          if (parsed && parsed.parsedLot) {
-            lot = parsed.parsedLot;
-            turunan = turunan || parsed.turunan;
-            kodeOperator = kodeOperator || parsed.kodeOperator;
-            shift = shift || parsed.shift || '';
-          }
-        }
-
         const rawDate = r.tanggalFormatted || r.tanggal;
-        const cleanDate = parseDateToIso(rawDate) || extractDateFromLot(lot || r.kodeFg || r.rawLot) || (rawDate ? String(rawDate).slice(0, 10) : '');
+        const cleanDate = rawDate ? String(rawDate).slice(0, 10) : '';
 
         return {
           ...r,
@@ -199,7 +170,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
           turunan,
           tanggal: cleanDate || r.tanggal || '',
           tanggalFormatted: cleanDate || r.tanggalFormatted || '',
-          kodeOperator: kodeOperator || (turunan ? turunan.charAt(0) : 'G'),
+          kodeOperator,
           operator: r.operator || (kodeOperator ? `OPERATOR ${kodeOperator}` : 'OPERATOR'),
           shift,
           supplier
@@ -212,7 +183,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         const labelsList = await db.labels.toArray();
         deRolls = labelsList.map(l => {
           const rawDate = l.tanggal || (l.verifiedAt ? l.verifiedAt.slice(0, 10) : (l.createdAt ? l.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10)));
-          const cleanDate = parseDateToIso(rawDate) || rawDate;
+          const cleanDate = rawDate ? String(rawDate).slice(0, 10) : '';
           const mesin = (l.mesin || 'SLITTING').toUpperCase();
           const thickness = String(l.thickness || l.tebal || l.thick || '');
           const width = String(l.width || l.lebar || '');
@@ -795,15 +766,19 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   };
 });
 
-// Auto-reload dataRollStore whenever cloud sync or realtime updates data_rolls
+// Auto-reload dataRollStore whenever cloud sync or realtime updates data_rolls (debounced)
 if (typeof window !== 'undefined' && !window.__mlabel_data_roll_sync_listener_attached) {
   window.__mlabel_data_roll_sync_listener_attached = true;
-  window.addEventListener('sync:data-rolls-updated', async () => {
-    try {
-      const store = useDataRollStore();
-      await store.loadRolls();
-    } catch (e) {
-      console.warn('Auto reload dataRollStore failed:', e);
-    }
+  let reloadTimer = null;
+  window.addEventListener('sync:data-rolls-updated', () => {
+    if (reloadTimer) clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(async () => {
+      try {
+        const store = useDataRollStore();
+        await store.loadRolls(true);
+      } catch (e) {
+        console.warn('Auto reload dataRollStore failed:', e);
+      }
+    }, 1500);
   });
 }
