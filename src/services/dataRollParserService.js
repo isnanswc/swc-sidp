@@ -5,21 +5,49 @@ import * as XLSX from 'xlsx';
  */
 export function parseDateToIso(rawDate) {
   if (!rawDate) return '';
+
+  // 1. If already a JS Date object (e.g. from XLSX cellDates: true)
+  if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+    const y = rawDate.getFullYear();
+    const m = String(rawDate.getMonth() + 1).padStart(2, '0');
+    const d = String(rawDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // 1.5 If raw number from Excel serial
+  if (typeof rawDate === 'number' && !isNaN(rawDate) && rawDate > 30000 && rawDate < 65000) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const jsDate = new Date(excelEpoch.getTime() + rawDate * 86400000);
+    return jsDate.toISOString().slice(0, 10);
+  }
+
   const s = String(rawDate).trim();
   if (!s) return '';
 
-  // Check Excel Serial Number (e.g. 40000 - 65000)
+  // 2. Standard ISO format YYYY-MM-DD (or with time: YYYY-MM-DDTHH:mm:ss...)
+  const isoPrefix = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoPrefix) {
+    return `${isoPrefix[1]}-${isoPrefix[2]}-${isoPrefix[3]}`;
+  }
+
+  // 3. Check Excel Serial Number (e.g. 40000 - 65000)
   const numDate = parseFloat(s);
-  if (!isNaN(numDate) && numDate > 30000 && numDate < 65000 && !s.includes(' ') && !s.includes('/') && !s.includes('-')) {
+  if (!isNaN(numDate) && numDate > 30000 && numDate < 65000 && !s.includes(' ') && !s.includes('/') && !s.includes('-') && !s.includes('.')) {
     const excelEpoch = new Date(Date.UTC(1899, 11, 30));
     const jsDate = new Date(excelEpoch.getTime() + numDate * 86400000);
     return jsDate.toISOString().slice(0, 10);
   }
 
-  // Standard ISO format YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // 4. Format: YYYY/MM/DD or YYYY.MM.DD
+  const ymdMatch = s.match(/^(\d{4})[./](\d{1,2})[./](\d{1,2})/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
-  // Indonesian & English Month map
+  // 5. Indonesian & English Month map
   const months = {
     'januari': '01', 'jan': '01', 'january': '01',
     'februari': '02', 'feb': '02', 'february': '02',
@@ -35,23 +63,46 @@ export function parseDateToIso(rawDate) {
     'desember': '12', 'des': '12', 'december': '12', 'dec': '12'
   };
 
-  // Format: "01 Agustus 2026" or "1-Agustus-2026"
-  const idMatch = s.match(/^(\d{1,2})[\s\-_]+([A-Za-z]+)[\s\-_]+(\d{4})$/);
+  // 6. Format: "01 Agustus 2026" or "1-Agustus-26" or "1-Aug-2026"
+  const idMatch = s.match(/^(\d{1,2})[\s\-_]+([A-Za-z]+)[\s\-_]+(\d{2,4})/);
   if (idMatch) {
     const day = idMatch[1].padStart(2, '0');
     const mName = idMatch[2].toLowerCase();
     const month = months[mName] || '01';
-    const year = idMatch[3];
+    let year = idMatch[3];
+    if (year.length === 2) {
+      const yr = parseInt(year, 10);
+      year = String(yr < 50 ? 2000 + yr : 1900 + yr);
+    }
     return `${year}-${month}-${day}`;
   }
 
-  // Format: "DD/MM/YYYY" or "DD-MM-YYYY"
-  const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  // 7. Format: "DD/MM/YYYY" or "DD-MM-YYYY" or "DD.MM.YYYY"
+  const dmyMatch = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
   if (dmyMatch) {
     const day = dmyMatch[1].padStart(2, '0');
     const month = dmyMatch[2].padStart(2, '0');
     const year = dmyMatch[3];
     return `${year}-${month}-${day}`;
+  }
+
+  // 8. Format: "DD/MM/YY" or "DD-MM-YY" or "DD.MM.YY" (2-digit year)
+  const dmyMatch2 = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2})$/);
+  if (dmyMatch2) {
+    const day = dmyMatch2[1].padStart(2, '0');
+    const month = dmyMatch2[2].padStart(2, '0');
+    const yr = parseInt(dmyMatch2[3], 10);
+    const year = String(yr < 50 ? 2000 + yr : 1900 + yr);
+    return `${year}-${month}-${day}`;
+  }
+
+  // 9. Standard JavaScript Date parser fallback (e.g. "Wed Jan 15 2026 ...")
+  const parsedJsDate = new Date(s);
+  if (!isNaN(parsedJsDate.getTime()) && parsedJsDate.getFullYear() >= 1990 && parsedJsDate.getFullYear() <= 2099) {
+    const y = parsedJsDate.getFullYear();
+    const m = String(parsedJsDate.getMonth() + 1).padStart(2, '0');
+    const d = String(parsedJsDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   return s;
@@ -64,6 +115,8 @@ export function parseDateToIso(rawDate) {
 export function extractDateFromLot(lotStr) {
   if (!lotStr) return '';
   const s = String(lotStr).trim().toUpperCase();
+
+  // 1. Standard inhouse format: L01050125 / M07260626
   const m = s.match(/^[A-Z]\d{2}(\d{2})(\d{2})(\d{2})/);
   if (m) {
     const dd = parseInt(m[1], 10);
@@ -74,6 +127,19 @@ export function extractDateFromLot(lotStr) {
       return `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
     }
   }
+
+  // 2. Generic lot with 6 digit date pattern: e.g. M07/260626/... or 07260626
+  const mGeneric = s.match(/(?:^|[^0-9])(\d{2})(\d{2})(\d{2})(?:[^0-9]|$)/);
+  if (mGeneric) {
+    const dd = parseInt(mGeneric[1], 10);
+    const mm = parseInt(mGeneric[2], 10);
+    const yy = parseInt(mGeneric[3], 10);
+    if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12 && yy >= 20 && yy <= 35) {
+      const yyyy = 2000 + yy;
+      return `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+    }
+  }
+
   return '';
 }
 
@@ -562,30 +628,69 @@ export function parseDataRollRow(row) {
       const keys = Object.keys(row);
       for (const alias of aliases) {
         if (row[alias] !== undefined && row[alias] !== null && String(row[alias]).trim() !== '') {
-          return String(row[alias]).trim();
+          return row[alias];
         }
         const cleanedAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
         const matchedKey = keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanedAlias);
         if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null && String(row[matchedKey]).trim() !== '') {
-          return String(row[matchedKey]).trim();
+          return row[matchedKey];
         }
       }
       return '';
     };
 
-    kodeFg = getVal(['Kode FG', 'KODE FG', 'kodeFg', 'kode_fg', 'KodeFg', 'Deskripsi', 'DESKRIPSI', 'Kode Barcode', 'Item']);
-    lotRaw = getVal(['Lot Akhir', 'LOT AKHIR', 'Lot No.', 'LOT NO.', 'No Lot', 'NO LOT', 'No. Lot', 'NO. LOT', 'Lot FG', 'Lot', 'LOT', 'No_Lot', 'LotNo']);
-    
+    kodeFg = String(getVal([
+      'Kode FG', 'KODE FG', 'kodeFg', 'kode_fg', 'KodeFg', 'Deskripsi', 'DESKRIPSI', 'Kode Barcode', 
+      'Item', 'Produk', 'Nama Produk', 'Nama Barang', 'Item Name', 'Deskripsi Barang', 'Type Film', 'Jenis Film'
+    ]) || '').trim();
+
+    lotRaw = String(getVal([
+      'Lot Akhir', 'LOT AKHIR', 'Lot No.', 'LOT NO.', 'No Lot', 'NO LOT', 'No. Lot', 'NO. LOT', 
+      'Lot FG', 'Lot', 'LOT', 'No_Lot', 'LotNo', 'No Lot Slitting', 'NO LOT SLITTING', 'No Lot Rewind', 
+      'NO LOT REWIND', 'Lot Induk', 'LOT INDUK', 'Lot Number', 'LOT NUMBER', 'Nomor Lot', 'NOMOR LOT', 
+      'Roll No', 'No Roll', 'NO ROLL', 'No. Roll', 'NO. ROLL', 'Kode Roll', 'Identitas Roll', 'Lot/Roll', 'No'
+    ]) || '').trim();
+
+    // Fallback if lotRaw is still empty: find any key that contains 'lot' or 'roll'
+    if (!lotRaw) {
+      const keys = Object.keys(row);
+      const fallbackLotKey = keys.find(k => {
+        const lk = k.toLowerCase();
+        return (lk.includes('lot') || lk.includes('roll')) && !lk.includes('total') && !lk.includes('berat');
+      });
+      if (fallbackLotKey && row[fallbackLotKey]) {
+        lotRaw = String(row[fallbackLotKey]).trim();
+      }
+    }
+
     slitting = parseInt(getVal(['SLITTING', 'Slitting', 'slitting']) || '0', 10) || 0;
     rewind = parseInt(getVal(['REWIND', 'Rewind', 'rewind']) || '0', 10) || 0;
     sml = parseInt(getVal(['SML', 'Sml', 'sml']) || '0', 10) || 0;
-    machineRaw = getVal(['Mesin', 'MESIN', 'Machine', 'machineName', 'machine', 'Posisi Mesin']);
+    machineRaw = String(getVal(['Mesin', 'MESIN', 'Machine', 'machineName', 'machine', 'Posisi Mesin']) || '').trim();
 
-    tanggalRaw = getVal(['Tanggal', 'TANGGAL', 'tanggal', 'Date', 'DATE', 'Tgl', 'TGL', 'Tanggal Produksi', 'Tgl Produksi']);
-    spk = getVal(['No SPK', 'NO SPK', 'No. SPK', 'SPK', 'spk', 'NoSpk', 'No_SPK', 'Nomor SPK']);
-    kodePackRaw = getVal(['Kode Pack', 'KODE PACK', 'kodePack', 'kode_pack', 'KodePack', 'No Pack', 'NO PACK', 'Packing', 'PACKING', 'Pack', 'Sub Kode', 'Barcode']);
-    qualityStatus = getVal(['Quality Status', 'QUALITY STATUS', 'qualityStatus', 'Status', 'STATUS', 'status', 'QC Status', 'Kualitas', 'Grade']) || 'PASS';
-    reasonDefectRaw = getVal(['REASON OF DEFECT', 'Reason of Defect', 'Reason Of Defect', 'REASON OF DEFFECT', 'Reason Of Deffect', 'REASON DEFECT', 'Reason Defect', 'reasonDefect', 'reason_defect', 'Defect', 'DEFECT', 'Alasan Defect', 'Keterangan', 'KETERANGAN', 'Ket', 'Notes']);
+    tanggalRaw = getVal([
+      'Tanggal', 'TANGGAL', 'tanggal', 'Date', 'DATE', 'date', 'Tgl', 'TGL', 'tgl', 
+      'Tanggal Produksi', 'Tgl Produksi', 'Prod Date', 'PROD DATE', 'Production Date', 
+      'Tgl. Produksi', 'TGL PRODUKSI', 'Tanggal Slitting', 'Tgl Slitting', 'Tanggal Rewind', 
+      'Tgl Rewind', 'Tgl Masuk', 'Tgl Proses', 'Waktu'
+    ]);
+
+    // Fallback if tanggalRaw is still empty: find any key that contains 'tgl' or 'date' or 'tanggal'
+    if (!tanggalRaw) {
+      const keys = Object.keys(row);
+      const fallbackDateKey = keys.find(k => {
+        const lk = k.toLowerCase();
+        return lk.includes('tgl') || lk.includes('date') || lk.includes('tanggal');
+      });
+      if (fallbackDateKey && row[fallbackDateKey]) {
+        tanggalRaw = row[fallbackDateKey];
+      }
+    }
+
+    spk = String(getVal(['No SPK', 'NO SPK', 'No. SPK', 'SPK', 'spk', 'NoSpk', 'No_SPK', 'Nomor SPK']) || '').trim();
+    kodePackRaw = String(getVal(['Kode Pack', 'KODE PACK', 'kodePack', 'kode_pack', 'KodePack', 'No Pack', 'NO PACK', 'Packing', 'PACKING', 'Pack', 'Sub Kode', 'Barcode']) || '').trim();
+    qualityStatus = String(getVal(['Quality Status', 'QUALITY STATUS', 'qualityStatus', 'Status', 'STATUS', 'status', 'QC Status', 'Kualitas', 'Grade']) || 'PASS').trim().toUpperCase();
+    reasonDefectRaw = String(getVal(['REASON OF DEFECT', 'Reason of Defect', 'Reason Of Defect', 'REASON OF DEFFECT', 'Reason Of Deffect', 'REASON DEFECT', 'Reason Defect', 'reasonDefect', 'reason_defect', 'Defect', 'DEFECT', 'Alasan Defect', 'Keterangan', 'KETERANGAN', 'Ket', 'Notes']) || '').trim();
 
     thicknessRaw = getVal(['Thickness', 'THICKNESS', 'Tebal', 'Micron', 'MC']);
     widthRaw = getVal(['Width', 'WIDTH', 'Lebar', 'Lebar (MM)', 'Lebar Hasil', 'Lebar MM']);
@@ -903,77 +1008,90 @@ export async function parseExcelFileDataRoll(file, onProgress = null) {
         
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true, dense: true });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        
-        // 1. Read sheet as 2D raw array
-        const rawGrid = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-        if (!rawGrid || rawGrid.length === 0) {
+        const sheetNames = workbook.SheetNames || [];
+        if (sheetNames.length === 0) {
           resolve([]);
           return;
         }
 
-        const totalRows = rawGrid.length;
-        if (onProgress) onProgress({ phase: 'scanning', percent: 25, message: `Menganalisa ${totalRows.toLocaleString()} baris data...` });
-
-        // 2. Find the header row (row containing key words like 'lot', 'kode', 'tanggal', 'spk', 'status')
-        let headerRowIdx = -1;
-        const keywords = ['lot', 'kode', 'tanggal', 'date', 'spk', 'status', 'slitting', 'pack', 'deskripsi', 'packing'];
-
-        for (let r = 0; r < Math.min(rawGrid.length, 10); r++) {
-          const rowArr = rawGrid[r];
-          if (Array.isArray(rowArr)) {
-            const rowStr = rowArr.map(c => String(c).toLowerCase()).join(' ');
-            const matchedCount = keywords.filter(kw => rowStr.includes(kw)).length;
-            if (matchedCount >= 2) {
-              headerRowIdx = r;
-              break;
-            }
-          }
-        }
-
         const results = [];
-        const startRow = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
-        const headers = headerRowIdx !== -1 ? rawGrid[headerRowIdx].map(h => String(h || '').trim()) : null;
+        const keywords = ['lot', 'kode', 'tanggal', 'date', 'tgl', 'spk', 'status', 'slitting', 'pack', 'deskripsi', 'packing', 'rewind', 'lebar', 'panjang', 'meter', 'thick', 'tebal', 'berat', 'netto'];
 
-        for (let r = startRow; r < rawGrid.length; r++) {
-          const rowArr = rawGrid[r];
-          if (!rowArr || rowArr.length === 0) continue;
+        for (let sIdx = 0; sIdx < sheetNames.length; sIdx++) {
+          const sheetName = sheetNames[sIdx];
+          const worksheet = workbook.Sheets[sheetName];
+          if (!worksheet) continue;
 
-          let parsed = null;
-          if (headers) {
-            const rowObj = {};
-            for (let c = 0; c < headers.length; c++) {
-              if (headers[c]) {
-                rowObj[headers[c]] = rowArr[c] !== undefined ? rowArr[c] : '';
+          // 1. Read sheet as 2D raw array
+          const rawGrid = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+          if (!rawGrid || rawGrid.length === 0) continue;
+
+          const totalRows = rawGrid.length;
+          if (onProgress) {
+            const sheetPercent = Math.round(((sIdx) / sheetNames.length) * 40) + 10;
+            onProgress({ 
+              phase: 'scanning', 
+              percent: sheetPercent, 
+              message: `Menganalisa sheet "${sheetName}" (${sIdx + 1}/${sheetNames.length}, ${totalRows.toLocaleString()} baris)...` 
+            });
+          }
+
+          // 2. Find the header row (search first 30 rows)
+          let headerRowIdx = -1;
+          for (let r = 0; r < Math.min(rawGrid.length, 30); r++) {
+            const rowArr = rawGrid[r];
+            if (Array.isArray(rowArr)) {
+              const rowStr = rowArr.map(c => String(c || '').toLowerCase()).join(' ');
+              const matchedCount = keywords.filter(kw => rowStr.includes(kw)).length;
+              if (matchedCount >= 2) {
+                headerRowIdx = r;
+                break;
               }
             }
-            parsed = parseDataRollRow(rowObj);
-          } else {
-            parsed = parseDataRollRow(rowArr);
           }
 
-          if (parsed) {
-            results.push(parsed);
-          }
+          const startRow = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
+          const headers = headerRowIdx !== -1 ? rawGrid[headerRowIdx].map(h => String(h || '').trim()) : null;
 
-          // Asynchronously yield to event loop every 2,500 rows so browser remains ultra-responsive
-          if (r % 2500 === 0) {
-            if (onProgress) {
-              const currentPercent = 25 + Math.round(((r - startRow) / (totalRows - startRow)) * 70);
-              onProgress({
-                phase: 'parsing',
-                current: r,
-                total: totalRows,
-                percent: Math.min(currentPercent, 95),
-                message: `Mengekstrak ${results.length.toLocaleString()} roll...`
-              });
+          for (let r = startRow; r < rawGrid.length; r++) {
+            const rowArr = rawGrid[r];
+            if (!rowArr || rowArr.length === 0) continue;
+
+            let parsed = null;
+            if (headers) {
+              const rowObj = {};
+              for (let c = 0; c < headers.length; c++) {
+                if (headers[c]) {
+                  rowObj[headers[c]] = rowArr[c] !== undefined ? rowArr[c] : '';
+                }
+              }
+              parsed = parseDataRollRow(rowObj);
+            } else {
+              parsed = parseDataRollRow(rowArr);
             }
-            await new Promise(res => setTimeout(res, 0));
+
+            if (parsed) {
+              results.push(parsed);
+            }
+
+            // Asynchronously yield every 2,500 rows
+            if (r % 2500 === 0) {
+              if (onProgress) {
+                const currentPercent = 40 + Math.round(((r - startRow) / (totalRows - startRow || 1)) * 50);
+                onProgress({
+                  phase: 'parsing',
+                  current: results.length,
+                  total: totalRows,
+                  percent: Math.min(currentPercent, 95),
+                  message: `Mengekstrak sheet "${sheetName}": ${results.length.toLocaleString()} roll...`
+                });
+              }
+              await new Promise(res => setTimeout(res, 0));
+            }
           }
         }
 
-        if (onProgress) onProgress({ phase: 'complete', percent: 100, message: `Selesai mengekstrak ${results.length.toLocaleString()} roll.` });
+        if (onProgress) onProgress({ phase: 'complete', percent: 100, message: `Selesai mengekstrak total ${results.length.toLocaleString()} roll dari ${sheetNames.length} sheet.` });
         resolve(results);
       } catch (err) {
         console.error('Error parsing Excel file:', err);

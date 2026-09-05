@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.115.0",
     "chart.js": "^4.4.1",
     "dexie": "^3.2.4",
     "exceljs": "^4.4.0",

@@ -49,11 +49,37 @@
         </span>
       </button>
 
-      <!-- Database / Storage Status Indicator -->
-      <div class="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs">
-        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-        <span class="font-bold text-zinc-700">IndexedDB: Siap</span>
-      </div>
+      <!-- Cloud Supabase Sync Status Indicator -->
+      <button
+        @click="handleManualSync"
+        :disabled="syncState.isSyncing"
+        class="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs select-none"
+        :class="[
+          syncState.isSyncing ? 'bg-blue-50 border-blue-300 text-blue-800' :
+          (!syncState.isOnline ? 'bg-amber-50 border-amber-300 text-amber-800' :
+          'bg-zinc-50 hover:bg-emerald-50 hover:border-emerald-300 border-zinc-200 text-zinc-700')
+        ]"
+        :title="syncState.isSyncing ? 'Sedang menyinkronkan data...' : (syncState.isOnline ? 'Terhubung ke Supabase Cloud (Klik untuk sinkronkan sekarang)' : 'Mode Offline (Data tersimpan di lokal)')"
+      >
+        <span class="relative flex h-2 w-2">
+          <span v-if="syncState.isSyncing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+          <span v-else-if="syncState.isOnline" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span
+            class="relative inline-flex rounded-full h-2 w-2"
+            :class="syncState.isSyncing ? 'bg-blue-500' : (syncState.isOnline ? 'bg-emerald-500' : 'bg-amber-500')"
+          ></span>
+        </span>
+        <div class="text-left leading-tight hidden md:block">
+          <p class="text-[9.5px] font-bold uppercase tracking-tight text-zinc-400">
+            {{ syncState.isSyncing ? 'Sinkronisasi...' : (syncState.isOnline ? 'Cloud Supabase' : 'Offline Mode') }}
+          </p>
+          <p class="text-xs font-black" :class="syncState.isSyncing ? 'text-blue-700' : (syncState.isOnline ? 'text-zinc-800' : 'text-amber-700')">
+            {{ syncState.isSyncing ? 'Mengunggah...' : (syncState.isOnline ? 'Tersinkron' : 'Lokal Aktif') }}
+            <span v-if="syncState.unsyncedCount > 0" class="text-amber-600 font-normal">({{ syncState.unsyncedCount }})</span>
+          </p>
+        </div>
+        <span class="md:hidden text-xs">☁️</span>
+      </button>
 
       <!-- User Profile & Logout -->
       <div class="flex items-center gap-2 pl-2 border-l border-zinc-200 relative">
@@ -112,6 +138,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
+import { syncState, syncAll, countUnsynced, startRealtimeSync } from '@/services/syncService';
 import ShiftHandoverModal from '@/components/schedule/ShiftHandoverModal.vue';
 
 defineEmits(['toggle-mobile-sidebar']);
@@ -126,6 +153,10 @@ const handleLogout = () => {
     authStore.logout();
     router.push('/login');
   }
+};
+
+const handleManualSync = async () => {
+  await syncAll();
 };
 
 const currentShift = computed(() => scheduleStore.currentShift);
@@ -147,6 +178,11 @@ onMounted(async () => {
   lastKnownShiftCode = scheduleStore.getCurrentShiftInfo().shiftCode;
   // Check every 60 seconds
   shiftCheckTimer = setInterval(checkShiftTransition, 60000);
+
+  // Initialize Supabase Sync & Realtime
+  countUnsynced();
+  startRealtimeSync();
+  syncAll().catch(err => console.warn('Auto sync on load:', err));
 });
 
 onUnmounted(() => {

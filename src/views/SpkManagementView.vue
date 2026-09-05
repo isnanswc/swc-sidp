@@ -183,15 +183,23 @@
             <div v-if="spkStore.activeDateWindow" class="px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-300 font-mono text-[11px] border border-zinc-700">
               📅 Jendela Valid: <strong class="text-emerald-400">{{ spkStore.activeDateWindow.label }}</strong>
             </div>
-            <select
-              v-if="(spkStore.batches || []).length > 1"
-              v-model="spkStore.activeTimelineBatchUuid"
-              class="px-3 py-1.5 bg-zinc-800 text-white text-xs rounded-xl font-bold font-mono border border-zinc-700 outline-none cursor-pointer"
-            >
-              <option v-for="b in spkStore.batches" :key="b.uuid" :value="b.uuid">
-                {{ b.batchName }}
-              </option>
-            </select>
+            <div class="flex items-center gap-1.5 bg-zinc-800/90 px-3 py-1.5 rounded-xl border border-zinc-700">
+              <span class="relative flex h-2.5 w-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span class="text-[10.5px] font-bold text-emerald-400 font-mono">ACUAN:</span>
+              <select
+                v-if="(spkStore.batches || []).length > 0"
+                v-model="spkStore.activeTimelineBatchUuid"
+                @change="spkStore.setActiveReferenceBatch(spkStore.activeTimelineBatchUuid)"
+                class="bg-transparent text-white text-xs font-bold font-mono border-0 outline-none cursor-pointer"
+              >
+                <option v-for="b in spkStore.batches" :key="b.uuid" :value="b.uuid" class="bg-zinc-900 text-white">
+                  {{ b.batchName }} ({{ b.tanggal }})
+                </option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -440,6 +448,32 @@
                     <span class="text-[9.5px] font-semibold" :class="row.actualDurationMinutes <= row.planDurationMinutes ? 'text-emerald-700' : 'text-amber-700'">
                       (Plan: {{ row.planDurationMinutes }} Mnt{{ row.actualDurationMinutes > row.planDurationMinutes ? ` | +${row.actualDurationMinutes - row.planDurationMinutes} Mnt` : '' }})
                     </span>
+                  </div>
+
+                  <!-- Waktu Mulai & Selesai Realisasi -->
+                  <div class="text-[10px] font-mono flex items-center justify-between pt-1 border-t border-zinc-100 text-zinc-600">
+                    <div class="flex items-center gap-1">
+                      <span>🕒 Mulai:</span>
+                      <strong class="text-zinc-800">{{ row.startTimeFormatted || '-' }}</strong>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span>🏁 Selesai:</span>
+                      <strong class="text-zinc-800">{{ row.endTimeFormatted || '-' }}</strong>
+                    </div>
+                  </div>
+
+                  <!-- Target Status Badge (5 States) -->
+                  <div
+                    v-if="row.targetStatus"
+                    class="flex items-center justify-between px-2.5 py-1 rounded-lg border text-[10.5px] font-mono font-bold"
+                    :class="[row.targetStatus.badgeClass, row.targetStatus.borderClass]"
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <span>{{ row.targetStatus.icon }}</span>
+                      <span>Status Target:</span>
+                      <span>{{ row.targetStatus.label }}</span>
+                    </div>
+                    <span class="text-[9.5px]">{{ row.achievementPercent || 0 }}% Target</span>
                   </div>
 
                   <!-- QC Badges -->
@@ -971,6 +1005,17 @@
                   <span class="px-2 py-0.5 rounded text-[9.5px] font-black bg-zinc-100 text-zinc-700 uppercase">
                     {{ batch.source || 'AI_SCAN' }}
                   </span>
+                  <!-- Indikator Lampu Hijau Berkedip untuk Batch Acuan Aktif -->
+                  <div
+                    v-if="spkStore.activeBatch?.uuid === batch.uuid"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-mono text-[10px] font-black"
+                  >
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                    </span>
+                    <span>ACUAN MONITORING AKTIF</span>
+                  </div>
                 </div>
                 <p class="text-[11px] text-zinc-500 font-sans mt-0.5">
                   {{ expandedBatchIds.has(batch.uuid) ? 'Tutup rincian' : 'Klik baris ini untuk melihat detail planned SPK' }}
@@ -995,6 +1040,16 @@
 
               <!-- Tombol Aksi Batch -->
               <div class="flex items-center gap-1.5 pl-3 border-l border-zinc-200 font-sans" @click.stop>
+                <!-- Tombol Jadikan Acuan -->
+                <button
+                  v-if="spkStore.activeBatch?.uuid !== batch.uuid"
+                  @click="setAsActiveBatch(batch.uuid)"
+                  class="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[10.5px] cursor-pointer flex items-center gap-1 transition-colors"
+                  title="Jadikan batch ini sebagai acuan monitoring di Dashboard SPK & Dashboard Utama"
+                >
+                  <span>🎯</span>
+                  <span>Jadikan Acuan</span>
+                </button>
                 <button
                   @click="openAddRowToBatch(batch)"
                   class="px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-[10.5px] cursor-pointer"
@@ -1016,14 +1071,17 @@
           <!-- RINCIAN DETAIL PLANNED SPK (MUNCUL SAAT BARIS BATCH DI-KLIK) -->
           <div v-if="expandedBatchIds.has(batch.uuid)" class="p-4 bg-zinc-50/70 border-t border-zinc-200 animate-fade-in">
             <div class="bg-white rounded-2xl border border-zinc-200 shadow-2xs overflow-hidden">
-              <div class="p-3 bg-zinc-100/80 border-b border-zinc-200 flex items-center justify-between text-xs font-sans">
+              <div class="p-3 bg-zinc-100/80 border-b border-zinc-200 flex items-center justify-between text-xs font-sans flex-wrap gap-2">
                 <div class="flex items-center gap-2 font-bold text-zinc-700">
                   <span>📋 Rincian Jadwal Slitting:</span>
                   <span class="font-mono text-zinc-900 font-black">{{ batch.batchName }}</span>
                   <span class="text-zinc-400">({{ batch.docNo || '3B-PROD' }})</span>
                 </div>
-                <div class="text-zinc-500 font-mono text-[11px]">
-                  Total: <strong class="text-zinc-900">{{ getBatchPlans(batch.uuid).length }} Baris SPK</strong>
+                <div class="flex items-center gap-3 text-zinc-500 font-mono text-[11px]">
+                  <span class="bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200 font-sans font-medium">
+                    💡 Geser (Drag & Drop) baris untuk ubah urutan potong
+                  </span>
+                  <span>Total: <strong class="text-zinc-900">{{ getBatchPlans(batch.uuid).length }} Baris SPK</strong></span>
                 </div>
               </div>
 
@@ -1031,7 +1089,7 @@
                 <table class="w-full text-xs font-mono">
                   <thead class="bg-zinc-900 text-white font-bold text-[11px]">
                     <tr>
-                      <th class="px-3 py-2.5 text-center w-8">No</th>
+                      <th class="px-2 py-2.5 text-center w-10">Urut</th>
                       <th class="px-3 py-2.5 text-left">SPK</th>
                       <th class="px-3 py-2.5 text-left">TYPE</th>
                       <th class="px-2 py-2.5 text-center">TEBAL</th>
@@ -1057,10 +1115,65 @@
                     </tr>
                     <tr
                       v-for="(row, rIdx) in getBatchPlans(batch.uuid)"
-                      :key="row.id || rIdx"
-                      class="hover:bg-amber-50/40 transition-colors"
+                      :key="row.id || row.uuid || rIdx"
+                      :draggable="true"
+                      @dragstart="handlePlanDragStart($event, batch.uuid, rIdx)"
+                      @dragenter.prevent="handlePlanDragOver($event, batch.uuid, rIdx)"
+                      @dragover.prevent="handlePlanDragOver($event, batch.uuid, rIdx)"
+                      @dragleave="handlePlanDragLeave"
+                      @drop.prevent="handlePlanDrop($event, batch.uuid, rIdx)"
+                      @dragend="handlePlanDragEnd"
+                      class="transition-all select-none group cursor-default"
+                      :class="[
+                        draggedBatchUuid === batch.uuid && draggedPlanIndex === rIdx ? 'opacity-30 bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-amber-50/40',
+                        draggedBatchUuid === batch.uuid && dragOverPlanIndex === rIdx && draggedPlanIndex !== rIdx ? 'border-t-4 border-t-blue-600 bg-blue-50/80 shadow-md ring-2 ring-blue-400/30' : ''
+                      ]"
                     >
-                      <td class="px-3 py-2 text-center text-zinc-500 font-bold">{{ rIdx + 1 }}</td>
+                      <td class="px-2 py-2 text-center text-zinc-500 font-bold whitespace-nowrap">
+                        <div class="flex items-center justify-center gap-1.5">
+                          <!-- Quick Move Buttons (Atas / Bawah) -->
+                          <div class="flex flex-col gap-0.5 items-center justify-center font-sans">
+                            <button
+                              type="button"
+                              :disabled="rIdx === 0"
+                              @click.stop="movePlanUp(batch.uuid, rIdx)"
+                              class="w-4 h-3.5 flex items-center justify-center rounded text-[9px] font-black transition-colors cursor-pointer"
+                              :class="rIdx === 0 ? 'text-zinc-200 cursor-not-allowed' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 active:bg-zinc-300'"
+                              title="Pindah urutan ke atas (1-klik)"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              :disabled="rIdx === getBatchPlans(batch.uuid).length - 1"
+                              @click.stop="movePlanDown(batch.uuid, rIdx)"
+                              class="w-4 h-3.5 flex items-center justify-center rounded text-[9px] font-black transition-colors cursor-pointer"
+                              :class="rIdx === getBatchPlans(batch.uuid).length - 1 ? 'text-zinc-200 cursor-not-allowed' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 active:bg-zinc-300'"
+                              title="Pindah urutan ke bawah (1-klik)"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                          <!-- Drag Grip Handle (Dedicated Draggable Handle) -->
+                          <div
+                            :draggable="true"
+                            @dragstart.stop="handlePlanDragStart($event, batch.uuid, rIdx)"
+                            @dragend="handlePlanDragEnd"
+                            class="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 rounded cursor-grab active:cursor-grabbing transition-colors select-none"
+                            title="Klik tahan & geser (Drag & Drop) untuk ubah urutan potong"
+                          >
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                              <circle cx="7" cy="4" r="1.5" />
+                              <circle cx="13" cy="4" r="1.5" />
+                              <circle cx="7" cy="10" r="1.5" />
+                              <circle cx="13" cy="10" r="1.5" />
+                              <circle cx="7" cy="16" r="1.5" />
+                              <circle cx="13" cy="16" r="1.5" />
+                            </svg>
+                          </div>
+                          <span class="font-mono text-xs font-black text-zinc-700">#{{ rIdx + 1 }}</span>
+                        </div>
+                      </td>
                       <td class="px-3 py-2 font-black text-zinc-900 text-sm whitespace-nowrap">{{ row.spkNo }}</td>
                       <td class="px-3 py-2 font-black text-red-600 whitespace-nowrap">{{ row.formula }}</td>
                       <td class="px-2 py-2 text-center">{{ row.thickness }}</td>
@@ -1075,7 +1188,7 @@
                       <td class="px-2 py-2 text-center font-black text-red-600 bg-red-50/50">{{ row.trimAuto }}</td>
                       <td class="px-3 py-2 text-zinc-500 text-[11px] whitespace-nowrap">{{ row.keterangan || '-' }}</td>
                       <td class="px-3 py-2 text-right font-black text-emerald-800">{{ formatNumber(row.totalPlannedMeter) }}</td>
-                      <td class="px-3 py-2 text-center whitespace-nowrap font-sans">
+                      <td class="px-3 py-2 text-center whitespace-nowrap font-sans" @mousedown.stop @click.stop>
                         <div class="flex items-center justify-center gap-1">
                           <button
                             @click="openEditPlanModal(row)"
@@ -1660,7 +1773,7 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue';
-import { useSpkStore } from '@/stores/spkStore';
+import { useSpkStore, evaluateTargetStatus } from '@/stores/spkStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
@@ -1699,7 +1812,128 @@ const toggleBatch = (uuid) => {
 };
 
 const getBatchPlans = (batchUuid) => {
-  return (spkStore.plans || []).filter(p => p.batchId === batchUuid);
+  return (spkStore.plans || [])
+    .filter(p => p.batchId === batchUuid)
+    .sort((a, b) => {
+      const seqA = a.seq !== undefined && a.seq !== null ? a.seq : (a.no || a.id || 0);
+      const seqB = b.seq !== undefined && b.seq !== null ? b.seq : (b.no || b.id || 0);
+      return seqA - seqB;
+    });
+};
+
+// Drag and drop cut order reordering state
+const draggedPlanIndex = ref(null);
+const draggedBatchUuid = ref(null);
+const dragOverPlanIndex = ref(null);
+
+const handlePlanDragStart = (event, batchUuid, rIdx) => {
+  draggedPlanIndex.value = rIdx;
+  draggedBatchUuid.value = batchUuid;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(rIdx));
+    try {
+      event.dataTransfer.setData('application/json', JSON.stringify({ batchUuid, rIdx }));
+    } catch (e) {
+      // ignore
+    }
+  }
+};
+
+const handlePlanDragOver = (event, batchUuid, rIdx) => {
+  if (draggedBatchUuid.value && draggedBatchUuid.value !== batchUuid) return;
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  dragOverPlanIndex.value = rIdx;
+};
+
+const handlePlanDragLeave = () => {
+  dragOverPlanIndex.value = null;
+};
+
+const handlePlanDrop = async (event, batchUuid, dropIdx) => {
+  event.preventDefault();
+  let fromIdx = draggedPlanIndex.value;
+  let sourceBatch = draggedBatchUuid.value;
+
+  if (event.dataTransfer) {
+    try {
+      const jsonStr = event.dataTransfer.getData('application/json');
+      if (jsonStr) {
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.batchUuid) sourceBatch = parsed.batchUuid;
+        if (typeof parsed.rIdx === 'number') fromIdx = parsed.rIdx;
+      } else {
+        const plain = event.dataTransfer.getData('text/plain');
+        if (plain !== '' && !isNaN(parseInt(plain, 10))) {
+          fromIdx = parseInt(plain, 10);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  if (sourceBatch && sourceBatch !== batchUuid) {
+    draggedPlanIndex.value = null;
+    draggedBatchUuid.value = null;
+    dragOverPlanIndex.value = null;
+    return;
+  }
+
+  if (fromIdx === null || fromIdx === undefined || fromIdx === dropIdx) {
+    draggedPlanIndex.value = null;
+    draggedBatchUuid.value = null;
+    dragOverPlanIndex.value = null;
+    return;
+  }
+
+  const batchPlans = [...getBatchPlans(batchUuid)];
+  if (fromIdx < 0 || fromIdx >= batchPlans.length || dropIdx < 0 || dropIdx >= batchPlans.length) {
+    draggedPlanIndex.value = null;
+    draggedBatchUuid.value = null;
+    dragOverPlanIndex.value = null;
+    return;
+  }
+
+  const [movedItem] = batchPlans.splice(fromIdx, 1);
+  batchPlans.splice(dropIdx, 0, movedItem);
+
+  // Save reordered plans to IndexedDB and update Vue reactivity
+  await spkStore.reorderBatchPlans(batchUuid, batchPlans);
+
+  draggedPlanIndex.value = null;
+  draggedBatchUuid.value = null;
+  dragOverPlanIndex.value = null;
+};
+
+const handlePlanDragEnd = () => {
+  draggedPlanIndex.value = null;
+  draggedBatchUuid.value = null;
+  dragOverPlanIndex.value = null;
+};
+
+// 1-Click Move Order Helpers (Garis urutan potong naik / turun)
+const movePlanUp = async (batchUuid, rIdx) => {
+  if (rIdx <= 0) return;
+  const batchPlans = [...getBatchPlans(batchUuid)];
+  const [movedItem] = batchPlans.splice(rIdx, 1);
+  batchPlans.splice(rIdx - 1, 0, movedItem);
+  await spkStore.reorderBatchPlans(batchUuid, batchPlans);
+};
+
+const movePlanDown = async (batchUuid, rIdx) => {
+  const batchPlans = [...getBatchPlans(batchUuid)];
+  if (rIdx >= batchPlans.length - 1) return;
+  const [movedItem] = batchPlans.splice(rIdx, 1);
+  batchPlans.splice(rIdx + 1, 0, movedItem);
+  await spkStore.reorderBatchPlans(batchUuid, batchPlans);
+};
+
+const setAsActiveBatch = (batchUuid) => {
+  spkStore.setActiveReferenceBatch(batchUuid);
 };
 
 const getBatchTotalJumbo = (batchUuid) => {
@@ -1845,6 +2079,48 @@ const timelineRows = computed(() => {
     return c1 === c2 || c1.includes(c2) || c2.includes(c1);
   };
 
+  // Jika TIDAK ADA PLAN SPK TERDAFTAR (ZERO SEED POLICY):
+  // Tampilkan pengerjaan input data label per SPK selama 2 hari kebelakang berjalan
+  if (plannedList.length === 0) {
+    const sortedActuals = [...actualRuns].sort((a, b) => b.lastTime - a.lastTime);
+    return sortedActuals.map((act, idx) => {
+      const plannedChildRolls = act.totalRealRolls;
+      const actualChildRolls = act.totalRealRolls;
+      const targetStatus = evaluateTargetStatus(actualChildRolls, plannedChildRolls, false);
+      const startTimeFormatted = act.firstTime > 0
+        ? new Date(act.firstTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(act.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-';
+      const endTimeFormatted = act.lastTime > 0
+        ? new Date(act.lastTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(act.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-';
+      return {
+        id: `fallback_${act.spkNo}_${idx}`,
+        type: 'UNPLANNED',
+        plan: null,
+        actual: act,
+        status: 'COMPLETED',
+        speed: 600,
+        planDurationMinutes: 45,
+        actualDurationMinutes: (act.lastTime > 0 && act.firstTime > 0) ? Math.max(1, Math.round((act.lastTime - act.firstTime) / 60000)) : 30,
+        estStartTime: act.latestTimeFormatted || '',
+        estEndTime: act.latestTimeFormatted || '',
+        startTimeFormatted,
+        endTimeFormatted,
+        targetStatus,
+        achievementPercent: 100,
+        plannedParentRolls: Math.max(1, Math.ceil(act.totalRealRolls / 2)),
+        actualParentCut: Math.max(1, Math.ceil(act.totalRealRolls / 2)),
+        diffParent: 0,
+        plannedChildRolls,
+        actualChildRolls,
+        diffChild: 0,
+        diffMeter: 0,
+        totalUp: 2,
+        warning: 'Data Berjalan 2 Hari Kebelakang (Tanpa Planned SPK Terdaftar)'
+      };
+    });
+  }
+
   // Cari index rencana terjauh yang sudah mulai/selesai dikerjakan (untuk mendeteksi SPK yang dilewati/dilompati)
   let maxActivePlanIdx = -1;
   for (let pIdx = 0; pIdx < plannedList.length; pIdx++) {
@@ -1879,12 +2155,23 @@ const timelineRows = computed(() => {
 
       const matchesFuture = plannedList.slice(pIdx + 1).some(fPlan => isMatch(act.spkNo, fPlan.spkNo));
       if (!matchesFuture) {
+        const actTargetStatus = evaluateTargetStatus(act.totalRealRolls, act.totalRealRolls, false);
+        const actStartFormatted = act.firstTime > 0
+          ? new Date(act.firstTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(act.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+          : '-';
+        const actEndFormatted = act.lastTime > 0
+          ? new Date(act.lastTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(act.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+          : '-';
+
         rows.push({
           id: `unplanned_${act.spkNo}_${aIdx}`,
           type: 'UNPLANNED',
           plan: null,
           actual: act,
           status: 'UNPLANNED',
+          startTimeFormatted: actStartFormatted,
+          endTimeFormatted: actEndFormatted,
+          targetStatus: actTargetStatus,
           warning: 'Order Sisipan / Revisi Lapangan (Tidak Ada dalam Planned SPK)'
         });
         handledActualIndices.add(aIdx);
@@ -1962,6 +2249,15 @@ const timelineRows = computed(() => {
       }
     }
 
+    const actualChildRolls = matchedActual ? matchedActual.totalRealRolls : 0;
+    const targetStatus = evaluateTargetStatus(actualChildRolls, plannedTargetRolls, status === 'SKIPPED');
+    const startTimeFormatted = matchedActual && matchedActual.firstTime > 0
+      ? new Date(matchedActual.firstTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(matchedActual.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : (status === 'SKIPPED' ? '-' : (estStartTime || '-'));
+    const endTimeFormatted = matchedActual && matchedActual.lastTime > 0
+      ? new Date(matchedActual.lastTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(matchedActual.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : (status === 'SKIPPED' ? '-' : (estEndTime || '-'));
+
     rows.push({
       id: `plan_${plan.id || pIdx}`,
       type: 'PLANNED',
@@ -1974,12 +2270,15 @@ const timelineRows = computed(() => {
       estStartTime,
       estEndTime,
       estEndTimestamp,
+      startTimeFormatted,
+      endTimeFormatted,
+      targetStatus,
       achievementPercent: planAnalytics.achievementPercent || 0,
       plannedParentRolls: planAnalytics.plannedParentRolls || 1,
       actualParentCut: planAnalytics.actualParentCut || 0,
       diffParent: planAnalytics.diffParent || 0,
       plannedChildRolls: plannedTargetRolls,
-      actualChildRolls: matchedActual ? matchedActual.totalRealRolls : 0,
+      actualChildRolls,
       diffChild: planAnalytics.diffChild || 0,
       diffMeter: planAnalytics.diffMeter || 0,
       totalUp: planAnalytics.totalUp || 2
@@ -1990,12 +2289,23 @@ const timelineRows = computed(() => {
   for (let aIdx = 0; aIdx < actualRuns.length; aIdx++) {
     if (!handledActualIndices.has(aIdx)) {
       const act = actualRuns[aIdx];
+      const actTargetStatus = evaluateTargetStatus(act.totalRealRolls, act.totalRealRolls, false);
+      const actStartFormatted = act.firstTime > 0
+        ? new Date(act.firstTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(act.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-';
+      const actEndFormatted = act.lastTime > 0
+        ? new Date(act.lastTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(act.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-';
+
       rows.push({
         id: `unplanned_${act.spkNo}_${aIdx}`,
         type: 'UNPLANNED',
         plan: null,
         actual: act,
         status: 'UNPLANNED',
+        startTimeFormatted: actStartFormatted,
+        endTimeFormatted: actEndFormatted,
+        targetStatus: actTargetStatus,
         warning: 'Order Sisipan / Revisi Lapangan (Tidak Ada dalam Planned SPK)'
       });
       handledActualIndices.add(aIdx);

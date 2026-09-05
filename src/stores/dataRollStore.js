@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db } from '@/db';
 import * as XLSX from 'xlsx';
-import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
+import { parseContinuousLot, detectSupplier, extractCleanParentLot, parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import { useGlobalLoading } from '@/services/loadingService';
 
 export const useDataRollStore = defineStore('dataRollStore', () => {
@@ -145,7 +145,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   });
 
   // Load from Dexie DB (Merges explicit data_rolls and all DE Report labels)
-  const loadRolls = async (force = false) => {
+  const loadRolls = async (force = true) => {
     if (!force && rolls.value.length > 0 && !loading.value) {
       return;
     }
@@ -189,10 +189,15 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
           }
         }
 
+        const rawDate = r.tanggalFormatted || r.tanggal;
+        const cleanDate = parseDateToIso(rawDate) || extractDateFromLot(lot || r.kodeFg || r.rawLot) || (rawDate ? String(rawDate).slice(0, 10) : '');
+
         return {
           ...r,
           lot,
           turunan,
+          tanggal: cleanDate || r.tanggal || '',
+          tanggalFormatted: cleanDate || r.tanggalFormatted || '',
           kodeOperator: kodeOperator || (turunan ? turunan.charAt(0) : 'G'),
           operator: r.operator || (kodeOperator ? `OPERATOR ${kodeOperator}` : 'OPERATOR'),
           shift,
@@ -206,6 +211,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         const labelsList = await db.labels.toArray();
         deRolls = labelsList.map(l => {
           const rawDate = l.tanggal || (l.verifiedAt ? l.verifiedAt.slice(0, 10) : (l.createdAt ? l.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10)));
+          const cleanDate = parseDateToIso(rawDate) || rawDate;
           const mesin = (l.mesin || 'SLITTING').toUpperCase();
           const thickness = String(l.thickness || l.tebal || l.thick || '');
           const width = String(l.width || l.lebar || '');
@@ -217,7 +223,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
             id: `de_label_${l.id}`,
             originalLabelId: l.id,
             uuid: l.uniqId || `de_roll_${l.id}`,
-            uploadId: `de_${rawDate}_${mesin}`,
+            uploadId: `de_${cleanDate}_${mesin}`,
             source: 'DE Report',
             kodeFg: `${l.lot || ''}${l.turunan ? '/' + l.turunan : ''} ${l.jenis || ''} ${l.kode || ''} ${thickness}MC X ${width}MM = ${length}`,
             lot: l.lot || '',
@@ -235,8 +241,8 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
             rewind: mesin === 'REWIND' ? 1 : 0,
             sml: mesin === 'SML' ? 1 : 0,
             machineName: mesin,
-            tanggal: rawDate,
-            tanggalFormatted: rawDate,
+            tanggal: cleanDate,
+            tanggalFormatted: cleanDate,
             spk: l.spk || '',
             kodePack: l.kodePack || '',
             subKode: l.subKode || '0000',
@@ -247,8 +253,8 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
             operator: l.operator || '',
             shift: l.shift || '',
             shiftCombined: l.shiftCombined || '',
-            createdAt: l.createdAt || rawDate,
-            updatedAt: l.updatedAt || rawDate
+            createdAt: l.createdAt || cleanDate,
+            updatedAt: l.updatedAt || cleanDate
           };
         });
       }
@@ -256,11 +262,11 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       // Combine both sources, avoiding duplicate UUIDs / IDs
       const combinedMap = new Map();
       for (const r of explicitRolls) {
-        const key = r.uuid || `${r.lot}_${r.turunan}_${r.kodePack}_${r.subKode}`;
+        const key = r.uuid || (r.id ? `dr_${r.id}` : `${r.lot}_${r.turunan}_${r.kodePack}_${r.subKode}_${Math.random()}`);
         combinedMap.set(key, r);
       }
       for (const r of deRolls) {
-        const key = r.uuid || `${r.lot}_${r.turunan}_${r.kodePack}_${r.subKode}`;
+        const key = r.uuid || `de_${r.originalLabelId || r.id}`;
         if (!combinedMap.has(key)) {
           combinedMap.set(key, r);
         }

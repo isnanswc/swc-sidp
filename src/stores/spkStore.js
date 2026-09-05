@@ -50,7 +50,60 @@ import { db } from '@/db';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
-import { extractCleanParentLot } from '@/services/dataRollParserService';
+import { pushLocalToSupabase } from '@/services/syncService';
+export const evaluateTargetStatus = (actualRoll, planRoll, isSkipped = false) => {
+  if (isSkipped) {
+    return {
+      key: 'SKIPPED',
+      label: 'Dilewati',
+      badgeClass: 'bg-purple-100 text-purple-800 border-purple-300',
+      borderClass: 'border-purple-300',
+      color: '#9333ea',
+      icon: '⏭️'
+    };
+  }
+  const act = parseFloat(actualRoll) || 0;
+  const pln = parseFloat(planRoll) || 0;
+
+  if (act === 0) {
+    return {
+      key: 'NOT_STARTED',
+      label: 'Belum Dikerjakan',
+      badgeClass: 'bg-zinc-100 text-zinc-600 border-zinc-300',
+      borderClass: 'border-zinc-200',
+      color: '#71717a',
+      icon: '⏱️'
+    };
+  }
+  if (pln > 0 && act < pln) {
+    return {
+      key: 'UNDER_TARGET',
+      label: 'Kurang Target',
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+      borderClass: 'border-amber-300',
+      color: '#f59e0b',
+      icon: '⚠️'
+    };
+  }
+  if (pln > 0 && act === pln) {
+    return {
+      key: 'ON_TARGET',
+      label: 'Pas Target',
+      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      borderClass: 'border-emerald-300',
+      color: '#10b981',
+      icon: '✓'
+    };
+  }
+  return {
+    key: 'OVER_TARGET',
+    label: 'Lebih Target',
+    badgeClass: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+    borderClass: 'border-cyan-300',
+    color: '#06b6d4',
+    icon: '🚀'
+  };
+};
 
 export const useSpkStore = defineStore('spk', () => {
   const plans = ref([]);
@@ -59,7 +112,16 @@ export const useSpkStore = defineStore('spk', () => {
   const isLoading = ref(false);
   const activePlanId = ref(null);
   const selectedBatchId = ref(null);
-  const activeTimelineBatchUuid = ref(null);
+  const activeTimelineBatchUuid = ref(localStorage.getItem('spk_active_reference_batch_uuid') || null);
+
+  const setActiveReferenceBatch = (batchUuid) => {
+    activeTimelineBatchUuid.value = batchUuid || null;
+    if (batchUuid) {
+      localStorage.setItem('spk_active_reference_batch_uuid', batchUuid);
+    } else {
+      localStorage.removeItem('spk_active_reference_batch_uuid');
+    }
+  };
 
   const activeBatch = computed(() => {
     if (activeTimelineBatchUuid.value) {
@@ -131,7 +193,14 @@ export const useSpkStore = defineStore('spk', () => {
           await db.spk_plans.bulkDelete(dummyItems.map(d => d.id));
         }
         const rawPlans = await db.spk_plans.toArray();
-        plans.value = rawPlans.sort((a, b) => (a.seq || a.no || a.id) - (b.seq || b.no || b.id));
+        plans.value = rawPlans.sort((a, b) => {
+          if (a.batchId && b.batchId && a.batchId !== b.batchId) {
+            return String(a.batchId).localeCompare(String(b.batchId));
+          }
+          const seqA = a.seq !== undefined && a.seq !== null ? a.seq : (a.no || a.id || 0);
+          const seqB = b.seq !== undefined && b.seq !== null ? b.seq : (b.no || b.id || 0);
+          return seqA - seqB;
+        });
       }
       if (db.spk_revisions) {
         revisions.value = (await db.spk_revisions.toArray()).reverse();
@@ -201,12 +270,17 @@ export const useSpkStore = defineStore('spk', () => {
       };
 
       if (db.spk_plans) {
+        planRecord.seq = createdPlans.length + 1;
         const pId = await db.spk_plans.add(planRecord);
         planRecord.id = pId;
         plans.value.push(planRecord);
         createdPlans.push(planRecord);
       }
     }
+
+    // Acuan monitoring otomatis mengikuti batch SPK yang baru dibuat/discan
+    setActiveReferenceBatch(batchUuid);
+    pushLocalToSupabase().catch(() => {});
 
     return { batch: batchRecord, plans: createdPlans };
   };
@@ -236,8 +310,14 @@ export const useSpkStore = defineStore('spk', () => {
     const upList = planData.upList || [];
     const trim = calculateTrim(planData.lebarParent, upList);
 
+    const bId = planData.batchId || null;
+    const existingInBatch = bId ? plans.value.filter(p => p.batchId === bId) : [];
+    const newSeq = planData.seq || (existingInBatch.length + 1);
+
     const record = {
       uuid: `spk_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      batchId: bId,
+      seq: newSeq,
       spkNo: String(planData.spkNo || '').trim(),
       docNo: String(planData.docNo || '3B-PROD').trim(),
       formula: String(planData.formula || 'M01').toUpperCase().trim(),
@@ -262,7 +342,8 @@ export const useSpkStore = defineStore('spk', () => {
     if (db.spk_plans) {
       const id = await db.spk_plans.add(record);
       record.id = id;
-      plans.value.unshift(record);
+      plans.value.push(record);
+      pushLocalToSupabase().catch(() => {});
       return record;
     }
   };
@@ -314,6 +395,7 @@ export const useSpkStore = defineStore('spk', () => {
     if (db.spk_plans) {
       await db.spk_plans.update(id, payload);
       plans.value[existingIndex] = { ...oldData, ...payload };
+      pushLocalToSupabase().catch(() => {});
     }
   };
 
@@ -322,6 +404,48 @@ export const useSpkStore = defineStore('spk', () => {
     if (db.spk_plans) {
       await db.spk_plans.delete(id);
       plans.value = plans.value.filter(p => p.id !== id);
+    }
+  };
+
+  // Reorder Plans in a Batch (Drag-and-Drop Cut Order)
+  const reorderBatchPlans = async (batchUuid, reorderedList) => {
+    if (!reorderedList || !reorderedList.length) return;
+    
+    // Assign sequential seq order
+    const updates = [];
+    reorderedList.forEach((plan, index) => {
+      const newSeq = index + 1;
+      plan.seq = newSeq;
+      updates.push({ id: plan.id, uuid: plan.uuid, seq: newSeq });
+
+      // Update in reactive plans array
+      const pIdx = plans.value.findIndex(p => (plan.id && p.id === plan.id) || (plan.uuid && p.uuid === plan.uuid));
+      if (pIdx !== -1) {
+        plans.value[pIdx].seq = newSeq;
+      }
+    });
+
+    // Force complete reactivity trigger across all computed properties
+    plans.value = [...plans.value];
+
+    // Persist to Dexie DB
+    if (db.spk_plans) {
+      try {
+        await db.transaction('rw', db.spk_plans, async () => {
+          for (const up of updates) {
+            if (up.id) {
+              await db.spk_plans.update(up.id, { seq: up.seq });
+            } else if (up.uuid) {
+              const p = await db.spk_plans.where('uuid').equals(up.uuid).first();
+              if (p && p.id) {
+                await db.spk_plans.update(p.id, { seq: up.seq });
+              }
+            }
+          }
+        });
+      } catch (dbErr) {
+        console.warn('Failed persisting reordered spk_plans to Dexie:', dbErr);
+      }
     }
   };
 
@@ -716,6 +840,13 @@ export const useSpkStore = defineStore('spk', () => {
       diffParent,
       diffChild,
       diffMeter,
+      startTimeFormatted: firstLabelTime !== Infinity && firstLabelTime > 0 
+        ? new Date(firstLabelTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(firstLabelTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-',
+      endTimeFormatted: lastLabelTime > 0 
+        ? new Date(lastLabelTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(lastLabelTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-',
+      targetStatus: evaluateTargetStatus(actualChildRolls, plannedChildRolls, plan?.status === 'SKIPPED'),
       totalUp,
       achievementPercent,
       isCrossOrderWarning,
@@ -741,6 +872,8 @@ export const useSpkStore = defineStore('spk', () => {
     calculateEstimateMinutes,
     calculateTrim,
     activeTimelineBatchUuid,
+    setActiveReferenceBatch,
+    reorderBatchPlans,
     activeBatch,
     activeDateWindow,
     spkRealtimeDataMap,

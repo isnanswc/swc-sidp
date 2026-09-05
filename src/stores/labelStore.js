@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
 import { useGlobalLoading } from '@/services/loadingService';
+import { pushLocalToSupabase } from '@/services/syncService';
 
 export const useLabelStore = defineStore('labelStore', {
   state: () => ({
@@ -428,6 +429,7 @@ export const useLabelStore = defineStore('labelStore', {
       const id = await db.labels.add(record);
       record.id = id;
       this.labels.unshift(record); // Tambahkan ke daftar langsung
+      pushLocalToSupabase().catch(() => {});
       return record;
     },
 
@@ -470,6 +472,7 @@ export const useLabelStore = defineStore('labelStore', {
       if (idx !== -1) {
         this.labels[idx] = { ...this.labels[idx], ...updatedFields, updatedAt: new Date().toISOString() };
       }
+      pushLocalToSupabase().catch(() => {});
     },
 
     async deleteLabel(id) {

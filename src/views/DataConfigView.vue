@@ -1607,6 +1607,7 @@ import {
   applyImportConfigToDb,
   CONFIG_SHEET_DEFS
 } from '@/services/configExcelService';
+import { pushLocalToSupabase } from '@/services/syncService';
 
 const configStore = useConfigStore();
 
@@ -1716,6 +1717,7 @@ const executeImport = async () => {
     alert(`✓ Sukses import data!\nDitambahkan: ${totalAdded}\nDiperbarui: ${totalUpdated}`);
     showImportModal.value = false;
     await configStore.loadAll();
+    pushLocalToSupabase().catch(() => {});
   } catch (err) {
     alert('Gagal mengimpor data: ' + err.message);
   } finally {

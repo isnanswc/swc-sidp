@@ -1,9 +1,19 @@
 <template>
   <div class="space-y-4 pb-16 font-sans select-none text-zinc-900 anim-fade-in">
     
-    <!-- ========================================================================= -->
-    <!-- 1. TOP HEADER & FREKUENSI KONTROL COCKPIT (COMPACT & DENSE)              -->
-    <!-- ========================================================================= -->
+    <!-- Dashboard Loading Indicator Banner -->
+    <Transition name="fade">
+      <div v-if="isDashboardLoading" class="bg-indigo-50/95 border border-indigo-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs font-mono text-indigo-950 shadow-xs animate-pulse">
+        <div class="flex items-center gap-2.5">
+          <svg class="animate-spin h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="font-bold">Memuat sinkronisasi data roll & analitik sistem...</span>
+        </div>
+        <span class="text-[10.5px] text-indigo-600 bg-white px-2.5 py-0.5 rounded-lg border border-indigo-200 font-bold">Sinkronisasi Database Lokal</span>
+      </div>
+    </Transition>
     <div class="bg-white border border-zinc-200/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4.5 shadow-xs relative overflow-hidden anim-enter-1">
       <!-- Looping Moving Gradient Accent Line -->
       <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-600 via-zinc-900 to-red-600 bg-[length:200%_100%] anim-gradient-flow"></div>
@@ -34,6 +44,11 @@
           <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>{{ currentShift.definition.shortName }} (Grup {{ currentShift.group }})</span>
+          </span>
+
+          <!-- Total Database Roll Badge (Live Verification) -->
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-900 border border-indigo-200" title="Total seluruh roll tersimpan di IndexedDB">
+            <span>💾 DB: <strong>{{ formatNum(allProductionRolls.length) }}</strong> Roll</span>
           </span>
         </div>
 
@@ -133,7 +148,7 @@
             </button>
           </div>
 
-          <!-- Pilihan Rentang Waktu (Hari, Minggu, Bulan, 3 Bulan, 6 Bulan, Tahun) -->
+          <!-- Pilihan Rentang Waktu (Hari, Minggu, Bulan, 3 Bulan, 6 Bulan, Tahun, Custom) -->
           <div class="bg-zinc-100 p-1 rounded-xl border border-zinc-200 flex flex-wrap items-center gap-0.5 text-xs font-mono font-bold">
             <button
               v-for="freq in frequencyOptions"
@@ -141,13 +156,37 @@
               @click="setFrequency(freq.key)"
               :class="[
                 'px-2.5 py-1 rounded-lg transition-all cursor-pointer text-center text-[11px]',
-                selectedFrequency === freq.key && dayOffset === 0
+                selectedFrequency === freq.key && (freq.key === 'CUSTOM' || dayOffset === 0)
                   ? 'bg-zinc-950 text-white shadow-xs font-black'
                   : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200/70'
               ]"
             >
               {{ freq.label }}
             </button>
+          </div>
+
+          <!-- Input Rentang Custom (Mulai & Selesai) -->
+          <div v-if="selectedFrequency === 'CUSTOM'" class="bg-white p-1 rounded-xl border border-zinc-300 shadow-2xs flex items-center gap-1.5 text-xs font-mono">
+            <span class="text-zinc-500 pl-1 text-[10.5px] font-bold">Dari:</span>
+            <input
+              type="date"
+              v-model="customStartDate"
+              @change="onCustomDateChange"
+              class="px-2 py-0.5 rounded-lg border border-zinc-200 text-zinc-800 text-xs outline-none focus:border-red-500 font-mono"
+            />
+            <span class="text-zinc-500 text-[10.5px] font-bold">s/d</span>
+            <input
+              type="date"
+              v-model="customEndDate"
+              @change="onCustomDateChange"
+              class="px-2 py-0.5 rounded-lg border border-zinc-200 text-zinc-800 text-xs outline-none focus:border-red-500 font-mono"
+            />
+          </div>
+
+          <!-- Informasi Rentang Tanggal Jelas -->
+          <div class="px-2.5 py-1 rounded-xl bg-red-50 border border-red-200 text-red-900 text-[11px] font-mono font-bold flex items-center gap-1 shadow-2xs">
+            <span>🗓️</span>
+            <span>{{ activePeriodSubtitle }}</span>
           </div>
 
         </div>
@@ -306,38 +345,102 @@
               </p>
             </div>
 
-            <!-- Custom Legend Badges -->
-            <div class="flex items-center gap-2.5 text-[11px] font-mono font-bold flex-wrap">
-              <span class="inline-flex items-center gap-1 text-zinc-900">
-                <span class="w-2 h-2 rounded-full bg-zinc-900"></span> Total
-              </span>
-              <span class="inline-flex items-center gap-1 text-emerald-600">
-                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Pass
-              </span>
-              <span class="inline-flex items-center gap-1 text-amber-600">
-                <span class="w-2 h-2 rounded-full bg-amber-500"></span> Hold
-              </span>
-              <span class="inline-flex items-center gap-1 text-red-600">
-                <span class="w-2 h-2 rounded-full bg-red-600"></span> Reject
-              </span>
+            <!-- Custom Legend Badges (Click to Toggle On / Off) -->
+            <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] font-mono font-bold flex-wrap">
+              <button
+                @click="toggleDataset('total')"
+                type="button"
+                :class="[
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none',
+                  chartVisibility.total
+                    ? 'bg-zinc-900 text-white border-zinc-900 shadow-2xs'
+                    : 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through opacity-60'
+                ]"
+                title="Klik untuk tampilkan / sembunyikan grafik Total"
+              >
+                <span class="w-2 h-2 rounded-full" :class="chartVisibility.total ? 'bg-white' : 'bg-zinc-400'"></span>
+                <span>Total</span>
+              </button>
+              <button
+                @click="toggleDataset('pass')"
+                type="button"
+                :class="[
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none',
+                  chartVisibility.pass
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
+                    : 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through opacity-60'
+                ]"
+                title="Klik untuk tampilkan / sembunyikan grafik Pass"
+              >
+                <span class="w-2 h-2 rounded-full" :class="chartVisibility.pass ? 'bg-emerald-500' : 'bg-zinc-400'"></span>
+                <span>Pass</span>
+              </button>
+              <button
+                @click="toggleDataset('hold')"
+                type="button"
+                :class="[
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none',
+                  chartVisibility.hold
+                    ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-2xs'
+                    : 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through opacity-60'
+                ]"
+                title="Klik untuk tampilkan / sembunyikan grafik Hold"
+              >
+                <span class="w-2 h-2 rounded-full" :class="chartVisibility.hold ? 'bg-amber-500' : 'bg-zinc-400'"></span>
+                <span>Hold</span>
+              </button>
+              <button
+                @click="toggleDataset('reject')"
+                type="button"
+                :class="[
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none',
+                  chartVisibility.reject
+                    ? 'bg-red-50 text-red-800 border-red-300 shadow-2xs'
+                    : 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through opacity-60'
+                ]"
+                title="Klik untuk tampilkan / sembunyikan grafik Reject"
+              >
+                <span class="w-2 h-2 rounded-full" :class="chartVisibility.reject ? 'bg-red-500' : 'bg-zinc-400'"></span>
+                <span>Reject</span>
+              </button>
             </div>
           </div>
 
-          <!-- Quick Metric Highlights on Top of Chart -->
+          <!-- Quick Metric Highlights on Top of Chart (Also Clickable) -->
           <div class="grid grid-cols-4 gap-2 my-3 text-center font-mono">
-            <div class="p-2 rounded-xl bg-zinc-50 border border-zinc-200">
-              <span class="text-[9.5px] text-zinc-400 block font-bold uppercase">Total</span>
+            <div
+              @click="toggleDataset('total')"
+              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] select-none"
+              :class="chartVisibility.total ? 'bg-zinc-50 border-zinc-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
+              title="Klik untuk on/off garis Total"
+            >
+              <span class="text-[9.5px] text-zinc-500 block font-bold uppercase">Total</span>
               <span class="text-base font-black text-zinc-950">{{ formatNum(kpiMetrics.totalRolls) }}</span>
             </div>
-            <div class="p-2 rounded-xl bg-emerald-50/70 border border-emerald-200">
+            <div
+              @click="toggleDataset('pass')"
+              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] select-none"
+              :class="chartVisibility.pass ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
+              title="Klik untuk on/off garis Pass"
+            >
               <span class="text-[9.5px] text-emerald-700 block font-bold uppercase">Pass</span>
               <span class="text-base font-black text-emerald-800">{{ formatNum(kpiMetrics.passCount) }}</span>
             </div>
-            <div class="p-2 rounded-xl bg-amber-50/70 border border-amber-200">
+            <div
+              @click="toggleDataset('hold')"
+              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] select-none"
+              :class="chartVisibility.hold ? 'bg-amber-50/70 border-amber-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
+              title="Klik untuk on/off garis Hold"
+            >
               <span class="text-[9.5px] text-amber-700 block font-bold uppercase">Hold</span>
               <span class="text-base font-black text-amber-800">{{ formatNum(kpiMetrics.holdCount) }}</span>
             </div>
-            <div class="p-2 rounded-xl bg-red-50/70 border border-red-200">
+            <div
+              @click="toggleDataset('reject')"
+              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] select-none"
+              :class="chartVisibility.reject ? 'bg-red-50/70 border-red-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
+              title="Klik untuk on/off garis Reject"
+            >
               <span class="text-[9.5px] text-red-700 block font-bold uppercase">Reject</span>
               <span class="text-base font-black text-red-800">{{ formatNum(kpiMetrics.rejectCount) }}</span>
             </div>
@@ -509,11 +612,18 @@
       <!-- Header Timeline -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-100 pb-3">
         <div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <span class="text-sm sm:text-base font-black text-zinc-950">TIMELINE PELACAKAN SPK (REALISASI & PLANNING)</span>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 font-mono">
               {{ timelineSpkList.length }} SPK TERJADWAL
             </span>
+            <div v-if="spkStore.activeBatch" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-mono text-[10.5px] font-black">
+              <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+              </span>
+              <span>ACUAN: {{ spkStore.activeBatch.batchName }}</span>
+            </div>
           </div>
           <p class="text-[11px] text-zinc-500 font-medium mt-0.5">
             Bagian atas: <strong>Realisasi Aktual</strong> • Bagian bawah: <strong>Target Planning</strong>. Klik kartu untuk melihat modal informasi lengkap.
@@ -549,10 +659,18 @@
             <div
               @click="openSpkModal(spk, 'REALISASI')"
               class="w-full bg-white hover:bg-emerald-50/60 p-2.5 rounded-xl border border-zinc-200 hover:border-emerald-400 shadow-2xs hover:shadow-md transition-all cursor-pointer text-center relative z-10 group/top"
+              :class="spk.targetStatus ? spk.targetStatus.borderClass : ''"
               title="Klik untuk info realisasi"
             >
               <div class="flex items-center justify-between gap-1 mb-1">
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase font-mono bg-emerald-100 text-emerald-800">
+                <span
+                  v-if="spk.targetStatus"
+                  class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase font-mono border"
+                  :class="spk.targetStatus.badgeClass"
+                >
+                  {{ spk.targetStatus.icon }} {{ spk.targetStatus.label }}
+                </span>
+                <span v-else class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase font-mono bg-emerald-100 text-emerald-800">
                   ⚡ REALISASI
                 </span>
                 <span :class="[
@@ -568,6 +686,12 @@
               </div>
               <div class="text-[10px] text-zinc-500 font-mono mt-0.5">
                 {{ formatNum(spk.actualMeter) }} m • {{ formatNum(spk.actualKg) }} kg
+              </div>
+              <!-- Tanggal & Jam Mulai / Selesai -->
+              <div class="text-[9px] text-zinc-500 font-mono mt-1 pt-1 border-t border-zinc-100 flex items-center justify-center gap-1 truncate">
+                <span title="Waktu Mulai">🕒 {{ spk.startTimeFormatted || '-' }}</span>
+                <span class="text-zinc-300">➔</span>
+                <span title="Waktu Selesai">🏁 {{ spk.endTimeFormatted || '-' }}</span>
               </div>
             </div>
 
@@ -826,6 +950,22 @@
             <!-- Modal Body: 2 Columns (Planning vs Realisasi) -->
             <div class="p-4 space-y-3">
               
+              <!-- Status Target & Waktu Pengerjaan -->
+              <div
+                v-if="selectedSpkModal.targetStatus"
+                class="p-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono font-bold"
+                :class="[selectedSpkModal.targetStatus.badgeClass, selectedSpkModal.targetStatus.borderClass]"
+              >
+                <div class="flex items-center gap-1.5">
+                  <span class="text-base">{{ selectedSpkModal.targetStatus.icon }}</span>
+                  <span>Status: {{ selectedSpkModal.targetStatus.label }}</span>
+                </div>
+                <div class="text-[11px] font-normal flex items-center gap-3">
+                  <span>🕒 Mulai: <strong class="font-bold">{{ selectedSpkModal.startTimeFormatted || '-' }}</strong></span>
+                  <span>🏁 Selesai: <strong class="font-bold">{{ selectedSpkModal.endTimeFormatted || '-' }}</strong></span>
+                </div>
+              </div>
+
               <!-- Status & Achievement Bar -->
               <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200/80">
                 <div class="flex items-center justify-between text-xs font-mono mb-1.5">
@@ -1051,13 +1191,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
-import { useSpkStore } from '@/stores/spkStore';
+import { useSpkStore, evaluateTargetStatus } from '@/stores/spkStore';
 import { useWipStore } from '@/stores/wipStore';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
@@ -1135,15 +1275,43 @@ const frequencyOptions = [
   { key: 'MONTH', label: 'Bulan Ini' },
   { key: '3MONTH', label: '3 Bulan' },
   { key: '6MONTH', label: '6 Bulan' },
-  { key: 'YEAR', label: 'Tahun Ini' }
+  { key: 'YEAR', label: '1 Tahun' },
+  { key: 'ALL', label: '🌐 Semua' },
+  { key: 'CUSTOM', label: '📅 Custom' }
 ];
 
 const selectedFrequency = ref('DAY');
 const dayOffset = ref(0); // 0 = Hari ini, -1 = Kemarin (H-1), -2 = 2 hari lalu (H-2), dst.
+const customStartDate = ref('');
+const customEndDate = ref('');
+const isDashboardLoading = ref(true);
+
+// Chart dataset visibility toggler
+const chartVisibility = ref({
+  total: true,
+  pass: true,
+  hold: true,
+  reject: true
+});
+
+const toggleDataset = (datasetKey) => {
+  chartVisibility.value[datasetKey] = !chartVisibility.value[datasetKey];
+  if (!lineComparisonChartInstance) return;
+  const datasetIndexMap = { total: 0, pass: 1, hold: 2, reject: 3 };
+  const idx = datasetIndexMap[datasetKey];
+  if (idx !== undefined) {
+    lineComparisonChartInstance.setDatasetVisibility(idx, chartVisibility.value[datasetKey]);
+    lineComparisonChartInstance.update();
+  }
+};
 
 const setFrequency = (freqKey) => {
   selectedFrequency.value = freqKey;
   dayOffset.value = 0; // Reset offset saat user memilih frekuensi lain
+  updateLineChart();
+};
+
+const onCustomDateChange = () => {
   updateLineChart();
 };
 
@@ -1199,9 +1367,51 @@ const activeTargetDateDisplay = computed(() => {
   return `${formatted} (H${dayOffset.value})`;
 });
 
+const formatDateIndo = (d) => {
+  if (!d) return '';
+  const dateObj = new Date(d);
+  if (isNaN(dateObj.getTime())) return '';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  return `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+};
+
 const activePeriodSubtitle = computed(() => {
+  const targetIso = activeTargetDateIso.value; // YYYY-MM-DD
+  const cur = new Date(targetIso);
+
   if (selectedFrequency.value === 'DAY') {
     return activeTargetDateDisplay.value;
+  } else if (selectedFrequency.value === 'WEEK') {
+    const start = new Date(cur);
+    start.setDate(cur.getDate() - 7);
+    return `Minggu Ini (${formatDateIndo(start)} - ${formatDateIndo(cur)})`;
+  } else if (selectedFrequency.value === 'MONTH') {
+    const start = new Date(cur.getFullYear(), cur.getMonth(), 1);
+    const end = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
+    return `Bulan Ini (${formatDateIndo(start)} - ${formatDateIndo(end)})`;
+  } else if (selectedFrequency.value === '3MONTH') {
+    const start = new Date(cur);
+    start.setMonth(cur.getMonth() - 3);
+    return `3 Bulan (${formatDateIndo(start)} - ${formatDateIndo(cur)})`;
+  } else if (selectedFrequency.value === '6MONTH') {
+    const start = new Date(cur);
+    start.setMonth(cur.getMonth() - 6);
+    return `6 Bulan (${formatDateIndo(start)} - ${formatDateIndo(cur)})`;
+  } else if (selectedFrequency.value === 'YEAR') {
+    const start = new Date(cur);
+    start.setFullYear(cur.getFullYear() - 1);
+    return `1 Tahun Terakhir (${formatDateIndo(start)} - ${formatDateIndo(cur)})`;
+  } else if (selectedFrequency.value === 'ALL') {
+    return `Semua Periode (${formatNum(filteredLabels.value.length)} Roll Terdata)`;
+  } else if (selectedFrequency.value === 'CUSTOM') {
+    if (customStartDate.value && customEndDate.value) {
+      return `Custom (${formatDateIndo(customStartDate.value)} s/d ${formatDateIndo(customEndDate.value)})`;
+    } else if (customStartDate.value) {
+      return `Custom (Mulai ${formatDateIndo(customStartDate.value)})`;
+    } else if (customEndDate.value) {
+      return `Custom (Sampai ${formatDateIndo(customEndDate.value)})`;
+    }
+    return 'Custom (Tentukan Rentang Tanggal)';
   }
   const found = frequencyOptions.find(f => f.key === selectedFrequency.value);
   return found ? found.label : 'Periode';
@@ -1221,15 +1431,14 @@ const getRealProductionDate = (item) => {
   if (!item) return '';
 
   // 1. Cek tanggalFormatted / tanggal eksplisit dari file Excel atau input produksi
-  const rawTanggal = item.tanggalFormatted || item.tanggal;
+  const rawTanggal = item.tanggalFormatted || item.tanggal || item.date || item.tgl;
   if (rawTanggal) {
-    const rawStr = String(rawTanggal).trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(rawStr)) {
-      return rawStr;
+    if (typeof rawTanggal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawTanggal.trim())) {
+      return rawTanggal.trim();
     }
-    const iso = parseDateToIso(rawStr);
-    if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-      return iso;
+    const iso = parseDateToIso(rawTanggal);
+    if (iso && /^\d{4}-\d{2}-\d{2}/.test(iso)) {
+      return String(iso).slice(0, 10);
     }
   }
 
@@ -1239,12 +1448,25 @@ const getRealProductionDate = (item) => {
   const lotDate = extractDateFromLot(lotStr);
   if (lotDate) return lotDate;
 
+  // 3. Fallback timestamp
+  const ts = item.verifiedAt || item.createdAt;
+  if (ts) {
+    const iso = parseDateToIso(ts);
+    if (iso && /^\d{4}-\d{2}-\d{2}/.test(iso)) {
+      return String(iso).slice(0, 10);
+    }
+  }
+
   return '';
 };
 
 // Helper penentuan apakah rekaman berada dalam rentang frekuensi / tanggal target
 const isDateInFrequency = (prodDateStr) => {
-  if (!prodDateStr) return false; // SANGAT PENTING: Jangan masukkan record jika tidak memiliki tanggal produksi nyata!
+  if (selectedFrequency.value === 'ALL') {
+    return true; // Tampilkan seluruh roll tanpa filter tanggal!
+  }
+
+  if (!prodDateStr) return false;
   try {
     const targetIso = activeTargetDateIso.value; // Format YYYY-MM-DD
     const itemIso = String(prodDateStr).slice(0, 10);
@@ -1274,9 +1496,18 @@ const isDateInFrequency = (prodDateStr) => {
       const itemDate = new Date(itemIso);
       return itemDate >= sixMonthsAgo && itemDate <= cur;
     } else if (selectedFrequency.value === 'YEAR') {
+      const cur = new Date(targetIso);
+      const oneYearAgo = new Date(cur);
+      oneYearAgo.setFullYear(cur.getFullYear() - 1);
+      const itemDate = new Date(itemIso);
       const parts = targetIso.split('-');
       const itemParts = itemIso.split('-');
-      return itemParts[0] === parts[0];
+      return itemParts[0] === parts[0] || (itemDate >= oneYearAgo && itemDate <= cur);
+    } else if (selectedFrequency.value === 'CUSTOM') {
+      if (!customStartDate.value && !customEndDate.value) return true;
+      if (customStartDate.value && itemIso < customStartDate.value) return false;
+      if (customEndDate.value && itemIso > customEndDate.value) return false;
+      return true;
     }
   } catch (_) {
     return false;
@@ -1410,21 +1641,160 @@ const generateLineChartData = () => {
     holdData = buckets.map(b => b.hold);
     rejectData = buckets.map(b => b.reject);
 
+  } else if (selectedFrequency.value === 'CUSTOM') {
+    // Custom date interval breakdown
+    const startStr = customStartDate.value || (list.length > 0 ? getRealProductionDate(list[0]) : '');
+    const endStr = customEndDate.value || (list.length > 0 ? getRealProductionDate(list[list.length - 1]) : '');
+
+    let startDate = startStr ? new Date(startStr) : new Date();
+    let endDate = endStr ? new Date(endStr) : new Date();
+    if (startDate > endDate) {
+      const temp = startDate;
+      startDate = endDate;
+      endDate = temp;
+    }
+
+    const diffDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    if (diffDays <= 14) {
+      labels = [];
+      const buckets = [];
+      const cur = new Date(startDate);
+      while (cur <= endDate) {
+        const yr = cur.getFullYear();
+        const mo = String(cur.getMonth() + 1).padStart(2, '0');
+        const da = String(cur.getDate()).padStart(2, '0');
+        const iso = `${yr}-${mo}-${da}`;
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const dayLabel = `${cur.getDate()} ${months[cur.getMonth()]}`;
+        labels.push(dayLabel);
+        buckets.push({ iso, total: 0, pass: 0, hold: 0, reject: 0 });
+        cur.setDate(cur.getDate() + 1);
+      }
+
+      for (const item of list) {
+        const prodDate = getRealProductionDate(item);
+        const b = buckets.find(bk => bk.iso === prodDate);
+        if (b) {
+          b.total++;
+          const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+          if (st === 'HOLD') b.hold++;
+          else if (st === 'REJECT' || st === 'NG') b.reject++;
+          else b.pass++;
+        }
+      }
+
+      totalData = buckets.map(b => b.total);
+      passData = buckets.map(b => b.pass);
+      holdData = buckets.map(b => b.hold);
+      rejectData = buckets.map(b => b.reject);
+    } else {
+      const numBuckets = Math.min(diffDays, 8);
+      labels = [];
+      const buckets = [];
+      const interval = Math.ceil(diffDays / numBuckets);
+
+      for (let i = 0; i < numBuckets; i++) {
+        const bStart = new Date(startDate);
+        bStart.setDate(startDate.getDate() + i * interval);
+        const bEnd = new Date(bStart);
+        bEnd.setDate(bStart.getDate() + interval - 1);
+        if (bEnd > endDate) bEnd.setTime(endDate.getTime());
+        const label = `${bStart.getDate()}/${bStart.getMonth() + 1} - ${bEnd.getDate()}/${bEnd.getMonth() + 1}`;
+        labels.push(label);
+        buckets.push({
+          startMs: bStart.getTime(),
+          endMs: bEnd.getTime() + 86400000,
+          total: 0,
+          pass: 0,
+          hold: 0,
+          reject: 0
+        });
+      }
+
+      for (const item of list) {
+        const prodDate = getRealProductionDate(item);
+        if (prodDate) {
+          const t = new Date(prodDate).getTime();
+          const b = buckets.find(bk => t >= bk.startMs && t < bk.endMs);
+          if (b) {
+            b.total++;
+            const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+            if (st === 'HOLD') b.hold++;
+            else if (st === 'REJECT' || st === 'NG') b.reject++;
+            else b.pass++;
+          }
+        }
+      }
+
+      totalData = buckets.map(b => b.total);
+      passData = buckets.map(b => b.pass);
+      holdData = buckets.map(b => b.hold);
+      rejectData = buckets.map(b => b.reject);
+    }
+
   } else {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     const curMonth = new Date().getMonth();
+    const curYear = new Date().getFullYear();
+
+    let targetMonthDefs = []; // Array of { label, year, month }
 
     if (selectedFrequency.value === '3MONTH') {
-      labels = [monthNames[(curMonth - 2 + 12) % 12], monthNames[(curMonth - 1 + 12) % 12], monthNames[curMonth]];
+      for (let i = 2; i >= 0; i--) {
+        const d = new Date(curYear, curMonth - i, 1);
+        targetMonthDefs.push({
+          label: monthNames[d.getMonth()],
+          year: d.getFullYear(),
+          month: d.getMonth()
+        });
+      }
     } else if (selectedFrequency.value === '6MONTH') {
-      labels = [
-        monthNames[(curMonth - 5 + 12) % 12], monthNames[(curMonth - 4 + 12) % 12],
-        monthNames[(curMonth - 3 + 12) % 12], monthNames[(curMonth - 2 + 12) % 12],
-        monthNames[(curMonth - 1 + 12) % 12], monthNames[curMonth]
-      ];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(curYear, curMonth - i, 1);
+        targetMonthDefs.push({
+          label: monthNames[d.getMonth()],
+          year: d.getFullYear(),
+          month: d.getMonth()
+        });
+      }
     } else if (selectedFrequency.value === 'MONTH') {
       labels = ['Mgg 1', 'Mgg 2', 'Mgg 3', 'Mgg 4', 'Mgg 5'];
+    } else if (selectedFrequency.value === 'ALL') {
+      // Group distinct YYYY-MM in dataset or last 12 months
+      const distinctYm = [...new Set(list.map(it => {
+        const p = getRealProductionDate(it);
+        return p && /^\d{4}-\d{2}/.test(p) ? p.slice(0, 7) : null;
+      }).filter(Boolean))].sort();
+
+      if (distinctYm.length > 0) {
+        const sliceYm = distinctYm.length > 12 ? distinctYm.slice(-12) : distinctYm;
+        for (const ym of sliceYm) {
+          const [y, m] = ym.split('-').map(Number);
+          targetMonthDefs.push({
+            label: `${monthNames[m - 1]} '${String(y).slice(2)}`,
+            year: y,
+            month: m - 1
+          });
+        }
+      } else {
+        targetMonthDefs = monthNames.map((m, idx) => ({ label: m, year: curYear, month: idx }));
+      }
     } else {
+      // 1 YEAR (12 Months rolling)
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(curYear, curMonth - i, 1);
+        targetMonthDefs.push({
+          label: monthNames[d.getMonth()],
+          year: d.getFullYear(),
+          month: d.getMonth()
+        });
+      }
+    }
+
+    if (targetMonthDefs.length > 0) {
+      labels = targetMonthDefs.map(t => t.label);
+    } else if (labels.length === 0) {
       labels = monthNames;
     }
 
@@ -1435,17 +1805,25 @@ const generateLineChartData = () => {
       if (prodDate) {
         const d = new Date(prodDate);
         if (!isNaN(d.getTime())) {
-          let bIdx = 0;
+          let bIdx = -1;
           if (selectedFrequency.value === 'MONTH') {
             bIdx = Math.min(4, Math.floor((d.getDate() - 1) / 7));
+          } else if (targetMonthDefs.length > 0) {
+            bIdx = targetMonthDefs.findIndex(t => t.month === d.getMonth() && (selectedFrequency.value === 'ALL' || t.year === d.getFullYear()));
+            if (bIdx === -1) {
+              bIdx = targetMonthDefs.findIndex(t => t.month === d.getMonth());
+            }
           } else {
-            bIdx = Math.min(labels.length - 1, d.getMonth() % labels.length);
+            bIdx = d.getMonth() % labels.length;
           }
-          buckets[bIdx].total++;
-          const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
-          if (st === 'HOLD') buckets[bIdx].hold++;
-          else if (st === 'REJECT' || st === 'NG') buckets[bIdx].reject++;
-          else buckets[bIdx].pass++;
+
+          if (bIdx >= 0 && bIdx < buckets.length) {
+            buckets[bIdx].total++;
+            const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+            if (st === 'HOLD') buckets[bIdx].hold++;
+            else if (st === 'REJECT' || st === 'NG') buckets[bIdx].reject++;
+            else buckets[bIdx].pass++;
+          }
         }
       }
     }
@@ -1473,6 +1851,7 @@ const initLineChart = () => {
         {
           label: 'Total Roll',
           data: totalData,
+          hidden: !chartVisibility.value.total,
           borderColor: '#0f172a',
           backgroundColor: 'rgba(15, 23, 42, 0.04)',
           fill: true,
@@ -1484,6 +1863,7 @@ const initLineChart = () => {
         {
           label: 'PASS',
           data: passData,
+          hidden: !chartVisibility.value.pass,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.04)',
           fill: false,
@@ -1495,6 +1875,7 @@ const initLineChart = () => {
         {
           label: 'HOLD',
           data: holdData,
+          hidden: !chartVisibility.value.hold,
           borderColor: '#f59e0b',
           backgroundColor: 'transparent',
           fill: false,
@@ -1506,6 +1887,7 @@ const initLineChart = () => {
         {
           label: 'REJECT',
           data: rejectData,
+          hidden: !chartVisibility.value.reject,
           borderColor: '#ef4444',
           backgroundColor: 'transparent',
           fill: false,
@@ -1548,15 +1930,33 @@ const initLineChart = () => {
 };
 
 const updateLineChart = () => {
-  if (!lineComparisonChartInstance) return;
+  if (!lineComparisonChartInstance) {
+    initLineChart();
+    return;
+  }
   const { labels, totalData, passData, holdData, rejectData } = generateLineChartData();
   lineComparisonChartInstance.data.labels = labels;
   lineComparisonChartInstance.data.datasets[0].data = totalData;
   lineComparisonChartInstance.data.datasets[1].data = passData;
   lineComparisonChartInstance.data.datasets[2].data = holdData;
   lineComparisonChartInstance.data.datasets[3].data = rejectData;
+  lineComparisonChartInstance.data.datasets[0].hidden = !chartVisibility.value.total;
+  lineComparisonChartInstance.data.datasets[1].hidden = !chartVisibility.value.pass;
+  lineComparisonChartInstance.data.datasets[2].hidden = !chartVisibility.value.hold;
+  lineComparisonChartInstance.data.datasets[3].hidden = !chartVisibility.value.reject;
   lineComparisonChartInstance.update();
 };
+
+// Reaktif re-render diagram garis saat data roll / label selesai dimuat dari IndexedDB
+watch(filteredLabels, () => {
+  nextTick(() => {
+    if (!lineComparisonChartInstance) {
+      initLineChart();
+    } else {
+      updateLineChart();
+    }
+  });
+}, { deep: true });
 
 // =========================================================================
 // 5. TAB MESIN (SLITTING, REWIND, CASTING) & OPERATOR QUALITY STATS
@@ -1697,120 +2097,170 @@ const openSpkModal = (spk, activeView = 'ALL') => {
 };
 
 const timelineSpkList = computed(() => {
-  const plans = spkStore.plans || [];
-  const list = [];
-
-  for (let i = 0; i < Math.min(8, plans.length); i++) {
-    const p = plans[i];
-    const analytics = spkStore.getSpkRealtimeAnalytics(p.spkNo, p) || {};
-    const planRoll = analytics.plannedChildRolls || (p.jumlahJumbo ? p.jumlahJumbo * 2 : 4);
-    const planMeter = analytics.plannedMeter || (p.totalPlannedMeter || (p.panjangParent * (p.jumlahJumbo || 1))) || 24000;
-    const actualRoll = analytics.totalRealRolls || 0;
-    const actualMeter = analytics.totalRealMeter || 0;
-    const actualKg = analytics.totalRealKg || 0;
-    const percent = planRoll > 0 ? Math.min(100, Math.round((actualRoll / planRoll) * 100)) : 0;
-
-    let status = 'SCHEDULED';
-    if (percent >= 100) status = 'DONE';
-    else if (actualRoll > 0) status = 'RUNNING';
-
-    list.push({
-      spkNo: p.spkNo,
-      docNo: p.docNo || '3B-PROD',
-      formula: p.formula || analytics.formula || 'CPP',
-      thickness: p.thickness || analytics.thickness || 20,
-      jenis: p.jenis || 'CPP',
-      customer: p.customer || p.namaCustomer || '-',
-      planRoll,
-      planMeter,
-      planJumbo: p.jumlahJumbo || 1,
-      speed: analytics.speed || 600,
-      actualRoll,
-      actualMeter,
-      actualKg,
-      actualJumbo: analytics.actualParentCut || 0,
-      passCount: analytics.passCount || 0,
-      holdCount: analytics.holdCount || 0,
-      rejectCount: analytics.rejectCount || 0,
-      percent,
-      status,
-      diffRoll: actualRoll - planRoll,
-      diffMeter: Math.round(actualMeter - planMeter)
-    });
+  let plans = spkStore.plans || [];
+  
+  // Prioritaskan baris SPK dari batch yang aktif sebagai acuan monitoring
+  if (spkStore.activeBatch && spkStore.activeBatch.uuid) {
+    const batchPlans = plans
+      .filter(p => p.batchId === spkStore.activeBatch.uuid)
+      .sort((a, b) => {
+        const seqA = a.seq !== undefined && a.seq !== null ? a.seq : (a.no || a.id || 0);
+        const seqB = b.seq !== undefined && b.seq !== null ? b.seq : (b.no || b.id || 0);
+        return seqA - seqB;
+      });
+    if (batchPlans.length > 0) {
+      plans = batchPlans;
+    }
   }
 
+  const list = [];
+
+  if (plans.length > 0) {
+    for (let i = 0; i < Math.min(10, plans.length); i++) {
+      const p = plans[i];
+      const analytics = spkStore.getSpkRealtimeAnalytics(p.spkNo, p) || {};
+      const planRoll = analytics.plannedChildRolls || (p.jumlahJumbo ? p.jumlahJumbo * 2 : 4);
+      const planMeter = analytics.plannedMeter || (p.totalPlannedMeter || (p.panjangParent * (p.jumlahJumbo || 1))) || 24000;
+      const actualRoll = analytics.totalRealRolls || 0;
+      const actualMeter = analytics.totalRealMeter || 0;
+      const actualKg = analytics.totalRealKg || 0;
+      const percent = planRoll > 0 ? Math.min(100, Math.round((actualRoll / planRoll) * 100)) : 0;
+
+      let status = 'SCHEDULED';
+      if (percent >= 100) status = 'DONE';
+      else if (actualRoll > 0) status = 'RUNNING';
+
+      const targetStatus = analytics.targetStatus || evaluateTargetStatus(actualRoll, planRoll, p.status === 'SKIPPED');
+
+      list.push({
+        spkNo: p.spkNo,
+        docNo: p.docNo || '3B-PROD',
+        formula: p.formula || analytics.formula || 'CPP',
+        thickness: p.thickness || analytics.thickness || 20,
+        jenis: p.jenis || 'CPP',
+        customer: p.customer || p.namaCustomer || '-',
+        planRoll,
+        planMeter,
+        planJumbo: p.jumlahJumbo || 1,
+        speed: analytics.speed || 600,
+        actualRoll,
+        actualMeter,
+        actualKg,
+        actualJumbo: analytics.actualParentCut || 0,
+        passCount: analytics.passCount || 0,
+        holdCount: analytics.holdCount || 0,
+        rejectCount: analytics.rejectCount || 0,
+        percent,
+        status,
+        startTimeFormatted: analytics.startTimeFormatted || '-',
+        endTimeFormatted: analytics.endTimeFormatted || '-',
+        targetStatus,
+        diffRoll: actualRoll - planRoll,
+        diffMeter: Math.round(actualMeter - planMeter)
+      });
+    }
+  }
+
+  // ZERO DUMMY POLICY: Jika tidak ada plan SPK terdaftar, ambil rekaman aktual input label 2 hari kebelakang berjalan
   if (list.length === 0) {
-    return [
-      {
-        spkNo: '010/SPK/08/2026',
-        docNo: '3B-PROD',
-        formula: 'M01',
-        thickness: 20,
-        jenis: 'CPP',
-        customer: 'PT. INDOFOOD',
-        planRoll: 4,
-        planMeter: 24000,
-        planJumbo: 2,
+    const allRolls = allProductionRolls.value || [];
+    
+    // Cari 2 tanggal produksi berjalan terakhir (termasuk hari ini dan kemarin)
+    const distinctDates = Array.from(
+      new Set(allRolls.map(r => getRealProductionDate(r)).filter(Boolean))
+    ).sort().reverse();
+
+    const targetDates = distinctDates.slice(0, 2);
+
+    const spkGroups = new Map();
+
+    for (const r of allRolls) {
+      const pDate = getRealProductionDate(r);
+      if (targetDates.length > 0 && !targetDates.includes(pDate)) continue;
+
+      const rawSpk = String(r.spk || '').trim().toUpperCase();
+      if (!rawSpk || rawSpk === '-' || rawSpk === 'DEFAULT') continue;
+
+      if (!spkGroups.has(rawSpk)) {
+        spkGroups.set(rawSpk, {
+          spkNo: rawSpk,
+          docNo: '3B-PROD',
+          formula: r.kodeFormula || r.formula || 'CPP',
+          thickness: parseFloat(r.thickness) || 20,
+          jenis: r.jenis || 'CPP',
+          customer: r.customer || '-',
+          actualRoll: 0,
+          actualMeter: 0,
+          actualKg: 0,
+          passCount: 0,
+          holdCount: 0,
+          rejectCount: 0,
+          firstTime: Infinity,
+          lastTime: 0
+        });
+      }
+
+      const entry = spkGroups.get(rawSpk);
+      entry.actualRoll++;
+      entry.actualMeter += parseFloat(r.meter || r.length || r.panjang || 0) || 0;
+      entry.actualKg += parseFloat(r.netto || r.beratNetto || r.berat || 0) || 0;
+
+      const st = String(r.qualityStatus || r.status || 'PASS').toUpperCase();
+      if (st === 'HOLD') entry.holdCount++;
+      else if (st === 'REJECT' || st === 'NG') entry.rejectCount++;
+      else entry.passCount++;
+
+      const rTime = r.verifiedAt || r.createdAt || r.tanggal;
+      if (rTime) {
+        const t = new Date(rTime).getTime();
+        if (t > 0 && t < entry.firstTime) entry.firstTime = t;
+        if (t > entry.lastTime) entry.lastTime = t;
+      }
+    }
+
+    // Convert map to list sorted by last production time
+    const dynamicSpkList = Array.from(spkGroups.values())
+      .sort((a, b) => b.lastTime - a.lastTime)
+      .slice(0, 10);
+
+    for (const dSpk of dynamicSpkList) {
+      const startTimeFormatted = dSpk.firstTime !== Infinity && dSpk.firstTime > 0
+        ? new Date(dSpk.firstTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(dSpk.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-';
+      const endTimeFormatted = dSpk.lastTime > 0
+        ? new Date(dSpk.lastTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(dSpk.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-';
+
+      const targetStatus = evaluateTargetStatus(dSpk.actualRoll, dSpk.actualRoll, false);
+
+      list.push({
+        spkNo: dSpk.spkNo,
+        docNo: dSpk.docNo,
+        formula: dSpk.formula,
+        thickness: dSpk.thickness,
+        jenis: dSpk.jenis,
+        customer: dSpk.customer,
+        planRoll: dSpk.actualRoll,
+        planMeter: Math.round(dSpk.actualMeter),
+        planJumbo: Math.max(1, Math.ceil(dSpk.actualRoll / 2)),
         speed: 600,
-        actualRoll: 4,
-        actualMeter: 24150,
-        actualKg: 2850,
-        actualJumbo: 2,
-        passCount: 4,
-        holdCount: 0,
-        rejectCount: 0,
+        actualRoll: dSpk.actualRoll,
+        actualMeter: Math.round(dSpk.actualMeter),
+        actualKg: Math.round(dSpk.actualKg),
+        actualJumbo: Math.max(1, Math.ceil(dSpk.actualRoll / 2)),
+        passCount: dSpk.passCount,
+        holdCount: dSpk.holdCount,
+        rejectCount: dSpk.rejectCount,
         percent: 100,
         status: 'DONE',
+        startTimeFormatted,
+        endTimeFormatted,
+        targetStatus,
         diffRoll: 0,
-        diffMeter: 150
-      },
-      {
-        spkNo: '011/SPK/08/2026',
-        docNo: '3B-PROD',
-        formula: 'M06',
-        thickness: 25,
-        jenis: 'VMCPP',
-        customer: 'PT. MAYORA',
-        planRoll: 6,
-        planMeter: 36000,
-        planJumbo: 3,
-        speed: 550,
-        actualRoll: 3,
-        actualMeter: 18000,
-        actualKg: 2150,
-        actualJumbo: 2,
-        passCount: 3,
-        holdCount: 0,
-        rejectCount: 0,
-        percent: 50,
-        status: 'RUNNING',
-        diffRoll: -3,
-        diffMeter: -18000
-      },
-      {
-        spkNo: '012/SPK/08/2026',
-        docNo: '3B-PROD',
-        formula: 'B10',
-        thickness: 18,
-        jenis: 'CPP',
-        customer: 'PT. SIANTAR TOP',
-        planRoll: 4,
-        planMeter: 24000,
-        planJumbo: 2,
-        speed: 600,
-        actualRoll: 0,
-        actualMeter: 0,
-        actualKg: 0,
-        actualJumbo: 0,
-        passCount: 0,
-        holdCount: 0,
-        rejectCount: 0,
-        percent: 0,
-        status: 'SCHEDULED',
-        diffRoll: -4,
-        diffMeter: -24000
-      }
-    ];
+        diffMeter: 0,
+        isTwoDayFallback: true
+      });
+    }
   }
 
   return list;
@@ -2029,14 +2479,21 @@ onMounted(async () => {
   updateLiveTime();
   liveTimer = setInterval(updateLiveTime, 1000);
 
-  await Promise.all([
-    configStore.loadConfig(),
-    inventoryStore.loadInventory(),
-    wipStore.loadWipRolls(),
-    labelStore.loadLabels(),
-    dataRollStore.loadRolls(),
-    spkStore.loadAll()
-  ]);
+  isDashboardLoading.value = true;
+  try {
+    await Promise.allSettled([
+      configStore.loadAll(),
+      inventoryStore.loadInventory(),
+      wipStore.loadWipRolls(),
+      labelStore.loadLabels(),
+      dataRollStore.loadRolls(),
+      spkStore.loadAll()
+    ]);
+  } catch (err) {
+    console.error('Error loading dashboard data:', err);
+  } finally {
+    isDashboardLoading.value = false;
+  }
 
   await nextTick();
   initLineChart();

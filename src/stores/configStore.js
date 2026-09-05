@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { db, getSetting, saveSetting } from '@/db';
+import { pushLocalToSupabase } from '@/services/syncService';
 
 // ── DEFAULT SEED DATA ──────────────────────────────────────────────────────────
 
@@ -302,6 +303,10 @@ export const useConfigStore = defineStore('configStore', {
   },
 
   actions: {
+    async loadConfig() {
+      return this.loadAll();
+    },
+
     async loadAll() {
       this.loading = true;
       try {
@@ -620,6 +625,7 @@ export const useConfigStore = defineStore('configStore', {
       this.jenisBahanList = jbl;
       this.kategoriFilmList = kfl;
       this.tipeBahanList = tbl;
+      pushLocalToSupabase().catch(() => {});
     },
 
     async updateFilmConfig(id, changes) {
@@ -654,11 +660,13 @@ export const useConfigStore = defineStore('configStore', {
       this.jenisBahanList = jbl;
       this.kategoriFilmList = kfl;
       this.tipeBahanList = tbl;
+      pushLocalToSupabase().catch(() => {});
     },
 
     async deleteFilmConfig(id) {
       await db.film_configs.delete(id);
       this.filmConfigs = this.filmConfigs.filter(f => f.id !== id);
+      pushLocalToSupabase().catch(() => {});
     },
 
     // ── OPERATORS CRUD ────────────────────────────────────────────────────────
