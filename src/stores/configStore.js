@@ -685,6 +685,7 @@ export const useConfigStore = defineStore('configStore', {
       const id = await db.operator_list.add(newOp);
       this.operatorList.push({ ...newOp, id });
       this.operatorList.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+      pushLocalToSupabase().catch(() => {});
     },
 
     async updateOperator(id, changes) {
@@ -701,11 +702,13 @@ export const useConfigStore = defineStore('configStore', {
       const idx = this.operatorList.findIndex(o => o.id === id);
       if (idx !== -1) Object.assign(this.operatorList[idx], updated);
       this.operatorList.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+      pushLocalToSupabase().catch(() => {});
     },
 
     async deleteOperator(id) {
       await db.operator_list.delete(id);
       this.operatorList = this.operatorList.filter(o => o.id !== id);
+      pushLocalToSupabase().catch(() => {});
     },
 
     // ── MESIN CRUD ────────────────────────────────────────────────────────────
@@ -719,6 +722,7 @@ export const useConfigStore = defineStore('configStore', {
       };
       const id = await db.mesin_list.add(newMesin);
       this.mesinList.push({ ...newMesin, id });
+      pushLocalToSupabase().catch(() => {});
     },
 
     async updateMesin(id, changes) {
@@ -728,11 +732,13 @@ export const useConfigStore = defineStore('configStore', {
       await db.mesin_list.update(id, updatedChanges);
       const idx = this.mesinList.findIndex(m => m.id === id);
       if (idx !== -1) Object.assign(this.mesinList[idx], updatedChanges);
+      pushLocalToSupabase().catch(() => {});
     },
 
     async deleteMesin(id) {
       await db.mesin_list.delete(id);
       this.mesinList = this.mesinList.filter(m => m.id !== id);
+      pushLocalToSupabase().catch(() => {});
     },
 
     // ── LABEL SIGNS CRUD ──────────────────────────────────────────────────────
@@ -778,6 +784,7 @@ export const useConfigStore = defineStore('configStore', {
       };
       const id = await db.location_list.add(newLoc);
       this.locationList.push({ ...newLoc, id });
+      pushLocalToSupabase().catch(() => {});
     },
 
     async updateLocation(id, changes) {
@@ -794,11 +801,13 @@ export const useConfigStore = defineStore('configStore', {
       await db.location_list.update(id, updated);
       const idx = this.locationList.findIndex(l => l.id === id);
       if (idx !== -1) Object.assign(this.locationList[idx], updated);
+      pushLocalToSupabase().catch(() => {});
     },
 
     async deleteLocation(id) {
       await db.location_list.delete(id);
       this.locationList = this.locationList.filter(l => l.id !== id);
+      pushLocalToSupabase().catch(() => {});
     },
 
     // Shorthand / Alias Normalizer for Locations
@@ -931,6 +940,7 @@ export const useConfigStore = defineStore('configStore', {
       const id = await db.standard_lengths.add(item);
       this.standardLengthList.push({ id, ...item });
       this.standardLengthList.sort((a, b) => parseFloat(a.thickness) - parseFloat(b.thickness));
+      pushLocalToSupabase().catch(() => {});
     },
 
     async updateStandardLength(id, changes) {
@@ -948,11 +958,13 @@ export const useConfigStore = defineStore('configStore', {
         Object.assign(this.standardLengthList[idx], payload);
         this.standardLengthList.sort((a, b) => parseFloat(a.thickness) - parseFloat(b.thickness));
       }
+      pushLocalToSupabase().catch(() => {});
     },
 
     async deleteStandardLength(id) {
       await db.standard_lengths.delete(id);
       this.standardLengthList = this.standardLengthList.filter(i => i.id !== id);
+      pushLocalToSupabase().catch(() => {});
     },
 
     // ── RESIN ITEMS CRUD ──────────────────────────────────────────────────────
@@ -969,6 +981,7 @@ export const useConfigStore = defineStore('configStore', {
       const id = await db.resin_items.add(item);
       this.resinItemList.push({ id, ...item });
       this.resinItemList.sort((a, b) => (a.resin || '').localeCompare(b.resin || ''));
+      pushLocalToSupabase().catch(() => {});
     },
 
     async updateResinItem(id, changes) {
@@ -989,11 +1002,13 @@ export const useConfigStore = defineStore('configStore', {
         Object.assign(this.resinItemList[idx], payload);
         this.resinItemList.sort((a, b) => (a.resin || '').localeCompare(b.resin || ''));
       }
+      pushLocalToSupabase().catch(() => {});
     },
 
     async deleteResinItem(id) {
       await db.resin_items.delete(id);
       this.resinItemList = this.resinItemList.filter(i => i.id !== id);
+      pushLocalToSupabase().catch(() => {});
     },
 
     // ── BOM FORMULAS CRUD ─────────────────────────────────────────────────────
@@ -1010,6 +1025,7 @@ export const useConfigStore = defineStore('configStore', {
       const id = await db.bom_formulas.add(item);
       this.bomFormulaList.push({ id, ...item });
       this.bomFormulaList.sort((a, b) => (a.formula || '').localeCompare(b.formula || '') || (b.persen || 0) - (a.persen || 0));
+      pushLocalToSupabase().catch(() => {});
     },
 
     async updateBomFormula(id, changes) {
@@ -1029,11 +1045,13 @@ export const useConfigStore = defineStore('configStore', {
         Object.assign(this.bomFormulaList[idx], payload);
         this.bomFormulaList.sort((a, b) => (a.formula || '').localeCompare(b.formula || '') || (b.persen || 0) - (a.persen || 0));
       }
+      pushLocalToSupabase().catch(() => {});
     },
 
     async deleteBomFormula(id) {
       await db.bom_formulas.delete(id);
       this.bomFormulaList = this.bomFormulaList.filter(i => i.id !== id);
+      pushLocalToSupabase().catch(() => {});
     },
 
     // ── GENERIC LIST ITEM CRUD ────────────────────────────────────────────────
@@ -1120,3 +1138,16 @@ export const useConfigStore = defineStore('configStore', {
     }
   }
 });
+
+// Auto-reload configStore whenever cloud sync pulls updated master data
+if (typeof window !== 'undefined' && !window.__mlabel_config_sync_listener_attached) {
+  window.__mlabel_config_sync_listener_attached = true;
+  window.addEventListener('sync:config-updated', async () => {
+    try {
+      const store = useConfigStore();
+      await store.loadAll();
+    } catch (e) {
+      console.warn('Auto reload configStore failed:', e);
+    }
+  });
+}

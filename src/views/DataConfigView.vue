@@ -2,35 +2,35 @@
   <div class="min-h-screen bg-zinc-100 pb-16">
     <!-- PAGE HEADER -->
     <div class="bg-white border-b border-zinc-200 shadow-xs sticky top-0 z-20">
-      <div class="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center shrink-0 shadow-xs">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="max-w-screen-xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2.5 sm:gap-3 flex-wrap">
+        <div class="flex items-center gap-2.5 sm:gap-3">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 bg-zinc-900 rounded-xl flex items-center justify-center shrink-0 shadow-xs">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
             </svg>
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h1 class="font-black text-zinc-900 text-base leading-tight">Data Configuration</h1>
-              <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-zinc-900 text-white tracking-wide">4 MODUL</span>
+              <h1 class="font-black text-zinc-900 text-sm sm:text-base leading-tight">Data Configuration</h1>
+              <span class="text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-zinc-900 text-white tracking-wide">4 MODUL</span>
             </div>
-            <p class="text-xs text-zinc-500 font-medium mt-0.5">Master data terpusat: Formula & BOM film, master resin, mesin, operator, lokasi gudang, & panjang standard</p>
+            <p class="text-xs text-zinc-500 font-medium mt-0.5 hidden sm:block">Master data terpusat: Formula & BOM film, master resin, mesin, operator, lokasi gudang, & panjang standard</p>
           </div>
         </div>
 
         <!-- TOOLBAR ACTIONS -->
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap justify-end">
           <!-- 1. Download Template Dropdown -->
           <div class="relative">
             <button
               @click="showTemplateMenu = !showTemplateMenu; showExportMenu = false"
-              class="px-3 py-1.5 rounded-xl bg-white border border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white border border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-[11px] sm:text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
             >
               <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
               </svg>
-              <span>Download Template</span>
+              <span><span class="hidden xs:inline">Download</span> Template</span>
               <span class="text-[10px] text-zinc-400">▼</span>
             </button>
 
@@ -68,12 +68,12 @@
           <div class="relative">
             <button
               @click="showExportMenu = !showExportMenu; showTemplateMenu = false"
-              class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] sm:text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
-              <span>Export Excel</span>
+              <span>Export</span>
               <span class="text-[10px]">▼</span>
             </button>
 
@@ -110,12 +110,12 @@
           <!-- 3. Import Button -->
           <button
             @click="triggerImportFileInput"
-            class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[11px] sm:text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
           >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
             </svg>
-            <span>Import Excel</span>
+            <span>Import</span>
           </button>
 
           <!-- Hidden Input for Excel File -->
@@ -130,23 +130,23 @@
       </div>
 
       <!-- 4 MAIN MODULES TAB BAR -->
-      <div class="max-w-screen-xl mx-auto px-4 flex gap-2 border-t border-zinc-100 overflow-x-auto pt-1">
+      <div class="max-w-screen-xl mx-auto px-2 sm:px-4 flex gap-1 sm:gap-2 border-t border-zinc-100 overflow-x-auto pt-1 no-scrollbar">
         <button
           v-for="mod in modules"
           :key="mod.id"
           @click="activeModule = mod.id"
           :class="[
-            'px-4 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 cursor-pointer',
+            'px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all flex items-center gap-1.5 cursor-pointer shrink-0',
             activeModule === mod.id
-              ? 'border-red-600 text-red-600 bg-red-50/50 rounded-t-xl'
+              ? 'border-red-600 text-red-600 bg-red-50/50 rounded-t-xl font-black'
               : 'border-transparent text-zinc-600 hover:text-zinc-900 hover:border-zinc-300'
           ]"
         >
-          <span class="text-base">{{ mod.icon }}</span>
+          <span class="text-sm sm:text-base">{{ mod.icon }}</span>
           <span>{{ mod.label }}</span>
           <span
             :class="[
-              'px-2 py-0.5 rounded-full text-[10px] font-black',
+              'px-1.5 py-0.2 sm:px-2 sm:py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-black',
               activeModule === mod.id ? 'bg-red-600 text-white' : 'bg-zinc-200/80 text-zinc-600'
             ]"
           >
@@ -157,7 +157,7 @@
     </div>
 
     <!-- MAIN CONTENT AREA -->
-    <div class="max-w-screen-xl mx-auto px-4 py-6">
+    <div class="max-w-screen-xl mx-auto px-2.5 sm:px-4 py-3 sm:py-6">
 
       <!-- LOADING STATE -->
       <div v-if="configStore.loading" class="flex items-center justify-center py-24 text-zinc-400 gap-3">
@@ -233,7 +233,7 @@
           <!-- TABLE FORMULA & INLINE BOM ACCORDION -->
           <div class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
             <div class="overflow-x-auto">
-              <table class="w-full text-xs">
+              <table class="w-full text-xs min-w-[900px] whitespace-nowrap">
                 <thead class="bg-zinc-100/80 border-b border-zinc-200 text-zinc-600">
                   <tr>
                     <th class="px-3 py-3 text-left font-bold w-10">#</th>
@@ -417,8 +417,9 @@
 
                           <!-- TABEL RESEP RM -->
                           <div class="border border-zinc-200 rounded-xl overflow-hidden">
-                            <table class="w-full text-xs font-mono">
-                              <thead class="bg-zinc-100 text-zinc-600 text-[10.5px]">
+                            <div class="overflow-x-auto">
+                              <table class="w-full text-xs font-mono min-w-[500px] whitespace-nowrap">
+                                <thead class="bg-zinc-100 text-zinc-600 text-[10.5px]">
                                 <tr>
                                   <th class="px-3 py-2 text-left w-10">#</th>
                                   <th class="px-3 py-2 text-left">Bahan Baku Resin (RM)</th>
@@ -471,6 +472,7 @@
                                 </tr>
                               </tbody>
                             </table>
+                            </div>
                           </div>
 
                         </div>
@@ -494,12 +496,12 @@
               <h2 class="font-black text-zinc-900 text-base">Master Item Resin & Bahan Baku</h2>
               <p class="text-xs text-zinc-400 mt-0.5">Database master bahan baku resin polimer, kode formula resin, dan nomor item SAP / Navision</p>
             </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <div class="relative">
-                <input v-model="resinSearch" type="text" placeholder="Cari nama resin / kode..." class="pl-7 pr-3 py-1.5 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none w-56 bg-white font-mono" />
+            <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+              <div class="relative flex-1 sm:flex-initial">
+                <input v-model="resinSearch" type="text" placeholder="Cari nama resin / kode..." class="pl-7 pr-3 py-1.5 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none w-full sm:w-56 bg-white font-mono" />
                 <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-2 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>
-              <button @click="openResinModal(null)" class="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs">
+              <button @click="openResinModal(null)" class="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs whitespace-nowrap">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Tambah Item Resin
               </button>
@@ -508,7 +510,7 @@
 
           <div class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
             <div class="overflow-x-auto">
-              <table class="w-full text-xs">
+              <table class="w-full text-xs min-w-[580px] whitespace-nowrap">
                 <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
                   <tr>
                     <th class="px-4 py-3 text-left font-bold w-12">#</th>
@@ -629,102 +631,106 @@
 
           <!-- SUB-VIEW MESIN -->
           <div v-if="subTabMesinOperator === 'mesin'" class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
-            <table class="w-full text-xs">
-              <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
-                <tr>
-                  <th class="px-4 py-3 text-left font-bold w-12">#</th>
-                  <th class="px-4 py-3 text-left font-bold">Nama Mesin</th>
-                  <th class="px-4 py-3 text-left font-bold">Pra-CodePack (Prefix Otomatis)</th>
-                  <th class="px-4 py-3 text-left font-bold">Speed Standar Slitting</th>
-                  <th class="px-4 py-3 text-center font-bold w-28">Status</th>
-                  <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-100">
-                <tr v-if="configStore.mesinList.length === 0">
-                  <td colspan="6" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data mesin</td>
-                </tr>
-                <tr v-for="(row, idx) in configStore.mesinList" :key="row.id" class="hover:bg-zinc-50">
-                  <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
-                  <td class="px-4 py-3 font-bold text-zinc-900">{{ row.nama }}</td>
-                  <td class="px-4 py-3 font-mono font-black text-red-600">{{ row.praKodePack || '—' }}</td>
-                  <td class="px-4 py-3 font-mono">
-                    <template v-if="row.nama && row.nama.toUpperCase().includes('SLITTING')">
-                      <div class="flex items-center gap-1.5 flex-wrap">
-                        <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px]">
-                          Metalized: {{ row.speedMetalized || 400 }} m/min
-                        </span>
-                        <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-300 font-bold text-[10px]">
-                          Polos: {{ row.speedPolos || 600 }} m/min
-                        </span>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs min-w-[580px] whitespace-nowrap">
+                <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-bold w-12">#</th>
+                    <th class="px-4 py-3 text-left font-bold">Nama Mesin</th>
+                    <th class="px-4 py-3 text-left font-bold">Pra-CodePack (Prefix Otomatis)</th>
+                    <th class="px-4 py-3 text-left font-bold">Speed Standar Slitting</th>
+                    <th class="px-4 py-3 text-center font-bold w-28">Status</th>
+                    <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100">
+                  <tr v-if="configStore.mesinList.length === 0">
+                    <td colspan="6" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data mesin</td>
+                  </tr>
+                  <tr v-for="(row, idx) in configStore.mesinList" :key="row.id" class="hover:bg-zinc-50">
+                    <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
+                    <td class="px-4 py-3 font-bold text-zinc-900">{{ row.nama }}</td>
+                    <td class="px-4 py-3 font-mono font-black text-red-600">{{ row.praKodePack || '—' }}</td>
+                    <td class="px-4 py-3 font-mono">
+                      <template v-if="row.nama && row.nama.toUpperCase().includes('SLITTING')">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px]">
+                            Metalized: {{ row.speedMetalized || 400 }} m/min
+                          </span>
+                          <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-300 font-bold text-[10px]">
+                            Polos: {{ row.speedPolos || 600 }} m/min
+                          </span>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <span class="text-zinc-400 text-xs">—</span>
+                      </template>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <button @click="toggleMesinActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
+                        {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
+                      </button>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <div class="flex items-center justify-center gap-1">
+                        <button @click="openMesinModal(row)" class="p-1.5 rounded-lg hover:bg-blue-50 text-zinc-400 hover:text-blue-600 transition-colors cursor-pointer" title="Edit">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
+                        <button @click="deleteMesin(row.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer" title="Hapus">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                        </button>
                       </div>
-                    </template>
-                    <template v-else>
-                      <span class="text-zinc-400 text-xs">—</span>
-                    </template>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <button @click="toggleMesinActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
-                      {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
-                    </button>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <div class="flex items-center justify-center gap-1">
-                      <button @click="openMesinModal(row)" class="p-1.5 rounded-lg hover:bg-blue-50 text-zinc-400 hover:text-blue-600 transition-colors cursor-pointer" title="Edit">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                      </button>
-                      <button @click="deleteMesin(row.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer" title="Hapus">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <!-- SUB-VIEW OPERATOR -->
           <div v-else class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
-            <table class="w-full text-xs">
-              <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
-                <tr>
-                  <th class="px-4 py-3 text-left font-bold w-12">#</th>
-                  <th class="px-4 py-3 text-left font-bold">Nama Operator</th>
-                  <th class="px-4 py-3 text-left font-bold">Kode Operator</th>
-                  <th class="px-4 py-3 text-left font-bold">Mesin Penugasan</th>
-                  <th class="px-4 py-3 text-left font-bold">Kode Grup</th>
-                  <th class="px-4 py-3 text-center font-bold w-28">Status</th>
-                  <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-100">
-                <tr v-if="configStore.operatorList.length === 0">
-                  <td colspan="7" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data operator</td>
-                </tr>
-                <tr v-for="(row, idx) in configStore.operatorList" :key="row.id" class="hover:bg-zinc-50">
-                  <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
-                  <td class="px-4 py-3 font-bold text-zinc-900">{{ row.nama }}</td>
-                  <td class="px-4 py-3 font-mono font-bold text-blue-700">{{ row.kodeOperator }}</td>
-                  <td class="px-4 py-3 text-zinc-600">{{ row.mesin || '—' }}</td>
-                  <td class="px-4 py-3 font-mono text-zinc-600">{{ row.kodeGrup || '—' }}</td>
-                  <td class="px-4 py-3 text-center">
-                    <button @click="toggleOperatorActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
-                      {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
-                    </button>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <div class="flex items-center justify-center gap-1">
-                      <button @click="openOperatorModal(row)" class="p-1.5 rounded-lg hover:bg-blue-50 text-zinc-400 hover:text-blue-600 transition-colors cursor-pointer" title="Edit">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs min-w-[580px] whitespace-nowrap">
+                <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-bold w-12">#</th>
+                    <th class="px-4 py-3 text-left font-bold">Nama Operator</th>
+                    <th class="px-4 py-3 text-left font-bold">Kode Operator</th>
+                    <th class="px-4 py-3 text-left font-bold">Mesin Penugasan</th>
+                    <th class="px-4 py-3 text-left font-bold">Kode Grup</th>
+                    <th class="px-4 py-3 text-center font-bold w-28">Status</th>
+                    <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100">
+                  <tr v-if="configStore.operatorList.length === 0">
+                    <td colspan="7" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data operator</td>
+                  </tr>
+                  <tr v-for="(row, idx) in configStore.operatorList" :key="row.id" class="hover:bg-zinc-50">
+                    <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
+                    <td class="px-4 py-3 font-bold text-zinc-900">{{ row.nama }}</td>
+                    <td class="px-4 py-3 font-mono font-bold text-blue-700">{{ row.kodeOperator }}</td>
+                    <td class="px-4 py-3 text-zinc-600">{{ row.mesin || '—' }}</td>
+                    <td class="px-4 py-3 font-mono text-zinc-600">{{ row.kodeGrup || '—' }}</td>
+                    <td class="px-4 py-3 text-center">
+                      <button @click="toggleOperatorActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
+                        {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
                       </button>
-                      <button @click="deleteOperator(row.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer" title="Hapus">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <div class="flex items-center justify-center gap-1">
+                        <button @click="openOperatorModal(row)" class="p-1.5 rounded-lg hover:bg-blue-50 text-zinc-400 hover:text-blue-600 transition-colors cursor-pointer" title="Edit">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
+                        <button @click="deleteOperator(row.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer" title="Hapus">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -789,96 +795,100 @@
 
           <!-- SUB-VIEW LOKASI RAK -->
           <div v-if="subTabGudangStandar === 'lokasi'" class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
-            <table class="w-full text-xs">
-              <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
-                <tr>
-                  <th class="px-4 py-3 text-left font-bold w-12">#</th>
-                  <th class="px-4 py-3 text-left font-bold">Nama Lokasi / Rak</th>
-                  <th class="px-4 py-3 text-left font-bold">Peruntukan</th>
-                  <th class="px-4 py-3 text-left font-bold">Alias / Shorthand</th>
-                  <th class="px-4 py-3 text-center font-bold w-28">Kapasitas (Roll)</th>
-                  <th class="px-4 py-3 text-center font-bold w-24">Status</th>
-                  <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-100">
-                <tr v-if="configStore.locationList.length === 0">
-                  <td colspan="7" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data lokasi rak</td>
-                </tr>
-                <tr v-for="(row, idx) in configStore.locationList" :key="row.id" class="hover:bg-zinc-50">
-                  <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
-                  <td class="px-4 py-3 font-mono font-bold text-zinc-900">{{ row.nama }}</td>
-                  <td class="px-4 py-3">
-                    <span :class="row.jenis === 'WIP Jumbo Roll' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'" class="px-2 py-0.5 rounded font-bold border text-[11px]">
-                      {{ row.jenis }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 font-mono text-zinc-500">{{ row.alias || '—' }}</td>
-                  <td class="px-4 py-3 text-center font-mono font-bold text-zinc-800">{{ row.kapasitas || '—' }}</td>
-                  <td class="px-4 py-3 text-center">
-                    <button @click="toggleLocationActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
-                      {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
-                    </button>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <div class="flex items-center justify-center gap-1">
-                      <button @click="openLocationModal(row)" class="p-1.5 rounded-lg hover:bg-blue-50 text-zinc-400 hover:text-blue-600 transition-colors cursor-pointer" title="Edit">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs min-w-[620px] whitespace-nowrap">
+                <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-bold w-12">#</th>
+                    <th class="px-4 py-3 text-left font-bold">Nama Lokasi / Rak</th>
+                    <th class="px-4 py-3 text-left font-bold">Peruntukan</th>
+                    <th class="px-4 py-3 text-left font-bold">Alias / Shorthand</th>
+                    <th class="px-4 py-3 text-center font-bold w-28">Kapasitas (Roll)</th>
+                    <th class="px-4 py-3 text-center font-bold w-24">Status</th>
+                    <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100">
+                  <tr v-if="configStore.locationList.length === 0">
+                    <td colspan="7" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data lokasi rak</td>
+                  </tr>
+                  <tr v-for="(row, idx) in configStore.locationList" :key="row.id" class="hover:bg-zinc-50">
+                    <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
+                    <td class="px-4 py-3 font-mono font-bold text-zinc-900">{{ row.nama }}</td>
+                    <td class="px-4 py-3">
+                      <span :class="row.jenis === 'WIP Jumbo Roll' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'" class="px-2 py-0.5 rounded font-bold border text-[11px]">
+                        {{ row.jenis }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-zinc-500">{{ row.alias || '—' }}</td>
+                    <td class="px-4 py-3 text-center font-mono font-bold text-zinc-800">{{ row.kapasitas || '—' }}</td>
+                    <td class="px-4 py-3 text-center">
+                      <button @click="toggleLocationActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
+                        {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
                       </button>
-                      <button @click="deleteLocation(row.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer" title="Hapus">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <div class="flex items-center justify-center gap-1">
+                        <button @click="openLocationModal(row)" class="p-1.5 rounded-lg hover:bg-blue-50 text-zinc-400 hover:text-blue-600 transition-colors cursor-pointer" title="Edit">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
+                        <button @click="deleteLocation(row.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer" title="Hapus">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <!-- SUB-VIEW PANJANG STANDARD -->
           <div v-else class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
-            <table class="w-full text-xs">
-              <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
-                <tr>
-                  <th class="px-4 py-3 text-left font-bold w-12">#</th>
-                  <th class="px-4 py-3 text-left font-bold">Ketebalan Film (Micron)</th>
-                  <th class="px-4 py-3 text-right font-bold">Max Panjang Roll FG (m)</th>
-                  <th class="px-4 py-3 text-right font-bold">Max Panjang Roll Jumbo (m)</th>
-                  <th class="px-4 py-3 text-center font-bold w-28">Status</th>
-                  <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-100">
-                <tr v-if="configStore.standardLengthList.length === 0">
-                  <td colspan="6" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data batas panjang standard</td>
-                </tr>
-                <tr v-for="(row, idx) in configStore.standardLengthList" :key="row.id" class="hover:bg-zinc-50">
-                  <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
-                  <td class="px-4 py-3 font-mono font-black text-zinc-900 text-sm">
-                    <span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200">
-                      {{ row.thickness }} µm
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 text-right font-mono font-bold text-zinc-800">{{ Number(row.maxPanjangFg).toLocaleString() }} m</td>
-                  <td class="px-4 py-3 text-right font-mono font-bold text-purple-700">{{ Number(row.maxPanjangJumbo).toLocaleString() }} m</td>
-                  <td class="px-4 py-3 text-center">
-                    <button @click="toggleStandardLengthActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
-                      {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
-                    </button>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <div class="flex items-center justify-center gap-1">
-                      <button @click="openStandardLengthModal(row)" class="p-1.5 rounded-lg hover:bg-blue-50 text-zinc-400 hover:text-blue-600 transition-colors cursor-pointer" title="Edit">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs min-w-[580px] whitespace-nowrap">
+                <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-bold w-12">#</th>
+                    <th class="px-4 py-3 text-left font-bold">Ketebalan Film (Micron)</th>
+                    <th class="px-4 py-3 text-right font-bold">Max Panjang Roll FG (m)</th>
+                    <th class="px-4 py-3 text-right font-bold">Max Panjang Roll Jumbo (m)</th>
+                    <th class="px-4 py-3 text-center font-bold w-28">Status</th>
+                    <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100">
+                  <tr v-if="configStore.standardLengthList.length === 0">
+                    <td colspan="6" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data batas panjang standard</td>
+                  </tr>
+                  <tr v-for="(row, idx) in configStore.standardLengthList" :key="row.id" class="hover:bg-zinc-50">
+                    <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
+                    <td class="px-4 py-3 font-mono font-black text-zinc-900 text-sm">
+                      <span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200">
+                        {{ row.thickness }} µm
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono font-bold text-zinc-800">{{ Number(row.maxPanjangFg).toLocaleString() }} m</td>
+                    <td class="px-4 py-3 text-right font-mono font-bold text-purple-700">{{ Number(row.maxPanjangJumbo).toLocaleString() }} m</td>
+                    <td class="px-4 py-3 text-center">
+                      <button @click="toggleStandardLengthActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
+                        {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
                       </button>
-                      <button @click="deleteStandardLength(row.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer" title="Hapus">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <div class="flex items-center justify-center gap-1">
+                        <button @click="openStandardLengthModal(row)" class="p-1.5 rounded-lg hover:bg-blue-50 text-zinc-400 hover:text-blue-600 transition-colors cursor-pointer" title="Edit">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
+                        <button @click="deleteStandardLength(row.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer" title="Hapus">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 

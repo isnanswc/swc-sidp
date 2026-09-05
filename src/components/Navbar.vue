@@ -142,6 +142,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
+import { useConfigStore } from '@/stores/configStore';
 import { syncState, syncAll, countUnsynced, startRealtimeSync } from '@/services/syncService';
 import ShiftHandoverModal from '@/components/schedule/ShiftHandoverModal.vue';
 
@@ -151,6 +152,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
+const configStore = useConfigStore();
 
 const handleLogout = () => {
   if (confirm('Apakah Anda yakin ingin keluar dari sistem?')) {
@@ -161,6 +163,7 @@ const handleLogout = () => {
 
 const handleManualSync = async () => {
   await syncAll();
+  await configStore.loadAll();
 };
 
 const currentShift = computed(() => scheduleStore.currentShift);
@@ -186,7 +189,9 @@ onMounted(async () => {
   // Initialize Supabase Sync & Realtime
   countUnsynced();
   startRealtimeSync();
-  syncAll().catch(err => console.warn('Auto sync on load:', err));
+  syncAll().then(async () => {
+    await configStore.loadAll();
+  }).catch(err => console.warn('Auto sync on load:', err));
 });
 
 onUnmounted(() => {

@@ -291,18 +291,31 @@ export async function pushLocalToSupabase() {
     // 1d. Operator List Sync
     if (db.operator_list) {
       tasks.push((async () => {
-        const operators = await db.operator_list.toArray();
-        if (operators.length > 0) {
-          const payload = operators.map(o => ({
-            nama: o.nama,
-            mesin: o.mesin || '',
-            kode_grup: o.kodeGrup || '',
-            kode_operator: o.kodeOperator || '',
-            active: o.active !== false,
-            created_at: o.createdAt || new Date().toISOString(),
-            updated_at: o.updatedAt || new Date().toISOString()
-          }));
-          await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
+        try {
+          const operators = await db.operator_list.toArray();
+          if (operators.length > 0) {
+            const payload = operators.map(o => ({
+              nama: o.nama,
+              mesin: o.mesin || '',
+              kode_grup: o.kodeGrup || '',
+              kode_operator: o.kodeOperator || '',
+              active: o.active !== false,
+              created_at: o.createdAt || new Date().toISOString(),
+              updated_at: o.updatedAt || new Date().toISOString()
+            }));
+            const { error } = await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
+            if (error) {
+              console.warn('operator_list upsert notice, trying missing insert:', error.message);
+              const { data: existing } = await supabase.from('operator_list').select('nama');
+              const existingSet = new Set((existing || []).map(e => (e.nama || '').trim().toUpperCase()));
+              const missing = payload.filter(p => !existingSet.has((p.nama || '').trim().toUpperCase()));
+              if (missing.length > 0) {
+                await supabase.from('operator_list').insert(missing);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('operator_list push error:', e);
         }
       })());
     }
@@ -310,15 +323,19 @@ export async function pushLocalToSupabase() {
     // 1d-2. Mesin List Sync
     if (db.mesin_list) {
       tasks.push((async () => {
-        const machines = await db.mesin_list.toArray();
-        if (machines.length > 0) {
-          const payload = machines.map(m => ({
-            nama: m.nama,
-            pra_kode_pack: m.praKodePack || '',
-            active: m.active !== false,
-            created_at: m.createdAt || new Date().toISOString()
-          }));
-          await supabase.from('mesin_list').upsert(payload, { onConflict: 'nama' });
+        try {
+          const machines = await db.mesin_list.toArray();
+          if (machines.length > 0) {
+            const payload = machines.map(m => ({
+              nama: m.nama,
+              pra_kode_pack: m.praKodePack || '',
+              active: m.active !== false,
+              created_at: m.createdAt || new Date().toISOString()
+            }));
+            await supabase.from('mesin_list').upsert(payload, { onConflict: 'nama' });
+          }
+        } catch (e) {
+          console.warn('mesin_list push error:', e);
         }
       })());
     }
@@ -326,23 +343,27 @@ export async function pushLocalToSupabase() {
     // 1e. Film Configs Sync
     if (db.film_configs) {
       tasks.push((async () => {
-        const films = await db.film_configs.toArray();
-        if (films.length > 0) {
-          const payload = films.map(f => ({
-            jenis: f.jenis,
-            kode_formula: f.kodeFormula,
-            alias: f.alias || '',
-            tipe_bahan: f.tipeBahan || '',
-            jenis_bahan: f.jenisBahan || '',
-            kategori_film: f.kategoriFilm || '',
-            keterangan: f.keterangan || '',
-            supplier: f.supplier || '',
-            density: parseFloat(f.density) || 0.91,
-            active: f.active !== false,
-            created_at: f.createdAt || new Date().toISOString(),
-            updated_at: f.updatedAt || new Date().toISOString()
-          }));
-          await supabase.from('film_configs').upsert(payload, { onConflict: 'jenis,kode_formula' });
+        try {
+          const films = await db.film_configs.toArray();
+          if (films.length > 0) {
+            const payload = films.map(f => ({
+              jenis: f.jenis,
+              kode_formula: f.kodeFormula,
+              alias: f.alias || '',
+              tipe_bahan: f.tipeBahan || '',
+              jenis_bahan: f.jenisBahan || '',
+              kategori_film: f.kategoriFilm || '',
+              keterangan: f.keterangan || '',
+              supplier: f.supplier || '',
+              density: parseFloat(f.density) || 0.91,
+              active: f.active !== false,
+              created_at: f.createdAt || new Date().toISOString(),
+              updated_at: f.updatedAt || new Date().toISOString()
+            }));
+            await supabase.from('film_configs').upsert(payload, { onConflict: 'jenis,kode_formula' });
+          }
+        } catch (e) {
+          console.warn('film_configs push error:', e);
         }
       })());
     }
@@ -350,17 +371,21 @@ export async function pushLocalToSupabase() {
     // 1f. Resin Items Sync
     if (db.resin_items) {
       tasks.push((async () => {
-        const resins = await db.resin_items.toArray();
-        if (resins.length > 0) {
-          const payload = resins.map(r => ({
-            resin: r.resin,
-            kode: r.kode || '',
-            nomor_item: r.nomorItem || '',
-            active: r.active !== false,
-            created_at: r.createdAt || new Date().toISOString(),
-            updated_at: r.updatedAt || new Date().toISOString()
-          }));
-          await supabase.from('resin_items').upsert(payload, { onConflict: 'resin' });
+        try {
+          const resins = await db.resin_items.toArray();
+          if (resins.length > 0) {
+            const payload = resins.map(r => ({
+              resin: r.resin,
+              kode: r.kode || '',
+              nomor_item: r.nomorItem || '',
+              active: r.active !== false,
+              created_at: r.createdAt || new Date().toISOString(),
+              updated_at: r.updatedAt || new Date().toISOString()
+            }));
+            await supabase.from('resin_items').upsert(payload, { onConflict: 'resin' });
+          }
+        } catch (e) {
+          console.warn('resin_items push error:', e);
         }
       })());
     }
@@ -368,17 +393,21 @@ export async function pushLocalToSupabase() {
     // 1g. BOM Formulas Sync
     if (db.bom_formulas) {
       tasks.push((async () => {
-        const boms = await db.bom_formulas.toArray();
-        if (boms.length > 0) {
-          const payload = boms.map(b => ({
-            formula: b.formula,
-            rm: b.rm,
-            persen: parseFloat(b.persen) || 0,
-            active: b.active !== false,
-            created_at: b.createdAt || new Date().toISOString(),
-            updated_at: b.updatedAt || new Date().toISOString()
-          }));
-          await supabase.from('bom_formulas').upsert(payload, { onConflict: 'formula,rm' });
+        try {
+          const boms = await db.bom_formulas.toArray();
+          if (boms.length > 0) {
+            const payload = boms.map(b => ({
+              formula: b.formula,
+              rm: b.rm,
+              persen: parseFloat(b.persen) || 0,
+              active: b.active !== false,
+              created_at: b.createdAt || new Date().toISOString(),
+              updated_at: b.updatedAt || new Date().toISOString()
+            }));
+            await supabase.from('bom_formulas').upsert(payload, { onConflict: 'formula,rm' });
+          }
+        } catch (e) {
+          console.warn('bom_formulas push error:', e);
         }
       })());
     }
@@ -386,19 +415,32 @@ export async function pushLocalToSupabase() {
     // 1h. Location List Sync
     if (db.location_list) {
       tasks.push((async () => {
-        const locs = await db.location_list.toArray();
-        if (locs.length > 0) {
-          const payload = locs.map(l => ({
-            nama: l.nama,
-            jenis: l.jenis || '',
-            alias: l.alias || '',
-            kapasitas: parseInt(l.kapasitas, 10) || 0,
-            keterangan: l.keterangan || '',
-            active: l.active !== false,
-            created_at: l.createdAt || new Date().toISOString(),
-            updated_at: l.updatedAt || new Date().toISOString()
-          }));
-          await supabase.from('location_list').upsert(payload, { onConflict: 'nama' });
+        try {
+          const locs = await db.location_list.toArray();
+          if (locs.length > 0) {
+            const payload = locs.map(l => ({
+              nama: l.nama,
+              jenis: l.jenis || '',
+              alias: l.alias || '',
+              kapasitas: parseInt(l.kapasitas, 10) || 0,
+              keterangan: l.keterangan || '',
+              active: l.active !== false,
+              created_at: l.createdAt || new Date().toISOString(),
+              updated_at: l.updatedAt || new Date().toISOString()
+            }));
+            const { error } = await supabase.from('location_list').upsert(payload, { onConflict: 'nama' });
+            if (error) {
+              console.warn('location_list upsert notice, trying missing insert:', error.message);
+              const { data: existing } = await supabase.from('location_list').select('nama');
+              const existingSet = new Set((existing || []).map(e => (e.nama || '').trim().toUpperCase()));
+              const missing = payload.filter(p => !existingSet.has((p.nama || '').trim().toUpperCase()));
+              if (missing.length > 0) {
+                await supabase.from('location_list').insert(missing);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('location_list push error:', e);
         }
       })());
     }
@@ -831,6 +873,11 @@ export async function pullFromSupabase() {
     // Jalankan seluruh pull secara PARALEL
     await Promise.all(pullTasks);
 
+    // Kirim notifikasi event ke store (agar Pinia langsung refresh tanpa perlu reload browser)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sync:config-updated'));
+    }
+
     syncState.lastSyncTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     localStorage.setItem('mlabel_last_sync_time', syncState.lastSyncTime);
   } catch (err) {
@@ -914,6 +961,18 @@ export function startRealtimeSync(onDataChangeCallback) {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'bom_formulas' }, () => {
       debouncedPull(onDataChangeCallback, 'bom_formulas');
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'operator_list' }, () => {
+      debouncedPull(onDataChangeCallback, 'operator_list');
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'mesin_list' }, () => {
+      debouncedPull(onDataChangeCallback, 'mesin_list');
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'location_list' }, () => {
+      debouncedPull(onDataChangeCallback, 'location_list');
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'standard_lengths' }, () => {
+      debouncedPull(onDataChangeCallback, 'standard_lengths');
     })
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') {

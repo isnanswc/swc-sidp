@@ -38,13 +38,34 @@ CREATE TABLE IF NOT EXISTS public.standard_lengths (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Constraint Unique untuk film_configs dan operator_list jika belum ada
+-- 4. Constraint Unique untuk film_configs, operator_list, dan location_list
 DO $$
 BEGIN
+    -- 4a. film_configs unique (jenis, kode_formula)
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'uq_film_configs_formula'
     ) THEN
         ALTER TABLE public.film_configs ADD CONSTRAINT uq_film_configs_formula UNIQUE (jenis, kode_formula);
+    END IF;
+
+    -- 4b. operator_list unique (nama)
+    DELETE FROM public.operator_list a USING public.operator_list b
+    WHERE a.id < b.id AND LOWER(TRIM(a.nama)) = LOWER(TRIM(b.nama));
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uq_operator_list_nama'
+    ) THEN
+        ALTER TABLE public.operator_list ADD CONSTRAINT uq_operator_list_nama UNIQUE (nama);
+    END IF;
+
+    -- 4c. location_list unique (nama)
+    DELETE FROM public.location_list a USING public.location_list b
+    WHERE a.id < b.id AND LOWER(TRIM(a.nama)) = LOWER(TRIM(b.nama));
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uq_location_list_nama'
+    ) THEN
+        ALTER TABLE public.location_list ADD CONSTRAINT uq_location_list_nama UNIQUE (nama);
     END IF;
 EXCEPTION WHEN duplicate_table THEN NULL;
 END $$;
@@ -53,6 +74,8 @@ END $$;
 ALTER TABLE public.resin_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bom_formulas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.standard_lengths ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.operator_list ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.location_list ENABLE ROW LEVEL SECURITY;
 
 -- 6. Grant Policies untuk anon (Public App)
 DO $$
@@ -65,6 +88,12 @@ BEGIN
 
     DROP POLICY IF EXISTS "Allow anon all on standard_lengths" ON public.standard_lengths;
     CREATE POLICY "Allow anon all on standard_lengths" ON public.standard_lengths FOR ALL USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Allow anon all on operator_list" ON public.operator_list;
+    CREATE POLICY "Allow anon all on operator_list" ON public.operator_list FOR ALL USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Allow anon all on location_list" ON public.location_list;
+    CREATE POLICY "Allow anon all on location_list" ON public.location_list FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
 -- 7. Tambahkan ke Realtime publication agar saat diimport di PC, HP langsung terupdate seketika
@@ -75,6 +104,7 @@ BEGIN
         public.resin_items,
         public.bom_formulas,
         public.mesin_list,
+        public.operator_list,
         public.location_list,
         public.standard_lengths;
 EXCEPTION
