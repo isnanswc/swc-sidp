@@ -18,13 +18,13 @@
       </div>
     </div>
 
-    <!-- Tab Switcher (Sheet Navigasi) -->
-    <div class="flex items-center gap-2 border-b border-zinc-200 pb-2">
+    <!-- Tab Switcher (Sheet Navigasi) Responsive on Mobile -->
+    <div class="flex items-center gap-1.5 sm:gap-2 border-b border-zinc-200 pb-2 overflow-x-auto custom-scrollbar-x select-none">
       <button
         type="button"
         @click="activeTab = 'gemini'"
         :class="[
-          'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs',
+          'px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 whitespace-nowrap shadow-2xs',
           activeTab === 'gemini'
             ? 'bg-zinc-900 text-white shadow-xs'
             : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
@@ -45,13 +45,13 @@
         type="button"
         @click="activeTab = 'automation'"
         :class="[
-          'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs',
+          'px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 whitespace-nowrap shadow-2xs',
           activeTab === 'automation'
             ? 'bg-zinc-900 text-white shadow-xs'
             : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
         ]"
       >
-        <span>🤖 Automation AI (Sheet)</span>
+        <span>🤖 Automation AI</span>
         <span class="px-1.5 py-0.2 text-[9.5px] rounded-full font-black bg-blue-100 text-blue-800">
           1 Otomasi
         </span>
@@ -61,13 +61,13 @@
         type="button"
         @click="activeTab = 'sign'"
         :class="[
-          'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs',
+          'px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 whitespace-nowrap shadow-2xs',
           activeTab === 'sign'
             ? 'bg-zinc-900 text-white shadow-xs'
             : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
         ]"
       >
-        <span>🏷️ Sign Ribbon Label</span>
+        <span>🏷️ Sign Ribbon</span>
         <span class="px-1.5 py-0.2 text-[9.5px] rounded-full font-black bg-purple-100 text-purple-800">
           {{ configStore.labelSignList.length }} Aturan
         </span>
@@ -77,13 +77,13 @@
         type="button"
         @click="activeTab = 'email'"
         :class="[
-          'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs',
+          'px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 whitespace-nowrap shadow-2xs',
           activeTab === 'email'
             ? 'bg-zinc-900 text-white shadow-xs'
             : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
         ]"
       >
-        <span>📧 Layanan Email (EmailJS)</span>
+        <span>📧 Layanan Email</span>
         <span
           :class="[
             'px-1.5 py-0.2 text-[9.5px] rounded-full font-black',
@@ -306,9 +306,9 @@
           <!-- AUTOMATION 1 (Defect Quick Tags Extraction) -->
           <div
             @click="openAutomationDrawer"
-            class="p-4 sm:p-5 hover:bg-zinc-50/80 transition-all cursor-pointer flex items-center justify-between gap-4 group"
+            class="p-4 sm:p-5 hover:bg-zinc-50/80 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 group"
           >
-            <div class="flex items-start gap-3.5 min-w-0">
+            <div class="flex items-start gap-3.5 min-w-0 w-full sm:w-auto">
               <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center font-bold text-lg shrink-0 group-hover:scale-105 transition-transform">
                 🏷️
               </div>
@@ -337,7 +337,7 @@
                 </p>
 
                 <!-- Status Detail Info -->
-                <div class="flex items-center gap-3 text-[10.5px] text-zinc-400 font-medium pt-1 flex-wrap">
+                <div class="flex items-center gap-2 sm:gap-3 text-[10.5px] text-zinc-400 font-medium pt-1 flex-wrap">
                   <span>Terakhir Eksekusi: <strong class="text-zinc-700">{{ formatDate(automationConfig.lastRun) }}</strong></span>
                   <span>•</span>
                   <span>Jadwal Berikutnya: <strong class="text-zinc-700">{{ formatDate(automationConfig.nextRun) }}</strong></span>
@@ -348,10 +348,10 @@
             </div>
 
             <!-- Right Action Indicator -->
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center justify-end sm:justify-center w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100">
               <button
                 type="button"
-                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white group-hover:bg-zinc-900 group-hover:text-white border border-zinc-200 text-zinc-700 transition-all shadow-2xs flex items-center gap-1"
+                class="w-full sm:w-auto px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white group-hover:bg-zinc-900 group-hover:text-white border border-zinc-200 text-zinc-700 transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
               >
                 <span>Konfigurasi & Riwayat</span>
                 <span>➔</span>
@@ -488,7 +488,7 @@
               </div>
 
               <!-- 3. TOMBOL EKSEKUSI MANUAL SEKARANG -->
-              <div class="flex items-center justify-between p-3.5 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-2xl">
+              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-2xl">
                 <div>
                   <h5 class="font-black text-xs text-purple-950">Jalankan Analisis AI Sekarang</h5>
                   <p class="text-[10.5px] text-purple-700">Perbarui rekomendasi tag secara instan dari database saat ini tanpa menunggu jadwal 3 hari.</p>
@@ -498,7 +498,7 @@
                   type="button"
                   @click="runAnalysisNow"
                   :disabled="isRunningAnalysis"
-                  class="px-4 py-2 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white shadow-md shadow-purple-600/20 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                  class="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white shadow-md shadow-purple-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
                   <span v-if="isRunningAnalysis" class="animate-spin">⏳</span>
                   <span v-else>⚡</span>
@@ -508,7 +508,7 @@
 
               <!-- 4. RIWAYAT EKSEKUSI AI (HISTORY LOGS) -->
               <div class="space-y-2">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between flex-wrap gap-1">
                   <h4 class="font-black text-zinc-900 uppercase tracking-wide text-xs">
                     📜 Riwayat Eksekusi yang Telah Dikerjakan AI
                   </h4>
@@ -518,51 +518,53 @@
                 </div>
 
                 <div class="border border-zinc-200 rounded-2xl overflow-hidden shadow-2xs">
-                  <table class="w-full text-left text-xs border-collapse">
-                    <thead class="bg-zinc-100 border-b border-zinc-200 font-extrabold text-zinc-700 text-[10.5px] uppercase">
-                      <tr>
-                        <th class="p-2.5">Waktu Eksekusi</th>
-                        <th class="p-2.5">Metode AI</th>
-                        <th class="p-2.5 text-center">Data Terpindai</th>
-                        <th class="p-2.5 text-center">Hasil Tag</th>
-                        <th class="p-2.5">Status & Catatan</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-zinc-100 bg-white">
-                      <tr
-                        v-for="item in automationConfig.history"
-                        :key="item.id"
-                        class="hover:bg-zinc-50 transition-colors"
-                      >
-                        <td class="p-2.5 font-mono text-[10.5px] text-zinc-600 font-semibold whitespace-nowrap">
-                          {{ formatDate(item.timestamp) }}
-                        </td>
-                        <td class="p-2.5 font-medium text-zinc-800">
-                          <span class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-mono text-[10px] border border-zinc-200">
-                            {{ item.method || 'Google AI' }}
-                          </span>
-                        </td>
-                        <td class="p-2.5 text-center font-bold text-blue-700">
-                          {{ item.scannedCount || 0 }} Roll
-                        </td>
-                        <td class="p-2.5 text-center font-bold text-emerald-700">
-                          {{ item.tagsCount || (item.tagsExtracted || []).length }} Tag
-                        </td>
-                        <td class="p-2.5 text-[10.5px] text-zinc-600">
-                          <div class="flex items-center gap-1.5">
-                            <span class="text-emerald-600 font-bold">✓</span>
-                            <span>{{ item.message }}</span>
-                          </div>
-                        </td>
-                      </tr>
+                  <div class="overflow-x-auto custom-scrollbar-x">
+                    <table class="w-full text-left text-xs border-collapse min-w-[500px] sm:min-w-0">
+                      <thead class="bg-zinc-100 border-b border-zinc-200 font-extrabold text-zinc-700 text-[10.5px] uppercase">
+                        <tr>
+                          <th class="p-2.5">Waktu Eksekusi</th>
+                          <th class="p-2.5">Metode AI</th>
+                          <th class="p-2.5 text-center">Data Terpindai</th>
+                          <th class="p-2.5 text-center">Hasil Tag</th>
+                          <th class="p-2.5">Status & Catatan</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-zinc-100 bg-white">
+                        <tr
+                          v-for="item in automationConfig.history"
+                          :key="item.id"
+                          class="hover:bg-zinc-50 transition-colors"
+                        >
+                          <td class="p-2.5 font-mono text-[10.5px] text-zinc-600 font-semibold whitespace-nowrap">
+                            {{ formatDate(item.timestamp) }}
+                          </td>
+                          <td class="p-2.5 font-medium text-zinc-800">
+                            <span class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-mono text-[10px] border border-zinc-200">
+                              {{ item.method || 'Google AI' }}
+                            </span>
+                          </td>
+                          <td class="p-2.5 text-center font-bold text-blue-700">
+                            {{ item.scannedCount || 0 }} Roll
+                          </td>
+                          <td class="p-2.5 text-center font-bold text-emerald-700">
+                            {{ item.tagsCount || (item.tagsExtracted || []).length }} Tag
+                          </td>
+                          <td class="p-2.5 text-[10.5px] text-zinc-600">
+                            <div class="flex items-center gap-1.5">
+                              <span class="text-emerald-600 font-bold">✓</span>
+                              <span>{{ item.message }}</span>
+                            </div>
+                          </td>
+                        </tr>
 
-                      <tr v-if="!automationConfig.history || automationConfig.history.length === 0">
-                        <td colspan="5" class="p-6 text-center text-zinc-400 italic">
-                          Belum ada riwayat eksekusi AI yang tersimpan.
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                        <tr v-if="!automationConfig.history || automationConfig.history.length === 0">
+                          <td colspan="5" class="p-6 text-center text-zinc-400 italic">
+                            Belum ada riwayat eksekusi AI yang tersimpan.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
@@ -701,7 +703,7 @@
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <!-- Tipe Pemicu -->
             <div>
               <label class="block text-[11px] font-bold text-zinc-700 mb-1">Tipe Pemicu (Trigger) *</label>
@@ -736,7 +738,7 @@
           </div>
 
           <!-- Pilihan Warna Badge -->
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-[11px] font-bold text-zinc-700 mb-1">Warna Background (Bg Color)</label>
               <div class="flex items-center gap-2">
@@ -809,7 +811,7 @@
 
         <div class="p-5 sm:p-6 space-y-4 text-xs">
           <!-- Target Super Admin Notice -->
-          <div class="p-3.5 bg-zinc-900 text-white rounded-xl border border-zinc-800 flex items-center justify-between gap-3">
+          <div class="p-3.5 bg-zinc-900 text-white rounded-xl border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
             <div class="space-y-0.5">
               <span class="text-[10.5px] font-mono text-zinc-400 block uppercase tracking-wider">Email Penerima Utama (Super Admin):</span>
               <span class="text-xs sm:text-sm font-black font-mono text-emerald-400">is***wc@gmail.com</span>

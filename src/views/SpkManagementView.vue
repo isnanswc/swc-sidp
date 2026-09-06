@@ -4,10 +4,10 @@
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- HEADER & MAIN NAVIGATION TABS (3 SHEETS)                           -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="bg-white p-4 rounded-3xl border border-zinc-200 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-2xl bg-zinc-950 text-white flex items-center justify-center shadow-xs border border-zinc-800 shrink-0">
-          <svg class="w-6 h-6 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div class="bg-white p-3.5 sm:p-4 rounded-3xl border border-zinc-200 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 sm:gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-zinc-950 text-white flex items-center justify-center shadow-xs border border-zinc-800 shrink-0">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
             <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -15,46 +15,46 @@
             <polyline points="10 9 9 9 8 9"></polyline>
           </svg>
         </div>
-        <div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="text-lg font-black text-zinc-900 tracking-tight">MANAJEMEN SPK (SURAT PERINTAH KERJA)</h1>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-black bg-red-50 text-red-700 border border-red-200 font-mono">
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <h1 class="text-sm sm:text-lg font-black text-zinc-900 tracking-tight">MANAJEMEN SPK</h1>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10.5px] font-black bg-red-50 text-red-700 border border-red-200 font-mono">
               <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-              JADWAL SLITTING (3B-PROD)
+              JADWAL SLITTING
             </span>
           </div>
-          <p class="text-xs text-zinc-500 font-medium mt-0.5">
-            Monitoring rencana potong slitting, timeline realtime, ekstraksi scan AI, dan pelacakan hasil produksi.
+          <p class="text-[11px] sm:text-xs text-zinc-500 font-medium mt-0.5 line-clamp-1 sm:line-clamp-none">
+            Monitoring rencana potong slitting, timeline realtime, & ekstraksi scan AI.
           </p>
         </div>
       </div>
 
-      <!-- 3 SHEETS SWITCHER -->
-      <div class="flex items-center bg-zinc-100 p-1.5 rounded-2xl border border-zinc-200/80 gap-1.5 text-xs overflow-x-auto scrollbar-none shrink-0">
+      <!-- 3 SHEETS SWITCHER (RESPONSIVE ON MOBILE) -->
+      <div class="flex items-center bg-zinc-100 p-1 sm:p-1.5 rounded-2xl border border-zinc-200/80 gap-1 sm:gap-1.5 text-xs overflow-x-auto custom-scrollbar-x w-full sm:w-auto shrink-0 select-none">
         <button
           @click="activeSheet = 'dashboard'"
           :class="[
-            'px-3.5 py-2 rounded-xl font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap',
+            'px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0',
             activeSheet === 'dashboard'
               ? 'bg-zinc-900 text-white shadow-xs font-black'
               : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
           ]"
         >
           <span>📊</span>
-          <span>1. Dashboard SPK</span>
+          <span>1. Dashboard</span>
         </button>
 
         <button
           @click="activeSheet = 'list'"
           :class="[
-            'px-3.5 py-2 rounded-xl font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap',
+            'px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0',
             activeSheet === 'list'
               ? 'bg-zinc-900 text-white shadow-xs font-black'
               : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
           ]"
         >
           <span>📋</span>
-          <span>2. List SPK Aktif</span>
+          <span>2. List SPK</span>
           <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-zinc-200 text-zinc-800">
             {{ activeSpkList.length }}
           </span>
@@ -63,14 +63,14 @@
         <button
           @click="activeSheet = 'planned'"
           :class="[
-            'px-3.5 py-2 rounded-xl font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap',
+            'px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0',
             activeSheet === 'planned'
               ? 'bg-red-600 text-white shadow-xs font-black'
               : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
           ]"
         >
           <span>📝</span>
-          <span>3. Planned SPK Slitting</span>
+          <span>3. Planned SPK</span>
           <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-white/20 text-white">
             {{ spkStore.plans.length }}
           </span>
@@ -164,36 +164,36 @@
       <!-- TIMELINE GANTT: PLANNED VS REALTIME TRACKING (CENTRAL DUAL-SIDE TIMELINE) -->
       <div class="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
         <!-- Header Timeline -->
-        <div class="p-4 sm:p-5 border-b border-zinc-200 bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 text-white flex items-center justify-between flex-wrap gap-3">
+        <div class="p-3.5 sm:p-5 border-b border-zinc-200 bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div class="flex items-center gap-2.5">
-              <span class="text-xl">⏱️</span>
-              <h3 class="text-sm sm:text-base font-black text-white tracking-tight">Timeline Garis Waktu Produksi Slitting (Realtime)</h3>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Pencocokan H+1
+            <div class="flex items-center gap-2">
+              <span class="text-lg sm:text-xl">⏱️</span>
+              <h3 class="text-xs sm:text-base font-black text-white tracking-tight">Timeline Garis Waktu Produksi Slitting (Realtime)</h3>
+              <span class="px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                H+1
               </span>
             </div>
-            <p class="text-xs text-zinc-400 mt-1">
-              Sisi Kiri: <strong>Planned SPK</strong> • Sisi Kanan: <strong>Proses Aktual Lapangan</strong> • Urutan dari atas ke bawah
+            <p class="text-[11px] sm:text-xs text-zinc-400 mt-0.5">
+              Sisi Kiri: <strong>Planned SPK</strong> • Sisi Kanan: <strong>Proses Aktual</strong> • Alur Atas ke Bawah
             </p>
           </div>
 
           <!-- Batch Selector & Date Window Badge -->
-          <div class="flex items-center gap-2 flex-wrap">
-            <div v-if="spkStore.activeDateWindow" class="px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-300 font-mono text-[11px] border border-zinc-700">
-              📅 Jendela Valid: <strong class="text-emerald-400">{{ spkStore.activeDateWindow.label }}</strong>
+          <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-between sm:justify-end">
+            <div v-if="spkStore.activeDateWindow" class="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-zinc-800 text-zinc-300 font-mono text-[10.5px] sm:text-[11px] border border-zinc-700">
+              📅 <strong class="text-emerald-400">{{ spkStore.activeDateWindow.label }}</strong>
             </div>
-            <div class="flex items-center gap-1.5 bg-zinc-800/90 px-3 py-1.5 rounded-xl border border-zinc-700">
-              <span class="relative flex h-2.5 w-2.5">
+            <div class="flex items-center gap-1.5 bg-zinc-800/90 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-zinc-700">
+              <span class="relative flex h-2 sm:h-2.5 w-2 sm:w-2.5">
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                <span class="relative inline-flex rounded-full h-2 sm:h-2.5 w-2 sm:w-2.5 bg-emerald-500"></span>
               </span>
-              <span class="text-[10.5px] font-bold text-emerald-400 font-mono">ACUAN:</span>
+              <span class="text-[10px] sm:text-[10.5px] font-bold text-emerald-400 font-mono">ACUAN:</span>
               <select
                 v-if="(spkStore.batches || []).length > 0"
                 v-model="spkStore.activeTimelineBatchUuid"
                 @change="spkStore.setActiveReferenceBatch(spkStore.activeTimelineBatchUuid)"
-                class="bg-transparent text-white text-xs font-bold font-mono border-0 outline-none cursor-pointer"
+                class="bg-transparent text-white text-xs font-bold font-mono border-0 outline-none cursor-pointer max-w-[140px] sm:max-w-none truncate"
               >
                 <option v-for="b in spkStore.batches" :key="b.uuid" :value="b.uuid" class="bg-zinc-900 text-white">
                   {{ b.batchName }} ({{ b.tanggal }})
@@ -204,20 +204,20 @@
         </div>
 
         <!-- Executive Realtime Batch Schedule Summary Banner -->
-        <div class="bg-gradient-to-r from-slate-900 via-zinc-900 to-slate-950 text-white p-3.5 sm:p-5 border-b border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 select-none">
+        <div class="bg-gradient-to-r from-slate-900 via-zinc-900 to-slate-950 text-white p-3.5 sm:p-5 border-b border-zinc-800 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5 sm:gap-4 select-none">
           <!-- Left: Estimasi Selesai & Remaining Time -->
           <div class="space-y-1.5">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2.5 py-0.5 rounded-full text-[10.5px] font-black uppercase tracking-wider"
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider"
                 :class="batchScheduleSummary.isDelayed ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'">
-                {{ batchScheduleSummary.isDelayed ? '⚠️ Potensi Terlambat' : '🟢 Timeline Sesuai Jadwal' }}
+                {{ batchScheduleSummary.isDelayed ? '⚠️ Potensi Terlambat' : '🟢 Sesuai Jadwal' }}
               </span>
               <span class="text-xs text-zinc-300 font-mono">
-                Estimasi Selesai Batch: <strong class="text-white text-sm font-bold">{{ batchScheduleSummary.estimatedCompletionTime }}</strong>
+                Est. Selesai: <strong class="text-white text-sm font-bold">{{ batchScheduleSummary.estimatedCompletionTime }}</strong>
               </span>
             </div>
-            <div class="flex items-center gap-3 text-xs text-zinc-400 font-mono flex-wrap">
-              <span>Sisa Waktu: <strong class="text-amber-400 font-black">{{ formatMinutes(batchScheduleSummary.remainingMinutes) }}</strong></span>
+            <div class="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-zinc-400 font-mono flex-wrap">
+              <span>Sisa: <strong class="text-amber-400 font-black">{{ formatMinutes(batchScheduleSummary.remainingMinutes) }}</strong></span>
               <span>•</span>
               <span>Selesai: <strong class="text-emerald-400 font-bold">{{ batchScheduleSummary.completedCount }}</strong> SPK</span>
               <span>•</span>
@@ -227,31 +227,31 @@
           </div>
 
           <!-- Right: Progress Meters & Rolls -->
-          <div class="flex items-center gap-3 sm:gap-4 text-xs font-mono flex-wrap">
+          <div class="flex items-center gap-2.5 sm:gap-4 text-xs font-mono w-full lg:w-auto">
             <!-- Meter Progress -->
-            <div class="bg-zinc-800/80 px-3 py-2 rounded-xl border border-zinc-700 space-y-1 min-w-[140px] flex-1 sm:flex-initial">
-              <div class="flex justify-between text-[11px] text-zinc-400">
+            <div class="bg-zinc-800/80 px-2.5 sm:px-3 py-2 rounded-xl border border-zinc-700 space-y-1 min-w-[110px] sm:min-w-[130px] flex-1 sm:flex-initial">
+              <div class="flex justify-between text-[10.5px] sm:text-[11px] text-zinc-400">
                 <span>Panjang Meter</span>
                 <strong class="text-emerald-400">{{ batchScheduleSummary.meterPercent }}%</strong>
               </div>
               <div class="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden">
                 <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" :style="{ width: `${batchScheduleSummary.meterPercent}%` }"></div>
               </div>
-              <div class="text-[10px] text-zinc-300 text-right">
+              <div class="text-[9.5px] sm:text-[10px] text-zinc-300 text-right truncate">
                 {{ formatNumber(batchScheduleSummary.totalRealMeter) }} / {{ formatNumber(batchScheduleSummary.totalPlannedMeter) }} m
               </div>
             </div>
 
             <!-- Roll Progress -->
-            <div class="bg-zinc-800/80 px-3 py-2 rounded-xl border border-zinc-700 space-y-1 min-w-[140px] flex-1 sm:flex-initial">
-              <div class="flex justify-between text-[11px] text-zinc-400">
+            <div class="bg-zinc-800/80 px-2.5 sm:px-3 py-2 rounded-xl border border-zinc-700 space-y-1 min-w-[110px] sm:min-w-[130px] flex-1 sm:flex-initial">
+              <div class="flex justify-between text-[10.5px] sm:text-[11px] text-zinc-400">
                 <span>Roll FG Jadi</span>
                 <strong class="text-blue-400">{{ batchScheduleSummary.rollPercent }}%</strong>
               </div>
               <div class="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden">
                 <div class="bg-blue-500 h-full rounded-full transition-all duration-500" :style="{ width: `${batchScheduleSummary.rollPercent}%` }"></div>
               </div>
-              <div class="text-[10px] text-zinc-300 text-right">
+              <div class="text-[9.5px] sm:text-[10px] text-zinc-300 text-right truncate">
                 {{ formatNumber(batchScheduleSummary.totalRealRolls) }} / {{ formatNumber(batchScheduleSummary.totalPlannedRolls) }} Roll
               </div>
             </div>
@@ -259,27 +259,29 @@
         </div>
 
         <!-- Legend Bar -->
-        <div class="bg-zinc-50 border-b border-zinc-200 px-4 py-2.5 flex items-center justify-between text-xs flex-wrap gap-2 select-none">
-          <div class="flex items-center gap-4 text-[11px] font-bold">
-            <span class="flex items-center gap-1.5 text-emerald-800"><span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Selesai Terpotong</span>
-            <span class="flex items-center gap-1.5 text-blue-800"><span class="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span> Sedang Dikerjakan</span>
-            <span class="flex items-center gap-1.5 text-zinc-600"><span class="w-2.5 h-2.5 rounded-full bg-zinc-300"></span> Antrean Akan Dikerjakan</span>
-            <span class="flex items-center gap-1.5 text-amber-800"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Order Sisipan / Tanpa Plan</span>
+        <div class="bg-zinc-50 border-b border-zinc-200 px-3.5 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between text-xs flex-wrap gap-2 select-none">
+          <div class="flex items-center gap-2.5 sm:gap-4 text-[10.5px] sm:text-[11px] font-bold flex-wrap">
+            <span class="flex items-center gap-1.5 text-emerald-800"><span class="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-emerald-600"></span> Selesai Terpotong</span>
+            <span class="flex items-center gap-1.5 text-blue-800"><span class="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-blue-600 animate-pulse"></span> Sedang Dikerjakan</span>
+            <span class="flex items-center gap-1.5 text-zinc-600"><span class="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-zinc-300"></span> Antrean</span>
+            <span class="flex items-center gap-1.5 text-amber-800"><span class="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-amber-500"></span> Order Sisipan</span>
           </div>
-          <div class="text-[11px] font-mono text-zinc-500">
-            ⬇️ <strong>Arah Alur Pengerjaan: Dari Atas ke Bawah</strong>
+          <div class="text-[10px] sm:text-[11px] font-mono text-zinc-500">
+            ⬇️ <strong>Alur: Atas ke Bawah</strong>
           </div>
         </div>
 
         <!-- Central Timeline Canvas Container -->
-        <div class="p-3 sm:p-6 bg-zinc-100/50 min-h-[350px] overflow-x-auto scrollbar-none">
+        <div class="p-2.5 sm:p-6 bg-zinc-100/50 min-h-[350px] overflow-x-auto custom-scrollbar-x">
           <div v-if="timelineRows.length === 0" class="py-16 text-center text-zinc-400 font-sans text-xs">
             Belum ada data rencana kerja SPK. Pindai dokumen jadwal atau buat batch baru di Sheet 3.
           </div>
 
           <div v-else class="relative max-w-5xl mx-auto min-w-[540px] sm:min-w-0">
             <!-- Mobile scroll hint -->
-            <div class="sm:hidden text-[10px] text-zinc-400 text-center mb-2 font-medium">↔️ Geser ke samping untuk melihat timeline lengkap</div>
+            <div class="sm:hidden text-[10px] text-zinc-500 text-center mb-2 font-medium bg-white/70 py-1 px-3 rounded-full border border-zinc-200 inline-block w-full">
+              ↔️ Geser ke samping untuk melihat timeline lengkap
+            </div>
             <!-- Center Vertical Line -->
             <div class="absolute left-1/2 top-7 bottom-4 w-0.5 bg-gradient-to-b from-emerald-500 via-blue-500 to-zinc-300 -translate-x-1/2"></div>
 
@@ -508,7 +510,7 @@
     <div v-else-if="activeSheet === 'list'" class="space-y-4 animate-fade-in">
       
       <!-- Filter Bar -->
-      <div class="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex items-center justify-between flex-wrap gap-3">
+      <div class="bg-white p-3 sm:p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
         <div class="flex items-center gap-2.5 flex-1 max-w-md">
           <input
             v-model="searchSpkQuery"
@@ -523,7 +525,7 @@
 
       <!-- SPK Summary Table -->
       <div class="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto custom-scrollbar-x">
           <table class="w-full text-xs">
             <thead class="bg-zinc-100/80 border-b border-zinc-200 text-zinc-600 font-bold">
               <tr>
@@ -600,20 +602,22 @@
         </div>
 
         <!-- PAGINATION & LAZY CONTROLS BAR (RINGAN & CEPAT) -->
-        <div class="p-3.5 bg-zinc-50 border-t border-zinc-200 flex items-center justify-between flex-wrap gap-3 text-xs">
-          <div class="text-zinc-500 font-medium">
+        <div class="p-3 sm:p-3.5 bg-zinc-50 border-t border-zinc-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div class="text-zinc-500 font-medium text-center sm:text-left">
             Menampilkan <strong class="text-zinc-900 font-bold font-mono">{{ ((spkCurrentPage - 1) * spkPageSize) + (filteredActiveSpkList.length ? 1 : 0) }} – {{ Math.min(spkCurrentPage * spkPageSize, filteredActiveSpkList.length) }}</strong> dari <strong class="text-zinc-900 font-bold font-mono">{{ filteredActiveSpkList.length }}</strong> SPK
           </div>
 
-          <div class="flex items-center gap-2">
-            <span class="text-zinc-400 font-medium text-[11px]">Baris per halaman:</span>
-            <select v-model.number="spkPageSize" class="p-1 border border-zinc-300 rounded-lg text-xs bg-white font-mono">
-              <option :value="10">10</option>
-              <option :value="25">25</option>
-              <option :value="50">50</option>
-            </select>
+          <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
+            <div class="flex items-center gap-1.5">
+              <span class="text-zinc-400 font-medium text-[11px]">Baris:</span>
+              <select v-model.number="spkPageSize" class="p-1 border border-zinc-300 rounded-lg text-xs bg-white font-mono">
+                <option :value="10">10</option>
+                <option :value="25">25</option>
+                <option :value="50">50</option>
+              </select>
+            </div>
 
-            <div class="flex items-center gap-1 font-mono ml-2">
+            <div class="flex items-center gap-1 font-mono">
               <button
                 @click="spkCurrentPage = Math.max(1, spkCurrentPage - 1)"
                 :disabled="spkCurrentPage <= 1"
@@ -621,7 +625,7 @@
               >
                 ‹ Sebelumnya
               </button>
-              <span class="px-2.5 py-1 text-zinc-600 font-bold">
+              <span class="px-2 py-1 text-zinc-600 font-bold">
                 {{ spkCurrentPage }} / {{ totalSpkPages }}
               </span>
               <button
@@ -919,42 +923,42 @@
     <div v-else-if="activeSheet === 'planned'" class="space-y-4 animate-fade-in">
       
       <!-- Action Toolbar -->
-      <div class="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex items-center justify-between flex-wrap gap-3">
+      <div class="bg-white p-3 sm:p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div>
           <div class="flex items-center gap-2">
-            <h3 class="text-sm font-black text-zinc-900">Jadwal Rencana Kerja per Batch Harian (JADWAL SLITTING)</h3>
+            <h3 class="text-sm font-black text-zinc-900">Jadwal Rencana Kerja per Batch Harian</h3>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-50 text-purple-700 border border-purple-200 font-mono">
-              1 Scan = 1 Batch Harian
+              1 Scan = 1 Batch
             </span>
           </div>
-          <p class="text-xs text-zinc-500 font-medium mt-0.5">
-            Daftar sesi pemindaian SPK harian. Klik baris batch untuk melihat atau menyembunyikan rincian planned SPK.
+          <p class="text-[11px] sm:text-xs text-zinc-500 font-medium mt-0.5">
+            Daftar sesi pemindaian SPK harian. Klik baris batch untuk melihat/menutup rincian planned SPK.
           </p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           <!-- Tombol AI Scan Kamera -->
           <button
             @click="triggerCameraScan"
-            class="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+            class="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <span>📷</span>
-            <span>Scan SPK Kamera AI (Batch Baru)</span>
+            <span>Scan AI Kamera</span>
           </button>
 
           <!-- Tombol Upload Dokumen SPK -->
-          <label class="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-black text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer">
+          <label class="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-black text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer text-center">
             <span>📥</span>
-            <span>Upload Berkas SPK</span>
+            <span>Upload Berkas</span>
             <input type="file" accept="image/*,.pdf" @change="handleFileUploadScan" class="hidden" />
           </label>
 
           <!-- Input Manual Form -->
           <button
             @click="openManualPlanModal(null)"
-            class="px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold transition-colors cursor-pointer"
+            class="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold transition-colors cursor-pointer"
           >
-            + Buat Batch Manual
+            + Batch Manual
           </button>
         </div>
       </div>
@@ -966,7 +970,7 @@
         </div>
         <h3 class="text-base font-black text-zinc-900">Belum Ada Batch Rencana SPK Slitting</h3>
         <p class="text-xs text-zinc-500 max-w-md mx-auto mt-1 font-medium">
-          Gunakan tombol <strong>Scan SPK Kamera AI</strong> atau <strong>Upload Berkas SPK</strong> di atas untuk memindai dokumen fisik JADWAL SLITTING (3B-PROD) dan membuat batch baru.
+          Gunakan tombol <strong>Scan AI Kamera</strong> atau <strong>Upload Berkas</strong> di atas untuk memindai dokumen fisik JADWAL SLITTING (3B-PROD) dan membuat batch baru.
         </p>
         <div class="mt-4 flex items-center justify-center gap-2">
           <button
@@ -988,73 +992,75 @@
           <!-- BATCH HEADER ROW: KLIK BARIS AKAN MENAMPILKAN/MENUTUP RINCIAN -->
           <div
             @click="toggleBatch(batch.uuid)"
-            class="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-50/80 transition-colors select-none flex-wrap gap-3"
+            class="p-3.5 sm:p-4 flex flex-col lg:flex-row lg:items-center justify-between cursor-pointer hover:bg-zinc-50/80 transition-colors select-none gap-3.5"
           >
-            <div class="flex items-center gap-3">
-              <span class="text-xs font-mono font-bold text-zinc-400">#{{ bIdx + 1 }}</span>
+            <div class="flex items-start gap-2.5 sm:gap-3 min-w-0 w-full lg:w-auto">
+              <span class="text-xs font-mono font-bold text-zinc-400 mt-1">#{{ bIdx + 1 }}</span>
               <div
-                class="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-600 transition-transform duration-200"
+                class="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-600 transition-transform duration-200 shrink-0 mt-0.5"
                 :class="{ 'rotate-90 text-red-600 bg-red-50': expandedBatchIds.has(batch.uuid) }"
               >
                 ▶
               </div>
-              <div>
-                <div class="flex items-center gap-2 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   <h4 class="font-black text-sm text-zinc-900 font-mono tracking-tight">{{ batch.batchName }}</h4>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 font-mono">
+                  <span class="px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 font-mono">
                     📅 {{ batch.tanggal }}
                   </span>
-                  <span class="px-2 py-0.5 rounded text-[9.5px] font-black bg-zinc-100 text-zinc-700 uppercase">
+                  <span class="px-2 py-0.5 rounded text-[9px] sm:text-[9.5px] font-black bg-zinc-100 text-zinc-700 uppercase">
                     {{ batch.source || 'AI_SCAN' }}
                   </span>
                   <!-- Indikator Lampu Hijau Berkedip untuk Batch Acuan Aktif -->
                   <div
                     v-if="spkStore.activeBatch?.uuid === batch.uuid"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-mono text-[10px] font-black"
+                    class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-mono text-[9.5px] sm:text-[10px] font-black"
                   >
                     <span class="relative flex h-2 w-2">
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
                     </span>
-                    <span>ACUAN MONITORING AKTIF</span>
+                    <span>ACUAN MONITORING</span>
                   </div>
                 </div>
-                <p class="text-[11px] text-zinc-500 font-sans mt-0.5">
+                <p class="text-[10.5px] sm:text-[11px] text-zinc-500 font-sans mt-0.5">
                   {{ expandedBatchIds.has(batch.uuid) ? 'Tutup rincian' : 'Klik baris ini untuk melihat detail planned SPK' }}
                 </p>
               </div>
             </div>
 
-            <!-- Ringkasan Metrik Batch -->
-            <div class="flex items-center gap-4 text-xs font-mono">
-              <div class="text-right">
-                <div class="font-black text-zinc-900">{{ getBatchPlans(batch.uuid).length || batch.totalItems }} Item SPK</div>
-                <div class="text-[10px] text-zinc-400 font-sans">Terjadwal</div>
-              </div>
-              <div class="text-right">
-                <div class="font-black text-purple-900">{{ getBatchTotalJumbo(batch.uuid) }} JR</div>
-                <div class="text-[10px] text-zinc-400 font-sans">Jumbo Roll</div>
-              </div>
-              <div class="text-right">
-                <div class="font-black text-emerald-800">{{ formatNumber(getBatchTotalMeter(batch.uuid)) }} m</div>
-                <div class="text-[10px] text-zinc-400 font-sans">Meter JR</div>
+            <!-- Ringkasan Metrik & Aksi Batch -->
+            <div class="flex flex-wrap items-center justify-between sm:justify-end gap-3 w-full lg:w-auto pt-2.5 lg:pt-0 border-t lg:border-t-0 border-zinc-100">
+              <div class="flex items-center gap-3 sm:gap-4 text-xs font-mono">
+                <div class="text-right">
+                  <div class="font-black text-zinc-900">{{ getBatchPlans(batch.uuid).length || batch.totalItems }} Item</div>
+                  <div class="text-[9.5px] sm:text-[10px] text-zinc-400 font-sans">Terjadwal</div>
+                </div>
+                <div class="text-right">
+                  <div class="font-black text-purple-900">{{ getBatchTotalJumbo(batch.uuid) }} JR</div>
+                  <div class="text-[9.5px] sm:text-[10px] text-zinc-400 font-sans">Jumbo Roll</div>
+                </div>
+                <div class="text-right">
+                  <div class="font-black text-emerald-800">{{ formatNumber(getBatchTotalMeter(batch.uuid)) }} m</div>
+                  <div class="text-[9.5px] sm:text-[10px] text-zinc-400 font-sans">Meter JR</div>
+                </div>
               </div>
 
               <!-- Tombol Aksi Batch -->
-              <div class="flex items-center gap-1.5 pl-3 border-l border-zinc-200 font-sans" @click.stop>
+              <div class="flex items-center gap-1.5 sm:pl-3 sm:border-l sm:border-zinc-200 font-sans" @click.stop>
                 <!-- Tombol Jadikan Acuan -->
                 <button
                   v-if="spkStore.activeBatch?.uuid !== batch.uuid"
                   @click="setAsActiveBatch(batch.uuid)"
-                  class="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[10.5px] cursor-pointer flex items-center gap-1 transition-colors"
+                  class="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[10px] sm:text-[10.5px] cursor-pointer flex items-center gap-1 transition-colors"
                   title="Jadikan batch ini sebagai acuan monitoring di Dashboard SPK & Dashboard Utama"
                 >
                   <span>🎯</span>
-                  <span>Jadikan Acuan</span>
+                  <span>Acuan</span>
                 </button>
                 <button
                   @click="openAddRowToBatch(batch)"
-                  class="px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-[10.5px] cursor-pointer"
+                  class="px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-[10px] sm:text-[10.5px] cursor-pointer"
                   title="Tambah baris SPK ke batch ini"
                 >
                   + Item
@@ -1277,13 +1283,13 @@
       <div class="bg-white w-full max-w-xl h-full shadow-2xl flex flex-col justify-between overflow-hidden border-l border-zinc-200 animate-slide-left">
         
         <!-- Header Drawer -->
-        <div class="p-5 border-b border-zinc-200 bg-gradient-to-r from-zinc-950 to-zinc-900 text-white flex items-center justify-between">
+        <div class="p-4 sm:p-5 border-b border-zinc-200 bg-gradient-to-r from-zinc-950 to-zinc-900 text-white flex items-center justify-between">
           <div>
             <div class="flex items-center gap-2">
               <span class="text-xs px-2.5 py-0.5 rounded-full bg-red-600 text-white font-mono font-bold">DETAIL SPK</span>
-              <h2 class="text-lg font-black font-mono tracking-tight">{{ selectedSpkAnalytics.spkNo }}</h2>
+              <h2 class="text-base sm:text-lg font-black font-mono tracking-tight">{{ selectedSpkAnalytics.spkNo }}</h2>
             </div>
-            <p class="text-xs text-zinc-400 mt-0.5">Integrasi Data Terpadu: Management Label & Data Roll</p>
+            <p class="text-[11px] sm:text-xs text-zinc-400 mt-0.5">Integrasi Data Terpadu: Management Label & Data Roll</p>
           </div>
           <button @click="showDetailDrawer = false" class="w-8 h-8 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center cursor-pointer">
             ✕
@@ -1291,15 +1297,15 @@
         </div>
 
         <!-- Drawer Body -->
-        <div class="p-5 overflow-y-auto space-y-4 text-xs">
+        <div class="p-3.5 sm:p-5 overflow-y-auto space-y-3.5 sm:space-y-4 text-xs">
           
           <!-- Data Pokok SPK -->
-          <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
+          <div class="p-3.5 sm:p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
             <h4 class="font-extrabold text-zinc-900 uppercase text-[11px] border-b border-zinc-200 pb-1.5 flex items-center justify-between">
               <span>📌 Informasi Dasar SPK</span>
               <span class="font-mono text-zinc-500 font-bold">{{ selectedSpkAnalytics.plan?.docNo || '3B-PROD' }}</span>
             </h4>
-            <div class="grid grid-cols-2 gap-3 text-zinc-700">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-zinc-700">
               <div>
                 <span class="text-[10px] text-zinc-400 block font-semibold">Tahun / Periode Bulan</span>
                 <span class="font-black text-zinc-900 text-sm font-mono">{{ selectedSpkAnalytics.year }} / {{ selectedSpkAnalytics.monthName }}</span>
@@ -1328,12 +1334,12 @@
           </div>
 
           <!-- QC Mutu & Status Progress Bar -->
-          <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2.5">
+          <div class="p-3.5 sm:p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2.5">
             <div class="flex items-center justify-between border-b border-zinc-200 pb-1.5">
               <h4 class="font-extrabold text-zinc-900 uppercase text-[11px]">📊 Status Kualitas Hasil (QC)</h4>
               <span class="text-xs font-mono font-black text-emerald-700">{{ selectedSpkAnalytics.totalRealRolls }} Total Roll</span>
             </div>
-            <div class="grid grid-cols-3 gap-2 text-center font-mono">
+            <div class="grid grid-cols-3 gap-1.5 sm:gap-2 text-center font-mono">
               <div class="p-2 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold">
                 <div class="text-[10px]">PASS / OK</div>
                 <div class="text-base font-black">{{ selectedSpkAnalytics.passCount }} Roll</div>
@@ -1437,46 +1443,46 @@
       @keydown="handleVerificationKeydown"
       tabindex="0"
     >
-      <div class="bg-white w-full max-w-7xl h-[94vh] rounded-3xl shadow-2xl overflow-hidden border border-zinc-300 flex flex-col justify-between">
+      <div class="bg-white w-full max-w-7xl h-[96vh] sm:h-[94vh] rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-zinc-300 flex flex-col justify-between">
         
         <!-- Header Verifikasi -->
-        <div class="p-3.5 border-b border-zinc-200 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 text-white flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <span class="text-xl">📊</span>
+        <div class="p-2.5 sm:p-3.5 border-b border-zinc-200 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 text-white flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          <div class="flex items-center gap-2">
+            <span class="text-lg sm:text-xl">📊</span>
             <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-sm font-black text-white">LEMBAR VERIFIKASI SPREADSHEET EXCEL (1 BATCH HARIAN)</h3>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Mode Interaktif Excel
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-xs sm:text-sm font-black text-white">LEMBAR VERIFIKASI SPREADSHEET EXCEL</h3>
+                <span class="px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Interaktif Excel
                 </span>
               </div>
-              <p class="text-[11px] text-zinc-400 mt-0.5">Navigasi Tombol Arah • Shift+Arah (Pilih Range) • Ctrl+D (Duplikat Bawah) • Ctrl+C/V • F2/Enter (Edit Cell)</p>
+              <p class="text-[10px] sm:text-[11px] text-zinc-400 mt-0.5 line-clamp-1 sm:line-clamp-none">Arah • Shift+Arah (Range) • Ctrl+D (Duplikat) • Ctrl+C/V • F2/Enter (Edit)</p>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5 flex-wrap w-full md:w-auto justify-end">
             <button
               @click="standardizeAllStagingSpks"
-              class="px-2.5 py-1.5 rounded-xl bg-purple-900 hover:bg-purple-800 text-purple-200 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+              class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-purple-900 hover:bg-purple-800 text-purple-200 text-[11px] sm:text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
               title="Ubah semua SPK ke format standar penuh [URUTAN]/[ROMAWI]/SPK/[TAHUN]"
             >
               <span>⚡</span>
-              <span>Standar Penuh SPK</span>
+              <span>Standar SPK</span>
             </button>
             <button
               @click="addVerificationRow"
-              class="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-colors cursor-pointer"
+              class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] sm:text-xs font-bold transition-colors cursor-pointer"
               title="Tambah baris kosong"
             >
               + Baris
             </button>
             <button
               @click="deleteSelectedVerificationRows"
-              class="px-2.5 py-1.5 rounded-xl bg-red-950/60 hover:bg-red-900 text-red-300 text-xs font-bold transition-colors cursor-pointer"
+              class="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-red-950/60 hover:bg-red-900 text-red-300 text-[11px] sm:text-xs font-bold transition-colors cursor-pointer"
               title="Hapus baris yang diseleksi"
             >
-              🗑️ Hapus Baris
+              🗑️ Hapus
             </button>
-            <button @click="showVerificationModal = false" class="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white cursor-pointer ml-1">
+            <button @click="showVerificationModal = false" class="p-1 sm:p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white cursor-pointer ml-1">
               ✕
             </button>
           </div>
@@ -1626,24 +1632,24 @@
         </div>
 
         <!-- Footer Verifikasi -->
-        <div class="p-3.5 border-t border-zinc-300 bg-zinc-50 flex items-center justify-between flex-wrap gap-3">
-          <div class="text-xs text-zinc-600 font-medium">
-            Status: <strong class="text-zinc-900">{{ verificationStagingList.length }} baris terverifikasi</strong>
-            <span class="mx-2 text-zinc-300">•</span>
-            <span class="text-zinc-500 font-mono text-[11px]">Gunakan <strong>Ctrl+D</strong> untuk duplikat ke bawah</span>
+        <div class="p-2.5 sm:p-3.5 border-t border-zinc-300 bg-zinc-50 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3">
+          <div class="text-[11px] sm:text-xs text-zinc-600 font-medium text-center sm:text-left">
+            Status: <strong class="text-zinc-900">{{ verificationStagingList.length }} baris</strong>
+            <span class="mx-1.5 text-zinc-300">•</span>
+            <span class="text-zinc-500 font-mono text-[10.5px] sm:text-[11px]"><strong>Ctrl+D</strong> duplikat ke bawah</span>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             <button
               @click="showVerificationModal = false"
-              class="px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer"
+              class="flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer text-center"
             >
               Batal
             </button>
             <button
               @click="commitVerificationToPlans"
-              class="px-5 py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+              class="flex-1 sm:flex-initial px-4 sm:px-5 py-1.5 sm:py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors cursor-pointer text-center"
             >
-              ✓ Simpan {{ verificationStagingList.length }} Item ke Rencana Kerja
+              ✓ Simpan ({{ verificationStagingList.length }})
             </button>
           </div>
         </div>
