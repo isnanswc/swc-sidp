@@ -104,7 +104,7 @@ export async function getAllActiveSessions() {
       const list = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
       // Filter sesi kadaluarsa (> 7 hari tidak ada aktivitas)
       const now = Date.now();
-      const validList = (list || []).filter(item => {
+      const validList = (Array.isArray(list) ? list : []).filter(item => {
         const last = item.lastActiveAt ? new Date(item.lastActiveAt).getTime() : 0;
         return (now - last) < (7 * 24 * 60 * 60 * 1000);
       });
@@ -119,7 +119,8 @@ export async function getAllActiveSessions() {
     if (db.settings) {
       const localRow = await db.settings.get(SESSIONS_SETTING_KEY);
       if (localRow && localRow.value) {
-        return typeof localRow.value === 'string' ? JSON.parse(localRow.value) : localRow.value;
+        const parsed = typeof localRow.value === 'string' ? JSON.parse(localRow.value) : localRow.value;
+        return Array.isArray(parsed) ? parsed : [];
       }
     }
   } catch (e) {
@@ -134,10 +135,11 @@ export async function getAllActiveSessions() {
  */
 async function saveAllActiveSessions(sessions) {
   const nowIso = new Date().toISOString();
+  const serialized = JSON.stringify(sessions || []);
   try {
     await supabase.from('settings').upsert({
       key: SESSIONS_SETTING_KEY,
-      value: sessions,
+      value: serialized,
       updated_at: nowIso
     }, { onConflict: 'key' });
   } catch (err) {
@@ -148,7 +150,7 @@ async function saveAllActiveSessions(sessions) {
     if (db.settings) {
       await db.settings.put({
         key: SESSIONS_SETTING_KEY,
-        value: sessions,
+        value: serialized,
         updatedAt: nowIso
       });
     }
@@ -169,7 +171,8 @@ async function getRevokedSessions() {
       .maybeSingle();
 
     if (!error && data && data.value) {
-      return typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      return Array.isArray(parsed) ? parsed : [];
     }
   } catch (err) {
     // ignore
@@ -191,7 +194,7 @@ async function addRevokedSession(sessionId, reason = 'LOGOUT_BY_ADMIN') {
 
     await supabase.from('settings').upsert({
       key: REVOKED_SETTING_KEY,
-      value: updated,
+      value: JSON.stringify(updated),
       updated_at: nowIso
     }, { onConflict: 'key' });
   } catch (err) {
@@ -276,7 +279,7 @@ export async function updateSessionHeartbeat(sessionId) {
   const nowIso = new Date().toISOString();
 
   try {
-    // Periksa apakah sesi lokal ini telah dicabut di cloud
+    // Periksa apakah sesi lokal ini telah dicabut secara eksplisit di cloud
     const revokedList = await getRevokedSessions();
     const isRevoked = revokedList.some(r => r.sessionId === sessionId);
     if (isRevoked) {
@@ -286,14 +289,39 @@ export async function updateSessionHeartbeat(sessionId) {
     }
 
     const sessions = await getAllActiveSessions();
-    const exists = sessions.find(s => s.sessionId === sessionId);
-    if (!exists) {
-      // Jika sesi dihapus dari list aktif oleh Super Admin
-      triggerRevocationCallbacks('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
+    let currentSession = sessions.find(s => s.sessionId === sessionId);
+
+    if (!currentSession) {
+      // Auto-heal: Pulihkan sesi ini jika belum terdaftar di cloud dan belum di-revoke
+      const savedUserStr = typeof localStorage !== 'undefined' ? localStorage.getItem('mlabel_session_user') : null;
+      if (savedUserStr) {
+        try {
+          const user = JSON.parse(savedUserStr);
+          if (user && user.id) {
+            currentSession = {
+              sessionId,
+              userId: user.id,
+              uuid: user.uuid || null,
+              username: user.username,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              deviceInfo: getDeviceInfo(),
+              loginAt: nowIso,
+              lastActiveAt: nowIso
+            };
+            sessions.push(currentSession);
+            await saveAllActiveSessions(sessions);
+            return;
+          }
+        } catch (e) {
+          console.warn('[SessionService] Auto-heal session parsing failed:', e);
+        }
+      }
       return;
     }
 
-    exists.lastActiveAt = nowIso;
+    currentSession.lastActiveAt = nowIso;
     await saveAllActiveSessions(sessions);
   } catch (err) {
     // Diamkan bila jaringan terputus

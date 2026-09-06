@@ -14,7 +14,8 @@ import {
   startSessionHeartbeat,
   stopSessionHeartbeat,
   onSessionRevoked,
-  initRealtimeSessionListener
+  initRealtimeSessionListener,
+  getCurrentSessionId
 } from '@/services/sessionService';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -56,9 +57,14 @@ export const useAuthStore = defineStore('auth', () => {
           };
           localStorage.setItem('mlabel_session_user', JSON.stringify(currentUser.value));
 
-          // Start heartbeat & listen for remote revocation
-          startSessionHeartbeat();
-          initRealtimeSessionListener();
+          // Pastikan sesi perangkat terdaftar (auto-register untuk perangkat yang sudah login sebelumnya)
+          const currentSessId = getCurrentSessionId();
+          if (!currentSessId) {
+            await registerDeviceSession(currentUser.value);
+          } else {
+            startSessionHeartbeat(currentSessId);
+            initRealtimeSessionListener();
+          }
         } else if (fresh && !fresh.active) {
           // User deactivated
           logout();

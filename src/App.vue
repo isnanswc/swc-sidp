@@ -50,6 +50,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
+import { getCurrentSessionId, updateSessionHeartbeat } from '@/services/sessionService';
 import Sidebar from '@/components/Sidebar.vue';
 import Navbar from '@/components/Navbar.vue';
 import AiCopilotWidget from '@/components/ai/AiCopilotWidget.vue';
@@ -68,9 +69,25 @@ const toggleSidebar = () => {
   isSidebarOpen.value = !isSidebarOpen.value;
 };
 
-// Global Idle Activity Detection
+// Global Idle & Session Activity Tracking (throttled 30s)
+let lastActivityHeartbeat = 0;
 const onUserActivity = () => {
   authStore.resetIdleTimer();
+
+  const now = Date.now();
+  if (now - lastActivityHeartbeat > 30 * 1000) {
+    lastActivityHeartbeat = now;
+    const sessId = getCurrentSessionId();
+    if (sessId) {
+      updateSessionHeartbeat(sessId);
+    }
+  }
+};
+
+const onVisibilityChange = () => {
+  if (typeof document !== 'undefined' && !document.hidden) {
+    onUserActivity();
+  }
 };
 
 onMounted(() => {
@@ -79,6 +96,8 @@ onMounted(() => {
   window.addEventListener('keydown', onUserActivity, { passive: true });
   window.addEventListener('touchstart', onUserActivity, { passive: true });
   window.addEventListener('scroll', onUserActivity, { passive: true });
+  window.addEventListener('focus', onUserActivity);
+  document.addEventListener('visibilitychange', onVisibilityChange);
 
   authStore.resetIdleTimer();
 });
@@ -89,5 +108,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onUserActivity);
   window.removeEventListener('touchstart', onUserActivity);
   window.removeEventListener('scroll', onUserActivity);
+  window.removeEventListener('focus', onUserActivity);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
 });
 </script>
