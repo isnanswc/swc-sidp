@@ -56,12 +56,14 @@ export async function sendEmailViaEmailJS({ toEmail, toName, subject, otpCode, m
     timeZone: 'Asia/Jakarta'
   }).format(new Date());
 
-  // Template parameter yang standar dikirim ke EmailJS
+  // Template parameter yang fleksibel dikirim ke EmailJS
   const templateParams = {
     to_email: toEmail,
+    email: toEmail,
     to_name: toName || 'Super Admin SWC',
     subject: subject || 'Kode Verifikasi OTP Pemulihan Kata Sandi - M-Label SWC',
     otp_code: otpCode || '',
+    passcode: otpCode || '',
     message: message || '',
     type: type,
     sender_name: config.senderName,
