@@ -924,7 +924,7 @@
         <ol class="list-decimal list-inside text-xs text-zinc-300 space-y-1.5 pl-1 leading-relaxed">
           <li>Buka situs <a href="https://www.emailjs.com" target="_blank" class="text-red-400 underline font-bold">emailjs.com</a> dan buat akun gratis.</li>
           <li>Di menu <strong>Email Services</strong>, klik <em>Add New Service</em> dan pilih Gmail (hubungkan akun email pengirim Anda). Salin <strong>Service ID</strong>.</li>
-          <li>Di menu <strong>Email Templates</strong>, buat template baru dengan variabel:
+          <li v-pre>Di menu <strong>Email Templates</strong>, buat template baru dengan variabel:
             <code class="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded text-[10.5px] font-mono ml-1">{{to_name}}</code>,
             <code class="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded text-[10.5px] font-mono">{{otp_code}}</code>,
             <code class="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded text-[10.5px] font-mono">{{message}}</code>. Salin <strong>Template ID</strong>.
