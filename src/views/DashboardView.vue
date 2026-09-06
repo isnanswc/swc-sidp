@@ -639,7 +639,7 @@
       </div>
 
       <!-- Horizontal Connecting Timeline Flow (Atas: Realisasi, Tengah: Line & Node, Bawah: Planning) -->
-      <div class="relative overflow-x-auto py-2 px-3 scrollbar-thin">
+      <div v-if="timelineSpkList.length > 0" class="relative overflow-x-auto py-2 px-3 scrollbar-thin">
         <div class="min-w-[940px] flex items-center justify-between relative py-2">
           
           <!-- Background Center Track Line (Runs horizontally between nodes, z-0) -->
@@ -746,12 +746,27 @@
 
           </div>
 
-          <!-- Empty Timeline State -->
-          <div v-if="timelineSpkList.length === 0" class="w-full text-center py-6 text-zinc-400 text-xs font-mono">
-            Belum ada SPK aktif yang terdata pada jadwal kerja saat ini.
-          </div>
-
         </div>
+      </div>
+
+      <!-- Clean Empty Timeline State -->
+      <div v-else class="py-8 px-4 text-center rounded-2xl bg-zinc-50/80 border border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2">
+        <div class="w-10 h-10 rounded-2xl bg-zinc-100 flex items-center justify-center text-lg text-zinc-400">
+          📋
+        </div>
+        <p class="text-xs font-mono font-bold text-zinc-700">
+          Belum ada jadwal SPK aktif yang terdaftar
+        </p>
+        <p class="text-[11px] text-zinc-400 max-w-md">
+          Impor jadwal pengerjaan atau buat jadwal baru di Manajemen SPK untuk melacak target planning dan realisasi aktual secara real-time.
+        </p>
+        <router-link
+          to="/spk"
+          class="mt-1 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-mono font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+        >
+          <span>Buka Manajemen SPK</span>
+          <span>➔</span>
+        </router-link>
       </div>
 
     </div>
@@ -2119,8 +2134,8 @@ const timelineSpkList = computed(() => {
     for (let i = 0; i < Math.min(10, plans.length); i++) {
       const p = plans[i];
       const analytics = spkStore.getSpkRealtimeAnalytics(p.spkNo, p) || {};
-      const planRoll = analytics.plannedChildRolls || (p.jumlahJumbo ? p.jumlahJumbo * 2 : 4);
-      const planMeter = analytics.plannedMeter || (p.totalPlannedMeter || (p.panjangParent * (p.jumlahJumbo || 1))) || 24000;
+      const planRoll = analytics.plannedChildRolls || p.totalPlannedRolls || (p.jumlahJumbo ? p.jumlahJumbo * 2 : 0);
+      const planMeter = analytics.plannedMeter || (p.totalPlannedMeter || (p.panjangParent && p.jumlahJumbo ? p.panjangParent * p.jumlahJumbo : 0));
       const actualRoll = analytics.totalRealRolls || 0;
       const actualMeter = analytics.totalRealMeter || 0;
       const actualKg = analytics.totalRealKg || 0;
@@ -2141,8 +2156,8 @@ const timelineSpkList = computed(() => {
         customer: p.customer || p.namaCustomer || '-',
         planRoll,
         planMeter,
-        planJumbo: p.jumlahJumbo || 1,
-        speed: analytics.speed || 600,
+        planJumbo: p.jumlahJumbo || 0,
+        speed: analytics.speed || 0,
         actualRoll,
         actualMeter,
         actualKg,
@@ -2157,108 +2172,6 @@ const timelineSpkList = computed(() => {
         targetStatus,
         diffRoll: actualRoll - planRoll,
         diffMeter: Math.round(actualMeter - planMeter)
-      });
-    }
-  }
-
-  // ZERO DUMMY POLICY: Jika tidak ada plan SPK terdaftar, ambil rekaman aktual input label 2 hari kebelakang berjalan
-  if (list.length === 0) {
-    const allRolls = allProductionRolls.value || [];
-    
-    // Cari 2 tanggal produksi berjalan terakhir (termasuk hari ini dan kemarin)
-    const distinctDates = Array.from(
-      new Set(allRolls.map(r => getRealProductionDate(r)).filter(Boolean))
-    ).sort().reverse();
-
-    const targetDates = distinctDates.slice(0, 2);
-
-    const spkGroups = new Map();
-
-    for (const r of allRolls) {
-      const pDate = getRealProductionDate(r);
-      if (targetDates.length > 0 && !targetDates.includes(pDate)) continue;
-
-      const rawSpk = String(r.spk || '').trim().toUpperCase();
-      if (!rawSpk || rawSpk === '-' || rawSpk === 'DEFAULT') continue;
-
-      if (!spkGroups.has(rawSpk)) {
-        spkGroups.set(rawSpk, {
-          spkNo: rawSpk,
-          docNo: '3B-PROD',
-          formula: r.kodeFormula || r.formula || 'CPP',
-          thickness: parseFloat(r.thickness) || 20,
-          jenis: r.jenis || 'CPP',
-          customer: r.customer || '-',
-          actualRoll: 0,
-          actualMeter: 0,
-          actualKg: 0,
-          passCount: 0,
-          holdCount: 0,
-          rejectCount: 0,
-          firstTime: Infinity,
-          lastTime: 0
-        });
-      }
-
-      const entry = spkGroups.get(rawSpk);
-      entry.actualRoll++;
-      entry.actualMeter += parseFloat(r.meter || r.length || r.panjang || 0) || 0;
-      entry.actualKg += parseFloat(r.netto || r.beratNetto || r.berat || 0) || 0;
-
-      const st = String(r.qualityStatus || r.status || 'PASS').toUpperCase();
-      if (st === 'HOLD') entry.holdCount++;
-      else if (st === 'REJECT' || st === 'NG') entry.rejectCount++;
-      else entry.passCount++;
-
-      const rTime = r.verifiedAt || r.createdAt || r.tanggal;
-      if (rTime) {
-        const t = new Date(rTime).getTime();
-        if (t > 0 && t < entry.firstTime) entry.firstTime = t;
-        if (t > entry.lastTime) entry.lastTime = t;
-      }
-    }
-
-    // Convert map to list sorted by last production time
-    const dynamicSpkList = Array.from(spkGroups.values())
-      .sort((a, b) => b.lastTime - a.lastTime)
-      .slice(0, 10);
-
-    for (const dSpk of dynamicSpkList) {
-      const startTimeFormatted = dSpk.firstTime !== Infinity && dSpk.firstTime > 0
-        ? new Date(dSpk.firstTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(dSpk.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-        : '-';
-      const endTimeFormatted = dSpk.lastTime > 0
-        ? new Date(dSpk.lastTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + new Date(dSpk.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-        : '-';
-
-      const targetStatus = evaluateTargetStatus(dSpk.actualRoll, dSpk.actualRoll, false);
-
-      list.push({
-        spkNo: dSpk.spkNo,
-        docNo: dSpk.docNo,
-        formula: dSpk.formula,
-        thickness: dSpk.thickness,
-        jenis: dSpk.jenis,
-        customer: dSpk.customer,
-        planRoll: dSpk.actualRoll,
-        planMeter: Math.round(dSpk.actualMeter),
-        planJumbo: Math.max(1, Math.ceil(dSpk.actualRoll / 2)),
-        speed: 600,
-        actualRoll: dSpk.actualRoll,
-        actualMeter: Math.round(dSpk.actualMeter),
-        actualKg: Math.round(dSpk.actualKg),
-        actualJumbo: Math.max(1, Math.ceil(dSpk.actualRoll / 2)),
-        passCount: dSpk.passCount,
-        holdCount: dSpk.holdCount,
-        rejectCount: dSpk.rejectCount,
-        percent: 100,
-        status: 'DONE',
-        startTimeFormatted,
-        endTimeFormatted,
-        targetStatus,
-        diffRoll: 0,
-        diffMeter: 0,
-        isTwoDayFallback: true
       });
     }
   }
