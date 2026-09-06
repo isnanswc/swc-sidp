@@ -234,242 +234,276 @@
 
     <!-- ======================================================== -->
     <!-- SHEET 2: ABOUT ME & SEJARAH EVOLUSI (Clean White, Red Accent) -->
-    <!-- Dilengkapi Animasi Background Polkadot & Moving Industrial Icons -->
+    <!-- Dilengkapi Animasi Background Polkadot & 6 Band Industrial Streams Rapat -->
     <!-- ======================================================== -->
     <div v-show="activeSheet === 'about'" class="space-y-12 relative p-4 sm:p-8 rounded-3xl overflow-hidden bg-slate-50/50 border border-zinc-200/60">
       
       <!-- ======================================================= -->
-      <!-- ANIMATED BACKGROUND: POLKADOT + HAIRLINE GRID + INDUSTRIAL ICONS -->
+      <!-- ANIMATED BACKGROUND: POLKADOT + HAIRLINE GRID + 6 DENSE STREAMS -->
       <!-- ======================================================= -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <!-- 1. Polkadot Pattern Background (Dot Matrix Industrial Aesthetic) -->
-        <div class="absolute inset-0 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] [background-size:24px_24px] opacity-70"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] [background-size:24px_24px] opacity-75"></div>
 
         <!-- 2. Fine Hairline Grid Accent -->
-        <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(24,24,27,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(24,24,27,0.03)_1px,transparent_1px)] bg-[size:56px_56px]"></div>
+        <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(24,24,27,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(24,24,27,0.03)_1px,transparent_1px)] bg-[size:52px_52px]"></div>
 
         <!-- 3. Ambient Soft Color Glows -->
         <div class="absolute top-10 left-10 w-96 h-96 bg-red-500/5 rounded-full blur-3xl"></div>
         <div class="absolute bottom-10 right-10 w-96 h-96 bg-zinc-900/5 rounded-full blur-3xl"></div>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/3 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-red-600/3 rounded-full blur-3xl"></div>
 
         <!-- ===================================================== -->
-        <!-- STREAM 1: UPPER DRIFTING INDUSTRIAL ICONS (Left to Right) -->
+        <!-- STREAM 1: ROW AT 3% (Left to Right) -->
         <!-- ===================================================== -->
-        <div class="absolute top-[8%] left-0 w-[200%] flex items-center justify-around stream-track stream-slow opacity-35">
-          <!-- Pabrik (Red) -->
-          <div class="industrial-icon text-red-600 transform -rotate-6" title="Pabrik">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="absolute top-[3%] left-0 w-[200%] flex items-center justify-around stream-track stream-slow opacity-30">
+          <div class="industrial-icon text-red-600 transform -rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#fee2e2" fill-opacity="0.6" />
               <line x1="36" y1="14" x2="42" y2="14" stroke-width="2.5" />
-              <circle cx="12" cy="32" r="2.5" fill="currentColor" stroke="none" />
-              <circle cx="22" cy="32" r="2.5" fill="currentColor" stroke="none" />
             </svg>
           </div>
-          <!-- Roll Film (Black) -->
-          <div class="industrial-icon text-zinc-900 transform rotate-12" title="Roll Film">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#e4e4e7" fill-opacity="0.6" />
-              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="#f4f4f5" fill-opacity="0.5" />
-              <ellipse cx="18" cy="24" rx="3.5" ry="7" fill="#ffffff" stroke="currentColor" stroke-width="2" />
-            </svg>
-          </div>
-          <!-- Karung Resin PP (Red) -->
-          <div class="industrial-icon text-red-600 transform -rotate-12" title="Resin">
+          <div class="industrial-icon text-zinc-900 transform rotate-12">
             <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#e4e4e7" fill-opacity="0.6" />
+              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="#f4f4f5" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform -rotate-12">
+            <svg class="w-9 h-9" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="M12 14c0-4 4-6 12-6s12 2 12 6l3 22c0 3-4 6-15 6s-15-3-15-6z" fill="#fee2e2" fill-opacity="0.6" />
-              <ellipse cx="24" cy="8" rx="7" ry="2.5" fill="currentColor" />
-              <rect x="18" y="21" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="#ffffff" />
-              <text x="24" y="27.5" font-size="6.5" font-family="monospace" font-weight="900" text-anchor="middle" fill="currentColor" stroke="none">PP</text>
+              <rect x="18" y="21" width="12" height="9" rx="1.5" stroke="currentColor" fill="#ffffff" />
             </svg>
           </div>
-          <!-- Forklift (Black) -->
-          <div class="industrial-icon text-zinc-900 transform rotate-6" title="Forklift">
-            <svg class="w-12 h-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M6 32h18v-8l-8-6H8v14z" fill="#f4f4f5" fill-opacity="0.7" />
+          <div class="industrial-icon text-zinc-900 transform rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M6 32h18v-8l-8-6H8v14z" fill="#f4f4f5" />
               <path d="M24 14h6v22" stroke-width="2.5" />
-              <path d="M30 30h10v-4" stroke-width="2.5" stroke-linecap="round" />
-              <circle cx="12" cy="36" r="4.5" fill="#18181b" stroke="#ef4444" stroke-width="2" />
-              <circle cx="26" cy="36" r="4.5" fill="#18181b" stroke="#ef4444" stroke-width="2" />
+              <circle cx="12" cy="36" r="4" fill="#18181b" />
             </svg>
           </div>
-          <!-- Barcode Scanner (Red) -->
-          <div class="industrial-icon text-red-600 transform -rotate-6" title="Scanner Barcode">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="10" y="8" width="28" height="18" rx="3" fill="#fee2e2" fill-opacity="0.6" />
-              <line x1="16" y1="13" x2="16" y2="21" stroke-width="2.5" />
-              <line x1="20" y1="13" x2="20" y2="21" stroke-width="1.5" />
-              <line x1="24" y1="13" x2="24" y2="21" stroke-width="3" />
-              <line x1="28" y1="13" x2="28" y2="21" stroke-width="2" />
-              <line x1="32" y1="13" x2="32" y2="21" stroke-width="1.5" />
-              <path d="M16 26l4 14h8l4-14" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <!-- Mesin Slitter Rewind (Black) -->
-          <div class="industrial-icon text-zinc-900 transform rotate-10" title="Mesin Slitter">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="8" y="22" width="32" height="18" rx="2" fill="#f4f4f5" fill-opacity="0.8" />
-              <circle cx="16" cy="18" r="6" fill="#ffffff" stroke="currentColor" stroke-width="2" />
-              <circle cx="32" cy="18" r="6" fill="#ffffff" stroke="currentColor" stroke-width="2" />
-              <path d="M16 12h16" stroke-width="2.5" />
-            </svg>
-          </div>
-          <!-- Loop Repeat Set 1 -->
+          <!-- Repeat Set 1 -->
           <div class="industrial-icon text-red-600 transform -rotate-6">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#fee2e2" fill-opacity="0.6" />
             </svg>
           </div>
           <div class="industrial-icon text-zinc-900 transform rotate-12">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#e4e4e7" fill-opacity="0.6" />
-              <ellipse cx="18" cy="24" rx="3.5" ry="7" fill="#ffffff" stroke="currentColor" stroke-width="2" />
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#e4e4e7" />
             </svg>
           </div>
         </div>
 
         <!-- ===================================================== -->
-        <!-- STREAM 2: MIDDLE DRIFTING INDUSTRIAL ICONS (Left to Right, Mid Speed) -->
+        <!-- STREAM 2: ROW AT 18% (Right to Left / Counter Stream) -->
         <!-- ===================================================== -->
-        <div class="absolute top-[42%] left-0 w-[200%] flex items-center justify-around stream-track stream-mid opacity-35">
-          <!-- Gear / Roda Gigi (Black) -->
-          <div class="industrial-icon text-zinc-900 transform rotate-25" title="Roda Gigi Mekanikal">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M24 6v4m0 28v4M6 24h4m28 0h4m-7.2-12.8-2.8 2.8m-16 16-2.8 2.8m0-21.6 2.8 2.8m16 16 2.8 2.8" stroke-width="3" stroke-linecap="round" />
-              <circle cx="24" cy="24" r="11" fill="#f4f4f5" fill-opacity="0.7" stroke-width="2" />
-              <circle cx="24" cy="24" r="4.5" fill="currentColor" />
+        <div class="absolute top-[18%] left-0 w-[200%] flex items-center justify-around stream-track-reverse stream-mid opacity-30">
+          <div class="industrial-icon text-zinc-900 transform rotate-20">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M24 6v4m0 28v4M6 24h4m28 0h4m-7.2-12.8-2.8 2.8m-16 16-2.8 2.8" stroke-width="3" stroke-linecap="round" />
+              <circle cx="24" cy="24" r="10" fill="#f4f4f5" />
             </svg>
           </div>
-          <!-- Meteran Pengukur Roll (Red) -->
-          <div class="industrial-icon text-red-600 transform -rotate-15" title="Meteran">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" fill-opacity="0.6" />
-              <circle cx="18" cy="26" r="6" fill="#ffffff" stroke="currentColor" stroke-width="2" />
-              <path d="M30 32h14v-7H30" fill="#dc2626" fill-opacity="0.25" />
+          <div class="industrial-icon text-red-600 transform -rotate-10">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" />
+              <circle cx="18" cy="26" r="6" fill="#ffffff" />
             </svg>
           </div>
-          <!-- AI Chip Processor (Black) -->
-          <div class="industrial-icon text-zinc-900 transform rotate-12" title="AI Chip">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="12" y="12" width="24" height="24" rx="4" fill="#f4f4f5" fill-opacity="0.8" />
-              <text x="24" y="27" font-size="11" font-family="monospace" font-weight="900" text-anchor="middle" fill="#dc2626" stroke="none">AI</text>
-              <line x1="18" y1="6" x2="18" y2="12" stroke-width="2.5" />
-              <line x1="30" y1="6" x2="30" y2="12" stroke-width="2.5" />
-              <line x1="18" y1="36" x2="18" y2="42" stroke-width="2.5" />
-              <line x1="30" y1="36" x2="30" y2="42" stroke-width="2.5" />
+          <div class="industrial-icon text-zinc-900 transform rotate-8">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="12" y="12" width="24" height="24" rx="4" fill="#f4f4f5" />
+              <text x="24" y="27" font-size="10" font-family="monospace" font-weight="900" text-anchor="middle" fill="#dc2626">AI</text>
             </svg>
           </div>
-          <!-- Pallet Kayu Gudang (Red) -->
-          <div class="industrial-icon text-red-600 transform -rotate-8" title="Palet Gudang">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="4" y="18" width="40" height="6" rx="1.5" fill="#fee2e2" fill-opacity="0.8" />
+          <div class="industrial-icon text-red-600 transform -rotate-4">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="10" y="8" width="28" height="18" rx="3" fill="#fee2e2" />
+              <line x1="16" y1="13" x2="16" y2="21" stroke-width="2" />
+              <line x1="22" y1="13" x2="22" y2="21" stroke-width="3" />
+              <line x1="28" y1="13" x2="28" y2="21" stroke-width="2" />
+            </svg>
+          </div>
+          <!-- Repeat Set 2 -->
+          <div class="industrial-icon text-zinc-900 transform rotate-20">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="24" cy="24" r="10" fill="#f4f4f5" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform -rotate-10">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- STREAM 3: ROW AT 36% (Left to Right) -->
+        <!-- ===================================================== -->
+        <div class="absolute top-[36%] left-0 w-[200%] flex items-center justify-around stream-track stream-fast opacity-30">
+          <div class="industrial-icon text-red-600 transform -rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="8" width="36" height="24" rx="3" fill="#fee2e2" />
+              <line x1="12" y1="15" x2="26" y2="15" stroke-width="2" />
+              <path d="M24 32v6M16 38h16" stroke-width="2.5" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-zinc-900 transform rotate-14">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="8" y="22" width="32" height="18" rx="2" fill="#f4f4f5" />
+              <circle cx="16" cy="18" r="5" fill="#ffffff" stroke="currentColor" />
+              <circle cx="32" cy="18" r="5" fill="#ffffff" stroke="currentColor" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform -rotate-8">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="4" y="18" width="40" height="6" rx="1.5" fill="#fee2e2" />
               <rect x="8" y="24" width="6" height="12" fill="currentColor" />
               <rect x="21" y="24" width="6" height="12" fill="currentColor" />
-              <rect x="34" y="24" width="6" height="12" fill="currentColor" />
-              <line x1="4" y1="36" x2="44" y2="36" stroke-width="3" />
             </svg>
           </div>
-          <!-- Micrometer Gauge / Ketebalan Film (Black) -->
-          <div class="industrial-icon text-zinc-900 transform rotate-8" title="Micrometer Film">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="24" cy="20" r="12" fill="#f4f4f5" />
-              <path d="M24 8v12l8-4" stroke-width="2" />
+          <div class="industrial-icon text-zinc-900 transform rotate-8">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="24" cy="20" r="11" fill="#f4f4f5" />
               <circle cx="24" cy="20" r="2" fill="currentColor" />
-              <rect x="20" y="32" width="8" height="10" rx="1" fill="#fee2e2" stroke="#dc2626" />
             </svg>
           </div>
-          <!-- Komputer Terminal (Red) -->
-          <div class="industrial-icon text-red-600 transform -rotate-6" title="Komputer Kontrol">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="8" width="36" height="24" rx="3" fill="#fee2e2" fill-opacity="0.5" />
-              <line x1="12" y1="15" x2="26" y2="15" stroke-width="2.5" />
-              <line x1="12" y1="21" x2="36" y2="21" stroke-width="2" stroke-dasharray="3 2" />
-              <path d="M24 32v6M16 38h16" stroke-width="2.8" stroke-linecap="round" />
+          <!-- Repeat Set 3 -->
+          <div class="industrial-icon text-red-600 transform -rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="8" width="36" height="24" rx="3" fill="#fee2e2" />
             </svg>
           </div>
-          <!-- Loop Repeat Set 2 -->
-          <div class="industrial-icon text-zinc-900 transform rotate-25">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="24" cy="24" r="11" fill="#f4f4f5" fill-opacity="0.7" stroke-width="2" />
-              <circle cx="24" cy="24" r="4.5" fill="currentColor" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform -rotate-15">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" fill-opacity="0.6" />
+          <div class="industrial-icon text-zinc-900 transform rotate-14">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="8" y="22" width="32" height="18" rx="2" fill="#f4f4f5" />
             </svg>
           </div>
         </div>
 
         <!-- ===================================================== -->
-        <!-- STREAM 3: LOWER DRIFTING INDUSTRIAL ICONS (Left to Right, Slow Flow) -->
+        <!-- STREAM 4: ROW AT 54% (Right to Left) -->
         <!-- ===================================================== -->
-        <div class="absolute bottom-[10%] left-0 w-[200%] flex items-center justify-around stream-track stream-slow opacity-35">
-          <!-- Timbangan Industri (Black) -->
-          <div class="industrial-icon text-zinc-900 transform -rotate-8" title="Timbangan Berat">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+        <div class="absolute top-[54%] left-0 w-[200%] flex items-center justify-around stream-track-reverse stream-slow opacity-30">
+          <div class="industrial-icon text-zinc-900 transform -rotate-8">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
               <rect x="8" y="28" width="32" height="12" rx="2" fill="#f4f4f5" />
               <rect x="18" y="10" width="12" height="18" rx="2" fill="#fee2e2" stroke="#dc2626" />
-              <circle cx="24" cy="18" r="3" fill="#dc2626" />
-              <line x1="4" y1="40" x2="44" y2="40" stroke-width="3" />
             </svg>
           </div>
-          <!-- QC Magnifier / Checkmark (Red) -->
-          <div class="industrial-icon text-red-600 transform rotate-12" title="QC Lab">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="20" cy="20" r="12" fill="#fee2e2" fill-opacity="0.5" stroke-width="2.2" />
-              <line x1="29" y1="29" x2="42" y2="42" stroke-width="3.5" stroke-linecap="round" />
-              <polyline points="15 20 18 23 25 16" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          <div class="industrial-icon text-red-600 transform rotate-12">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="20" cy="20" r="11" fill="#fee2e2" />
+              <line x1="28" y1="28" x2="40" y2="40" stroke-width="3" stroke-linecap="round" />
             </svg>
           </div>
-          <!-- Bobbin Roll Core (Black) -->
-          <div class="industrial-icon text-zinc-900 transform -rotate-12" title="Core Paper">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="24" cy="24" r="14" fill="#f4f4f5" stroke-width="2" />
-              <circle cx="24" cy="24" r="6" fill="#fee2e2" stroke="#dc2626" stroke-width="2" />
-              <circle cx="24" cy="24" r="2" fill="#dc2626" />
+          <div class="industrial-icon text-zinc-900 transform -rotate-12">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="24" cy="24" r="13" fill="#f4f4f5" stroke-width="2" />
+              <circle cx="24" cy="24" r="5" fill="#fee2e2" stroke="#dc2626" />
             </svg>
           </div>
-          <!-- Cloud Sync (Red) -->
-          <div class="industrial-icon text-red-600 transform rotate-6" title="Cloud Realtime">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M12 32a8 8 0 0 1-1-15.9A12 12 0 0 1 34 16a9 9 0 0 1 2 16z" fill="#fee2e2" fill-opacity="0.6" />
-              <polyline points="20 28 24 24 28 28" stroke-width="2.5" />
-              <line x1="24" y1="24" x2="24" y2="36" stroke-width="2.5" />
+          <div class="industrial-icon text-red-600 transform rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 32a8 8 0 0 1-1-15.9A12 12 0 0 1 34 16a9 9 0 0 1 2 16z" fill="#fee2e2" />
+              <polyline points="20 28 24 24 28 28" stroke-width="2" />
             </svg>
           </div>
-          <!-- Forklift (Black) -->
-          <div class="industrial-icon text-zinc-900 transform -rotate-4" title="Forklift Pabrik">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M6 32h18v-8l-8-6H8v14z" fill="#f4f4f5" fill-opacity="0.6" />
-              <path d="M24 14h6v22" stroke-width="2.5" />
-              <circle cx="12" cy="36" r="4.5" fill="#dc2626" stroke="#18181b" stroke-width="2" />
-              <circle cx="26" cy="36" r="4.5" fill="#dc2626" stroke="#18181b" stroke-width="2" />
-            </svg>
-          </div>
-          <!-- Roll Film (Red) -->
-          <div class="industrial-icon text-red-600 transform rotate-8" title="Roll Film Jadi">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#fee2e2" fill-opacity="0.6" />
-              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="#fecdd3" fill-opacity="0.4" />
-              <ellipse cx="18" cy="24" rx="3.5" ry="7" fill="#ffffff" stroke="currentColor" stroke-width="2" />
-            </svg>
-          </div>
-          <!-- Loop Repeat Set 3 -->
+          <!-- Repeat Set 4 -->
           <div class="industrial-icon text-zinc-900 transform -rotate-8">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
               <rect x="8" y="28" width="32" height="12" rx="2" fill="#f4f4f5" />
             </svg>
           </div>
           <div class="industrial-icon text-red-600 transform rotate-12">
-            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="20" cy="20" r="12" fill="#fee2e2" fill-opacity="0.5" />
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="20" cy="20" r="11" fill="#fee2e2" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- STREAM 5: ROW AT 72% (Left to Right) -->
+        <!-- ===================================================== -->
+        <div class="absolute top-[72%] left-0 w-[200%] flex items-center justify-around stream-track stream-mid opacity-30">
+          <div class="industrial-icon text-red-600 transform rotate-8">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#fee2e2" />
+              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="#fecdd3" fill-opacity="0.4" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-zinc-900 transform -rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M6 32h18v-8l-8-6H8v14z" fill="#fee2e2" />
+              <circle cx="12" cy="36" r="4" fill="#dc2626" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform -rotate-10">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" />
+              <circle cx="18" cy="26" r="6" fill="#ffffff" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-zinc-900 transform rotate-10">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M24 6v4m0 28v4M6 24h4m28 0h4" stroke-width="3" />
+              <circle cx="24" cy="24" r="10" fill="#f4f4f5" />
+            </svg>
+          </div>
+          <!-- Repeat Set 5 -->
+          <div class="industrial-icon text-red-600 transform rotate-8">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#fee2e2" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-zinc-900 transform -rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M6 32h18v-8l-8-6H8v14z" fill="#fee2e2" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- STREAM 6: ROW AT 88% (Right to Left) -->
+        <!-- ===================================================== -->
+        <div class="absolute top-[88%] left-0 w-[200%] flex items-center justify-around stream-track-reverse stream-slow opacity-30">
+          <div class="industrial-icon text-zinc-900 transform -rotate-4">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#f4f4f5" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform rotate-12">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="12" y="12" width="24" height="24" rx="4" fill="#fee2e2" />
+              <text x="24" y="27" font-size="10" font-family="monospace" font-weight="900" text-anchor="middle" fill="#dc2626">AI</text>
+            </svg>
+          </div>
+          <div class="industrial-icon text-zinc-900 transform -rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="8" width="36" height="24" rx="3" fill="#f4f4f5" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform rotate-6">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="20" cy="20" r="11" fill="#fee2e2" />
+            </svg>
+          </div>
+          <!-- Repeat Set 6 -->
+          <div class="industrial-icon text-zinc-900 transform -rotate-4">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#f4f4f5" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform rotate-12">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="12" y="12" width="24" height="24" rx="4" fill="#fee2e2" />
             </svg>
           </div>
         </div>
 
         <!-- Soft Radial White Gradient to Keep Content Readable -->
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,250,252,0.85)_0%,rgba(248,250,252,0.5)_65%,transparent_100%)] pointer-events-none"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,250,252,0.85)_0%,rgba(248,250,252,0.45)_65%,transparent_100%)] pointer-events-none"></div>
       </div>
 
       <!-- ======================================================= -->
@@ -1185,6 +1219,12 @@ const filteredDocs = computed(() => {
   will-change: transform;
 }
 
+/* Animated Industrial Streams (Drifting Right to Left - Counter Movement) */
+.stream-track-reverse {
+  animation: moveTrackRightToLeft linear infinite;
+  will-change: transform;
+}
+
 .stream-slow {
   animation-duration: 48s;
 }
@@ -1193,12 +1233,25 @@ const filteredDocs = computed(() => {
   animation-duration: 36s;
 }
 
+.stream-fast {
+  animation-duration: 28s;
+}
+
 @keyframes moveTrackLeftToRight {
   0% {
     transform: translateX(-50%);
   }
   100% {
     transform: translateX(0%);
+  }
+}
+
+@keyframes moveTrackRightToLeft {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
   }
 }
 
