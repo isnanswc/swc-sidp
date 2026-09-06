@@ -240,6 +240,27 @@ export function recordTombstones(key, ids) {
   }
 }
 
+export function removeTombstones(key, ids) {
+  try {
+    const list = Array.isArray(ids) ? ids : (ids instanceof Set ? Array.from(ids) : [ids]);
+    if (!list || list.length === 0) return;
+    const toRemove = new Set(list);
+    const current = getTombstones(key);
+    const filtered = current.filter(id => !toRemove.has(id));
+    localStorage.setItem(`mlabel_deleted_${key}`, JSON.stringify(filtered));
+  } catch (e) {
+    console.warn('Failed to remove tombstones:', e);
+  }
+}
+
+export function clearTombstones(key) {
+  try {
+    localStorage.removeItem(`mlabel_deleted_${key}`);
+  } catch (e) {
+    console.warn('Failed to clear tombstones:', e);
+  }
+}
+
 export function isTombstoned(key, id) {
   if (!id) return false;
   const current = getTombstones(key);
@@ -576,54 +597,87 @@ export async function pullFromSupabase() {
   try {
     const pullTasks = [];
 
-    // Pull Labels
+    // Pull Labels (Paginated Range)
     if (db.labels) {
       pullTasks.push((async () => {
-        const { data: cloudLabels } = await supabase
-          .from('labels')
-          .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(2000);
+        const cloudLabels = [];
+        let page = 0;
+        const PAGE_SIZE = 1000;
+        let fetchCompleted = false;
+
+        try {
+          while (true) {
+            const from = page * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+            const { data, error } = await supabase
+              .from('labels')
+              .select('*')
+              .order('updated_at', { ascending: false })
+              .range(from, to);
+
+            if (error) {
+              console.error('[SyncPull] Error fetching labels page ' + page + ':', error.message);
+              break;
+            }
+            if (!data || data.length === 0) {
+              fetchCompleted = true;
+              break;
+            }
+            cloudLabels.push(...data);
+            if (data.length < PAGE_SIZE) {
+              fetchCompleted = true;
+              break;
+            }
+            page++;
+          }
+        } catch (err) {
+          console.error('[SyncPull] Labels pull loop error:', err);
+        }
+
+        if (!fetchCompleted && cloudLabels.length === 0) return;
+
+        const cloudUniqIds = new Set(cloudLabels.map(cl => cl.uniq_id).filter(Boolean));
+        if (cloudUniqIds.size > 0) {
+          removeTombstones('labels', cloudUniqIds);
+        }
 
         const deletedLabelSet = new Set(getTombstones('labels'));
+        const existingLocal = await db.labels.toArray();
+        const localMap = new Map(existingLocal.map(l => [l.uniqId, l.id]));
+        const toUpdate = [];
+        const toAdd = [];
 
-        if (cloudLabels) {
-          const existingLocal = await db.labels.toArray();
-          const cloudUniqIds = new Set(cloudLabels.map(cl => cl.uniq_id));
-          const localMap = new Map(existingLocal.map(l => [l.uniqId, l.id]));
-          const toUpdate = [];
-          const toAdd = [];
-
-          // 1. Tambah / Update data dari cloud yang tidak ada di blacklist tombstone
-          for (const cl of cloudLabels) {
-            if (deletedLabelSet.has(cl.uniq_id)) continue; // Abaikan item yang sudah dihapus oleh user lokal
-            const mapped = mapLabelFromSupabase(cl);
-            const localId = localMap.get(cl.uniq_id);
-            if (localId) {
-              toUpdate.push({ ...mapped, id: localId });
-            } else {
-              toAdd.push(mapped);
-            }
+        for (const cl of cloudLabels) {
+          if (deletedLabelSet.has(cl.uniq_id)) continue;
+          const mapped = mapLabelFromSupabase(cl);
+          const localId = localMap.get(cl.uniq_id);
+          if (localId) {
+            toUpdate.push({ ...mapped, id: localId });
+          } else {
+            toAdd.push(mapped);
           }
+        }
 
-          // 2. REKONSILIASI DELETE: Jika cloud tidak kosong, dan ada item di Dexie lokal yang:
-          //    - Memiliki uniqId yang masuk tombstone, ATAU
-          //    - uniqId-nya tidak ada di cloudLabels dan item tersebut sudah pernah tersinkron (synced === 1)
-          const staleLocalLabels = existingLocal.filter(l => {
+        let staleLocalLabels = [];
+        if (fetchCompleted) {
+          staleLocalLabels = existingLocal.filter(l => {
             if (!l.uniqId) return false;
-            if (deletedLabelSet.has(l.uniqId)) return true;
+            if (deletedLabelSet.has(l.uniqId) && !cloudUniqIds.has(l.uniqId)) return true;
             if (l.synced === 1 && !cloudUniqIds.has(l.uniqId)) return true;
             return false;
           });
+        }
 
-          await db.transaction('rw', db.labels, async () => {
-            if (toUpdate.length > 0) await db.labels.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.labels.bulkAdd(toAdd);
-            if (staleLocalLabels.length > 0) {
-              console.log(`[SyncPull] Menghapus ${staleLocalLabels.length} label di lokal yang telah dihapus di cloud`);
-              await db.labels.bulkDelete(staleLocalLabels.map(s => s.id));
-            }
-          });
+        const CHUNK_DEXIE = 2500;
+        for (let i = 0; i < toUpdate.length; i += CHUNK_DEXIE) {
+          await db.labels.bulkPut(toUpdate.slice(i, i + CHUNK_DEXIE));
+        }
+        for (let i = 0; i < toAdd.length; i += CHUNK_DEXIE) {
+          await db.labels.bulkAdd(toAdd.slice(i, i + CHUNK_DEXIE));
+        }
+        if (staleLocalLabels.length > 0) {
+          console.log(`[SyncPull] Menghapus ${staleLocalLabels.length} label di lokal yang telah dihapus di cloud`);
+          await db.labels.bulkDelete(staleLocalLabels.map(s => s.id));
         }
       })());
     }
@@ -695,65 +749,107 @@ export async function pullFromSupabase() {
       })());
     }
 
-    // Pull Data Rolls
+    // Pull Data Rolls (Paginated Range in chunks of 1000 to fetch all 10,000+ rolls)
     if (db.data_rolls) {
       pullTasks.push((async () => {
-        const { data: cloudRolls } = await supabase
-          .from('data_rolls')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10000);
+        const allCloudRolls = [];
+        let page = 0;
+        const PAGE_SIZE = 1000;
+        let fetchCompleted = false;
+
+        try {
+          while (true) {
+            const from = page * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+            const { data, error } = await supabase
+              .from('data_rolls')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .range(from, to);
+
+            if (error) {
+              console.error('[SyncPull] Error fetching data_rolls page ' + page + ':', error.message);
+              break;
+            }
+            if (!data || data.length === 0) {
+              fetchCompleted = true;
+              break;
+            }
+            allCloudRolls.push(...data);
+            if (data.length < PAGE_SIZE) {
+              fetchCompleted = true;
+              break;
+            }
+            page++;
+          }
+        } catch (errLoop) {
+          console.error('[SyncPull] Exception in data_rolls pull loop:', errLoop);
+        }
+
+        // Jika fetch sama sekali gagal (misal koneksi terputus sebelum halaman pertama), jangan sentuh lokal
+        if (!fetchCompleted && allCloudRolls.length === 0) return;
+
+        const cloudUuids = new Set(allCloudRolls.map(cr => cr.uuid).filter(Boolean));
+
+        // PENTING: Jika data ada di cloud, ini membuktikan data tersebut AKTIF dan TIDAK TERHAPUS!
+        // Segera hapus UUID-nya dari blacklist tombstone lokal (agar tidak terblokir di UI)
+        if (cloudUuids.size > 0) {
+          removeTombstones('data_rolls', cloudUuids);
+        }
 
         const deletedRollSet = new Set(getTombstones('data_rolls'));
+        const existingLocal = await db.data_rolls.toArray();
+        const localMap = new Map(existingLocal.map(r => [r.uuid, r.id]));
+        const toUpdate = [];
+        const toAdd = [];
 
-        if (cloudRolls) {
-          const existingLocal = await db.data_rolls.toArray();
-          const cloudUuids = new Set(cloudRolls.map(cr => cr.uuid));
-          const localMap = new Map(existingLocal.map(r => [r.uuid, r.id]));
-          const toUpdate = [];
-          const toAdd = [];
-
-          for (const cr of cloudRolls) {
-            if (deletedRollSet.has(cr.uuid)) continue; // Abaikan jika sudah dihapus
-            const mapped = mapDataRollFromSupabase(cr);
-            const localId = localMap.get(cr.uuid);
-            if (localId) {
-              toUpdate.push({ ...mapped, id: localId });
-            } else {
-              toAdd.push(mapped);
-            }
+        for (const cr of allCloudRolls) {
+          if (deletedRollSet.has(cr.uuid)) continue;
+          const mapped = mapDataRollFromSupabase(cr);
+          const localId = localMap.get(cr.uuid);
+          if (localId) {
+            toUpdate.push({ ...mapped, id: localId });
+          } else {
+            toAdd.push(mapped);
           }
+        }
 
-          // REKONSILIASI DELETE UNTUK DATA ROLLS:
-          // Jika ada roll lokal yang:
-          // 1. Masuk dalam blacklist deletedRollSet (tombstone)
-          // 2. ATAU UUID-nya sudah tidak ada di cloudRolls (artinya dihapus oleh device lain)
-          //    dan roll tersebut bukan data baru yang belum disinkron (synced === 0) dalam 1 menit terakhir
+        // REKONSILIASI DELETE UNTUK DATA ROLLS:
+        // HANYA hapus lokal jika:
+        // 1. Fetch cloud telah SELESAI 100% (fetchCompleted === true)
+        // 2. DAN roll lokal sudah pernah tersinkron (synced === 1) tetapi tidak ada di cloud
+        let staleLocalRolls = [];
+        if (fetchCompleted) {
           const nowMs = Date.now();
-          const staleLocalRolls = existingLocal.filter(r => {
+          staleLocalRolls = existingLocal.filter(r => {
             if (!r.uuid) return false;
-            if (deletedRollSet.has(r.uuid)) return true;
+            // Jika masuk tombstone dan memang tidak ada di cloud
+            if (deletedRollSet.has(r.uuid) && !cloudUuids.has(r.uuid)) return true;
+            // Jika tidak ada di cloud
             if (!cloudUuids.has(r.uuid)) {
-              // Jika roll baru dibuat kurang dari 60 detik lalu dan belum synced, jangan hapus dulu
               if (r.synced === 0 && r.createdAt) {
                 const ageMs = nowMs - new Date(r.createdAt).getTime();
-                if (!isNaN(ageMs) && ageMs < 60000) return false;
+                if (!isNaN(ageMs) && ageMs < 60000) return false; // Jangan hapus data yang baru dibuat offline
               }
-              return true;
+              return r.synced === 1;
             }
             return false;
           });
+        }
 
-          await db.transaction('rw', db.data_rolls, async () => {
-            if (toUpdate.length > 0) await db.data_rolls.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.data_rolls.bulkAdd(toAdd);
-            if (staleLocalRolls.length > 0) {
-              console.log(`[SyncPull] Menghapus ${staleLocalRolls.length} roll di lokal yang telah dihapus di cloud`);
-              const staleUuids = staleLocalRolls.map(s => s.uuid).filter(Boolean);
-              recordTombstones('data_rolls', staleUuids);
-              await db.data_rolls.bulkDelete(staleLocalRolls.map(s => s.id));
-            }
-          });
+        // Simpan dalam chunk 2500 agar transaksi IndexedDB sangat stabil
+        const CHUNK_DEXIE = 2500;
+        for (let i = 0; i < toUpdate.length; i += CHUNK_DEXIE) {
+          await db.data_rolls.bulkPut(toUpdate.slice(i, i + CHUNK_DEXIE));
+        }
+        for (let i = 0; i < toAdd.length; i += CHUNK_DEXIE) {
+          await db.data_rolls.bulkAdd(toAdd.slice(i, i + CHUNK_DEXIE));
+        }
+        if (staleLocalRolls.length > 0) {
+          console.log(`[SyncPull] Menghapus ${staleLocalRolls.length} roll di lokal yang telah dihapus di cloud`);
+          const staleUuids = staleLocalRolls.map(s => s.uuid).filter(Boolean);
+          recordTombstones('data_rolls', staleUuids);
+          await db.data_rolls.bulkDelete(staleLocalRolls.map(s => s.id));
         }
       })());
     }
