@@ -69,6 +69,14 @@
 
       <div class="flex items-center gap-2 flex-wrap text-xs">
         <select
+          v-model="filterDepartment"
+          class="bg-white border border-zinc-300 rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-red-600 cursor-pointer"
+        >
+          <option value="ALL">Semua Departemen</option>
+          <option v-for="d in DEPARTMENTS" :key="d.key" :value="d.key">{{ d.name }}</option>
+        </select>
+
+        <select
           v-model="filterRole"
           class="bg-white border border-zinc-300 rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-red-600 cursor-pointer"
         >
@@ -95,12 +103,12 @@
             <tr class="bg-zinc-50/90 border-b border-zinc-200 text-zinc-500 uppercase font-mono text-[10.5px]">
               <th class="py-3 px-4 text-center w-12">#</th>
               <th class="py-3 px-4">Pengguna</th>
-              <th class="py-3 px-4">Email Terdaftar</th>
+              <th class="py-3 px-4">Departemen / Unit</th>
               <th class="py-3 px-4">Peran (Role)</th>
-              <th class="py-3 px-4">Cakupan Akses</th>
+              <th class="py-3 px-4">Keamanan PIN</th>
               <th class="py-3 px-4 text-center">Status</th>
               <th class="py-3 px-4">Login Terakhir</th>
-              <th class="py-3 px-4 text-center w-36">Aksi</th>
+              <th class="py-3 px-4 text-center w-44">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-100">
@@ -144,9 +152,14 @@
                 </div>
               </td>
 
-              <!-- Email -->
-              <td class="py-3.5 px-4 font-mono text-zinc-700">
-                {{ user.email }}
+              <!-- Department Badge -->
+              <td class="py-3.5 px-4">
+                <div class="font-bold text-zinc-900 leading-tight">
+                  {{ getDepartmentTitle(user.department) }}
+                </div>
+                <div class="text-[10px] text-zinc-400 font-mono truncate max-w-[140px]">
+                  {{ user.email }}
+                </div>
               </td>
 
               <!-- Role Badge -->
@@ -156,11 +169,21 @@
                 </span>
               </td>
 
-              <!-- Permissions Summary -->
+              <!-- PIN Status Badge -->
               <td class="py-3.5 px-4">
-                <span class="text-zinc-600 font-mono text-[11px]">
-                  {{ getPermissionsSummary(user) }}
-                </span>
+                <div class="flex items-center gap-1.5">
+                  <span
+                    :class="[
+                      'px-2 py-0.5 rounded-full text-[10px] font-bold font-mono',
+                      user.pinEnabled ? 'bg-amber-50 text-amber-800 border border-amber-300' : 'bg-zinc-100 text-zinc-500 border border-zinc-200'
+                    ]"
+                  >
+                    {{ user.pinEnabled ? '🔒 PIN Aktif' : 'Nonaktif' }}
+                  </span>
+                  <span v-if="user.pinEnabled" class="text-[9.5px] text-zinc-400 font-mono">
+                    ({{ user.idleTimeoutMinutes || 30 }}m)
+                  </span>
+                </div>
               </td>
 
               <!-- Status Badge -->
@@ -187,7 +210,7 @@
                   <button
                     @click="openEditModal(user)"
                     class="p-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors cursor-pointer"
-                    title="Edit Profil & Hak Akses"
+                    title="Edit Profil, Departemen & Hak Akses"
                   >
                     ✏️
                   </button>
@@ -199,6 +222,16 @@
                     title="Ganti Kata Sandi"
                   >
                     🔑
+                  </button>
+
+                  <!-- Reset PIN Button (If user has PIN enabled or set) -->
+                  <button
+                    v-if="user.pinEnabled || user.pinCode"
+                    @click="handleAdminResetPin(user)"
+                    class="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-200 text-amber-800 transition-colors cursor-pointer border border-amber-300"
+                    title="Reset / Nonaktifkan PIN Pengguna Ini (Jika Lupa PIN)"
+                  >
+                    🔓 PIN
                   </button>
 
                   <!-- Toggle Active Status -->
@@ -289,7 +322,7 @@
             </div>
 
             <!-- Email -->
-            <div class="sm:col-span-2 space-y-1.5">
+            <div class="space-y-1.5">
               <label class="font-bold text-zinc-700">Alamat Email <span class="text-red-500">*</span></label>
               <input
                 v-model="userForm.email"
@@ -297,6 +330,19 @@
                 placeholder="budi@saptawarna.co.id"
                 class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 font-mono text-zinc-900 outline-none focus:ring-2 focus:ring-red-500"
               />
+            </div>
+
+            <!-- Departemen / Unit Kerja -->
+            <div class="space-y-1.5">
+              <label class="font-bold text-zinc-700">Departemen / Bagian <span class="text-red-500">*</span></label>
+              <select
+                v-model="userForm.department"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-red-500 bg-white"
+              >
+                <option v-for="dept in DEPARTMENTS" :key="dept.key" :value="dept.key">
+                  {{ dept.name }}
+                </option>
+              </select>
             </div>
           </div>
 
@@ -585,6 +631,7 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   APP_MENUS,
   ROLE_PRESETS,
+  DEPARTMENTS,
   DEFAULT_SUPER_ADMIN,
   generatePresetPermissions,
   generateRandomPassword,
@@ -595,6 +642,7 @@ const userStore = useUserStore();
 const authStore = useAuthStore();
 
 const searchQuery = ref('');
+const filterDepartment = ref('ALL');
 const filterRole = ref('ALL');
 const filterStatus = ref('ALL');
 
@@ -612,6 +660,11 @@ const filteredUsers = computed(() => {
       const matchUser = (u.username || '').toLowerCase().includes(q);
       const matchEmail = (u.email || '').toLowerCase().includes(q);
       if (!matchName && !matchUser && !matchEmail) return false;
+    }
+
+    // Filter Department
+    if (filterDepartment.value !== 'ALL' && u.department !== filterDepartment.value) {
+      return false;
     }
 
     // Filter Role
@@ -636,6 +689,11 @@ const getRoleTitle = (role) => {
 const getRoleBadgeClass = (role) => {
   const p = ROLE_PRESETS.find(r => r.role === role);
   return p ? p.badgeColor : 'bg-zinc-800 text-white';
+};
+
+const getDepartmentTitle = (deptKey) => {
+  const d = DEPARTMENTS.find(dep => dep.key === deptKey);
+  return d ? d.name.replace('Produksi - ', '') : 'Produksi';
 };
 
 const getPermissionsSummary = (user) => {
@@ -667,6 +725,7 @@ const userForm = reactive({
   email: '',
   password: '',
   role: 'OPERATOR',
+  department: 'PRODUKSI_EXTRUSION',
   permissions: {}
 });
 
@@ -692,6 +751,7 @@ const openAddModal = () => {
   userForm.email = '';
   userForm.password = generateRandomPassword(12);
   userForm.role = 'OPERATOR';
+  userForm.department = 'PRODUKSI_EXTRUSION';
   userForm.permissions = generatePresetPermissions('OPERATOR');
 
   showUserModal.value = true;
@@ -708,6 +768,7 @@ const openEditModal = (user) => {
   userForm.email = user.email;
   userForm.password = '';
   userForm.role = user.role;
+  userForm.department = user.department || 'PRODUKSI_EXTRUSION';
 
   // Initialize permissions deep clone
   const userPerms = typeof user.permissionsJson === 'string'
@@ -766,6 +827,7 @@ const saveUser = async () => {
         email: userForm.email,
         password: userForm.password,
         role: userForm.role,
+        department: userForm.department,
         permissions: userForm.permissions
       });
     } else {
@@ -775,6 +837,7 @@ const saveUser = async () => {
         email: userForm.email,
         password: userForm.password,
         role: userForm.role,
+        department: userForm.department,
         permissions: userForm.permissions
       });
     }
@@ -783,6 +846,18 @@ const saveUser = async () => {
     modalError.value = err.message || 'Gagal menyimpan data pengguna.';
   } finally {
     isSaving.value = false;
+  }
+};
+
+// Admin Reset PIN Action
+const handleAdminResetPin = async (user) => {
+  if (confirm(`Reset dan nonaktifkan PIN 4-digit untuk pengguna "${user.name} (@${user.username})"?\n\nTindakan ini akan menghapus PIN mereka sehingga mereka dapat membuka layar tanpa hambatan.`)) {
+    try {
+      await userStore.resetUserPin(user.id);
+      alert(`PIN untuk @${user.username} berhasil di-reset dan dinonaktifkan.`);
+    } catch (err) {
+      alert(err.message || 'Gagal mereset PIN pengguna.');
+    }
   }
 };
 

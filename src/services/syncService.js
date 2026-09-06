@@ -596,6 +596,25 @@ export async function pushLocalToSupabase() {
       })());
     }
 
+    // 1k. System Users Registry Sync (Multi-Device User Accounts)
+    if (db.users) {
+      tasks.push((async () => {
+        try {
+          const allUsers = await db.users.toArray();
+          if (allUsers.length > 0) {
+            const payload = {
+              key: 'system_users_registry',
+              value: JSON.stringify(allUsers),
+              updated_at: new Date().toISOString()
+            };
+            await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+          }
+        } catch (usrPushErr) {
+          console.warn('[SyncPush] Users registry notice:', usrPushErr.message || usrPushErr);
+        }
+      })());
+    }
+
     // Jalankan seluruh sync push secara PARALEL
     await Promise.all(tasks);
     await countUnsynced();
@@ -1148,6 +1167,26 @@ export async function pullFromSupabase() {
               });
               if (typeof window !== 'undefined' && window.localStorage) {
                 localStorage.setItem(`mlabel_setting_${cs.key}`, JSON.stringify(parsedVal));
+              }
+
+              // Jika ini registry pengguna, sinkronkan ke db.users
+              if (cs.key === 'system_users_registry' && db.users && Array.isArray(parsedVal)) {
+                try {
+                  for (const cu of parsedVal) {
+                    const exist = await db.users.where('username').equalsIgnoreCase(cu.username).first();
+                    if (!exist) {
+                      const { id, ...cleanUser } = cu;
+                      await db.users.add(cleanUser);
+                    } else if (new Date(cu.updatedAt || 0) > new Date(exist.updatedAt || 0)) {
+                      await db.users.update(exist.id, {
+                        ...cu,
+                        id: exist.id
+                      });
+                    }
+                  }
+                } catch (usrErr) {
+                  console.warn('Sync pull users registry into db.users:', usrErr);
+                }
               }
             }
             await db.settings.bulkPut(toUpdate);

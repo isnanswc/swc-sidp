@@ -87,10 +87,15 @@
 
       <!-- User Profile & Logout -->
       <div class="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-zinc-200 relative">
-        <div class="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-zinc-50 border border-zinc-200">
+        <button
+          type="button"
+          @click="authStore.showProfileModal = true"
+          class="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 hover:border-zinc-300 border border-zinc-200 transition-all cursor-pointer text-left shadow-2xs group"
+          title="Klik untuk melihat Profil, Atur PIN & Ganti Kata Sandi"
+        >
           <div
             :class="[
-              'w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black uppercase text-white shadow-2xs',
+              'w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black uppercase text-white shadow-2xs transition-transform group-hover:scale-105',
               authStore.isSuperAdmin ? 'bg-red-600' : (authStore.isAdmin ? 'bg-purple-700' : 'bg-zinc-800')
             ]"
           >
@@ -99,7 +104,7 @@
 
           <div class="hidden sm:block text-left">
             <div class="flex items-center gap-1.5 leading-tight">
-              <p class="text-xs font-black text-zinc-900 truncate max-w-[130px]">
+              <p class="text-xs font-black text-zinc-900 truncate max-w-[130px] group-hover:text-red-600 transition-colors">
                 {{ authStore.currentUser?.name || 'Pengguna' }}
               </p>
               <span
@@ -117,7 +122,20 @@
               {{ authStore.currentUser?.email || '@' + (authStore.currentUser?.username || '') }}
             </p>
           </div>
-        </div>
+        </button>
+
+        <!-- Quick Lock Button (Visible if PIN enabled) -->
+        <button
+          v-if="authStore.currentUser?.pinEnabled"
+          type="button"
+          @click="authStore.lockScreen()"
+          class="p-1.5 sm:p-2 rounded-xl bg-zinc-50 hover:bg-amber-50 hover:border-amber-300 border border-zinc-200 text-zinc-500 hover:text-amber-700 transition-all cursor-pointer shadow-2xs"
+          title="Kunci Layar Sekarang (PIN 4-Digit)"
+        >
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </button>
 
         <!-- Logout Action Button -->
         <button

@@ -6,15 +6,64 @@ import {
   generateSalt,
   DEFAULT_SUPER_ADMIN
 } from '@/services/authService';
+import { supabase } from '@/services/supabaseClient';
 
 export const useUserStore = defineStore('user', () => {
   const users = ref([]);
   const isLoading = ref(false);
 
+  // Sync users to Supabase settings key 'system_users_registry'
+  const syncUsersToCloud = async () => {
+    try {
+      const allUsers = await db.users.toArray();
+      const payload = {
+        key: 'system_users_registry',
+        value: JSON.stringify(allUsers),
+        updated_at: new Date().toISOString()
+      };
+      await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+    } catch (e) {
+      console.warn('[UserStore] Cloud sync notice:', e.message || e);
+    }
+  };
+
   const fetchUsers = async () => {
     isLoading.value = true;
     try {
-      const all = await db.users.toArray();
+      // 1. Ambil data lokal
+      let all = await db.users.toArray();
+
+      // 2. Jika lokal kosong atau saat online, coba cek cloud untuk data terbaru
+      try {
+        const { data: cloudRow } = await supabase
+          .from('settings')
+          .select('value, updated_at')
+          .eq('key', 'system_users_registry')
+          .single();
+
+        if (cloudRow && cloudRow.value) {
+          const cloudUsers = typeof cloudRow.value === 'string' ? JSON.parse(cloudRow.value) : cloudRow.value;
+          if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+            // Merge cloud users ke local DB
+            for (const cu of cloudUsers) {
+              const exist = all.find(u => (u.uuid && u.uuid === cu.uuid) || u.username === cu.username || u.email === cu.email);
+              if (!exist) {
+                const { id, ...cleanCu } = cu;
+                await db.users.add(cleanCu);
+              } else if (new Date(cu.updatedAt || 0) > new Date(exist.updatedAt || 0)) {
+                await db.users.update(exist.id, {
+                  ...cu,
+                  id: exist.id
+                });
+              }
+            }
+            all = await db.users.toArray();
+          }
+        }
+      } catch (cloudErr) {
+        console.warn('[UserStore] Cloud users fetch note:', cloudErr.message || cloudErr);
+      }
+
       users.value = all.map(u => ({
         ...u,
         permissions: typeof u.permissionsJson === 'string' ? JSON.parse(u.permissionsJson) : u.permissionsJson
@@ -27,7 +76,7 @@ export const useUserStore = defineStore('user', () => {
   };
 
   const createUser = async (payload) => {
-    const { username, name, email, password, role, permissions } = payload;
+    const { username, name, email, password, role, permissions, department } = payload;
 
     const trimmedUsername = (username || '').trim().toLowerCase();
     const trimmedEmail = (email || '').trim().toLowerCase();
@@ -60,14 +109,20 @@ export const useUserStore = defineStore('user', () => {
       passwordHash: passwordHash,
       salt: salt,
       role: role || 'OPERATOR',
+      department: department || 'PRODUKSI_EXTRUSION',
       permissionsJson: JSON.stringify(permissions || {}),
       active: true,
+      pinCode: null,
+      pinSalt: null,
+      pinEnabled: false,
+      idleTimeoutMinutes: 30,
       lastLogin: null,
       createdAt: nowIso,
       updatedAt: nowIso
     };
 
     const id = await db.users.add(newUser);
+    await syncUsersToCloud();
     await fetchUsers();
     return id;
   };
@@ -96,6 +151,7 @@ export const useUserStore = defineStore('user', () => {
       name: payload.name.trim(),
       email: trimmedEmail,
       role: payload.role,
+      department: payload.department || user.department || 'PRODUKSI_EXTRUSION',
       permissionsJson: JSON.stringify(payload.permissions || {}),
       updatedAt: new Date().toISOString()
     };
@@ -108,6 +164,7 @@ export const useUserStore = defineStore('user', () => {
     }
 
     await db.users.update(id, updateObj);
+    await syncUsersToCloud();
     await fetchUsers();
   };
 
@@ -126,6 +183,7 @@ export const useUserStore = defineStore('user', () => {
       updatedAt: new Date().toISOString()
     });
 
+    await syncUsersToCloud();
     await fetchUsers();
     return newStatus;
   };
@@ -140,6 +198,7 @@ export const useUserStore = defineStore('user', () => {
     }
 
     await db.users.delete(id);
+    await syncUsersToCloud();
     await fetchUsers();
   };
 
@@ -157,6 +216,23 @@ export const useUserStore = defineStore('user', () => {
       updatedAt: new Date().toISOString()
     });
 
+    await syncUsersToCloud();
+    await fetchUsers();
+  };
+
+  // Admin Reset PIN (Menonaktifkan PIN dan menghapus kode PIN pengguna)
+  const resetUserPin = async (id) => {
+    const user = await db.users.get(id);
+    if (!user) throw new Error('Pengguna tidak ditemukan.');
+
+    await db.users.update(id, {
+      pinCode: null,
+      pinSalt: null,
+      pinEnabled: false,
+      updatedAt: new Date().toISOString()
+    });
+
+    await syncUsersToCloud();
     await fetchUsers();
   };
 
@@ -168,6 +244,8 @@ export const useUserStore = defineStore('user', () => {
     updateUser,
     toggleUserStatus,
     deleteUser,
-    resetUserPassword
+    resetUserPassword,
+    resetUserPin,
+    syncUsersToCloud
   };
 });

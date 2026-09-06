@@ -92,7 +92,90 @@ export const useAuthStore = defineStore('auth', () => {
     return ['ADMIN_DE', 'PPIC'].includes(currentUser.value.role);
   });
 
-  // Login action
+  // Lock Screen States
+  const isLocked = ref(false);
+  const showProfileModal = ref(false);
+  let idleTimer = null;
+
+  // Setup Global Idle Detector
+  const resetIdleTimer = () => {
+    if (!currentUser.value || !currentUser.value.pinEnabled || isLocked.value) return;
+
+    if (idleTimer) clearTimeout(idleTimer);
+
+    const timeoutMinutes = currentUser.value.idleTimeoutMinutes !== undefined ? currentUser.value.idleTimeoutMinutes : 30;
+    if (timeoutMinutes <= 0) return; // 0 = disabled
+
+    idleTimer = setTimeout(() => {
+      lockScreen();
+    }, timeoutMinutes * 60 * 1000);
+  };
+
+  const lockScreen = () => {
+    if (currentUser.value && currentUser.value.pinEnabled) {
+      isLocked.value = true;
+      localStorage.setItem('mlabel_screen_locked', 'true');
+    }
+  };
+
+  const unlockScreen = async (pinInput) => {
+    if (!currentUser.value) throw new Error('Sesi tidak ditemukan.');
+    if (!pinInput || pinInput.length !== 4) {
+      throw new Error('PIN harus terdiri dari 4 digit angka.');
+    }
+
+    const { hashPin } = await import('@/services/authService');
+    const fresh = await db.users.get(currentUser.value.id);
+    if (!fresh) throw new Error('Pengguna tidak ditemukan di database.');
+
+    // Cek kecocokan lokal
+    const hashedPin = await hashPin(pinInput, fresh.pinSalt || 'DEFAULT_PIN_SALT');
+    let isMatch = hashedPin === fresh.pinCode;
+
+    // Jika di lokal belum cocok, coba cek ke Cloud Supabase (misal PIN baru saja diubah di device lain)
+    if (!isMatch) {
+      try {
+        const { supabase } = await import('@/services/supabaseClient');
+        const { data: cloudRow } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'system_users_registry')
+          .single();
+
+        if (cloudRow && cloudRow.value) {
+          const cloudUsers = typeof cloudRow.value === 'string' ? JSON.parse(cloudRow.value) : cloudRow.value;
+          const cloudUser = cloudUsers.find(u => u.uuid === fresh.uuid || u.email === fresh.email);
+          if (cloudUser && cloudUser.pinCode) {
+            const cloudHashedPin = await hashPin(pinInput, cloudUser.pinSalt || 'DEFAULT_PIN_SALT');
+            if (cloudHashedPin === cloudUser.pinCode) {
+              isMatch = true;
+              // Sinkronkan data PIN baru ke lokal
+              await db.users.update(fresh.id, {
+                pinCode: cloudUser.pinCode,
+                pinSalt: cloudUser.pinSalt,
+                pinEnabled: cloudUser.pinEnabled,
+                updatedAt: cloudUser.updatedAt || new Date().toISOString()
+              });
+            }
+          }
+        }
+      } catch (cloudPinErr) {
+        console.warn('Cloud PIN check fallback error:', cloudPinErr);
+      }
+    }
+
+    if (!isMatch) {
+      throw new Error('PIN yang Anda masukkan salah. Coba lagi atau hubungi Super Admin.');
+    }
+
+    isLocked.value = false;
+    localStorage.removeItem('mlabel_screen_locked');
+    resetIdleTimer();
+    return true;
+  };
+
+  // Login action dengan HYBRID MULTI-DEVICE SUPPORT
+  // 1. Cek IndexedDB Lokal -> 2. Jika tidak cocok/tidak ada, otomatis cek ke Cloud Supabase -> 3. Auto-cache ke Lokal
   const login = async (usernameOrEmail, password) => {
     if (!usernameOrEmail || !password) {
       throw new Error('Username / Email dan kata sandi wajib diisi.');
@@ -100,23 +183,77 @@ export const useAuthStore = defineStore('auth', () => {
 
     const trimmed = usernameOrEmail.trim().toLowerCase();
 
-    // Find user by email or username
+    // 1. Cari user di IndexedDB lokal
     let user = await db.users.where('email').equalsIgnoreCase(trimmed).first();
     if (!user) {
       user = await db.users.where('username').equalsIgnoreCase(trimmed).first();
     }
 
+    let passwordMatches = false;
+
+    if (user) {
+      const hashed = await hashPassword(password, user.salt);
+      if (hashed === user.passwordHash) {
+        passwordMatches = true;
+      }
+    }
+
+    // 2. Jika pengguna belum ada di lokal ATAU password lokal tidak cocok (misal baru ganti sandi di Device A)
+    if (!user || !passwordMatches) {
+      try {
+        const { supabase } = await import('@/services/supabaseClient');
+        const { data: cloudRow, error: cloudErr } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'system_users_registry')
+          .single();
+
+        if (!cloudErr && cloudRow && cloudRow.value) {
+          const cloudUsers = typeof cloudRow.value === 'string' ? JSON.parse(cloudRow.value) : cloudRow.value;
+          const matchedCloudUser = (cloudUsers || []).find(cu => 
+            (cu.email && cu.email.toLowerCase() === trimmed) ||
+            (cu.username && cu.username.toLowerCase() === trimmed)
+          );
+
+          if (matchedCloudUser) {
+            // Verifikasi password terhadap hash di Cloud
+            const hashedAgainstCloud = await hashPassword(password, matchedCloudUser.salt);
+            if (hashedAgainstCloud === matchedCloudUser.passwordHash) {
+              passwordMatches = true;
+
+              // Simpan / Perbarui data akun ke IndexedDB lokal (Auto-Healing Cache)
+              const { id: _, ...cleanCloudUser } = matchedCloudUser;
+              if (user) {
+                await db.users.update(user.id, {
+                  ...cleanCloudUser,
+                  updatedAt: matchedCloudUser.updatedAt || new Date().toISOString()
+                });
+                user = await db.users.get(user.id);
+              } else {
+                const newLocalId = await db.users.add({
+                  ...cleanCloudUser,
+                  createdAt: matchedCloudUser.createdAt || new Date().toISOString(),
+                  updatedAt: matchedCloudUser.updatedAt || new Date().toISOString()
+                });
+                user = await db.users.get(newLocalId);
+              }
+            }
+          }
+        }
+      } catch (cloudSyncLoginErr) {
+        console.warn('[HybridLogin] Cloud verification error:', cloudSyncLoginErr);
+      }
+    }
+
     if (!user) {
-      throw new Error('Pengguna tidak ditemukan. Periksa kembali username atau email Anda.');
+      throw new Error('Pengguna tidak ditemukan. Pastikan username atau email Anda benar.');
     }
 
     if (!user.active) {
       throw new Error('Akun Anda dinonaktifkan oleh administrator. Silakan hubungi Super Admin.');
     }
 
-    // Verify Password Hash
-    const hashed = await hashPassword(password, user.salt);
-    if (hashed !== user.passwordHash) {
+    if (!passwordMatches) {
       throw new Error('Kata sandi yang Anda masukkan salah.');
     }
 
@@ -136,6 +273,9 @@ export const useAuthStore = defineStore('auth', () => {
       name: user.name,
       email: user.email,
       role: user.role,
+      department: user.department || 'PRODUKSI_EXTRUSION',
+      pinEnabled: Boolean(user.pinEnabled),
+      idleTimeoutMinutes: user.idleTimeoutMinutes !== undefined ? user.idleTimeoutMinutes : 30,
       permissions: permissions,
       lastLogin: nowIso
     };
@@ -144,14 +284,22 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('mlabel_session_user', JSON.stringify(sessionData));
     localStorage.setItem('mlabel_user_role', user.role);
 
+    // Reset lock screen flag
+    isLocked.value = false;
+    localStorage.removeItem('mlabel_screen_locked');
+    resetIdleTimer();
+
     return sessionData;
   };
 
   // Logout action
   const logout = () => {
     currentUser.value = null;
+    isLocked.value = false;
+    if (idleTimer) clearTimeout(idleTimer);
     localStorage.removeItem('mlabel_session_user');
     localStorage.removeItem('mlabel_user_role');
+    localStorage.removeItem('mlabel_screen_locked');
   };
 
   // Password Reset / OTP Flow for Super Admin & Users (via EmailJS)
@@ -267,6 +415,15 @@ export const useAuthStore = defineStore('auth', () => {
       console.warn('Gagal mengirim konfirmasi perubahan sandi:', e);
     }
 
+    // Sinkronkan data sandi baru ke Cloud Supabase seketika!
+    try {
+      const { useUserStore } = await import('@/stores/userStore');
+      const userStore = useUserStore();
+      await userStore.syncUsersToCloud();
+    } catch (cloudErr) {
+      console.warn('Cloud sync on password reset:', cloudErr);
+    }
+
     return { success: true, message: 'Kata sandi berhasil diperbarui. Silakan login kembali.' };
   };
 
@@ -279,6 +436,11 @@ export const useAuthStore = defineStore('auth', () => {
     isOperator,
     currentRole,
     canUseAiChat,
+    isLocked,
+    showProfileModal,
+    resetIdleTimer,
+    lockScreen,
+    unlockScreen,
     initAuth,
     login,
     logout,

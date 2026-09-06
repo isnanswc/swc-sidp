@@ -64,6 +64,18 @@ export const ROLE_PRESETS = [
   }
 ];
 
+// Department / Division Options
+export const DEPARTMENTS = [
+  { key: 'PRODUKSI_EXTRUSION', name: 'Produksi - Extrusion Film', badge: 'bg-blue-50 text-blue-800 border-blue-200' },
+  { key: 'PRODUKSI_PRINTING', name: 'Produksi - Printing Rotogravure', badge: 'bg-indigo-50 text-indigo-800 border-indigo-200' },
+  { key: 'PRODUKSI_SLITTING', name: 'Produksi - Slitting & Rewind', badge: 'bg-sky-50 text-sky-800 border-sky-200' },
+  { key: 'QC_LAB', name: 'Quality Control (QC / Lab)', badge: 'bg-amber-50 text-amber-800 border-amber-200' },
+  { key: 'GUDANG_LOGISTIK', name: 'Gudang & Logistik (FG / Raw Material)', badge: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  { key: 'PPIC', name: 'PPIC & Inventory Control', badge: 'bg-teal-50 text-teal-800 border-teal-200' },
+  { key: 'MAINTENANCE_ENG', name: 'Maintenance & Utility Engineering', badge: 'bg-orange-50 text-orange-800 border-orange-200' },
+  { key: 'MANAJEMEN_DIREKSI', name: 'Manajemen / Direksi', badge: 'bg-red-50 text-red-800 border-red-200' }
+];
+
 // Helper to generate full permission object for a preset
 export function generatePresetPermissions(role) {
   const permissions = {
@@ -129,6 +141,15 @@ export function generatePresetPermissions(role) {
 export async function hashPassword(password, salt) {
   const enc = new TextEncoder();
   const data = enc.encode(password + salt + 'SWC_MLABEL_SECRET_2026');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// PIN 4-digit hashing helper
+export async function hashPin(pin, salt) {
+  const enc = new TextEncoder();
+  const data = enc.encode('PIN_' + pin + salt + '_SWC_LOCK_2026');
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');

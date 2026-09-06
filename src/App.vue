@@ -38,19 +38,27 @@
     <AiCopilotWidget />
   </div>
 
+  <!-- Global Lock Screen & User Profile Modal Teleports -->
+  <LockScreenModal />
+  <UserProfileModal />
+
   <!-- Global Loading & Long-Running Responsiveness Overlay -->
   <GlobalLoadingOverlay />
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { useAuthStore } from '@/stores/authStore';
 import Sidebar from '@/components/Sidebar.vue';
 import Navbar from '@/components/Navbar.vue';
 import AiCopilotWidget from '@/components/ai/AiCopilotWidget.vue';
 import GlobalLoadingOverlay from '@/components/GlobalLoadingOverlay.vue';
+import LockScreenModal from '@/components/auth/LockScreenModal.vue';
+import UserProfileModal from '@/components/auth/UserProfileModal.vue';
 
 const route = useRoute();
+const authStore = useAuthStore();
 
 // Default Tertutup (Collapsed mode)
 const isSidebarOpen = ref(false);
@@ -59,4 +67,27 @@ const isMobileSidebarOpen = ref(false);
 const toggleSidebar = () => {
   isSidebarOpen.value = !isSidebarOpen.value;
 };
+
+// Global Idle Activity Detection
+const onUserActivity = () => {
+  authStore.resetIdleTimer();
+};
+
+onMounted(() => {
+  window.addEventListener('mousemove', onUserActivity, { passive: true });
+  window.addEventListener('mousedown', onUserActivity, { passive: true });
+  window.addEventListener('keydown', onUserActivity, { passive: true });
+  window.addEventListener('touchstart', onUserActivity, { passive: true });
+  window.addEventListener('scroll', onUserActivity, { passive: true });
+
+  authStore.resetIdleTimer();
+});
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', onUserActivity);
+  window.removeEventListener('mousedown', onUserActivity);
+  window.removeEventListener('keydown', onUserActivity);
+  window.removeEventListener('touchstart', onUserActivity);
+  window.removeEventListener('scroll', onUserActivity);
+});
 </script>
