@@ -79,6 +79,19 @@ export const useAuthStore = defineStore('auth', () => {
     return !!perms[menuKey].view;
   };
 
+  // Feature permission check helper (e.g. AI Chat Float)
+  const canUseAiChat = computed(() => {
+    if (!currentUser.value) return false;
+    if (currentUser.value.role === 'SUPER_ADMIN') return true;
+
+    const perms = currentUser.value.permissions;
+    if (perms?.features?.aiChat !== undefined) {
+      return !!perms.features.aiChat;
+    }
+    // Fallback based on default role
+    return ['ADMIN_DE', 'PPIC'].includes(currentUser.value.role);
+  });
+
   // Login action
   const login = async (usernameOrEmail, password) => {
     if (!usernameOrEmail || !password) {
@@ -226,6 +239,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isOperator,
     currentRole,
+    canUseAiChat,
     initAuth,
     login,
     logout,

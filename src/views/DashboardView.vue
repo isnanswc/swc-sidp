@@ -95,23 +95,24 @@
         </div>
 
         <!-- Frequency Selector + Stepper Hari Sebelumnya (Previous Multi-Times) -->
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2 max-w-full">
           
           <!-- Stepper Tombol Hari Sebelumnya / Berikutnya -->
-          <div class="bg-zinc-100 p-1 rounded-xl border border-zinc-200 flex items-center gap-1 text-xs font-mono font-bold">
+          <div class="bg-zinc-100 p-1 rounded-xl border border-zinc-200 flex items-center gap-1 text-xs font-mono font-bold shrink-0 overflow-x-auto max-w-full">
             <button
               @click="stepPrevDay"
-              class="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-200 text-zinc-850 border border-zinc-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+              class="px-2 sm:px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-200 text-zinc-850 border border-zinc-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1 active:scale-95 text-[11px] sm:text-xs shrink-0"
               title="Lihat data hari sebelumnya (bisa diklik berkali-kali untuk mundur ke H-1, H-2, H-3, dst.)"
             >
               <span>◀</span>
-              <span>Hari Sebelumnya</span>
+              <span class="hidden xs:inline">Hari</span>
+              <span>Sebelumnya</span>
             </button>
 
             <!-- Active Target Date Display Badge -->
             <div
               :class="[
-                'px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5',
+                'px-2 sm:px-2.5 py-1 rounded-lg text-[10.5px] sm:text-[11px] font-bold transition-all flex items-center gap-1 sm:gap-1.5 shrink-0',
                 dayOffset === 0
                   ? 'bg-zinc-200/70 text-zinc-800'
                   : 'bg-red-50 text-red-700 border border-red-200 font-black'
@@ -126,14 +127,14 @@
               @click="stepNextDay"
               :disabled="dayOffset >= 0"
               :class="[
-                'px-2.5 py-1 rounded-lg transition-all flex items-center gap-1',
+                'px-2 sm:px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 text-[11px] sm:text-xs shrink-0',
                 dayOffset < 0
                   ? 'bg-white hover:bg-zinc-200 text-zinc-800 border border-zinc-300 shadow-2xs cursor-pointer active:scale-95'
                   : 'bg-zinc-200/40 text-zinc-400 cursor-not-allowed border border-zinc-200'
               ]"
               title="Lihat data hari berikutnya"
             >
-              <span>Berikutnya</span>
+              <span class="hidden xs:inline">Berikutnya</span>
               <span>▶</span>
             </button>
 
@@ -141,7 +142,7 @@
             <button
               v-if="dayOffset !== 0"
               @click="resetToToday"
-              class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-black text-white text-[11px] transition-all cursor-pointer shadow-2xs font-black"
+              class="px-2 sm:px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-black text-white text-[10.5px] sm:text-[11px] transition-all cursor-pointer shadow-2xs font-black shrink-0"
               title="Kembali ke Hari Ini"
             >
               ↺ Hari Ini
@@ -149,13 +150,13 @@
           </div>
 
           <!-- Pilihan Rentang Waktu (Hari, Minggu, Bulan, 3 Bulan, 6 Bulan, Tahun, Custom) -->
-          <div class="bg-zinc-100 p-1 rounded-xl border border-zinc-200 flex flex-wrap items-center gap-0.5 text-xs font-mono font-bold">
+          <div class="bg-zinc-100 p-1 rounded-xl border border-zinc-200 flex items-center gap-0.5 text-xs font-mono font-bold shrink-0 overflow-x-auto max-w-full scrollbar-none">
             <button
               v-for="freq in frequencyOptions"
               :key="freq.key"
               @click="setFrequency(freq.key)"
               :class="[
-                'px-2.5 py-1 rounded-lg transition-all cursor-pointer text-center text-[11px]',
+                'px-2 sm:px-2.5 py-1 rounded-lg transition-all cursor-pointer text-center text-[10.5px] sm:text-[11px] shrink-0',
                 selectedFrequency === freq.key && (freq.key === 'CUSTOM' || dayOffset === 0)
                   ? 'bg-zinc-950 text-white shadow-xs font-black'
                   : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200/70'
@@ -166,7 +167,7 @@
           </div>
 
           <!-- Input Rentang Custom (Mulai & Selesai) -->
-          <div v-if="selectedFrequency === 'CUSTOM'" class="bg-white p-1 rounded-xl border border-zinc-300 shadow-2xs flex items-center gap-1.5 text-xs font-mono">
+          <div v-if="selectedFrequency === 'CUSTOM'" class="bg-white p-1 rounded-xl border border-zinc-300 shadow-2xs flex items-center gap-1.5 text-xs font-mono shrink-0">
             <span class="text-zinc-500 pl-1 text-[10.5px] font-bold">Dari:</span>
             <input
               type="date"
@@ -184,7 +185,7 @@
           </div>
 
           <!-- Informasi Rentang Tanggal Jelas -->
-          <div class="px-2.5 py-1 rounded-xl bg-red-50 border border-red-200 text-red-900 text-[11px] font-mono font-bold flex items-center gap-1 shadow-2xs">
+          <div class="px-2.5 py-1 rounded-xl bg-red-50 border border-red-200 text-red-900 text-[10.5px] sm:text-[11px] font-mono font-bold flex items-center gap-1 shadow-2xs shrink-0">
             <span>🗓️</span>
             <span>{{ activePeriodSubtitle }}</span>
           </div>
@@ -196,96 +197,96 @@
     <!-- ========================================================================= -->
     <!-- 2. KPI SUMMARY METRIC CARDS (4 KARTU PADAT & MODERN)                      -->
     <!-- ========================================================================= -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 anim-enter-2">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 anim-enter-2">
       <!-- CARD 1: OUTPUT PRODUKSI ROLL -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-red-300 transition-all group">
+      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-red-300 transition-all group flex flex-col justify-between">
         <div class="flex items-center justify-between">
-          <span class="text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+          <span class="text-[9.5px] sm:text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono truncate">
             Output Roll ({{ activePeriodSubtitle }})
           </span>
-          <div class="w-8 h-8 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
             🏷️
           </div>
         </div>
         <div class="mt-2">
-          <div class="text-2xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1.5">
+          <div class="text-xl sm:text-2xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1">
             <span>{{ formatNum(kpiMetrics.totalRolls) }}</span>
-            <span class="text-xs font-bold text-zinc-500 font-sans">Roll</span>
+            <span class="text-[11px] sm:text-xs font-bold text-zinc-500 font-sans">Roll</span>
           </div>
-          <div class="flex items-center gap-1.5 mt-1 text-[11px] text-zinc-500 font-medium font-mono">
+          <div class="flex items-center gap-1 mt-1 text-[10px] sm:text-[11px] text-zinc-500 font-medium font-mono flex-wrap">
             <span class="text-zinc-900 font-bold">Slit: {{ formatNum(kpiMetrics.slittingRolls) }}</span>
             <span class="text-zinc-300">•</span>
             <span class="text-zinc-900 font-bold">Rwd: {{ formatNum(kpiMetrics.rewindRolls) }}</span>
-            <span class="text-zinc-300">•</span>
+            <span class="text-zinc-300 hidden sm:inline">•</span>
             <span class="text-zinc-900 font-bold">Cast: {{ formatNum(kpiMetrics.smlRolls) }}</span>
           </div>
         </div>
       </div>
 
       <!-- CARD 2: TONASE BERAT BERSIH -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-zinc-400 transition-all group">
+      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-zinc-400 transition-all group flex flex-col justify-between">
         <div class="flex items-center justify-between">
-          <span class="text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+          <span class="text-[9.5px] sm:text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono truncate">
             Tonase Bersih
           </span>
-          <div class="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-900 border border-zinc-200 flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-zinc-100 text-zinc-900 border border-zinc-200 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
             ⚖️
           </div>
         </div>
         <div class="mt-2">
-          <div class="text-2xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1.5">
+          <div class="text-xl sm:text-2xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1">
             <span>{{ formatNum(kpiMetrics.totalBeratKg) }}</span>
-            <span class="text-xs font-bold text-zinc-500 font-sans">Kg</span>
+            <span class="text-[11px] sm:text-xs font-bold text-zinc-500 font-sans">Kg</span>
           </div>
-          <div class="text-[11px] text-zinc-500 mt-1 font-medium font-mono">
-            Total <strong>{{ (kpiMetrics.totalBeratKg / 1000).toFixed(2) }} Ton</strong> • {{ formatNum(kpiMetrics.totalMeter) }} Meter
+          <div class="text-[10px] sm:text-[11px] text-zinc-500 mt-1 font-medium font-mono truncate">
+            Total <strong>{{ (kpiMetrics.totalBeratKg / 1000).toFixed(2) }} Ton</strong> • {{ formatNum(kpiMetrics.totalMeter) }} M
           </div>
         </div>
       </div>
 
       <!-- CARD 3: YIELD KUALITAS QC (% PASS) -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-emerald-300 transition-all group">
+      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-emerald-300 transition-all group flex flex-col justify-between">
         <div class="flex items-center justify-between">
-          <span class="text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+          <span class="text-[9.5px] sm:text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono truncate">
             Yield Rate (Mutu QC)
           </span>
-          <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
             🎯
           </div>
         </div>
         <div class="mt-2">
-          <div class="text-2xl font-black text-emerald-600 font-mono tracking-tight flex items-baseline gap-1.5">
+          <div class="text-xl sm:text-2xl font-black text-emerald-600 font-mono tracking-tight flex items-baseline gap-1">
             <span>{{ kpiMetrics.yieldPassRate }}%</span>
-            <span class="text-[10.5px] font-bold text-emerald-700 font-sans">PASS RATE</span>
+            <span class="text-[9.5px] sm:text-[10.5px] font-bold text-emerald-700 font-sans">PASS</span>
           </div>
-          <div class="flex items-center gap-1.5 mt-1 text-[11px] font-mono font-bold">
+          <div class="flex items-center gap-1 mt-1 text-[10px] sm:text-[11px] font-mono font-bold flex-wrap">
             <span class="text-emerald-700">{{ formatNum(kpiMetrics.passCount) }} Pass</span>
             <span class="text-zinc-300">•</span>
             <span class="text-amber-600">{{ formatNum(kpiMetrics.holdCount) }} Hold</span>
-            <span class="text-zinc-300">•</span>
+            <span class="text-zinc-300 hidden sm:inline">•</span>
             <span class="text-red-600">{{ formatNum(kpiMetrics.rejectCount) }} Rej</span>
           </div>
         </div>
       </div>
 
       <!-- CARD 4: SHIFT BERJALAN & GROUP -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-blue-300 transition-all group">
+      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-blue-300 transition-all group flex flex-col justify-between">
         <div class="flex items-center justify-between">
-          <span class="text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono">
-            Shift Aktif Saat Ini
+          <span class="text-[9.5px] sm:text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono truncate">
+            Shift Aktif
           </span>
-          <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
             🔄
           </div>
         </div>
         <div class="mt-2">
-          <div class="text-xl font-black text-zinc-950 font-mono tracking-tight truncate">
+          <div class="text-lg sm:text-xl font-black text-zinc-950 font-mono tracking-tight truncate">
             {{ currentShift.definition.shortName }}
-            <span class="text-[10.5px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-800 ml-1 font-sans">Grup {{ currentShift.group }}</span>
+            <span class="text-[9.5px] sm:text-[10.5px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-800 ml-1 font-sans">Grup {{ currentShift.group }}</span>
           </div>
-          <div class="mt-1 flex items-center justify-between text-[11px] font-mono text-zinc-500">
-            <span>{{ currentShift.definition.startTime }} - {{ currentShift.definition.endTime }}</span>
-            <span class="font-bold text-zinc-800">{{ shiftElapsedPercent }}% Berjalan</span>
+          <div class="mt-1 flex items-center justify-between text-[10px] sm:text-[11px] font-mono text-zinc-500">
+            <span class="truncate">{{ currentShift.definition.startTime }} - {{ currentShift.definition.endTime }}</span>
+            <span class="font-bold text-zinc-800 ml-1 shrink-0">{{ shiftElapsedPercent }}%</span>
           </div>
           <!-- Live Shift Progress Bar -->
           <div class="w-full bg-zinc-100 h-1.5 rounded-full mt-1 overflow-hidden">

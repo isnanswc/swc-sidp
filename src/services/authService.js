@@ -51,6 +51,12 @@ export const ROLE_PRESETS = [
     description: 'Akses sistem inventory (IMS), stok opname, dan cek data roll barang jadi.'
   },
   {
+    role: 'PPIC',
+    title: 'PPIC (Perencanaan & Stok)',
+    badgeColor: 'bg-teal-600 text-white',
+    description: 'Akses penuh perencanaan SPK, jadwal operator, alokasi WIP & stok gudang, serta monitoring produksi.'
+  },
+  {
     role: 'CUSTOM',
     title: 'Kustom Mandiri',
     badgeColor: 'bg-zinc-600 text-white',
@@ -60,7 +66,11 @@ export const ROLE_PRESETS = [
 
 // Helper to generate full permission object for a preset
 export function generatePresetPermissions(role) {
-  const permissions = {};
+  const permissions = {
+    features: {
+      aiChat: ['SUPER_ADMIN', 'ADMIN_DE', 'PPIC'].includes(role)
+    }
+  };
   
   APP_MENUS.forEach(menu => {
     let canView = false;
@@ -73,6 +83,15 @@ export function generatePresetPermissions(role) {
       if (['dashboard', 'schedule', 'data_roll', 'label', 'spk', 'scan_report', 'de_report', 'tools'].includes(menu.key)) {
         canView = true;
         canEdit = true;
+      }
+    } else if (role === 'PPIC') {
+      // PPIC: Hak edit pada SPK, Jadwal, WIP & Stok; Hak lihat pada Label, Data Roll, DE Report, Scan, Tools, Config
+      if (['spk', 'schedule', 'inventory', 'opname'].includes(menu.key)) {
+        canView = true;
+        canEdit = true;
+      } else if (['dashboard', 'data_roll', 'label', 'de_report', 'scan_report', 'tools', 'tasks', 'data_config'].includes(menu.key)) {
+        canView = true;
+        canEdit = false;
       }
     } else if (role === 'OPERATOR') {
       if (['dashboard', 'schedule', 'tools'].includes(menu.key)) {

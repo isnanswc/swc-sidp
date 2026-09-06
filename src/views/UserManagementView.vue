@@ -453,6 +453,36 @@
             </div>
           </div>
 
+          <!-- Special Feature Toggle: SWC AI Copilot Float Widget -->
+          <div class="p-3.5 rounded-2xl bg-gradient-to-r from-red-50/70 via-zinc-50 to-white border border-red-200/80 flex items-center justify-between gap-3 shadow-2xs">
+            <div class="space-y-0.5">
+              <div class="flex items-center gap-2">
+                <span class="text-sm">✨</span>
+                <label class="font-bold text-xs text-zinc-900">
+                  Akses Tombol Floating AI Copilot (Chat AI)
+                </label>
+                <span
+                  class="text-[9px] px-1.5 py-0.2 rounded font-mono font-black border"
+                  :class="userForm.permissions?.features?.aiChat ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-zinc-100 text-zinc-500 border-zinc-200'"
+                >
+                  {{ userForm.permissions?.features?.aiChat ? 'AKTIF' : 'NONAKTIF' }}
+                </span>
+              </div>
+              <p class="text-[10.5px] text-zinc-500 leading-relaxed">
+                Menampilkan asisten AI percakapan melayang (floating bubble) di pojok layar aplikasi untuk akun ini.
+              </p>
+            </div>
+
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                v-model="userForm.permissions.features.aiChat"
+                class="sr-only peer"
+              />
+              <div class="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+            </label>
+          </div>
+
           <!-- Error Feedback Banner -->
           <div v-if="modalError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
             <span>⚠️</span>
@@ -609,11 +639,12 @@ const getRoleBadgeClass = (role) => {
 };
 
 const getPermissionsSummary = (user) => {
-  if (user.role === 'SUPER_ADMIN') return 'Semua Menu (Full Edit)';
+  if (user.role === 'SUPER_ADMIN') return 'Semua Menu (Full Edit) • ✨ AI';
   const perms = user.permissions || {};
-  const activeKeys = Object.keys(perms).filter(k => perms[k]?.view);
-  const editKeys = Object.keys(perms).filter(k => perms[k]?.edit);
-  return `${activeKeys.length} Menu (${editKeys.length} Edit)`;
+  const activeKeys = Object.keys(perms).filter(k => k !== 'features' && perms[k]?.view);
+  const editKeys = Object.keys(perms).filter(k => k !== 'features' && perms[k]?.edit);
+  const hasAi = perms?.features?.aiChat !== undefined ? !!perms.features.aiChat : ['ADMIN_DE', 'PPIC'].includes(user.role);
+  return `${activeKeys.length} Menu (${editKeys.length} Edit)${hasAi ? ' • ✨ AI' : ''}`;
 };
 
 const formatDateTime = (iso) => {
@@ -683,7 +714,13 @@ const openEditModal = (user) => {
     ? JSON.parse(user.permissionsJson)
     : (user.permissions || {});
 
-  const fullPerms = {};
+  const fullPerms = {
+    features: {
+      aiChat: userPerms?.features?.aiChat !== undefined
+        ? !!userPerms.features.aiChat
+        : ['SUPER_ADMIN', 'ADMIN_DE', 'PPIC'].includes(user.role)
+    }
+  };
   APP_MENUS.forEach(m => {
     fullPerms[m.key] = {
       view: !!userPerms[m.key]?.view,

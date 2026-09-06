@@ -97,13 +97,13 @@
           </div>
         </div>
 
-        <!-- Center: Minimalist Search Input Bar -->
-        <div class="flex-1 min-w-[180px] sm:min-w-[220px] relative">
+        <!-- Center: Minimalist Search Input Bar (Full width on mobile, flexible on desktop) -->
+        <div class="w-full sm:flex-1 min-w-0 sm:min-w-[200px] relative order-2 sm:order-none">
           <input
             v-model="labelStore.searchTerm"
             type="text"
             placeholder="Cari SPK, Lot, Turunan, Operator..."
-            class="w-full pl-7 pr-6 py-1 text-xs border border-zinc-200 rounded-lg focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none bg-white font-medium placeholder-zinc-400 h-8"
+            class="w-full pl-7 pr-6 py-1 text-xs border border-zinc-200 rounded-lg focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none bg-white font-medium placeholder-zinc-400 h-8 shadow-2xs"
           />
           <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -119,11 +119,11 @@
         </div>
 
         <!-- Right: Filters, View Mode Toggle, and Actions -->
-        <div class="flex items-center flex-wrap gap-1.5">
+        <div class="flex items-center flex-wrap gap-1.5 w-full sm:w-auto justify-between sm:justify-end order-3 sm:order-none">
           <!-- Filter Mesin -->
           <select
             v-model="labelStore.filterMesin"
-            class="px-2 py-1 text-xs border border-zinc-200 rounded-lg outline-none bg-white font-bold text-zinc-700 hover:border-zinc-300 focus:ring-1 focus:ring-red-500 h-8"
+            class="px-2 py-1 text-xs border border-zinc-200 rounded-lg outline-none bg-white font-bold text-zinc-700 hover:border-zinc-300 focus:ring-1 focus:ring-red-500 h-8 flex-1 sm:flex-initial min-w-[110px]"
             title="Filter Mesin"
           >
             <option value="ALL">Semua Mesin</option>
@@ -133,7 +133,7 @@
           <!-- Filter Status -->
           <select
             v-model="labelStore.filterStatus"
-            class="px-2 py-1 text-xs border border-zinc-200 rounded-lg outline-none bg-white font-bold text-zinc-700 hover:border-zinc-300 focus:ring-1 focus:ring-red-500 h-8"
+            class="px-2 py-1 text-xs border border-zinc-200 rounded-lg outline-none bg-white font-bold text-zinc-700 hover:border-zinc-300 focus:ring-1 focus:ring-red-500 h-8 flex-1 sm:flex-initial min-w-[95px]"
             title="Filter Status"
           >
             <option value="ALL">Status: Semua</option>
@@ -146,7 +146,7 @@
           <div v-if="viewMode === 'table'" class="flex items-center rounded-lg border border-zinc-200 bg-white overflow-hidden h-8">
             <select
               v-model="labelStore.sortBy"
-              class="px-2 py-1 text-xs outline-none bg-transparent font-semibold text-zinc-700 cursor-pointer"
+              class="px-2 py-1 text-xs outline-none bg-transparent font-semibold text-zinc-700 cursor-pointer max-w-[130px] sm:max-w-none truncate"
             >
               <option value="hierarki">🎯 Hierarki Slitting (Alur Produksi)</option>
               <option value="id">Terbaru (ID)</option>
@@ -587,33 +587,35 @@
       </div>
 
       <!-- Pagination Footer (STICKY / FROZEN DI BAWAH HALAMAN) -->
-      <div class="sticky bottom-0 z-10 bg-white/95 backdrop-blur-md p-3 sm:p-4 border-t border-zinc-200 shadow-md shadow-zinc-900/5 flex flex-col xl:flex-row items-center justify-between gap-3 text-xs text-zinc-600">
+      <div class="sticky bottom-0 z-10 bg-white/95 backdrop-blur-md p-2.5 sm:p-4 border-t border-zinc-200 shadow-md shadow-zinc-900/5 flex flex-col md:flex-row items-center justify-between gap-2.5 text-xs text-zinc-600">
         <!-- Info Left -->
-        <div class="flex items-center gap-2">
-          <span class="text-zinc-500">Halaman</span>
-          <span class="font-black text-zinc-900 bg-zinc-100 px-2.5 py-0.5 rounded-md border border-zinc-200">{{ labelPagination.current }}</span>
-          <span class="text-zinc-500">dari <strong class="text-zinc-900">{{ labelPagination.total }}</strong></span>
-          <span class="text-zinc-300">•</span>
-          <span class="text-zinc-500">Total <strong class="text-red-600">{{ labelStore.filteredLabels.length }}</strong> label</span>
+        <div class="flex items-center flex-wrap justify-between w-full md:w-auto gap-2">
+          <div class="flex items-center gap-1.5">
+            <span class="text-zinc-500">Hal</span>
+            <span class="font-black text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded-md border border-zinc-200">{{ labelPagination.current }}</span>
+            <span class="text-zinc-500">/ <strong class="text-zinc-900">{{ labelPagination.total }}</strong></span>
+            <span class="text-zinc-300">•</span>
+            <span class="text-zinc-500 font-mono"><strong class="text-red-600">{{ labelStore.filteredLabels.length }}</strong> label</span>
+          </div>
           
           <!-- Rows Per Page Selector -->
-          <div class="flex items-center gap-1.5 ml-3">
+          <div class="flex items-center gap-1.5 ml-auto md:ml-3">
             <span class="text-[11px] text-zinc-400 font-semibold">Tampil:</span>
             <select
               v-model.number="labelStore.rowsPerPage"
-              class="px-2 py-1 text-xs border border-zinc-300 rounded-lg outline-none bg-white font-bold text-zinc-700 cursor-pointer"
+              class="px-2 py-1 text-xs border border-zinc-300 rounded-lg outline-none bg-white font-bold text-zinc-700 cursor-pointer h-7"
             >
-              <option :value="10">10 / hal</option>
-              <option :value="25">25 / hal</option>
-              <option :value="50">50 / hal</option>
-              <option :value="100">100 / hal</option>
-              <option :value="250">250 / hal</option>
+              <option :value="10">10</option>
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+              <option :value="250">250</option>
             </select>
           </div>
         </div>
 
         <!-- Buttons Center/Right -->
-        <div class="flex flex-wrap items-center gap-1">
+        <div class="flex flex-wrap items-center justify-center gap-1 w-full md:w-auto">
           <!-- First Page -->
           <button
             :disabled="labelPagination.current <= 1"

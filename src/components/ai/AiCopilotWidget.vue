@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed z-50 font-sans print:hidden">
+  <div v-if="authStore.canUseAiChat" class="fixed z-50 font-sans print:hidden">
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <!-- 1. FLOATING DRAGGABLE BUBBLE (COLLAPSED STATE)                          -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -492,10 +492,12 @@ import { useDataRollStore } from '@/stores/dataRollStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
+import { useAuthStore } from '@/stores/authStore';
 import { db } from '@/db';
 import { processAiQueryAsync } from '@/services/aiQueryService';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const dataRollStore = useDataRollStore();
 const labelStore = useLabelStore();
 const configStore = useConfigStore();

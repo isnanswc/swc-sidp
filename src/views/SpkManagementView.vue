@@ -30,7 +30,7 @@
       </div>
 
       <!-- 3 SHEETS SWITCHER -->
-      <div class="flex items-center bg-zinc-100 p-1.5 rounded-2xl border border-zinc-200/80 gap-1.5 text-xs overflow-x-auto">
+      <div class="flex items-center bg-zinc-100 p-1.5 rounded-2xl border border-zinc-200/80 gap-1.5 text-xs overflow-x-auto scrollbar-none shrink-0">
         <button
           @click="activeSheet = 'dashboard'"
           :class="[
@@ -84,40 +84,40 @@
     <div v-if="activeSheet === 'dashboard'" class="space-y-4 animate-fade-in">
       
       <!-- TOP KPI CARDS -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
         <!-- KPI 1: Planned vs Actual Meter -->
-        <div class="p-4 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between">
+        <div class="p-3 sm:p-4 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-zinc-500 uppercase font-mono">Volume Rencana Meter</span>
-            <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-800 text-[10px] font-mono font-black border border-blue-200">SLITTING</span>
+            <span class="text-[10px] sm:text-[11px] font-bold text-zinc-500 uppercase font-mono truncate">Rencana Meter</span>
+            <span class="px-1.5 sm:px-2 py-0.5 rounded bg-blue-50 text-blue-800 text-[9px] sm:text-[10px] font-mono font-black border border-blue-200 shrink-0 ml-1">SLIT</span>
           </div>
           <div class="mt-2">
-            <div class="text-2xl font-black font-mono text-zinc-900">{{ formatNumber(totalPlannedMeterAll) }} <span class="text-xs text-zinc-400 font-normal">m</span></div>
-            <div class="text-xs text-zinc-500 mt-0.5 font-medium flex items-center justify-between">
-              <span>Aktual Terpotong:</span>
-              <strong class="font-mono text-emerald-700">{{ formatNumber(totalRealizedMeterAll) }} m</strong>
+            <div class="text-xl sm:text-2xl font-black font-mono text-zinc-900">{{ formatNumber(totalPlannedMeterAll) }} <span class="text-xs text-zinc-400 font-normal">m</span></div>
+            <div class="text-[10.5px] sm:text-xs text-zinc-500 mt-0.5 font-medium flex items-center justify-between">
+              <span class="truncate">Aktual:</span>
+              <strong class="font-mono text-emerald-700 ml-1 shrink-0">{{ formatNumber(totalRealizedMeterAll) }} m</strong>
             </div>
-            <div class="w-full bg-zinc-100 rounded-full h-2 mt-2 overflow-hidden">
-              <div class="bg-blue-600 h-2 rounded-full transition-all duration-500" :style="{ width: `${meterAchievementPercent}%` }"></div>
+            <div class="w-full bg-zinc-100 rounded-full h-1.5 sm:h-2 mt-2 overflow-hidden">
+              <div class="bg-blue-600 h-full rounded-full transition-all duration-500" :style="{ width: `${meterAchievementPercent}%` }"></div>
             </div>
           </div>
         </div>
 
         <!-- KPI 2: Estimasi Waktu & Downtime -->
-        <div class="p-4 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between">
+        <div class="p-3 sm:p-4 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-zinc-500 uppercase font-mono">Estimasi Waktu & Downtime</span>
-            <span class="px-2 py-0.5 rounded bg-purple-50 text-purple-800 text-[10px] font-mono font-black border border-purple-200">SPEED</span>
+            <span class="text-[10px] sm:text-[11px] font-bold text-zinc-500 uppercase font-mono truncate">Est. Waktu</span>
+            <span class="px-1.5 sm:px-2 py-0.5 rounded bg-purple-50 text-purple-800 text-[9px] sm:text-[10px] font-mono font-black border border-purple-200 shrink-0 ml-1">SPEED</span>
           </div>
           <div class="mt-2">
-            <div class="text-2xl font-black font-mono text-purple-950">{{ formatMinutes(totalEstimatedMinutesAll) }}</div>
-            <div class="text-xs text-zinc-500 mt-0.5 font-medium space-y-0.5">
+            <div class="text-xl sm:text-2xl font-black font-mono text-purple-950">{{ formatMinutes(totalEstimatedMinutesAll) }}</div>
+            <div class="text-[10.5px] sm:text-xs text-zinc-500 mt-0.5 font-medium space-y-0.5">
               <div class="flex justify-between">
-                <span>Waktu Potong:</span>
+                <span>Potong:</span>
                 <strong class="font-mono text-zinc-700">{{ formatMinutes(totalCuttingMinutesAll) }}</strong>
               </div>
-              <div class="flex justify-between text-amber-800">
-                <span>Change Over (18m/JR):</span>
+              <div class="flex justify-between text-amber-800 truncate">
+                <span>CO (18m/JR):</span>
                 <strong class="font-mono">{{ formatMinutes(totalChangeOverMinutesAll) }}</strong>
               </div>
             </div>
@@ -125,37 +125,37 @@
         </div>
 
         <!-- KPI 3: Estimasi Jam Selesai (ETC) -->
-        <div class="p-4 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between">
+        <div class="p-3 sm:p-4 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-zinc-500 uppercase font-mono">Estimasi Selesai (ETC)</span>
-            <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[10px] font-mono font-black border border-emerald-200">LIVE</span>
+            <span class="text-[10px] sm:text-[11px] font-bold text-zinc-500 uppercase font-mono truncate">Est. Selesai (ETC)</span>
+            <span class="px-1.5 sm:px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[9px] sm:text-[10px] font-mono font-black border border-emerald-200 shrink-0 ml-1">LIVE</span>
           </div>
           <div class="mt-2">
-            <div class="text-2xl font-black font-mono text-emerald-800">{{ calculatedEtcTimeString }}</div>
-            <p class="text-xs text-zinc-500 mt-1 font-medium">
-              Berdasarkan speed <strong class="text-zinc-700">600 m/min (Polos)</strong> & <strong class="text-zinc-700">400 m/min (Metal)</strong>.
+            <div class="text-xl sm:text-2xl font-black font-mono text-emerald-800">{{ calculatedEtcTimeString }}</div>
+            <p class="text-[10px] sm:text-xs text-zinc-500 mt-1 font-medium truncate">
+              Speed: 600 m/m (Polos), 400 m/m (Metal)
             </p>
           </div>
         </div>
 
         <!-- KPI 4: Analisis Kualitas Roll -->
-        <div class="p-4 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between">
+        <div class="p-3 sm:p-4 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-zinc-500 uppercase font-mono">Analisis Kualitas Hasil</span>
-            <span class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 text-[10px] font-mono font-black border border-zinc-200">QC</span>
+            <span class="text-[10px] sm:text-[11px] font-bold text-zinc-500 uppercase font-mono truncate">Kualitas Hasil</span>
+            <span class="px-1.5 sm:px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 text-[9px] sm:text-[10px] font-mono font-black border border-zinc-200 shrink-0 ml-1">QC</span>
           </div>
-          <div class="mt-2 grid grid-cols-3 gap-1.5 text-center font-mono">
-            <div class="p-1.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200">
-              <div class="text-[9.5px] font-bold text-emerald-700">PASS</div>
-              <div class="text-sm font-black">{{ totalPassAll }}</div>
+          <div class="mt-2 grid grid-cols-3 gap-1 sm:gap-1.5 text-center font-mono">
+            <div class="p-1 sm:p-1.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200">
+              <div class="text-[9px] sm:text-[9.5px] font-bold text-emerald-700">PASS</div>
+              <div class="text-xs sm:text-sm font-black">{{ totalPassAll }}</div>
             </div>
-            <div class="p-1.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200">
-              <div class="text-[9.5px] font-bold text-amber-700">HOLD</div>
-              <div class="text-sm font-black">{{ totalHoldAll }}</div>
+            <div class="p-1 sm:p-1.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200">
+              <div class="text-[9px] sm:text-[9.5px] font-bold text-amber-700">HOLD</div>
+              <div class="text-xs sm:text-sm font-black">{{ totalHoldAll }}</div>
             </div>
-            <div class="p-1.5 rounded-lg bg-red-50 text-red-900 border border-red-200">
-              <div class="text-[9.5px] font-bold text-red-700">REJECT</div>
-              <div class="text-sm font-black">{{ totalRejectAll }}</div>
+            <div class="p-1 sm:p-1.5 rounded-lg bg-red-50 text-red-900 border border-red-200">
+              <div class="text-[9px] sm:text-[9.5px] font-bold text-red-700">REJ</div>
+              <div class="text-xs sm:text-sm font-black">{{ totalRejectAll }}</div>
             </div>
           </div>
         </div>
@@ -272,14 +272,16 @@
         </div>
 
         <!-- Central Timeline Canvas Container -->
-        <div class="p-4 sm:p-6 bg-zinc-100/50 min-h-[350px]">
+        <div class="p-3 sm:p-6 bg-zinc-100/50 min-h-[350px] overflow-x-auto scrollbar-none">
           <div v-if="timelineRows.length === 0" class="py-16 text-center text-zinc-400 font-sans text-xs">
             Belum ada data rencana kerja SPK. Pindai dokumen jadwal atau buat batch baru di Sheet 3.
           </div>
 
-          <div v-else class="relative max-w-5xl mx-auto">
+          <div v-else class="relative max-w-5xl mx-auto min-w-[540px] sm:min-w-0">
+            <!-- Mobile scroll hint -->
+            <div class="sm:hidden text-[10px] text-zinc-400 text-center mb-2 font-medium">↔️ Geser ke samping untuk melihat timeline lengkap</div>
             <!-- Center Vertical Line -->
-            <div class="absolute left-1/2 top-4 bottom-4 w-0.5 bg-gradient-to-b from-emerald-500 via-blue-500 to-zinc-300 -translate-x-1/2"></div>
+            <div class="absolute left-1/2 top-7 bottom-4 w-0.5 bg-gradient-to-b from-emerald-500 via-blue-500 to-zinc-300 -translate-x-1/2"></div>
 
             <!-- Column Headers -->
             <div class="grid grid-cols-2 gap-2 sm:gap-6 mb-4 sm:mb-6 text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-500 select-none">

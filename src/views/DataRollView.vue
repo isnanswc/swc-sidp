@@ -21,12 +21,12 @@
         </div>
       </div>
 
-      <!-- Sheet / Tab Switcher (Modern Segmented Control) -->
-      <div class="flex flex-wrap items-center bg-zinc-100 p-1 rounded-2xl border border-zinc-200 shadow-2xs self-start md:self-auto gap-1">
+      <!-- Sheet / Tab Switcher (Modern Segmented Control with Horizontal Scroll on Mobile) -->
+      <div class="flex items-center overflow-x-auto scrollbar-none bg-zinc-100 p-1 rounded-2xl border border-zinc-200 shadow-2xs self-stretch md:self-auto gap-1">
         <button
           @click="activeSheet = 'table'"
           :class="[
-            'px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5',
+            'px-3 sm:px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap',
             activeSheet === 'table'
               ? 'bg-white text-zinc-900 shadow-xs'
               : 'text-zinc-500 hover:text-zinc-800'
@@ -42,14 +42,14 @@
         <button
           @click="activeSheet = 'history'"
           :class="[
-            'px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5',
+            'px-3 sm:px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap',
             activeSheet === 'history'
               ? 'bg-white text-zinc-900 shadow-xs'
               : 'text-zinc-500 hover:text-zinc-800'
           ]"
         >
           <span>📜</span>
-          <span>Riwayat Upload & Batch</span>
+          <span>Riwayat Upload</span>
           <span class="px-1.5 py-0.2 rounded-full text-[10px] font-black" :class="activeSheet === 'history' ? 'bg-emerald-100 text-emerald-800' : 'bg-zinc-200 text-zinc-600'">
             {{ dataRollStore.uploadHistory.length }}
           </span>
@@ -58,7 +58,7 @@
         <button
           @click="activeSheet = 'analytics'"
           :class="[
-            'px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5',
+            'px-3 sm:px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap',
             activeSheet === 'analytics'
               ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-xs'
               : 'text-zinc-500 hover:text-zinc-800'
@@ -78,32 +78,33 @@
     <!-- ========================================================================= -->
     <div v-if="activeSheet === 'table'" class="space-y-4 animate-fade-in">
       <!-- Sort Info & Direction Bar -->
-      <div class="bg-indigo-50/70 px-4 py-2.5 rounded-2xl border border-indigo-200/80 flex flex-wrap items-center justify-between gap-2 text-xs shadow-2xs">
-        <div class="flex items-center gap-2 text-indigo-950 font-bold">
+      <div class="bg-indigo-50/70 px-3.5 py-2.5 rounded-2xl border border-indigo-200/80 flex flex-wrap items-center justify-between gap-2 text-xs shadow-2xs">
+        <div class="flex items-center gap-2 text-indigo-950 font-bold flex-wrap">
           <span class="text-sm">🔄</span>
-          <span>Urutan Standar Data Roll:</span>
-          <span class="bg-white px-2.5 py-1 rounded-xl border border-indigo-200 text-[11px] font-mono text-indigo-800 font-black shadow-2xs">
-            1. Tanggal ({{ dataRollStore.sortDirection === 'desc' ? 'Terbaru' : 'Terlama' }}) ➔ 2. Mesin ➔ 3. No Lot Slitting ➔ 4. Turunan (HA01, HC01...) ➔ 5. Kode Pack
+          <span>Urutan Standar:</span>
+          <span class="bg-white px-2 py-0.5 rounded-lg border border-indigo-200 text-[10.5px] sm:text-[11px] font-mono text-indigo-800 font-black shadow-2xs">
+            1. Tanggal ({{ dataRollStore.sortDirection === 'desc' ? 'Terbaru' : 'Terlama' }}) ➔ 2. Mesin ➔ 3. No Lot ➔ 4. Turunan
           </span>
         </div>
         <div class="flex items-center gap-2">
           <button
             @click="dataRollStore.sortDirection = dataRollStore.sortDirection === 'desc' ? 'asc' : 'desc'"
-            class="px-3 py-1 rounded-xl text-xs font-black bg-white hover:bg-indigo-100 text-indigo-900 border border-indigo-300 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            class="px-2.5 py-1 rounded-xl text-xs font-black bg-white hover:bg-indigo-100 text-indigo-900 border border-indigo-300 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
             title="Ubah Urutan Tanggal"
           >
-            <span>{{ dataRollStore.sortDirection === 'desc' ? '⬇️ Urutan Tanggal: Terbaru (Z-A)' : '⬆️ Urutan Tanggal: Terlama (A-Z)' }}</span>
+            <span>{{ dataRollStore.sortDirection === 'desc' ? '⬇️ Terbaru (Z-A)' : '⬆️ Terlama (A-Z)' }}</span>
           </button>
         </div>
       </div>
+
       <!-- Toolbar & Action Buttons -->
-      <div class="bg-white p-3 rounded-2xl border border-zinc-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div class="bg-white p-3 rounded-2xl border border-zinc-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
         <!-- Search Input -->
-        <div class="relative flex-1 max-w-md">
+        <div class="relative w-full md:max-w-md">
           <input
             v-model="dataRollStore.filterSearch"
             placeholder="Cari Kode FG, Lot, SPK, Kode Pack, Formula, Dimensi..."
-            class="w-full pl-9 pr-4 py-2 text-xs border border-zinc-300 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 bg-zinc-50/50 focus:bg-white"
+            class="w-full pl-9 pr-4 py-2 text-xs border border-zinc-300 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 bg-zinc-50/50 focus:bg-white shadow-2xs"
           />
           <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8" />
@@ -112,14 +113,14 @@
         </div>
 
         <!-- Filters & Action Buttons -->
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between md:justify-end">
           <!-- Machine Filter Buttons -->
-          <div class="flex items-center bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 text-xs font-bold">
+          <div class="flex items-center bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 text-xs font-bold flex-1 sm:flex-initial justify-center">
             <button
               @click="dataRollStore.filterMachine = 'ALL'"
               :class="['px-2.5 py-1.5 rounded-lg transition-all cursor-pointer', dataRollStore.filterMachine === 'ALL' ? 'bg-white text-zinc-900 shadow-2xs font-black' : 'text-zinc-500 hover:text-zinc-900']"
             >
-              Semua Mesin
+              Semua
             </button>
             <button
               @click="dataRollStore.filterMachine = 'SLITTING'"
@@ -144,7 +145,7 @@
           <!-- Quality Status Filter Dropdown -->
           <select
             v-model="dataRollStore.filterStatus"
-            class="px-2.5 py-1.5 text-xs font-bold border border-zinc-300 rounded-xl bg-white text-zinc-800 outline-none"
+            class="px-2.5 py-1.5 text-xs font-bold border border-zinc-300 rounded-xl bg-white text-zinc-800 outline-none flex-1 sm:flex-initial"
           >
             <option value="ALL">Semua Status</option>
             <option value="PASS">PASS (Hijau)</option>
@@ -153,44 +154,46 @@
           </select>
 
           <!-- Action Buttons -->
-          <button
-            @click="openImportModal"
-            class="px-3 py-1.5 text-xs font-black bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
-          >
-            <span>📥 Import Excel</span>
-          </button>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button
+              @click="openImportModal"
+              class="px-3 py-1.5 text-xs font-black bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
+            >
+              <span>📥 Import</span>
+            </button>
 
-          <button
-            @click="openAddModal"
-            class="px-3 py-1.5 text-xs font-black bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-          >
-            <span>➕ Tambah</span>
-          </button>
+            <button
+              @click="openAddModal"
+              class="px-3 py-1.5 text-xs font-black bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+            >
+              <span>➕ Tambah</span>
+            </button>
 
-          <button
-            @click="dataRollStore.exportToExcel()"
-            :disabled="dataRollStore.totalRolls === 0"
-            class="px-3 py-1.5 text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl border border-zinc-200 cursor-pointer disabled:opacity-50 transition-colors flex items-center gap-1"
-          >
-            <span>📊 Export</span>
-          </button>
+            <button
+              @click="dataRollStore.exportToExcel()"
+              :disabled="dataRollStore.totalRolls === 0"
+              class="px-3 py-1.5 text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl border border-zinc-200 cursor-pointer disabled:opacity-50 transition-colors flex items-center gap-1"
+            >
+              <span>📊 Export</span>
+            </button>
 
-          <button
-            v-if="selectedRollIds.length > 0"
-            @click="handleBulkDelete"
-            class="px-3 py-1.5 text-xs font-bold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl cursor-pointer transition-colors flex items-center gap-1"
-          >
-            <span>🗑️ Hapus ({{ selectedRollIds.length }})</span>
-          </button>
+            <button
+              v-if="selectedRollIds.length > 0"
+              @click="handleBulkDelete"
+              class="px-3 py-1.5 text-xs font-bold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl cursor-pointer transition-colors flex items-center gap-1"
+            >
+              <span>🗑️ ({{ selectedRollIds.length }})</span>
+            </button>
 
-          <button
-            v-if="dataRollStore.totalRolls > 0"
-            @click="handleClearAllRolls"
-            class="px-3 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
-            title="Hapus seluruh data roll secara permanen"
-          >
-            <span>🔥 Hapus Semua Data Roll</span>
-          </button>
+            <button
+              v-if="dataRollStore.totalRolls > 0"
+              @click="handleClearAllRolls"
+              class="px-2.5 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
+              title="Hapus seluruh data roll secara permanen"
+            >
+              <span>🔥 Hapus Semua</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -420,33 +423,35 @@
         </div>
 
         <!-- Pagination Bar -->
-        <div class="px-4 py-3 border-t border-zinc-200 bg-white flex flex-col xl:flex-row items-center justify-between gap-3 text-xs">
+        <div class="px-3 sm:px-4 py-2.5 sm:py-3 border-t border-zinc-200 bg-white flex flex-col md:flex-row items-center justify-between gap-2.5 text-xs">
           <!-- Info Left -->
-          <div class="flex items-center gap-2 text-zinc-600">
-            <span>Halaman</span>
-            <span class="font-black text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">{{ dataRollPagination.current }}</span>
-            <span>dari <strong class="text-zinc-900">{{ dataRollPagination.total }}</strong></span>
-            <span class="text-zinc-300">•</span>
-            <span>Total <strong class="text-emerald-700">{{ dataRollStore.filteredRolls.length }}</strong> roll</span>
+          <div class="flex items-center flex-wrap justify-between w-full md:w-auto gap-2 text-zinc-600">
+            <div class="flex items-center gap-1.5">
+              <span>Hal</span>
+              <span class="font-black text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">{{ dataRollPagination.current }}</span>
+              <span>/ <strong class="text-zinc-900">{{ dataRollPagination.total }}</strong></span>
+              <span class="text-zinc-300">•</span>
+              <span><strong class="text-emerald-700">{{ dataRollStore.filteredRolls.length }}</strong> roll</span>
+            </div>
 
             <!-- Page Size Selector -->
-            <div class="flex items-center gap-1.5 ml-3">
+            <div class="flex items-center gap-1.5 ml-auto md:ml-3">
               <span class="text-[11px] text-zinc-400 font-semibold">Tampil:</span>
               <select
                 v-model.number="pageSize"
-                class="px-2 py-1 text-xs border border-zinc-300 rounded-lg outline-none bg-white font-bold text-zinc-700 cursor-pointer"
+                class="px-2 py-1 text-xs border border-zinc-300 rounded-lg outline-none bg-white font-bold text-zinc-700 cursor-pointer h-7"
               >
-                <option :value="10">10 / hal</option>
-                <option :value="25">25 / hal</option>
-                <option :value="50">50 / hal</option>
-                <option :value="100">100 / hal</option>
-                <option :value="250">250 / hal</option>
+                <option :value="10">10</option>
+                <option :value="25">25</option>
+                <option :value="50">50</option>
+                <option :value="100">100</option>
+                <option :value="250">250</option>
               </select>
             </div>
           </div>
 
           <!-- Buttons Center/Right -->
-          <div class="flex flex-wrap items-center gap-1">
+          <div class="flex flex-wrap items-center justify-center gap-1 w-full md:w-auto">
             <!-- First Page -->
             <button
               :disabled="dataRollPagination.current <= 1"
@@ -916,77 +921,77 @@
       </div>
 
       <!-- 2. KPI METRIC CARDS (Filtered Results) -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         <!-- Total Roll -->
-        <div class="p-4 bg-white rounded-2xl border border-zinc-200 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-indigo-300 transition-colors">
+        <div class="p-3 sm:p-4 bg-white rounded-2xl border border-zinc-200 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-indigo-300 transition-colors">
           <div class="absolute top-0 right-0 w-16 h-16 bg-indigo-50 rounded-bl-full -mr-2 -mt-2 transition-transform group-hover:scale-110"></div>
-          <span class="text-[10.5px] font-black text-zinc-500 uppercase tracking-wider relative z-10">Total Roll</span>
+          <span class="text-[10px] sm:text-[10.5px] font-black text-zinc-500 uppercase tracking-wider relative z-10">Total Roll</span>
           <div class="mt-2 relative z-10">
-            <div class="text-2xl font-black text-zinc-900 tracking-tight">{{ analyticsMetrics.total }}</div>
-            <div class="text-[10.5px] text-zinc-400 font-medium mt-0.5 flex items-center gap-1">
-              <span>{{ timeRangeLabel }}</span>
+            <div class="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight">{{ analyticsMetrics.total }}</div>
+            <div class="text-[10px] sm:text-[10.5px] text-zinc-400 font-medium mt-0.5 flex items-center gap-1">
+              <span class="truncate">{{ timeRangeLabel }}</span>
             </div>
           </div>
         </div>
 
         <!-- Quality PASS -->
-        <div class="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-emerald-400 transition-colors">
+        <div class="p-3 sm:p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-emerald-400 transition-colors">
           <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-100/60 rounded-bl-full -mr-2 -mt-2 transition-transform group-hover:scale-110"></div>
-          <span class="text-[10.5px] font-black text-emerald-800 uppercase tracking-wider relative z-10">PASS (Siap)</span>
+          <span class="text-[10px] sm:text-[10.5px] font-black text-emerald-800 uppercase tracking-wider relative z-10">PASS (Siap)</span>
           <div class="mt-2 relative z-10">
-            <div class="text-2xl font-black text-emerald-700 tracking-tight">{{ analyticsMetrics.pass }}</div>
-            <div class="text-[10.5px] text-emerald-700 font-black mt-0.5 flex items-center gap-1">
+            <div class="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight">{{ analyticsMetrics.pass }}</div>
+            <div class="text-[10px] sm:text-[10.5px] text-emerald-700 font-black mt-0.5 flex items-center gap-1">
               <span>{{ analyticsMetrics.passRate }}%</span>
-              <span class="font-normal text-emerald-600">dari total</span>
+              <span class="font-normal text-emerald-600 hidden xs:inline">dari total</span>
             </div>
           </div>
         </div>
 
         <!-- Quality HOLD -->
-        <div class="p-4 bg-amber-50/70 rounded-2xl border border-amber-200/80 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-amber-400 transition-colors">
+        <div class="p-3 sm:p-4 bg-amber-50/70 rounded-2xl border border-amber-200/80 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-amber-400 transition-colors">
           <div class="absolute top-0 right-0 w-16 h-16 bg-amber-100/60 rounded-bl-full -mr-2 -mt-2 transition-transform group-hover:scale-110"></div>
-          <span class="text-[10.5px] font-black text-amber-800 uppercase tracking-wider relative z-10">HOLD (Karantina)</span>
+          <span class="text-[10px] sm:text-[10.5px] font-black text-amber-800 uppercase tracking-wider relative z-10">HOLD (Karantina)</span>
           <div class="mt-2 relative z-10">
-            <div class="text-2xl font-black text-amber-700 tracking-tight">{{ analyticsMetrics.hold }}</div>
-            <div class="text-[10.5px] text-amber-700 font-black mt-0.5 flex items-center gap-1">
+            <div class="text-xl sm:text-2xl font-black text-amber-700 tracking-tight">{{ analyticsMetrics.hold }}</div>
+            <div class="text-[10px] sm:text-[10.5px] text-amber-700 font-black mt-0.5 flex items-center gap-1">
               <span>{{ analyticsMetrics.holdRate }}%</span>
-              <span class="font-normal text-amber-600">terkarantina</span>
+              <span class="font-normal text-amber-600 hidden xs:inline">terkarantina</span>
             </div>
           </div>
         </div>
 
         <!-- Quality REJECT -->
-        <div class="p-4 bg-red-50/70 rounded-2xl border border-red-200/80 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-red-400 transition-colors">
+        <div class="p-3 sm:p-4 bg-red-50/70 rounded-2xl border border-red-200/80 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-red-400 transition-colors">
           <div class="absolute top-0 right-0 w-16 h-16 bg-red-100/60 rounded-bl-full -mr-2 -mt-2 transition-transform group-hover:scale-110"></div>
-          <span class="text-[10.5px] font-black text-red-800 uppercase tracking-wider relative z-10">REJECT (Afval)</span>
+          <span class="text-[10px] sm:text-[10.5px] font-black text-red-800 uppercase tracking-wider relative z-10">REJECT (Afval)</span>
           <div class="mt-2 relative z-10">
-            <div class="text-2xl font-black text-red-700 tracking-tight">{{ analyticsMetrics.reject }}</div>
-            <div class="text-[10.5px] text-red-700 font-black mt-0.5 flex items-center gap-1">
+            <div class="text-xl sm:text-2xl font-black text-red-700 tracking-tight">{{ analyticsMetrics.reject }}</div>
+            <div class="text-[10px] sm:text-[10.5px] text-red-700 font-black mt-0.5 flex items-center gap-1">
               <span>{{ analyticsMetrics.rejectRate }}%</span>
-              <span class="font-normal text-red-600">scrap</span>
+              <span class="font-normal text-red-600 hidden xs:inline">scrap</span>
             </div>
           </div>
         </div>
 
         <!-- Total Meter Linear -->
-        <div class="p-4 bg-white rounded-2xl border border-zinc-200 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-indigo-300 transition-colors">
+        <div class="p-3 sm:p-4 bg-white rounded-2xl border border-zinc-200 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-indigo-300 transition-colors">
           <div class="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -mr-2 -mt-2 transition-transform group-hover:scale-110"></div>
-          <span class="text-[10.5px] font-black text-zinc-500 uppercase tracking-wider relative z-10">Panjang Linear</span>
+          <span class="text-[10px] sm:text-[10.5px] font-black text-zinc-500 uppercase tracking-wider relative z-10">Panjang Linear</span>
           <div class="mt-2 relative z-10">
-            <div class="text-2xl font-black text-blue-700 tracking-tight">{{ formatNumber(analyticsMetrics.totalMeters) }}</div>
-            <div class="text-[10.5px] text-zinc-400 font-medium mt-0.5">
+            <div class="text-xl sm:text-2xl font-black text-blue-700 tracking-tight">{{ formatNumber(analyticsMetrics.totalMeters) }}</div>
+            <div class="text-[10px] sm:text-[10.5px] text-zinc-400 font-medium mt-0.5">
               Meter (Estimasi)
             </div>
           </div>
         </div>
 
         <!-- Rata-rata Output per Hari -->
-        <div class="p-4 bg-white rounded-2xl border border-zinc-200 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-indigo-300 transition-colors">
+        <div class="p-3 sm:p-4 bg-white rounded-2xl border border-zinc-200 shadow-2xs flex flex-col justify-between relative overflow-hidden group hover:border-indigo-300 transition-colors">
           <div class="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -mr-2 -mt-2 transition-transform group-hover:scale-110"></div>
-          <span class="text-[10.5px] font-black text-zinc-500 uppercase tracking-wider relative z-10">Rata-rata Harian</span>
+          <span class="text-[10px] sm:text-[10.5px] font-black text-zinc-500 uppercase tracking-wider relative z-10">Rata-rata Harian</span>
           <div class="mt-2 relative z-10">
-            <div class="text-2xl font-black text-purple-700 tracking-tight">{{ analyticsMetrics.avgDaily }}</div>
-            <div class="text-[10.5px] text-zinc-400 font-medium mt-0.5">
+            <div class="text-xl sm:text-2xl font-black text-purple-700 tracking-tight">{{ analyticsMetrics.avgDaily }}</div>
+            <div class="text-[10px] sm:text-[10.5px] text-zinc-400 font-medium mt-0.5">
               Roll / Hari Aktif
             </div>
           </div>
@@ -994,7 +999,7 @@
       </div>
 
       <!-- 3. MAIN INTERACTIVE TIMELINE CHART -->
-      <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs space-y-3">
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 shadow-xs space-y-3">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-zinc-100 pb-3">
           <div>
             <h2 class="text-sm font-black text-zinc-900 flex items-center gap-2">
@@ -1011,7 +1016,7 @@
 
           <div class="flex items-center gap-3 flex-wrap justify-between lg:justify-end">
             <!-- Granularity Pill Selector -->
-            <div class="flex items-center bg-zinc-100 p-0.5 rounded-xl text-[11px] font-bold border border-zinc-200">
+            <div class="flex items-center bg-zinc-100 p-0.5 rounded-xl text-[11px] font-bold border border-zinc-200 overflow-x-auto max-w-full scrollbar-none">
               <button
                 v-for="g in [
                   { id: 'auto', label: '⚡ Otomatis' },
@@ -1022,7 +1027,7 @@
                 :key="g.id"
                 @click="setGranularity(g.id)"
                 :class="[
-                  'px-2.5 py-1 rounded-lg transition-all cursor-pointer text-xs',
+                  'px-2.5 py-1 rounded-lg transition-all cursor-pointer text-xs shrink-0',
                   selectedGranularity === g.id ? 'bg-white text-zinc-900 shadow-2xs font-black' : 'text-zinc-500 hover:text-zinc-800'
                 ]"
               >
@@ -1031,7 +1036,7 @@
             </div>
 
             <!-- Legend -->
-            <div class="flex items-center gap-2.5 text-xs font-bold pl-2 border-l border-zinc-200">
+            <div class="flex items-center gap-2 sm:gap-2.5 text-[11px] sm:text-xs font-bold sm:pl-2 sm:border-l border-zinc-200 flex-wrap">
               <span class="flex items-center gap-1.5 text-indigo-700"><span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span> Total</span>
               <span class="flex items-center gap-1.5 text-emerald-700"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> PASS</span>
               <span class="flex items-center gap-1.5 text-amber-700"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> HOLD</span>
