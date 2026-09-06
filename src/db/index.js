@@ -392,6 +392,10 @@ db.version(22).stores({
   spk_batches: '++id, uuid, batchName, docNo, tanggal, totalItems, totalJumbo, totalMeter, source, createdAt, updatedAt'
 });
 
+db.version(23).stores({
+  data_rolls: '++id, uuid, uploadId, batchId, kodeFg, lot, turunan, jenis, kodeFormula, thickness, width, length, core, treatment, od, slitting, rewind, sml, machineName, tanggal, tanggalFormatted, spk, kodePack, subKode, qualityStatus, verified, synced, createdAt, updatedAt'
+});
+
 export async function saveSetting(key, value) {
   try {
     let cleanValue = value;

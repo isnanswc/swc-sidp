@@ -4,7 +4,7 @@ import { db } from '@/db';
 import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot, parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import { useGlobalLoading } from '@/services/loadingService';
-import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones } from '@/services/syncService';
+import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones, broadcastClearAllRolls } from '@/services/syncService';
 
 export const useDataRollStore = defineStore('dataRollStore', () => {
   const rolls = ref([]);
@@ -251,14 +251,20 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         db.data_rolls.bulkDelete(orphanedExplicitIds).catch(() => {});
       }
 
+      const orphanedDeLabelIds = [];
       for (const r of deRolls) {
         if (r.uuid && (deletedRollSet.has(r.uuid) || deletedLabelSet.has(r.uuid))) {
+          if (r.originalLabelId) orphanedDeLabelIds.push(r.originalLabelId);
           continue;
         }
         const key = r.uuid || `de_${r.originalLabelId || r.id}`;
         if (!combinedMap.has(key)) {
           combinedMap.set(key, r);
         }
+      }
+
+      if (orphanedDeLabelIds.length > 0 && db.labels) {
+        db.labels.bulkDelete(orphanedDeLabelIds).catch(() => {});
       }
 
       rolls.value = Array.from(combinedMap.values());
@@ -425,8 +431,10 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
 
       const sanitized = validItems.map(item => ({
         ...item,
+        uuid: item.uuid || `roll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         uploadId: uploadUuid,
         verified: 1,
+        synced: 0,
         verifiedAt: item.verifiedAt || now,
         verifiedBy: meta.uploadedBy || 'Import Excel',
         createdAt: item.createdAt || now,
@@ -553,12 +561,15 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     try {
       const now = new Date().toISOString();
       const newRoll = {
+        uuid: item.uuid || `roll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         ...item,
+        synced: 0,
         createdAt: now,
         updatedAt: now
       };
       const id = await db.data_rolls.add(newRoll);
-      await loadRolls();
+      await loadRolls(true);
+      pushLocalToSupabase().catch(() => {});
       return id;
     } catch (e) {
       console.error('Failed to add roll:', e);
@@ -572,9 +583,11 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       const now = new Date().toISOString();
       await db.data_rolls.update(id, {
         ...updates,
+        synced: 0,
         updatedAt: now
       });
-      await loadRolls();
+      await loadRolls(true);
+      pushLocalToSupabase().catch(() => {});
     } catch (e) {
       console.error('Failed to update roll:', e);
       throw e;
@@ -588,22 +601,27 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       const itemInMemory = rolls.value.find(r => r.id === id);
 
       if (isDeLabel || itemInMemory?.originalLabelId) {
-        const labelId = itemInMemory?.originalLabelId || parseInt(id.replace('de_label_', ''), 10);
+        const labelId = itemInMemory?.originalLabelId || (typeof id === 'string' ? parseInt(id.replace('de_label_', ''), 10) : id);
         const labelObj = db.labels ? await db.labels.get(labelId) : null;
         const uId = labelObj?.uniqId || itemInMemory?.uuid;
-        if (db.labels) await db.labels.delete(labelId);
         if (uId) {
+          recordTombstones('labels', [uId]);
           deleteFromSupabase('labels', 'uniq_id', uId).catch(() => {});
         }
+        if (itemInMemory?.uuid) {
+          recordTombstones('data_rolls', [itemInMemory.uuid]);
+        }
+        if (db.labels) await db.labels.delete(labelId);
       } else {
         const roll = await db.data_rolls.get(id);
         const uuid = roll?.uuid || itemInMemory?.uuid;
-        await db.data_rolls.delete(id);
         if (uuid) {
+          recordTombstones('data_rolls', [uuid]);
           deleteFromSupabase('data_rolls', 'uuid', uuid).catch(() => {});
         }
+        await db.data_rolls.delete(id);
       }
-      await loadRolls();
+      await loadRolls(true);
     } catch (e) {
       console.error('Failed to delete roll:', e);
       throw e;
@@ -635,23 +653,25 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         const rollsToDelete = await db.data_rolls.where('id').anyOf(rollIds).toArray();
         const foundUuids = rollsToDelete.map(r => r.uuid).filter(Boolean);
         const allUuids = [...new Set([...rollUuids, ...foundUuids])];
-        await db.data_rolls.bulkDelete(rollIds);
         if (allUuids.length > 0) {
+          recordTombstones('data_rolls', allUuids);
           deleteMultipleFromSupabase('data_rolls', 'uuid', allUuids).catch(() => {});
         }
+        await db.data_rolls.bulkDelete(rollIds);
       }
 
       if (deLabelIds.length > 0 && db.labels) {
         const labelsToDelete = await db.labels.where('id').anyOf(deLabelIds).toArray();
         const foundUniqIds = labelsToDelete.map(l => l.uniqId).filter(Boolean);
         const allUniqIds = [...new Set([...labelUniqIds, ...foundUniqIds])];
-        await db.labels.bulkDelete(deLabelIds);
         if (allUniqIds.length > 0) {
+          recordTombstones('labels', allUniqIds);
           deleteMultipleFromSupabase('labels', 'uniq_id', allUniqIds).catch(() => {});
         }
+        await db.labels.bulkDelete(deLabelIds);
       }
 
-      await loadRolls();
+      await loadRolls(true);
     } catch (e) {
       console.error('Failed to delete multiple rolls:', e);
       throw e;
@@ -679,26 +699,39 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       const allExisting = db.data_rolls ? await db.data_rolls.toArray() : [];
       const explicitUuids = allExisting.map(r => r.uuid).filter(Boolean);
 
+      // 3. Also gather all from db.labels if any DE rolls
+      if (db.labels) {
+        const allLabelsInDb = await db.labels.toArray();
+        for (const l of allLabelsInDb) {
+          if (l.uniqId) deLabelUniqIds.push(l.uniqId);
+          deLabelIds.push(l.id);
+        }
+      }
+
       const allRollUuids = [...new Set([...currentUuids, ...explicitUuids])];
       if (allRollUuids.length > 0) {
         recordTombstones('data_rolls', allRollUuids);
       }
-      if (deLabelUniqIds.length > 0) {
-        recordTombstones('labels', deLabelUniqIds);
+      const uniqueDeLabelIds = [...new Set(deLabelIds)];
+      const uniqueDeLabelUniqIds = [...new Set(deLabelUniqIds.filter(Boolean))];
+      if (uniqueDeLabelUniqIds.length > 0) {
+        recordTombstones('labels', uniqueDeLabelUniqIds);
       }
 
-      // 3. Clear local db.data_rolls
+      // 4. Clear local db.data_rolls
       if (db.data_rolls) {
         await db.data_rolls.clear();
       }
 
-      // 4. Delete matching DE labels if user wants full wipe
-      if (deLabelIds.length > 0 && db.labels) {
-        await db.labels.bulkDelete(deLabelIds);
-        deleteMultipleFromSupabase('labels', 'uniq_id', deLabelUniqIds).catch(() => {});
+      // 5. Delete matching DE labels if user wants full wipe
+      if (uniqueDeLabelIds.length > 0 && db.labels) {
+        await db.labels.bulkDelete(uniqueDeLabelIds);
+        if (uniqueDeLabelUniqIds.length > 0) {
+          deleteMultipleFromSupabase('labels', 'uniq_id', uniqueDeLabelUniqIds).catch(() => {});
+        }
       }
 
-      // 5. Clear batch uploads if any
+      // 6. Clear batch uploads if any
       if (db.data_roll_uploads) {
         await db.data_roll_uploads.clear();
       }
@@ -706,12 +739,15 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       rolls.value = [];
       uploadHistory.value = [];
 
-      // 6. Delete all from Supabase data_rolls
+      // 7. Delete all from Supabase data_rolls
       try {
         await supabase.from('data_rolls').delete().neq('uuid', 'keep_all');
       } catch (errCloud) {
         console.warn('Supabase clear data_rolls warning:', errCloud);
       }
+
+      // 8. Broadcast clear ke semua perangkat lain yang sedang online
+      await broadcastClearAllRolls();
     } catch (e) {
       console.error('Failed to clear data_rolls:', e);
       throw e;

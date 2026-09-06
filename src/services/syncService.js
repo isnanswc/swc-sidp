@@ -210,6 +210,7 @@ function mapDataRollFromSupabase(s) {
     subKode: s.sub_kode,
     qualityStatus: s.quality_status,
     verified: s.verified ? 1 : 0,
+    synced: 1,
     createdAt: s.created_at,
     updatedAt: s.updated_at
   };
@@ -358,15 +359,24 @@ export async function pushLocalToSupabase() {
           await db.data_rolls.bulkDelete(zombieRolls.map(z => z.id));
         }
 
-        // 2. Hanya push roll yang valid dan BUKAN yang pernah dihapus
-        const validRolls = allRolls.filter(r => !r.uuid || !deletedRollSet.has(r.uuid));
-        if (validRolls.length > 0) {
+        // 2. HANYA push roll yang BELUM tersinkron (synced === 0 atau !r.synced) dan BUKAN tombstone!
+        // Hal ini sangat penting agar Device B tidak mengunggah kembali data yang sudah dihapus di cloud!
+        const unsyncedRolls = allRolls.filter(r => (r.synced === 0 || !r.synced) && (!r.uuid || !deletedRollSet.has(r.uuid)));
+        if (unsyncedRolls.length > 0) {
           const CHUNK = 500;
-          for (let i = 0; i < validRolls.length; i += CHUNK) {
-            const chunk = validRolls.slice(i, i + CHUNK);
+          for (let i = 0; i < unsyncedRolls.length; i += CHUNK) {
+            const chunk = unsyncedRolls.slice(i, i + CHUNK);
             const payload = chunk.map(mapDataRollToSupabase);
-            await supabase.from('data_rolls').upsert(payload, { onConflict: 'uuid' });
+            const { error } = await supabase.from('data_rolls').upsert(payload, { onConflict: 'uuid' });
+            if (error) throw error;
           }
+
+          // Tandai sebagai synced: 1 agar tidak di-push ulang di sesi berikutnya
+          await db.transaction('rw', db.data_rolls, async () => {
+            for (const r of unsyncedRolls) {
+              await db.data_rolls.update(r.id, { synced: 1 });
+            }
+          });
         }
       })());
     }
@@ -718,14 +728,14 @@ export async function pullFromSupabase() {
           // Jika ada roll lokal yang:
           // 1. Masuk dalam blacklist deletedRollSet (tombstone)
           // 2. ATAU UUID-nya sudah tidak ada di cloudRolls (artinya dihapus oleh device lain)
-          //    dan roll tersebut bukan data baru yang belum pernah memiliki UUID / bukan offline-created dalam 1 menit terakhir
+          //    dan roll tersebut bukan data baru yang belum disinkron (synced === 0) dalam 1 menit terakhir
           const nowMs = Date.now();
           const staleLocalRolls = existingLocal.filter(r => {
             if (!r.uuid) return false;
             if (deletedRollSet.has(r.uuid)) return true;
             if (!cloudUuids.has(r.uuid)) {
-              // Jika roll baru dibuat kurang dari 60 detik lalu, jangan hapus dulu (mungkin belum ter-push)
-              if (r.createdAt) {
+              // Jika roll baru dibuat kurang dari 60 detik lalu dan belum synced, jangan hapus dulu
+              if (r.synced === 0 && r.createdAt) {
                 const ageMs = nowMs - new Date(r.createdAt).getTime();
                 if (!isNaN(ageMs) && ageMs < 60000) return false;
               }
@@ -739,6 +749,8 @@ export async function pullFromSupabase() {
             if (toAdd.length > 0) await db.data_rolls.bulkAdd(toAdd);
             if (staleLocalRolls.length > 0) {
               console.log(`[SyncPull] Menghapus ${staleLocalRolls.length} roll di lokal yang telah dihapus di cloud`);
+              const staleUuids = staleLocalRolls.map(s => s.uuid).filter(Boolean);
+              recordTombstones('data_rolls', staleUuids);
               await db.data_rolls.bulkDelete(staleLocalRolls.map(s => s.id));
             }
           });
@@ -1035,12 +1047,28 @@ export async function countUnsynced() {
 // 4. Full Bidirectional Sync
 export async function syncAll() {
   if (syncState.isSyncing) return;
-  await pushLocalToSupabase();
+  // PULL FIRST! Selalu unduh dan rekonsiliasi data/hapus dari cloud sebelum mencoba push
   await pullFromSupabase();
+  await pushLocalToSupabase();
   await countUnsynced();
 }
 
-// 5. REALTIME LISTENER: Menerima perubahan langsung dari Supabase saat user lain menginput
+// 5. Broadcast helper antar device (misal ketika Hapus Semua Data Roll ditekan)
+export async function broadcastClearAllRolls() {
+  try {
+    if (realtimeChannel) {
+      await realtimeChannel.send({
+        type: 'broadcast',
+        event: 'clear_all_data_rolls',
+        payload: { timestamp: Date.now() }
+      });
+    }
+  } catch (err) {
+    console.warn('broadcastClearAllRolls notice:', err);
+  }
+}
+
+// 6. REALTIME LISTENER: Menerima perubahan langsung dari Supabase saat user lain menginput
 let realtimeChannel = null;
 let debounceConfigPullTimer = null;
 
@@ -1102,8 +1130,9 @@ export function startRealtimeSync(onDataChangeCallback) {
       if (onDataChangeCallback) onDataChangeCallback('spk_plans');
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'data_rolls' }, async (payload) => {
-      if (payload.eventType === 'DELETE' && payload.old) {
-        const targetUuid = payload.old.uuid;
+      console.log('⚡ Realtime data_rolls event received:', payload.eventType);
+      if (payload.eventType === 'DELETE') {
+        const targetUuid = payload.old ? (payload.old.uuid || payload.old.id) : null;
         if (targetUuid) {
           recordTombstones('data_rolls', [targetUuid]);
           const existing = await db.data_rolls.where('uuid').equals(targetUuid).first();
@@ -1111,6 +1140,35 @@ export function startRealtimeSync(onDataChangeCallback) {
             await db.data_rolls.delete(existing.id);
           }
         }
+        // Tarik perubahan terbaru dari cloud secara debounced
+        debouncedPull(onDataChangeCallback, 'data_rolls');
+      } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const item = mapDataRollFromSupabase(payload.new);
+        const deletedRollSet = new Set(getTombstones('data_rolls'));
+        if (!deletedRollSet.has(item.uuid)) {
+          const existing = await db.data_rolls.where('uuid').equals(item.uuid).first();
+          if (existing) {
+            await db.data_rolls.update(existing.id, item);
+          } else {
+            await db.data_rolls.add(item);
+          }
+        }
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
+      }
+      if (onDataChangeCallback) onDataChangeCallback('data_rolls');
+    })
+    .on('broadcast', { event: 'clear_all_data_rolls' }, async () => {
+      console.log('⚡ [Realtime] Menerima broadcast Hapus Semua Data Roll dari perangkat lain');
+      if (db.data_rolls) {
+        const all = await db.data_rolls.toArray();
+        const allUuids = all.map(r => r.uuid).filter(Boolean);
+        if (allUuids.length > 0) recordTombstones('data_rolls', allUuids);
+        await db.data_rolls.clear();
+      }
+      if (db.data_roll_uploads) {
+        await db.data_roll_uploads.clear();
       }
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
