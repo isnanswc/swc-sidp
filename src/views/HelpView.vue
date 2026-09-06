@@ -234,387 +234,628 @@
 
     <!-- ======================================================== -->
     <!-- SHEET 2: ABOUT ME & SEJARAH EVOLUSI (Clean White, Red Accent) -->
+    <!-- Dilengkapi Animasi Background Polkadot & Moving Industrial Icons -->
     <!-- ======================================================== -->
-    <div v-show="activeSheet === 'about'" class="space-y-12">
-      <!-- Creator Profile Card: Minimalist Crisp White with Red & Black Accents -->
-      <div class="bg-white rounded-3xl p-6 sm:p-10 border border-zinc-200 shadow-sm relative overflow-hidden transition hover:border-zinc-300">
-        <!-- Elegant subtle red gradient line on top -->
-        <div class="absolute top-0 left-0 right-0 h-1 bg-red-600"></div>
+    <div v-show="activeSheet === 'about'" class="space-y-12 relative p-4 sm:p-8 rounded-3xl overflow-hidden bg-slate-50/50 border border-zinc-200/60">
+      
+      <!-- ======================================================= -->
+      <!-- ANIMATED BACKGROUND: POLKADOT + HAIRLINE GRID + INDUSTRIAL ICONS -->
+      <!-- ======================================================= -->
+      <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <!-- 1. Polkadot Pattern Background (Dot Matrix Industrial Aesthetic) -->
+        <div class="absolute inset-0 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] [background-size:24px_24px] opacity-70"></div>
 
-        <!-- Ambient decorative corner watermark -->
-        <div class="absolute -right-10 -bottom-10 w-44 h-44 bg-red-50 rounded-full blur-2xl pointer-events-none opacity-60"></div>
+        <!-- 2. Fine Hairline Grid Accent -->
+        <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(24,24,27,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(24,24,27,0.03)_1px,transparent_1px)] bg-[size:56px_56px]"></div>
 
-        <div class="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8">
-          <!-- Flat Minimalist Avatar Box with Animated Badge -->
-          <div class="relative shrink-0 group">
-            <div class="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-zinc-950 text-white p-1 shadow-lg border border-zinc-900 transition-transform duration-300 group-hover:scale-105 flex items-center justify-center">
-              <div class="w-full h-full rounded-[22px] bg-white border border-zinc-100 flex flex-col items-center justify-center p-3 text-center relative overflow-hidden">
-                <!-- Flat Minimalist Developer Illustration -->
-                <svg class="w-12 h-12 text-zinc-900 mb-1 group-hover:text-red-600 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span class="text-[11px] font-black tracking-wider text-zinc-900 font-mono">ISNAN M.S.</span>
-                <span class="text-[8.5px] font-bold text-red-600 uppercase tracking-widest">S.Kom.</span>
-              </div>
-            </div>
-            <!-- Pulse Status Pill -->
-            <div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-red-600 text-white text-[9.5px] font-extrabold uppercase tracking-wider shadow-md flex items-center gap-1.5 whitespace-nowrap">
-              <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-              Creator
-            </div>
+        <!-- 3. Ambient Soft Color Glows -->
+        <div class="absolute top-10 left-10 w-96 h-96 bg-red-500/5 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-10 right-10 w-96 h-96 bg-zinc-900/5 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/3 rounded-full blur-3xl"></div>
+
+        <!-- ===================================================== -->
+        <!-- STREAM 1: UPPER DRIFTING INDUSTRIAL ICONS (Left to Right) -->
+        <!-- ===================================================== -->
+        <div class="absolute top-[8%] left-0 w-[200%] flex items-center justify-around stream-track stream-slow opacity-35">
+          <!-- Pabrik (Red) -->
+          <div class="industrial-icon text-red-600 transform -rotate-6" title="Pabrik">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#fee2e2" fill-opacity="0.6" />
+              <line x1="36" y1="14" x2="42" y2="14" stroke-width="2.5" />
+              <circle cx="12" cy="32" r="2.5" fill="currentColor" stroke="none" />
+              <circle cx="22" cy="32" r="2.5" fill="currentColor" stroke="none" />
+            </svg>
           </div>
+          <!-- Roll Film (Black) -->
+          <div class="industrial-icon text-zinc-900 transform rotate-12" title="Roll Film">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#e4e4e7" fill-opacity="0.6" />
+              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="#f4f4f5" fill-opacity="0.5" />
+              <ellipse cx="18" cy="24" rx="3.5" ry="7" fill="#ffffff" stroke="currentColor" stroke-width="2" />
+            </svg>
+          </div>
+          <!-- Karung Resin PP (Red) -->
+          <div class="industrial-icon text-red-600 transform -rotate-12" title="Resin">
+            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 14c0-4 4-6 12-6s12 2 12 6l3 22c0 3-4 6-15 6s-15-3-15-6z" fill="#fee2e2" fill-opacity="0.6" />
+              <ellipse cx="24" cy="8" rx="7" ry="2.5" fill="currentColor" />
+              <rect x="18" y="21" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="#ffffff" />
+              <text x="24" y="27.5" font-size="6.5" font-family="monospace" font-weight="900" text-anchor="middle" fill="currentColor" stroke="none">PP</text>
+            </svg>
+          </div>
+          <!-- Forklift (Black) -->
+          <div class="industrial-icon text-zinc-900 transform rotate-6" title="Forklift">
+            <svg class="w-12 h-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M6 32h18v-8l-8-6H8v14z" fill="#f4f4f5" fill-opacity="0.7" />
+              <path d="M24 14h6v22" stroke-width="2.5" />
+              <path d="M30 30h10v-4" stroke-width="2.5" stroke-linecap="round" />
+              <circle cx="12" cy="36" r="4.5" fill="#18181b" stroke="#ef4444" stroke-width="2" />
+              <circle cx="26" cy="36" r="4.5" fill="#18181b" stroke="#ef4444" stroke-width="2" />
+            </svg>
+          </div>
+          <!-- Barcode Scanner (Red) -->
+          <div class="industrial-icon text-red-600 transform -rotate-6" title="Scanner Barcode">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="10" y="8" width="28" height="18" rx="3" fill="#fee2e2" fill-opacity="0.6" />
+              <line x1="16" y1="13" x2="16" y2="21" stroke-width="2.5" />
+              <line x1="20" y1="13" x2="20" y2="21" stroke-width="1.5" />
+              <line x1="24" y1="13" x2="24" y2="21" stroke-width="3" />
+              <line x1="28" y1="13" x2="28" y2="21" stroke-width="2" />
+              <line x1="32" y1="13" x2="32" y2="21" stroke-width="1.5" />
+              <path d="M16 26l4 14h8l4-14" fill="#f4f4f5" />
+            </svg>
+          </div>
+          <!-- Mesin Slitter Rewind (Black) -->
+          <div class="industrial-icon text-zinc-900 transform rotate-10" title="Mesin Slitter">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="8" y="22" width="32" height="18" rx="2" fill="#f4f4f5" fill-opacity="0.8" />
+              <circle cx="16" cy="18" r="6" fill="#ffffff" stroke="currentColor" stroke-width="2" />
+              <circle cx="32" cy="18" r="6" fill="#ffffff" stroke="currentColor" stroke-width="2" />
+              <path d="M16 12h16" stroke-width="2.5" />
+            </svg>
+          </div>
+          <!-- Loop Repeat Set 1 -->
+          <div class="industrial-icon text-red-600 transform -rotate-6">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#fee2e2" fill-opacity="0.6" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-zinc-900 transform rotate-12">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#e4e4e7" fill-opacity="0.6" />
+              <ellipse cx="18" cy="24" rx="3.5" ry="7" fill="#ffffff" stroke="currentColor" stroke-width="2" />
+            </svg>
+          </div>
+        </div>
 
-          <!-- Profile Details -->
-          <div class="flex-1 text-center md:text-left space-y-3">
-            <div>
-              <div class="flex items-center justify-center md:justify-start gap-2.5 flex-wrap">
-                <h2 class="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight">
-                  Isnan Mauladi Syahputra, S.Kom.
-                </h2>
-                <span class="px-2.5 py-0.5 rounded-lg bg-zinc-900 text-white text-[11px] font-bold">
-                  Lead Software Creator & AI Engineer
-                </span>
-              </div>
-              <p class="text-xs sm:text-sm text-zinc-500 font-medium mt-1">
-                Industrial System Architect & Full-Stack Web Developer
-              </p>
-            </div>
-
-            <!-- Heartfelt Mission Quote -->
-            <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-zinc-700 text-xs sm:text-sm leading-relaxed relative">
-              <span class="text-red-600 font-black text-lg absolute -top-2 left-3">“</span>
-              <p class="italic pl-3 text-zinc-600">
-                Program <strong>M-Label</strong> lahir dan dibangun sebagai bentuk kontribusi nyata untuk meringankan serta melipatgandakan efisiensi kerja di lingkungan industri PT. Saptawarna Cemerlang. Menghilangkan beban penulisan manual yang melelahkan, mencegah salah hitung rumus, dan memberikan kepastian data yang rapi dan dapat diandalkan oleh seluruh rekan kerja di pabrik.
-              </p>
-            </div>
-
-            <!-- Tech Badges: Clean Minimalist Tags -->
-            <div class="flex items-center justify-center md:justify-start gap-2 flex-wrap pt-1">
-              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
-                ⚡ Vue 3 & Vite
-              </span>
-              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
-                📦 Dexie IndexedDB (Offline-First)
-              </span>
-              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
-                ☁️ Supabase Realtime
-              </span>
-              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
-                🤖 Google Gemini Vision AI
-              </span>
-              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
-                🎨 Tailwind CSS
-              </span>
-            </div>
+        <!-- ===================================================== -->
+        <!-- STREAM 2: MIDDLE DRIFTING INDUSTRIAL ICONS (Left to Right, Mid Speed) -->
+        <!-- ===================================================== -->
+        <div class="absolute top-[42%] left-0 w-[200%] flex items-center justify-around stream-track stream-mid opacity-35">
+          <!-- Gear / Roda Gigi (Black) -->
+          <div class="industrial-icon text-zinc-900 transform rotate-25" title="Roda Gigi Mekanikal">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M24 6v4m0 28v4M6 24h4m28 0h4m-7.2-12.8-2.8 2.8m-16 16-2.8 2.8m0-21.6 2.8 2.8m16 16 2.8 2.8" stroke-width="3" stroke-linecap="round" />
+              <circle cx="24" cy="24" r="11" fill="#f4f4f5" fill-opacity="0.7" stroke-width="2" />
+              <circle cx="24" cy="24" r="4.5" fill="currentColor" />
+            </svg>
+          </div>
+          <!-- Meteran Pengukur Roll (Red) -->
+          <div class="industrial-icon text-red-600 transform -rotate-15" title="Meteran">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" fill-opacity="0.6" />
+              <circle cx="18" cy="26" r="6" fill="#ffffff" stroke="currentColor" stroke-width="2" />
+              <path d="M30 32h14v-7H30" fill="#dc2626" fill-opacity="0.25" />
+            </svg>
+          </div>
+          <!-- AI Chip Processor (Black) -->
+          <div class="industrial-icon text-zinc-900 transform rotate-12" title="AI Chip">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="12" y="12" width="24" height="24" rx="4" fill="#f4f4f5" fill-opacity="0.8" />
+              <text x="24" y="27" font-size="11" font-family="monospace" font-weight="900" text-anchor="middle" fill="#dc2626" stroke="none">AI</text>
+              <line x1="18" y1="6" x2="18" y2="12" stroke-width="2.5" />
+              <line x1="30" y1="6" x2="30" y2="12" stroke-width="2.5" />
+              <line x1="18" y1="36" x2="18" y2="42" stroke-width="2.5" />
+              <line x1="30" y1="36" x2="30" y2="42" stroke-width="2.5" />
+            </svg>
+          </div>
+          <!-- Pallet Kayu Gudang (Red) -->
+          <div class="industrial-icon text-red-600 transform -rotate-8" title="Palet Gudang">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="4" y="18" width="40" height="6" rx="1.5" fill="#fee2e2" fill-opacity="0.8" />
+              <rect x="8" y="24" width="6" height="12" fill="currentColor" />
+              <rect x="21" y="24" width="6" height="12" fill="currentColor" />
+              <rect x="34" y="24" width="6" height="12" fill="currentColor" />
+              <line x1="4" y1="36" x2="44" y2="36" stroke-width="3" />
+            </svg>
+          </div>
+          <!-- Micrometer Gauge / Ketebalan Film (Black) -->
+          <div class="industrial-icon text-zinc-900 transform rotate-8" title="Micrometer Film">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="24" cy="20" r="12" fill="#f4f4f5" />
+              <path d="M24 8v12l8-4" stroke-width="2" />
+              <circle cx="24" cy="20" r="2" fill="currentColor" />
+              <rect x="20" y="32" width="8" height="10" rx="1" fill="#fee2e2" stroke="#dc2626" />
+            </svg>
+          </div>
+          <!-- Komputer Terminal (Red) -->
+          <div class="industrial-icon text-red-600 transform -rotate-6" title="Komputer Kontrol">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="8" width="36" height="24" rx="3" fill="#fee2e2" fill-opacity="0.5" />
+              <line x1="12" y1="15" x2="26" y2="15" stroke-width="2.5" />
+              <line x1="12" y1="21" x2="36" y2="21" stroke-width="2" stroke-dasharray="3 2" />
+              <path d="M24 32v6M16 38h16" stroke-width="2.8" stroke-linecap="round" />
+            </svg>
+          </div>
+          <!-- Loop Repeat Set 2 -->
+          <div class="industrial-icon text-zinc-900 transform rotate-25">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="24" cy="24" r="11" fill="#f4f4f5" fill-opacity="0.7" stroke-width="2" />
+              <circle cx="24" cy="24" r="4.5" fill="currentColor" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform -rotate-15">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" fill-opacity="0.6" />
+            </svg>
           </div>
         </div>
 
-        <!-- Contact & Direct Actions Strip -->
-        <div class="mt-8 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div class="flex items-center gap-6 text-xs text-zinc-600 flex-wrap justify-center sm:justify-start">
-            <!-- Email -->
-            <a
-              href="mailto:isnanswc@gmail.com"
-              class="flex items-center gap-2 group hover:text-red-600 transition font-medium"
-            >
-              <div class="w-7 h-7 rounded-lg bg-zinc-100 group-hover:bg-red-50 text-zinc-700 group-hover:text-red-600 flex items-center justify-center transition">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <span><strong>Email:</strong> isnanswc@gmail.com</span>
-            </a>
-
-            <!-- Location -->
-            <div class="flex items-center gap-2">
-              <div class="w-7 h-7 rounded-lg bg-zinc-100 text-zinc-700 flex items-center justify-center">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <span><strong>Lokasi:</strong> PT. Saptawarna Cemerlang</span>
-            </div>
+        <!-- ===================================================== -->
+        <!-- STREAM 3: LOWER DRIFTING INDUSTRIAL ICONS (Left to Right, Slow Flow) -->
+        <!-- ===================================================== -->
+        <div class="absolute bottom-[10%] left-0 w-[200%] flex items-center justify-around stream-track stream-slow opacity-35">
+          <!-- Timbangan Industri (Black) -->
+          <div class="industrial-icon text-zinc-900 transform -rotate-8" title="Timbangan Berat">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="8" y="28" width="32" height="12" rx="2" fill="#f4f4f5" />
+              <rect x="18" y="10" width="12" height="18" rx="2" fill="#fee2e2" stroke="#dc2626" />
+              <circle cx="24" cy="18" r="3" fill="#dc2626" />
+              <line x1="4" y1="40" x2="44" y2="40" stroke-width="3" />
+            </svg>
           </div>
-
-          <div>
-            <a
-              href="mailto:isnanswc@gmail.com?subject=Tanya%20Sistem%20M-Label"
-              class="px-5 py-2.5 rounded-2xl bg-zinc-900 hover:bg-red-600 text-white text-xs font-bold transition-all duration-300 flex items-center gap-2 shadow-xs cursor-pointer group"
-            >
-              <svg class="w-4 h-4 text-red-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <span>Kirim Pesan / Feedback</span>
-            </a>
+          <!-- QC Magnifier / Checkmark (Red) -->
+          <div class="industrial-icon text-red-600 transform rotate-12" title="QC Lab">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="20" cy="20" r="12" fill="#fee2e2" fill-opacity="0.5" stroke-width="2.2" />
+              <line x1="29" y1="29" x2="42" y2="42" stroke-width="3.5" stroke-linecap="round" />
+              <polyline points="15 20 18 23 25 16" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <!-- Bobbin Roll Core (Black) -->
+          <div class="industrial-icon text-zinc-900 transform -rotate-12" title="Core Paper">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="24" cy="24" r="14" fill="#f4f4f5" stroke-width="2" />
+              <circle cx="24" cy="24" r="6" fill="#fee2e2" stroke="#dc2626" stroke-width="2" />
+              <circle cx="24" cy="24" r="2" fill="#dc2626" />
+            </svg>
+          </div>
+          <!-- Cloud Sync (Red) -->
+          <div class="industrial-icon text-red-600 transform rotate-6" title="Cloud Realtime">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 32a8 8 0 0 1-1-15.9A12 12 0 0 1 34 16a9 9 0 0 1 2 16z" fill="#fee2e2" fill-opacity="0.6" />
+              <polyline points="20 28 24 24 28 28" stroke-width="2.5" />
+              <line x1="24" y1="24" x2="24" y2="36" stroke-width="2.5" />
+            </svg>
+          </div>
+          <!-- Forklift (Black) -->
+          <div class="industrial-icon text-zinc-900 transform -rotate-4" title="Forklift Pabrik">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M6 32h18v-8l-8-6H8v14z" fill="#f4f4f5" fill-opacity="0.6" />
+              <path d="M24 14h6v22" stroke-width="2.5" />
+              <circle cx="12" cy="36" r="4.5" fill="#dc2626" stroke="#18181b" stroke-width="2" />
+              <circle cx="26" cy="36" r="4.5" fill="#dc2626" stroke="#18181b" stroke-width="2" />
+            </svg>
+          </div>
+          <!-- Roll Film (Red) -->
+          <div class="industrial-icon text-red-600 transform rotate-8" title="Roll Film Jadi">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#fee2e2" fill-opacity="0.6" />
+              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="#fecdd3" fill-opacity="0.4" />
+              <ellipse cx="18" cy="24" rx="3.5" ry="7" fill="#ffffff" stroke="currentColor" stroke-width="2" />
+            </svg>
+          </div>
+          <!-- Loop Repeat Set 3 -->
+          <div class="industrial-icon text-zinc-900 transform -rotate-8">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="8" y="28" width="32" height="12" rx="2" fill="#f4f4f5" />
+            </svg>
+          </div>
+          <div class="industrial-icon text-red-600 transform rotate-12">
+            <svg class="w-11 h-11" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="20" cy="20" r="12" fill="#fee2e2" fill-opacity="0.5" />
+            </svg>
           </div>
         </div>
+
+        <!-- Soft Radial White Gradient to Keep Content Readable -->
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,250,252,0.85)_0%,rgba(248,250,252,0.5)_65%,transparent_100%)] pointer-events-none"></div>
       </div>
 
-      <!-- Historical Evolution Timeline (Alternating Left-Right Central Axis) -->
-      <div class="space-y-8">
-        <!-- Title Banner -->
-        <div class="text-center max-w-2xl mx-auto space-y-2">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-black uppercase tracking-wider">
-            <span>🚀</span> Rekam Jejak Transformasi
+      <!-- ======================================================= -->
+      <!-- FOREGROUND CONTENT: RELATIVE & ON TOP OF BACKGROUND -->
+      <!-- ======================================================= -->
+      <div class="relative z-10 space-y-12">
+        <!-- Creator Profile Card: Minimalist Crisp White with Red & Black Accents -->
+        <div class="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-10 border border-zinc-200 shadow-sm relative overflow-hidden transition hover:border-zinc-300">
+          <!-- Elegant subtle red gradient line on top -->
+          <div class="absolute top-0 left-0 right-0 h-1 bg-red-600"></div>
+
+          <!-- Ambient decorative corner watermark -->
+          <div class="absolute -right-10 -bottom-10 w-44 h-44 bg-red-50 rounded-full blur-2xl pointer-events-none opacity-60"></div>
+
+          <div class="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8">
+            <!-- Flat Minimalist Avatar Box with Animated Badge -->
+            <div class="relative shrink-0 group">
+              <div class="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-zinc-950 text-white p-1 shadow-lg border border-zinc-900 transition-transform duration-300 group-hover:scale-105 flex items-center justify-center">
+                <div class="w-full h-full rounded-[22px] bg-white border border-zinc-100 flex flex-col items-center justify-center p-3 text-center relative overflow-hidden">
+                  <!-- Flat Minimalist Developer Illustration -->
+                  <svg class="w-12 h-12 text-zinc-900 mb-1 group-hover:text-red-600 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span class="text-[11px] font-black tracking-wider text-zinc-900 font-mono">ISNAN M.S.</span>
+                  <span class="text-[8.5px] font-bold text-red-600 uppercase tracking-widest">S.Kom.</span>
+                </div>
+              </div>
+              <!-- Pulse Status Pill -->
+              <div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-red-600 text-white text-[9.5px] font-extrabold uppercase tracking-wider shadow-md flex items-center gap-1.5 whitespace-nowrap">
+                <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                Creator
+              </div>
+            </div>
+
+            <!-- Profile Details -->
+            <div class="flex-1 text-center md:text-left space-y-3">
+              <div>
+                <div class="flex items-center justify-center md:justify-start gap-2.5 flex-wrap">
+                  <h2 class="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight">
+                    Isnan Mauladi Syahputra, S.Kom.
+                  </h2>
+                  <span class="px-2.5 py-0.5 rounded-lg bg-zinc-900 text-white text-[11px] font-bold">
+                    Lead Software Creator & AI Engineer
+                  </span>
+                </div>
+                <p class="text-xs sm:text-sm text-zinc-500 font-medium mt-1">
+                  Industrial System Architect & Full-Stack Web Developer
+                </p>
+              </div>
+
+              <!-- Heartfelt Mission Quote -->
+              <div class="p-4 rounded-2xl bg-zinc-50/90 border border-zinc-200/80 text-zinc-700 text-xs sm:text-sm leading-relaxed relative">
+                <span class="text-red-600 font-black text-lg absolute -top-2 left-3">“</span>
+                <p class="italic pl-3 text-zinc-600">
+                  Program <strong>M-Label</strong> lahir dan dibangun sebagai bentuk kontribusi nyata untuk meringankan serta melipatgandakan efisiensi kerja di lingkungan industri PT. Saptawarna Cemerlang. Menghilangkan beban penulisan manual yang melelahkan, mencegah salah hitung rumus, dan memberikan kepastian data yang rapi dan dapat diandalkan oleh seluruh rekan kerja di pabrik.
+                </p>
+              </div>
+
+              <!-- Tech Badges: Clean Minimalist Tags -->
+              <div class="flex items-center justify-center md:justify-start gap-2 flex-wrap pt-1">
+                <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                  ⚡ Vue 3 & Vite
+                </span>
+                <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                  📦 Dexie IndexedDB (Offline-First)
+                </span>
+                <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                  ☁️ Supabase Realtime
+                </span>
+                <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                  🤖 Google Gemini Vision AI
+                </span>
+                <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                  🎨 Tailwind CSS
+                </span>
+              </div>
+            </div>
           </div>
-          <h3 class="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight">
-            Evolusi Sistem Pembuatan Label & Pengolahan Data
-          </h3>
-          <p class="text-xs sm:text-sm text-zinc-500 leading-relaxed">
-            Perjalanan inovasi berkelanjutan dari lembaran kertas manual hingga menjadi platform Executive Decision Support System.
-          </p>
+
+          <!-- Contact & Direct Actions Strip -->
+          <div class="mt-8 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-6 text-xs text-zinc-600 flex-wrap justify-center sm:justify-start">
+              <!-- Email -->
+              <a
+                href="mailto:isnanswc@gmail.com"
+                class="flex items-center gap-2 group hover:text-red-600 transition font-medium"
+              >
+                <div class="w-7 h-7 rounded-lg bg-zinc-100 group-hover:bg-red-50 text-zinc-700 group-hover:text-red-600 flex items-center justify-center transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <span><strong>Email:</strong> isnanswc@gmail.com</span>
+              </a>
+
+              <!-- Location -->
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-zinc-100 text-zinc-700 flex items-center justify-center">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <span><strong>Lokasi:</strong> PT. Saptawarna Cemerlang</span>
+              </div>
+            </div>
+
+            <div>
+              <a
+                href="mailto:isnanswc@gmail.com?subject=Tanya%20Sistem%20M-Label"
+                class="px-5 py-2.5 rounded-2xl bg-zinc-900 hover:bg-red-600 text-white text-xs font-bold transition-all duration-300 flex items-center gap-2 shadow-xs cursor-pointer group"
+              >
+                <svg class="w-4 h-4 text-red-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span>Kirim Pesan / Feedback</span>
+              </a>
+            </div>
+          </div>
         </div>
 
-        <!-- Central Timeline Container -->
-        <div class="relative py-6">
-          <!-- Central Vertical Axis Line -->
-          <div class="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-zinc-200 via-red-500 to-zinc-200 -translate-x-1/2"></div>
+        <!-- Historical Evolution Timeline (Alternating Left-Right Central Axis) -->
+        <div class="space-y-8">
+          <!-- Title Banner -->
+          <div class="text-center max-w-2xl mx-auto space-y-2">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-black uppercase tracking-wider">
+              <span>🚀</span> Rekam Jejak Transformasi
+            </div>
+            <h3 class="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight">
+              Evolusi Sistem Pembuatan Label & Pengolahan Data
+            </h3>
+            <p class="text-xs sm:text-sm text-zinc-500 leading-relaxed">
+              Perjalanan inovasi berkelanjutan dari lembaran kertas manual hingga menjadi platform Executive Decision Support System.
+            </p>
+          </div>
 
-          <div class="space-y-12">
-            <!-- ============================================== -->
-            <!-- ITEM 1: ERA 0 - MANUAL KERTAS (KIRI di desktop) -->
-            <!-- ============================================== -->
-            <div class="relative flex flex-col md:flex-row items-center group">
-              <!-- Content Card (Left) -->
-              <div class="w-full md:w-1/2 pl-12 md:pl-0 md:pr-12">
-                <div class="bg-white rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
-                  <!-- Era Badge & Header -->
-                  <div class="flex items-center justify-between gap-2 mb-3">
-                    <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 border border-zinc-200">
-                      Era Pra-Sistem • Masa Lalu
-                    </span>
-                    <span class="text-[11px] font-mono text-zinc-400">Metode Manual</span>
+          <!-- Central Timeline Container -->
+          <div class="relative py-6">
+            <!-- Central Vertical Axis Line -->
+            <div class="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-zinc-200 via-red-500 to-zinc-200 -translate-x-1/2"></div>
+
+            <div class="space-y-12">
+              <!-- ============================================== -->
+              <!-- ITEM 1: ERA 0 - MANUAL KERTAS (KIRI di desktop) -->
+              <!-- ============================================== -->
+              <div class="relative flex flex-col md:flex-row items-center group">
+                <!-- Content Card (Left) -->
+                <div class="w-full md:w-1/2 pl-12 md:pl-0 md:pr-12">
+                  <div class="bg-white/95 backdrop-blur-sm rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
+                    <!-- Era Badge & Header -->
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                      <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 border border-zinc-200">
+                        Era Pra-Sistem • Masa Lalu
+                      </span>
+                      <span class="text-[11px] font-mono text-zinc-400">Metode Manual</span>
+                    </div>
+
+                    <!-- Flat Minimal Illustration: Paper & Pen -->
+                    <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-700 shadow-2xs">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                          <line x1="10" y1="9" x2="8" y2="9" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 class="text-xs sm:text-sm font-bold text-zinc-900">Form Excel / Word Diprint Massal</h4>
+                        <p class="text-[11px] text-zinc-500">Pencatatan bertumpu pada kertas fisik & pena</p>
+                      </div>
+                    </div>
+
+                    <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
+                      Sebelum hadirnya sistem, pembuatan label produksi dan pencatatan roll masih menggunakan dokumen Microsoft Word atau Excel yang dicetak banyak. Operator menuliskan seluruh data roll (nomor roll, berat timbangan, spesifikasi bahan, dan meter) menggunakan pulpen secara manual.
+                    </p>
+
+                    <!-- Critical Points Box -->
+                    <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
+                      <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
+                        <span class="text-red-500">✕</span> Titik Kelemahan & Risiko:
+                      </div>
+                      <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
+                        <li>Sering terjadi salah tulis identitas nomor roll oleh operator.</li>
+                        <li>Tulisan tangan sulit dibaca oleh staf Gudang dan QC.</li>
+                        <li>Rawan salah hitung berat teoritis vs timbangan aktual.</li>
+                        <li>Kertas fisik mudah kotor, basah, atau hilang di area mesin.</li>
+                      </ul>
+                    </div>
                   </div>
+                </div>
 
-                  <!-- Flat Minimal Illustration: Paper & Pen -->
-                  <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-700 shadow-2xs">
-                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" y1="13" x2="8" y2="13" />
-                        <line x1="16" y1="17" x2="8" y2="17" />
-                        <line x1="10" y1="9" x2="8" y2="9" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 class="text-xs sm:text-sm font-bold text-zinc-900">Form Excel / Word Diprint Massal</h4>
-                      <p class="text-[11px] text-zinc-500">Pencatatan bertumpu pada kertas fisik & pena</p>
-                    </div>
-                  </div>
+                <!-- Center Timeline Node (Number 0) -->
+                <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-300 flex items-center justify-center font-black text-xs text-zinc-600 shadow-md group-hover:border-zinc-900 group-hover:scale-110 transition-all z-10">
+                  0
+                </div>
 
-                  <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
-                    Sebelum hadirnya sistem, pembuatan label produksi dan pencatatan roll masih menggunakan dokumen Microsoft Word atau Excel yang dicetak banyak. Operator menuliskan seluruh data roll (nomor roll, berat timbangan, spesifikasi bahan, dan meter) menggunakan pulpen secara manual.
-                  </p>
+                <!-- Right Side Spacer (Desktop) -->
+                <div class="hidden md:block md:w-1/2"></div>
+              </div>
 
-                  <!-- Critical Points Box -->
-                  <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
-                    <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
-                      <span class="text-red-500">✕</span> Titik Kelemahan & Risiko:
+              <!-- ============================================== -->
+              <!-- ITEM 2: INOVASI 1 - EXCEL KHUSUS (KANAN di desktop) -->
+              <!-- ============================================== -->
+              <div class="relative flex flex-col md:flex-row items-center group">
+                <!-- Left Side Spacer (Desktop) -->
+                <div class="hidden md:block md:w-1/2"></div>
+
+                <!-- Center Timeline Node (Number 1) -->
+                <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-400 flex items-center justify-center font-black text-xs text-zinc-800 shadow-md group-hover:border-red-500 group-hover:scale-110 transition-all z-10">
+                  1
+                </div>
+
+                <!-- Content Card (Right) -->
+                <div class="w-full md:w-1/2 pl-12 md:pl-12">
+                  <div class="bg-white/95 backdrop-blur-sm rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
+                    <!-- Era Badge & Header -->
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                      <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-800 border border-zinc-200">
+                        Inovasi Generasi 1 • Spreadsheet Cerdas
+                      </span>
+                      <span class="text-[11px] font-mono text-zinc-400">Formula Math</span>
                     </div>
-                    <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
-                      <li>Sering terjadi salah tulis identitas nomor roll oleh operator.</li>
-                      <li>Tulisan tangan sulit dibaca oleh staf Gudang dan QC.</li>
-                      <li>Rawan salah hitung berat teoritis vs timbangan aktual.</li>
-                      <li>Kertas fisik mudah kotor, basah, atau hilang di area mesin.</li>
-                    </ul>
+
+                    <!-- Flat Minimal Illustration: Spreadsheet Automation -->
+                    <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-800 shadow-2xs">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <line x1="3" y1="9" x2="21" y2="9" />
+                          <line x1="3" y1="15" x2="21" y2="15" />
+                          <line x1="9" y1="3" x2="9" y2="21" />
+                          <line x1="15" y1="3" x2="15" y2="21" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 class="text-xs sm:text-sm font-bold text-zinc-900">File Excel Khusus Berformula</h4>
+                        <p class="text-[11px] text-zinc-500">Perhitungan berat teori & validasi otomatis</p>
+                      </div>
+                    </div>
+
+                    <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
+                      Langkah inovasi pertama diinisiasi oleh <strong>Isnan Mauladi Syahputra, S.Kom.</strong> dengan merancang template Excel khusus yang dilengkapi berbagai formula matematika otomatis. Begitu ukuran tebal, lebar, dan panjang dimasukkan, berat teoritis film dihitung seketika berdasarkan densitas material.
+                    </p>
+
+                    <!-- Impact Box -->
+                    <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
+                      <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
+                        <span class="text-emerald-600">✓</span> Nilai Tambah & Kemajuan:
+                      </div>
+                      <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
+                        <li>Operator tidak perlu lagi menghitung manual dengan kalkulator tangan.</li>
+                        <li>Mengurangi kesalahan perhitungan berat teori hingga lebih dari 70%.</li>
+                        <li>Adanya validasi dasar saat angka yang dimasukkan tidak wajar.</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Center Timeline Node (Number 0) -->
-              <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-300 flex items-center justify-center font-black text-xs text-zinc-600 shadow-md group-hover:border-zinc-900 group-hover:scale-110 transition-all z-10">
-                0
-              </div>
-
-              <!-- Right Side Spacer (Desktop) -->
-              <div class="hidden md:block md:w-1/2"></div>
-            </div>
-
-            <!-- ============================================== -->
-            <!-- ITEM 2: INOVASI 1 - EXCEL KHUSUS (KANAN di desktop) -->
-            <!-- ============================================== -->
-            <div class="relative flex flex-col md:flex-row items-center group">
-              <!-- Left Side Spacer (Desktop) -->
-              <div class="hidden md:block md:w-1/2"></div>
-
-              <!-- Center Timeline Node (Number 1) -->
-              <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-400 flex items-center justify-center font-black text-xs text-zinc-800 shadow-md group-hover:border-red-500 group-hover:scale-110 transition-all z-10">
-                1
-              </div>
-
-              <!-- Content Card (Right) -->
-              <div class="w-full md:w-1/2 pl-12 md:pl-12">
-                <div class="bg-white rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
-                  <!-- Era Badge & Header -->
-                  <div class="flex items-center justify-between gap-2 mb-3">
-                    <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-800 border border-zinc-200">
-                      Inovasi Generasi 1 • Spreadsheet Cerdas
-                    </span>
-                    <span class="text-[11px] font-mono text-zinc-400">Formula Math</span>
-                  </div>
-
-                  <!-- Flat Minimal Illustration: Spreadsheet Automation -->
-                  <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-800 shadow-2xs">
-                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                        <line x1="3" y1="9" x2="21" y2="9" />
-                        <line x1="3" y1="15" x2="21" y2="15" />
-                        <line x1="9" y1="3" x2="9" y2="21" />
-                        <line x1="15" y1="3" x2="15" y2="21" />
-                      </svg>
+              <!-- ============================================== -->
+              <!-- ITEM 3: INOVASI 2 - WEB SEDERHANA (KIRI di desktop) -->
+              <!-- ============================================== -->
+              <div class="relative flex flex-col md:flex-row items-center group">
+                <!-- Content Card (Left) -->
+                <div class="w-full md:w-1/2 pl-12 md:pl-0 md:pr-12">
+                  <div class="bg-white/95 backdrop-blur-sm rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
+                    <!-- Era Badge & Header -->
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                      <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-900 text-white">
+                        Inovasi Generasi 2 • Digitalisasi Web
+                      </span>
+                      <span class="text-[11px] font-mono text-zinc-400">Web App HTML-JS</span>
                     </div>
-                    <div>
-                      <h4 class="text-xs sm:text-sm font-bold text-zinc-900">File Excel Khusus Berformula</h4>
-                      <p class="text-[11px] text-zinc-500">Perhitungan berat teori & validasi otomatis</p>
-                    </div>
-                  </div>
 
-                  <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
-                    Langkah inovasi pertama diinisiasi oleh <strong>Isnan Mauladi Syahputra, S.Kom.</strong> dengan merancang template Excel khusus yang dilengkapi berbagai formula matematika otomatis. Begitu ukuran tebal, lebar, dan panjang dimasukkan, berat teoritis film dihitung seketika berdasarkan densitas material.
-                  </p>
-
-                  <!-- Impact Box -->
-                  <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
-                    <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
-                      <span class="text-emerald-600">✓</span> Nilai Tambah & Kemajuan:
+                    <!-- Flat Minimal Illustration: Browser & Barcode -->
+                    <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-900 shadow-2xs">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <rect x="2" y="3" width="20" height="14" rx="2" />
+                          <line x1="8" y1="21" x2="16" y2="21" />
+                          <line x1="12" y1="17" x2="12" y2="21" />
+                          <path d="M6 8h.01M9 8h.01" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 class="text-xs sm:text-sm font-bold text-zinc-900">Program Web Ringan & Barcode Thermal</h4>
+                        <p class="text-[11px] text-zinc-500">Antarmuka formulir interaktif di browser</p>
+                      </div>
                     </div>
-                    <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
-                      <li>Operator tidak perlu lagi menghitung manual dengan kalkulator tangan.</li>
-                      <li>Mengurangi kesalahan perhitungan berat teori hingga lebih dari 70%.</li>
-                      <li>Adanya validasi dasar saat angka yang dimasukkan tidak wajar.</li>
-                    </ul>
+
+                    <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
+                      Untuk mengatasi keterbatasan file Excel yang sering bentrok atau korup saat dibuka banyak komputer, sistem dikembangkan menjadi program web ringan berbasis HTML, CSS, dan JavaScript. Mulai dilengkapi generator barcode instan dan cetak thermal label langsung ke printer lapangan.
+                    </p>
+
+                    <!-- Impact Box -->
+                    <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
+                      <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
+                        <span class="text-emerald-600">✓</span> Dampak Operasional:
+                      </div>
+                      <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
+                        <li>Tampilan antarmuka yang bersih dan ramah bagi operator lapangan.</li>
+                        <li>Proses cetak label menjadi jauh lebih cepat dan terstandarisasi.</li>
+                        <li>Tidak ada lagi ketergantungan pada file spreadsheet lokal.</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- ============================================== -->
-            <!-- ITEM 3: INOVASI 2 - WEB SEDERHANA (KIRI di desktop) -->
-            <!-- ============================================== -->
-            <div class="relative flex flex-col md:flex-row items-center group">
-              <!-- Content Card (Left) -->
-              <div class="w-full md:w-1/2 pl-12 md:pl-0 md:pr-12">
-                <div class="bg-white rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
-                  <!-- Era Badge & Header -->
-                  <div class="flex items-center justify-between gap-2 mb-3">
-                    <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-900 text-white">
-                      Inovasi Generasi 2 • Digitalisasi Web
-                    </span>
-                    <span class="text-[11px] font-mono text-zinc-400">Web App HTML-JS</span>
-                  </div>
-
-                  <!-- Flat Minimal Illustration: Browser & Barcode -->
-                  <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-900 shadow-2xs">
-                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <rect x="2" y="3" width="20" height="14" rx="2" />
-                        <line x1="8" y1="21" x2="16" y2="21" />
-                        <line x1="12" y1="17" x2="12" y2="21" />
-                        <path d="M6 8h.01M9 8h.01" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 class="text-xs sm:text-sm font-bold text-zinc-900">Program Web Ringan & Barcode Thermal</h4>
-                      <p class="text-[11px] text-zinc-500">Antarmuka formulir interaktif di browser</p>
-                    </div>
-                  </div>
-
-                  <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
-                    Untuk mengatasi keterbatasan file Excel yang sering bentrok atau korup saat dibuka banyak komputer, sistem dikembangkan menjadi program web ringan berbasis HTML, CSS, dan JavaScript. Mulai dilengkapi generator barcode instan dan cetak thermal label langsung ke printer lapangan.
-                  </p>
-
-                  <!-- Impact Box -->
-                  <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
-                    <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
-                      <span class="text-emerald-600">✓</span> Dampak Operasional:
-                    </div>
-                    <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
-                      <li>Tampilan antarmuka yang bersih dan ramah bagi operator lapangan.</li>
-                      <li>Proses cetak label menjadi jauh lebih cepat dan terstandarisasi.</li>
-                      <li>Tidak ada lagi ketergantungan pada file spreadsheet lokal.</li>
-                    </ul>
-                  </div>
+                <!-- Center Timeline Node (Number 2) -->
+                <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-600 flex items-center justify-center font-black text-xs text-zinc-900 shadow-md group-hover:border-red-500 group-hover:scale-110 transition-all z-10">
+                  2
                 </div>
+
+                <!-- Right Side Spacer (Desktop) -->
+                <div class="hidden md:block md:w-1/2"></div>
               </div>
 
-              <!-- Center Timeline Node (Number 2) -->
-              <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-600 flex items-center justify-center font-black text-xs text-zinc-900 shadow-md group-hover:border-red-500 group-hover:scale-110 transition-all z-10">
-                2
-              </div>
+              <!-- ============================================== -->
+              <!-- ITEM 4: INOVASI TERKINI - M-LABEL NEXT-GEN (KANAN di desktop) -->
+              <!-- ============================================== -->
+              <div class="relative flex flex-col md:flex-row items-center group">
+                <!-- Left Side Spacer (Desktop) -->
+                <div class="hidden md:block md:w-1/2"></div>
 
-              <!-- Right Side Spacer (Desktop) -->
-              <div class="hidden md:block md:w-1/2"></div>
-            </div>
+                <!-- Center Timeline Node (Special Red Glowing Star) -->
+                <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-red-600/30 group-hover:scale-125 transition-all duration-300 z-10">
+                  ★
+                </div>
 
-            <!-- ============================================== -->
-            <!-- ITEM 4: INOVASI TERKINI - M-LABEL NEXT-GEN (KANAN di desktop) -->
-            <!-- ============================================== -->
-            <div class="relative flex flex-col md:flex-row items-center group">
-              <!-- Left Side Spacer (Desktop) -->
-              <div class="hidden md:block md:w-1/2"></div>
-
-              <!-- Center Timeline Node (Special Red Glowing Star) -->
-              <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-red-600/30 group-hover:scale-125 transition-all duration-300 z-10">
-                ★
-              </div>
-
-              <!-- Content Card (Right - Highlighted) -->
-              <div class="w-full md:w-1/2 pl-12 md:pl-12">
-                <div class="bg-white rounded-3xl p-6 sm:p-8 border-2 border-red-500/80 shadow-md transition-all duration-300 hover:shadow-xl group-hover:-translate-y-1 relative overflow-hidden">
-                  <!-- Red corner ribbon accent -->
-                  <div class="absolute top-0 right-0 w-24 h-24 overflow-hidden pointer-events-none">
-                    <div class="absolute transform rotate-45 bg-red-600 text-white text-[9px] font-black uppercase py-1 right-[-35px] top-[18px] w-[120px] text-center shadow-xs">
-                      Aktif
+                <!-- Content Card (Right - Highlighted) -->
+                <div class="w-full md:w-1/2 pl-12 md:pl-12">
+                  <div class="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border-2 border-red-500/80 shadow-md transition-all duration-300 hover:shadow-xl group-hover:-translate-y-1 relative overflow-hidden">
+                    <!-- Red corner ribbon accent -->
+                    <div class="absolute top-0 right-0 w-24 h-24 overflow-hidden pointer-events-none">
+                      <div class="absolute transform rotate-45 bg-red-600 text-white text-[9px] font-black uppercase py-1 right-[-35px] top-[18px] w-[120px] text-center shadow-xs">
+                        Aktif
+                      </div>
                     </div>
-                  </div>
 
-                  <!-- Era Badge & Header -->
-                  <div class="flex items-center gap-2 mb-3">
-                    <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-2xs">
-                      Generasi Terkini • Modern M-Label
-                    </span>
-                  </div>
-
-                  <h4 class="text-base sm:text-lg font-black text-zinc-900 mb-2">
-                    Enterprise Manufacturing Intelligence & Decision Support System
-                  </h4>
-
-                  <p class="text-xs sm:text-sm text-zinc-700 leading-relaxed mb-4">
-                    Kini, <strong>M-Label</strong> telah melompat jauh ke depan. Program ini <strong>bukan sekadar alat pendataan Roll ID atau pencetak label</strong>, melainkan sebuah mesin pengolah data industri cerdas yang mengubah input harian lapangan menjadi <strong>informasi strategis untuk pengambilan keputusan tingkat manajemen (Executive Decision Support System)</strong>.
-                  </p>
-
-                  <!-- 3 Pillar Capability Cards: Pure White with Crisp Border -->
-                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-5">
-                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
-                      <div class="text-base">📊</div>
-                      <div class="text-xs font-bold text-zinc-900">Executive Analytics</div>
-                      <p class="text-[10px] text-zinc-500 leading-tight">Monitoring KPI tonase, scrap ratio, dan kapasitas mesin real-time.</p>
-                    </div>
-                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
-                      <div class="text-base">🤖</div>
-                      <div class="text-xs font-bold text-zinc-900">Google Gemini AI</div>
-                      <p class="text-[10px] text-zinc-500 leading-tight">OCR Vision otomatis membaca tabel tulisan tangan operator.</p>
-                    </div>
-                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
-                      <div class="text-base">🛡️</div>
-                      <div class="text-xs font-bold text-zinc-900">Offline & Security</div>
-                      <p class="text-[10px] text-zinc-500 leading-tight">Dexie IndexedDB tahan mati internet & forced remote logout.</p>
-                    </div>
-                  </div>
-
-                  <!-- Developer Note Footer -->
-                  <div class="p-3 rounded-2xl bg-zinc-900 text-white text-xs flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-2">
-                      <span class="text-red-400">💡</span>
-                      <span class="italic text-[11px] text-zinc-300">
-                        "Data yang rapi adalah fondasi efisiensi; dan efisiensi adalah kunci kemenangan industri."
+                    <!-- Era Badge & Header -->
+                    <div class="flex items-center gap-2 mb-3">
+                      <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-2xs">
+                        Generasi Terkini • Modern M-Label
                       </span>
                     </div>
-                    <span class="text-[10px] font-mono text-zinc-400 shrink-0">— Isnan M.S.</span>
+
+                    <h4 class="text-base sm:text-lg font-black text-zinc-900 mb-2">
+                      Enterprise Manufacturing Intelligence & Decision Support System
+                    </h4>
+
+                    <p class="text-xs sm:text-sm text-zinc-700 leading-relaxed mb-4">
+                      Kini, <strong>M-Label</strong> telah melompat jauh ke depan. Program ini <strong>bukan sekadar alat pendataan Roll ID atau pencetak label</strong>, melainkan sebuah mesin pengolah data industri cerdas yang mengubah input harian lapangan menjadi <strong>informasi strategis untuk pengambilan keputusan tingkat manajemen (Executive Decision Support System)</strong>.
+                    </p>
+
+                    <!-- 3 Pillar Capability Cards: Pure White with Crisp Border -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-5">
+                      <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
+                        <div class="text-base">📊</div>
+                        <div class="text-xs font-bold text-zinc-900">Executive Analytics</div>
+                        <p class="text-[10px] text-zinc-500 leading-tight">Monitoring KPI tonase, scrap ratio, dan kapasitas mesin real-time.</p>
+                      </div>
+                      <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
+                        <div class="text-base">🤖</div>
+                        <div class="text-xs font-bold text-zinc-900">Google Gemini AI</div>
+                        <p class="text-[10px] text-zinc-500 leading-tight">OCR Vision otomatis membaca tabel tulisan tangan operator.</p>
+                      </div>
+                      <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
+                        <div class="text-base">🛡️</div>
+                        <div class="text-xs font-bold text-zinc-900">Offline & Security</div>
+                        <p class="text-[10px] text-zinc-500 leading-tight">Dexie IndexedDB tahan mati internet & forced remote logout.</p>
+                      </div>
+                    </div>
+
+                    <!-- Developer Note Footer -->
+                    <div class="p-3 rounded-2xl bg-zinc-900 text-white text-xs flex items-center justify-between gap-3">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-400">💡</span>
+                        <span class="italic text-[11px] text-zinc-300">
+                          "Data yang rapi adalah fondasi efisiensi; dan efisiensi adalah kunci kemenangan industri."
+                        </span>
+                      </div>
+                      <span class="text-[10px] font-mono text-zinc-400 shrink-0">— Isnan M.S.</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -936,5 +1177,33 @@ const filteredDocs = computed(() => {
 .custom-scrollbar-x::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
+}
+
+/* Animated Industrial Streams (Drifting Left to Right) */
+.stream-track {
+  animation: moveTrackLeftToRight linear infinite;
+  will-change: transform;
+}
+
+.stream-slow {
+  animation-duration: 48s;
+}
+
+.stream-mid {
+  animation-duration: 36s;
+}
+
+@keyframes moveTrackLeftToRight {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.industrial-icon {
+  transition: transform 0.25s ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04));
 }
 </style>
