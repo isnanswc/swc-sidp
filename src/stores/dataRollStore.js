@@ -146,7 +146,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   });
 
   // Load from Dexie DB (Merges explicit data_rolls and all DE Report labels)
-  const loadRolls = async (force = true) => {
+  const loadRolls = async (force = false) => {
     if (!force && rolls.value.length > 0 && !loading.value) {
       return;
     }

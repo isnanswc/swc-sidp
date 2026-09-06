@@ -181,7 +181,10 @@ export const useSpkStore = defineStore('spk', () => {
   };
 
   // Load All SPK Data from Dexie
-  const loadAll = async () => {
+  const loadAll = async (force = false) => {
+    if (!force && plans.value.length > 0 && batches.value.length > 0 && !isLoading.value) {
+      return;
+    }
     isLoading.value = true;
     try {
       if (db.spk_batches) {
