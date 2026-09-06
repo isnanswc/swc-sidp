@@ -8,6 +8,14 @@ import {
   generatePresetPermissions,
   DEFAULT_SUPER_ADMIN
 } from '@/services/authService';
+import {
+  registerDeviceSession,
+  removeDeviceSession,
+  startSessionHeartbeat,
+  stopSessionHeartbeat,
+  onSessionRevoked,
+  initRealtimeSessionListener
+} from '@/services/sessionService';
 
 export const useAuthStore = defineStore('auth', () => {
   const currentUser = ref(null);
@@ -47,11 +55,22 @@ export const useAuthStore = defineStore('auth', () => {
             permissions: typeof fresh.permissionsJson === 'string' ? JSON.parse(fresh.permissionsJson) : fresh.permissionsJson
           };
           localStorage.setItem('mlabel_session_user', JSON.stringify(currentUser.value));
+
+          // Start heartbeat & listen for remote revocation
+          startSessionHeartbeat();
+          initRealtimeSessionListener();
         } else if (fresh && !fresh.active) {
           // User deactivated
           logout();
         }
       }
+
+      // Listen for remote revocation event from Super Admin
+      onSessionRevoked((reason) => {
+        alert(reason || 'Sesi login perangkat Anda telah dihentikan oleh Super Admin.');
+        logout();
+        window.location.hash = '#/login';
+      });
     } catch (err) {
       console.error('Error during initAuth:', err);
     } finally {
@@ -289,11 +308,25 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('mlabel_screen_locked');
     resetIdleTimer();
 
+    // Register active device session to Supabase Cloud
+    try {
+      await registerDeviceSession(sessionData);
+    } catch (e) {
+      console.warn('Failed to register device session:', e);
+    }
+
     return sessionData;
   };
 
   // Logout action
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await removeDeviceSession();
+    } catch (e) {
+      console.warn('Error removing device session:', e);
+    }
+    stopSessionHeartbeat();
+
     currentUser.value = null;
     isLocked.value = false;
     if (idleTimer) clearTimeout(idleTimer);

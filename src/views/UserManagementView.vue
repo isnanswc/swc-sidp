@@ -24,14 +24,29 @@
           </p>
         </div>
 
-        <!-- Add User Button -->
-        <button
-          @click="openAddModal"
-          class="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider font-mono shadow-lg shadow-red-600/30 transition-all cursor-pointer flex items-center gap-2 shrink-0"
-        >
-          <span class="text-base leading-none">+</span>
-          <span>TAMBAH PENGGUNA</span>
-        </button>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <!-- Active Sessions Button for Super Admin -->
+          <button
+            @click="openSessionsModal(null)"
+            class="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-bold text-xs uppercase tracking-wider font-mono border border-zinc-700/80 shadow-md transition-all cursor-pointer flex items-center gap-2 shrink-0"
+            title="Pantau & kelola semua sesi login perangkat yang aktif di Cloud"
+          >
+            <span>📱</span>
+            <span>SESI PERANGKAT AKTIF</span>
+            <span v-if="activeSessionsCount > 0" class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-black border border-emerald-500/30">
+              {{ activeSessionsCount }}
+            </span>
+          </button>
+
+          <!-- Add User Button -->
+          <button
+            @click="openAddModal"
+            class="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider font-mono shadow-lg shadow-red-600/30 transition-all cursor-pointer flex items-center gap-2 shrink-0"
+          >
+            <span class="text-base leading-none">+</span>
+            <span>TAMBAH PENGGUNA</span>
+          </button>
+        </div>
       </div>
 
       <!-- Quick Metrics Summary -->
@@ -209,6 +224,20 @@
                     title="Ganti Kata Sandi"
                   >
                     🔑
+                  </button>
+
+                  <!-- View Active Sessions / Devices for User -->
+                  <button
+                    @click="openSessionsModal(user)"
+                    class="p-1.5 rounded-lg bg-zinc-100 hover:bg-sky-100 text-sky-700 transition-colors cursor-pointer relative"
+                    title="Lihat Perangkat & Sesi Aktif Akun Ini"
+                  >
+                    📱
+                    <span 
+                      v-if="getUserActiveSessionsCount(user.id) > 0"
+                      class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white"
+                      title="Sedang Online di Perangkat"
+                    ></span>
                   </button>
 
                   <!-- Reset PIN Button (If user has PIN enabled or set) -->
@@ -595,6 +624,190 @@
       </div>
     </div>
 
+    <!-- ========================================================================= -->
+    <!-- MODAL: MANAJEMEN SESI & PERANGKAT AKTIF (SUPER ADMIN) -->
+    <!-- ========================================================================= -->
+    <div
+      v-if="showSessionsModal"
+      class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+    >
+      <div class="bg-white rounded-3xl max-w-3xl w-full p-6 border border-zinc-200 shadow-2xl space-y-4 text-xs max-h-[90vh] flex flex-col">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3 shrink-0">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">📱</span>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-black text-zinc-900">
+                  {{ selectedSessionUser ? `Sesi Perangkat: ${selectedSessionUser.name}` : 'Semua Sesi Perangkat Aktif' }}
+                </h3>
+                <span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold">
+                  {{ displaySessions.length }} Perangkat
+                </span>
+              </div>
+              <p class="text-[11px] text-zinc-500 font-mono">
+                {{ selectedSessionUser ? `@${selectedSessionUser.username} (${selectedSessionUser.email})` : 'Daftar seluruh akun yang sedang login di berbagai komputer atau HP' }}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button 
+              @click="refreshSessions" 
+              :disabled="isLoadingSessions"
+              class="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors cursor-pointer"
+              title="Perbarui Data Sesi"
+            >
+              🔄
+            </button>
+            <button 
+              @click="showSessionsModal = false" 
+              class="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Tab (If viewed for all) -->
+        <div v-if="!selectedSessionUser" class="flex items-center justify-between gap-2 shrink-0 bg-zinc-50 p-2.5 rounded-2xl border border-zinc-200">
+          <div class="text-zinc-600 font-bold flex items-center gap-2">
+            <span>Filter Pengguna:</span>
+            <select 
+              v-model="sessionUserFilter"
+              class="bg-white border border-zinc-300 rounded-xl px-2.5 py-1 text-xs font-bold text-zinc-800 outline-none"
+            >
+              <option value="ALL">Semua Pengguna ({{ allActiveSessions.length }})</option>
+              <option v-for="u in userStore.users" :key="u.id" :value="u.id">
+                {{ u.name }} (@{{ u.username }})
+              </option>
+            </select>
+          </div>
+
+          <button
+            v-if="displaySessions.length > 0"
+            @click="handleRevokeAllFiltered"
+            class="px-3 py-1.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-bold font-mono text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
+            title="Keluarkan semua perangkat yang tertera di tabel"
+          >
+            <span>⚠️</span>
+            <span>Logout Semua Perangkat Ini</span>
+          </button>
+        </div>
+
+        <!-- Single User Logout All Button -->
+        <div v-else-if="displaySessions.length > 0" class="flex items-center justify-between shrink-0 bg-amber-50 p-2.5 rounded-2xl border border-amber-200 text-amber-900">
+          <span class="font-medium text-[11.5px]">
+            Akun ini sedang login pada <strong>{{ displaySessions.length }}</strong> perangkat.
+          </span>
+          <button
+            @click="handleRevokeAllForUser(selectedSessionUser.id)"
+            class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold font-mono text-[11px] transition-colors cursor-pointer shadow-xs"
+          >
+            Logout Semua Perangkat Akun Ini
+          </button>
+        </div>
+
+        <!-- Sessions List / Table Container -->
+        <div class="flex-1 overflow-y-auto min-h-[220px]">
+          <div v-if="isLoadingSessions" class="py-16 text-center text-zinc-400">
+            <div class="text-3xl animate-spin mb-2">⏳</div>
+            <div class="font-mono text-xs">Memeriksa status sesi perangkat di Cloud...</div>
+          </div>
+
+          <div v-else-if="displaySessions.length === 0" class="py-16 text-center text-zinc-400">
+            <div class="text-4xl mb-2">📴</div>
+            <div class="font-bold text-sm text-zinc-600">Tidak ada sesi login perangkat yang aktif</div>
+            <p class="text-[11px] text-zinc-400 mt-1">
+              Pengguna belum login atau telah melakukan logout dari semua perangkat.
+            </p>
+          </div>
+
+          <div v-else class="space-y-2.5">
+            <div
+              v-for="s in displaySessions"
+              :key="s.sessionId"
+              class="p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-50/60 hover:bg-zinc-50 border-zinc-200"
+            >
+              <!-- Device & Platform Info -->
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-white border border-zinc-200 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+                  <span v-if="s.deviceInfo?.deviceType === 'Mobile'">📱</span>
+                  <span v-else-if="s.deviceInfo?.deviceType === 'Tablet'">📟</span>
+                  <span v-else>💻</span>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-black text-zinc-900 text-xs">
+                      {{ s.deviceInfo?.browser || 'Browser' }} pada {{ s.deviceInfo?.os || 'Sistem' }}
+                    </span>
+                    <span 
+                      v-if="s.sessionId === currentLocalSessionId"
+                      class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-mono text-[9.5px] font-black"
+                    >
+                      Perangkat Ini (Sesi Anda)
+                    </span>
+                    <span 
+                      :class="[
+                        'px-2 py-0.5 rounded-full font-mono text-[9.5px] font-bold',
+                        isSessionOnline(s.lastActiveAt) 
+                          ? 'bg-emerald-100 text-emerald-800' 
+                          : 'bg-zinc-200 text-zinc-600'
+                      ]"
+                    >
+                      ● {{ isSessionOnline(s.lastActiveAt) ? 'Online' : 'Idle' }}
+                    </span>
+                  </div>
+
+                  <!-- User & Login Time Details -->
+                  <div class="flex items-center gap-3 mt-1 text-[11px] text-zinc-500 font-mono flex-wrap">
+                    <span v-if="!selectedSessionUser" class="text-zinc-700 font-bold">
+                      👤 {{ s.name }} (@{{ s.username }})
+                    </span>
+                    <span>
+                      🕒 Login: <strong class="text-zinc-700">{{ formatDateTime(s.loginAt) }}</strong>
+                    </span>
+                    <span>
+                      ⚡ Aktif: <strong class="text-zinc-700">{{ formatDurationAgo(s.lastActiveAt) }}</strong>
+                    </span>
+                    <span v-if="s.deviceInfo?.screenResolution && s.deviceInfo.screenResolution !== 'Unknown'" class="text-zinc-400">
+                      📐 {{ s.deviceInfo.screenResolution }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action: Revoke / Logout Button -->
+              <div class="flex items-center justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200">
+                <button
+                  @click="handleRevokeSingleSession(s)"
+                  :disabled="isRevokingSession === s.sessionId"
+                  class="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-mono font-bold text-[11px] transition-colors cursor-pointer border border-red-200 flex items-center gap-1.5 shadow-2xs"
+                  :title="s.sessionId === currentLocalSessionId ? 'Keluarkan sesi perangkat saat ini' : 'Paksa perangkat ini logout seketika'"
+                >
+                  <span v-if="isRevokingSession === s.sessionId" class="animate-spin">⏳</span>
+                  <span v-else>🚪</span>
+                  <span>{{ s.sessionId === currentLocalSessionId ? 'Logout Perangkat Ini' : 'Putuskan Sesi' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="flex items-center justify-between border-t border-zinc-100 pt-3 shrink-0">
+          <div class="text-[11px] text-zinc-500 font-mono">
+            ℹ️ Perangkat yang diputus akan langsung otomatis kembali ke halaman login.
+          </div>
+          <button
+            @click="showSessionsModal = false"
+            class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold font-mono text-xs transition-colors cursor-pointer"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -610,6 +823,12 @@ import {
   generateRandomPassword,
   evaluatePasswordStrength
 } from '@/services/authService';
+import {
+  getAllActiveSessions,
+  revokeDeviceSession,
+  revokeAllUserSessions,
+  getCurrentSessionId
+} from '@/services/sessionService';
 
 const userStore = useUserStore();
 const authStore = useAuthStore();
@@ -857,4 +1076,131 @@ const commitResetPassword = async () => {
     alert(err.message);
   }
 };
+
+// =========================================================================
+// ACTIVE DEVICE SESSIONS MANAGEMENT (SUPER ADMIN)
+// =========================================================================
+const showSessionsModal = ref(false);
+const selectedSessionUser = ref(null);
+const allActiveSessions = ref([]);
+const isLoadingSessions = ref(false);
+const sessionUserFilter = ref('ALL');
+const isRevokingSession = ref(null);
+
+const currentLocalSessionId = computed(() => getCurrentSessionId());
+
+// Total active sessions count
+const activeSessionsCount = computed(() => allActiveSessions.value.length);
+
+// Count active sessions for a specific user ID
+const getUserActiveSessionsCount = (userId) => {
+  return allActiveSessions.value.filter(s => s.userId === userId).length;
+};
+
+// Filtered sessions for modal display
+const displaySessions = computed(() => {
+  if (selectedSessionUser.value) {
+    return allActiveSessions.value.filter(s => s.userId === selectedSessionUser.value.id);
+  }
+  if (sessionUserFilter.value !== 'ALL') {
+    return allActiveSessions.value.filter(s => s.userId === sessionUserFilter.value);
+  }
+  return allActiveSessions.value;
+});
+
+// Check if a session is recently active (within last 3 minutes)
+const isSessionOnline = (lastActiveAt) => {
+  if (!lastActiveAt) return false;
+  const last = new Date(lastActiveAt).getTime();
+  return (Date.now() - last) < (3 * 60 * 1000);
+};
+
+// Format duration ago
+const formatDurationAgo = (dateStr) => {
+  if (!dateStr) return '-';
+  const diffSec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diffSec < 60) return `${diffSec} dtk lalu`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} mnt lalu`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} jam lalu`;
+  const diffDay = Math.floor(diffHour / 24);
+  return `${diffDay} hari lalu`;
+};
+
+// Open sessions modal
+const openSessionsModal = async (user = null) => {
+  selectedSessionUser.value = user;
+  sessionUserFilter.value = 'ALL';
+  showSessionsModal.value = true;
+  await refreshSessions();
+};
+
+// Refresh active sessions from cloud
+const refreshSessions = async () => {
+  isLoadingSessions.value = true;
+  try {
+    const list = await getAllActiveSessions();
+    allActiveSessions.value = list || [];
+  } catch (err) {
+    console.warn('Failed to load active sessions:', err);
+  } finally {
+    isLoadingSessions.value = false;
+  }
+};
+
+// Revoke a single session
+const handleRevokeSingleSession = async (session) => {
+  const isMe = session.sessionId === currentLocalSessionId.value;
+  const confirmMsg = isMe 
+    ? 'Apakah Anda yakin ingin logout dari perangkat ini sekarang?'
+    : `Keluarkan sesi login perangkat (${session.deviceInfo?.browser || 'Browser'} / ${session.deviceInfo?.os || 'OS'}) milik "${session.name}" (@${session.username}) secara paksa?`;
+
+  if (!confirm(confirmMsg)) return;
+
+  isRevokingSession.value = session.sessionId;
+  try {
+    await revokeDeviceSession(session.sessionId, 'Diputus oleh Super Admin');
+    // Jika logout sesi sendiri
+    if (isMe) {
+      await authStore.logout();
+      window.location.hash = '#/login';
+      return;
+    }
+    await refreshSessions();
+  } catch (err) {
+    alert(err.message || 'Gagal memutus sesi perangkat.');
+  } finally {
+    isRevokingSession.value = null;
+  }
+};
+
+// Revoke all sessions for a user
+const handleRevokeAllForUser = async (userId) => {
+  if (!confirm('Putuskan dan keluarkan seluruh sesi login akun ini di semua perangkat?')) return;
+  try {
+    await revokeAllUserSessions(userId, null, 'Semua sesi dihentikan oleh Super Admin');
+    await refreshSessions();
+  } catch (err) {
+    alert(err.message || 'Gagal memutus seluruh sesi perangkat.');
+  }
+};
+
+// Revoke all filtered sessions
+const handleRevokeAllFiltered = async () => {
+  if (!confirm(`Keluarkan semua (${displaySessions.value.length}) sesi perangkat yang tertera saat ini?`)) return;
+  try {
+    for (const s of displaySessions.value) {
+      await revokeDeviceSession(s.sessionId, 'Dihentikan massal oleh Super Admin');
+    }
+    await refreshSessions();
+  } catch (err) {
+    alert(err.message || 'Gagal memutus sesi.');
+  }
+};
+
+// Load sessions count on mounted
+onMounted(async () => {
+  await refreshSessions();
+});
 </script>
