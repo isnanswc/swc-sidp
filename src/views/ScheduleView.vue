@@ -72,29 +72,29 @@
           </button>
         </div>
 
-        <span class="font-black text-sm text-zinc-800 ml-1">
+        <span class="font-black text-xs sm:text-sm text-zinc-800 ml-1 truncate">
           {{ periodLabel }}
         </span>
       </div>
 
       <!-- Right: View Mode Selector (Bulan | Minggu | Hari) & Group Filter -->
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end">
         <div class="flex items-center bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 text-xs font-bold">
           <button
             @click="viewMode = 'month'"
-            :class="['px-3 py-1.5 rounded-lg transition-all cursor-pointer', viewMode === 'month' ? 'bg-white text-zinc-900 shadow-2xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
+            :class="['px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer', viewMode === 'month' ? 'bg-white text-zinc-900 shadow-2xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
           >
             🗓️ Bulan
           </button>
           <button
             @click="viewMode = 'week'"
-            :class="['px-3 py-1.5 rounded-lg transition-all cursor-pointer', viewMode === 'week' ? 'bg-white text-zinc-900 shadow-2xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
+            :class="['px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer', viewMode === 'week' ? 'bg-white text-zinc-900 shadow-2xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
           >
             📅 Minggu
           </button>
           <button
             @click="viewMode = 'day'"
-            :class="['px-3 py-1.5 rounded-lg transition-all cursor-pointer', viewMode === 'day' ? 'bg-white text-zinc-900 shadow-2xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
+            :class="['px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer', viewMode === 'day' ? 'bg-white text-zinc-900 shadow-2xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
           >
             ⏱️ Hari
           </button>
@@ -103,7 +103,7 @@
         <!-- Filter Grup Dropdown -->
         <select 
           v-model="selectedGroupFilter" 
-          class="px-2.5 py-1.5 text-xs font-bold border border-zinc-300 rounded-xl bg-white text-zinc-800 outline-none"
+          class="px-2.5 py-1.5 text-xs font-bold border border-zinc-300 rounded-xl bg-white text-zinc-800 outline-none flex-1 sm:flex-none"
         >
           <option value="ALL">Semua Grup (A, B, C)</option>
           <option value="A">Hanya Grup A</option>
@@ -117,14 +117,14 @@
     <!-- 1. TAMPILAN KALENDER BULAN (MONTH VIEW) -->
     <div v-if="viewMode === 'month'" class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
       <!-- Days of Week Header -->
-      <div class="grid grid-cols-7 border-b border-zinc-200 bg-zinc-50/80 text-center text-xs font-black text-zinc-600 py-2.5">
-        <span class="text-zinc-800">Senin</span>
-        <span class="text-zinc-800">Selasa</span>
-        <span class="text-zinc-800">Rabu</span>
-        <span class="text-zinc-800">Kamis</span>
-        <span class="text-amber-700">Jumat (LS)</span>
-        <span class="text-red-600">Sabtu (LS)</span>
-        <span class="text-red-600">Minggu (LS)</span>
+      <div class="grid grid-cols-7 border-b border-zinc-200 bg-zinc-50/80 text-center text-[11px] sm:text-xs font-black py-2.5 select-none">
+        <span class="text-zinc-800"><span class="sm:hidden">Sen</span><span class="hidden sm:inline">Senin</span></span>
+        <span class="text-zinc-800"><span class="sm:hidden">Sel</span><span class="hidden sm:inline">Selasa</span></span>
+        <span class="text-zinc-800"><span class="sm:hidden">Rab</span><span class="hidden sm:inline">Rabu</span></span>
+        <span class="text-zinc-800"><span class="sm:hidden">Kam</span><span class="hidden sm:inline">Kamis</span></span>
+        <span class="text-amber-700"><span class="sm:hidden">Jum</span><span class="hidden sm:inline">Jumat (LS)</span></span>
+        <span class="text-red-600"><span class="sm:hidden">Sab</span><span class="hidden sm:inline">Sabtu (LS)</span></span>
+        <span class="text-red-600"><span class="sm:hidden">Min</span><span class="hidden sm:inline">Minggu (LS)</span></span>
       </div>
 
       <!-- Calendar Month Grid -->
@@ -132,22 +132,31 @@
         <div
           v-for="(cell, idx) in monthGridCells"
           :key="idx"
-          @click="selectDayFromMonth(cell.dateStr)"
+          @click="onMonthCellClick(cell.dateStr)"
           :class="[
-            'min-h-[105px] p-2 flex flex-col justify-between transition-colors cursor-pointer hover:bg-blue-50/40',
+            'transition-all cursor-pointer select-none',
+            'min-h-[64px] sm:min-h-[76px] md:min-h-[105px] p-1 sm:p-1.5 md:p-2 flex flex-col justify-between',
             !cell.isCurrentMonth ? 'bg-zinc-50/60 opacity-40' : 'bg-white',
-            cell.isToday ? 'ring-2 ring-blue-500 ring-inset bg-blue-50/20' : ''
+            cell.dateStr === activeMonthSelectedDateStr ? 'bg-blue-50/40 ring-2 ring-blue-600 ring-inset z-10' : 'hover:bg-blue-50/20'
           ]"
         >
-          <div class="flex items-center justify-between">
-            <span :class="['text-xs font-black', cell.isToday ? 'px-1.5 py-0.5 bg-blue-600 text-white rounded-full' : (cell.isWeekend ? 'text-red-600' : 'text-zinc-800')]">
+          <!-- Top Row: Day Number & Today Marker -->
+          <div class="flex items-center justify-between w-full">
+            <span
+              :class="[
+                'text-[11px] sm:text-xs font-black transition-all',
+                cell.isToday
+                  ? 'w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs'
+                  : (cell.dateStr === activeMonthSelectedDateStr ? 'text-blue-700 underline font-black' : (cell.isWeekend ? 'text-red-600' : 'text-zinc-800'))
+              ]"
+            >
               {{ cell.dayNum }}
             </span>
-            <span v-if="cell.isToday" class="text-[9px] font-black text-blue-600 uppercase">Hari Ini</span>
+            <span v-if="cell.isToday" class="hidden md:inline text-[9px] font-black text-blue-600 uppercase">Hari Ini</span>
           </div>
 
-          <!-- Shift Badges per Group -->
-          <div class="space-y-1 my-1">
+          <!-- DESKTOP SHIFT BADGES (Screen MD and above) -->
+          <div class="hidden md:block space-y-1 my-1 w-full">
             <div
               v-for="grp in displayGroups"
               :key="grp"
@@ -163,9 +172,107 @@
             </div>
           </div>
 
-          <div class="text-[8.5px] text-zinc-400 font-mono text-right">
-            {{ cell.isWeekend ? '12 Jam' : '8 Jam' }}
+          <!-- MOBILE SHIFT INDICATORS (Screen below MD) -->
+          <div class="md:hidden flex flex-col items-center justify-center w-full my-auto py-0.5">
+            <!-- If ALL groups: show 3 colored dots with tooltip -->
+            <div v-if="selectedGroupFilter === 'ALL'" class="flex items-center justify-center gap-1">
+              <span
+                v-for="grp in ['A', 'B', 'C']"
+                :key="grp"
+                class="w-1.5 h-1.5 rounded-full"
+                :style="{ backgroundColor: SHIFT_DEFINITIONS[cell.shifts[grp]]?.color || '#9ca3af' }"
+                :title="`Grup ${grp}: ${SHIFT_DEFINITIONS[cell.shifts[grp]]?.shortName}`"
+              ></span>
+            </div>
+            <!-- If single group filter: show compact micro badge -->
+            <div v-else class="w-full text-center">
+              <span
+                class="inline-block px-1 py-0.2 rounded text-[8.5px] font-black max-w-full truncate"
+                :style="{
+                  backgroundColor: SHIFT_DEFINITIONS[cell.shifts[selectedGroupFilter]]?.bgColor,
+                  color: SHIFT_DEFINITIONS[cell.shifts[selectedGroupFilter]]?.textColor
+                }"
+              >
+                {{ SHIFT_DEFINITIONS[cell.shifts[selectedGroupFilter]]?.code || cell.shifts[selectedGroupFilter] }}
+              </span>
+            </div>
           </div>
+
+          <!-- Hours Indicator Footer -->
+          <div class="text-[8px] sm:text-[8.5px] text-zinc-400 font-mono text-right w-full">
+            <span class="hidden sm:inline">{{ cell.isWeekend ? '12 Jam' : '8 Jam' }}</span>
+            <span class="sm:hidden">{{ cell.isWeekend ? '12j' : '8j' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Day Agenda Inspector Panel below Month Calendar -->
+      <div class="border-t border-zinc-200 bg-zinc-50 p-3 sm:p-4 space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+              📋
+            </div>
+            <div>
+              <h3 class="text-xs sm:text-sm font-black text-zinc-900 leading-tight">
+                Detail Shift: {{ formatSelectedDateString(activeMonthSelectedDateStr) }}
+              </h3>
+              <span class="text-[10.5px] text-zinc-500 font-medium">
+                {{ isWeekendDay(activeMonthSelectedDateStr) ? 'Weekend • Long Shift (12 Jam)' : 'Weekday • Normal Shift (8 Jam)' }}
+              </span>
+            </div>
+          </div>
+
+          <button
+            @click="selectDayFromMonth(activeMonthSelectedDateStr)"
+            class="px-3 py-1.5 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+          >
+            <span>Buka Roster Lengkap</span>
+            <span>→</span>
+          </button>
+        </div>
+
+        <!-- Shift Cards Grid for Selected Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+          <div
+            v-for="grp in displayGroups"
+            :key="grp"
+            class="p-2.5 sm:p-3 bg-white rounded-xl border border-zinc-200 shadow-2xs flex items-center justify-between"
+          >
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded-lg bg-zinc-100 text-zinc-800 font-black text-xs flex items-center justify-center border border-zinc-200">
+                {{ grp }}
+              </span>
+              <div>
+                <div class="text-xs font-black text-zinc-900">
+                  Grup {{ grp }}
+                </div>
+                <div class="text-[10.5px] text-zinc-500 font-mono">
+                  {{ SHIFT_DEFINITIONS[scheduleStore.getShiftForGroupAndDate(grp, activeMonthSelectedDateStr)]?.startTime || '-' }} - {{ SHIFT_DEFINITIONS[scheduleStore.getShiftForGroupAndDate(grp, activeMonthSelectedDateStr)]?.endTime || '-' }}
+                </div>
+              </div>
+            </div>
+
+            <span
+              class="px-2.5 py-1 rounded-lg text-xs font-black border"
+              :style="{
+                backgroundColor: SHIFT_DEFINITIONS[scheduleStore.getShiftForGroupAndDate(grp, activeMonthSelectedDateStr)]?.bgColor,
+                color: SHIFT_DEFINITIONS[scheduleStore.getShiftForGroupAndDate(grp, activeMonthSelectedDateStr)]?.textColor,
+                borderColor: (SHIFT_DEFINITIONS[scheduleStore.getShiftForGroupAndDate(grp, activeMonthSelectedDateStr)]?.color || '#000') + '40'
+              }"
+            >
+              {{ SHIFT_DEFINITIONS[scheduleStore.getShiftForGroupAndDate(grp, activeMonthSelectedDateStr)]?.shortName || scheduleStore.getShiftForGroupAndDate(grp, activeMonthSelectedDateStr) }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Legend Shift Dots on Mobile -->
+        <div class="flex items-center justify-center gap-2.5 sm:gap-3 pt-2 border-t border-zinc-200/80 text-[10px] font-bold text-zinc-500 flex-wrap">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-600"></span> Shift 1 (07-15)</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Shift 2 (15-23)</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-600"></span> Shift 3 (23-07)</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> Long Shift (12 Jam)</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-zinc-400"></span> Libur (OFF)</span>
         </div>
       </div>
     </div>
@@ -333,6 +440,7 @@ const viewMode = ref('month'); // 'month' | 'week' | 'day'
 const selectedGroupFilter = ref('ALL');
 const currentDate = ref(new Date());
 const activeDayDateStr = ref(scheduleStore.getWorkDate(new Date()));
+const activeMonthSelectedDateStr = ref(scheduleStore.getWorkDate(new Date()));
 
 const currentShiftLive = computed(() => scheduleStore.getCurrentShiftInfo());
 
@@ -406,6 +514,22 @@ const goToToday = () => {
   const wDate = scheduleStore.getWorkDate(new Date());
   currentDate.value = new Date(wDate);
   activeDayDateStr.value = wDate;
+  activeMonthSelectedDateStr.value = wDate;
+};
+
+const onMonthCellClick = (dateStr) => {
+  activeMonthSelectedDateStr.value = dateStr;
+};
+
+const formatSelectedDateString = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  return `${dayNames[d.getDay()]}, ${d.getDate()} ${monthNames[d.getMonth()]} ${d.getFullYear()}`;
 };
 
 const selectDayFromMonth = (dateStr) => {
