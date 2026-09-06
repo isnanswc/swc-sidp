@@ -154,7 +154,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('mlabel_user_role');
   };
 
-  // Password Reset / OTP Flow for Super Admin & Users
+  // Password Reset / OTP Flow for Super Admin & Users (via EmailJS)
   const requestPasswordResetOtp = async (emailInput) => {
     const trimmed = (emailInput || '').trim().toLowerCase();
     if (!trimmed) throw new Error('Silakan masukkan alamat email yang terdaftar.');
@@ -162,6 +162,11 @@ export const useAuthStore = defineStore('auth', () => {
     const user = await db.users.where('email').equalsIgnoreCase(trimmed).first();
     if (!user) {
       throw new Error(`Email "${trimmed}" tidak terdaftar di sistem PT. Saptawarna Cemerlang.`);
+    }
+
+    // Keamanan Khusus: Reset mandiri via email diprioritaskan dan dikhususkan untuk Super Admin
+    if (user.role !== 'SUPER_ADMIN') {
+      throw new Error('Fitur pemulihan kata sandi mandiri via email dikhususkan untuk Super Admin. Pengguna operasional (Operator/QC/Gudang/PPIC) silakan hubungi Administrator untuk reset sandi.');
     }
 
     // Generate 6-digit numeric OTP
@@ -177,6 +182,24 @@ export const useAuthStore = defineStore('auth', () => {
 
     localStorage.setItem('mlabel_pwd_reset', JSON.stringify(resetPayload));
 
+    // Kirim email via EmailJS Service
+    let emailResult = { success: true, simulated: true };
+    try {
+      const { sendEmailViaEmailJS } = await import('@/services/emailService');
+      emailResult = await sendEmailViaEmailJS({
+        toEmail: user.email,
+        toName: user.name || 'Super Admin',
+        subject: `[M-Label] Kode Verifikasi OTP Pemulihan Kata Sandi: ${otpCode}`,
+        otpCode: otpCode,
+        message: `Anda baru saja meminta pemulihan kata sandi akun Super Admin pada sistem M-Label PT. Saptawarna Cemerlang. Masukkan kode verifikasi 6-digit berikut: ${otpCode}. Kode ini berlaku selama 15 menit. Jika ini bukan Anda, segera amankan akses database.`,
+        type: 'PASSWORD_RESET_OTP'
+      });
+    } catch (mailErr) {
+      console.error('Gagal mengirim email verifikasi:', mailErr);
+      // Jika gagal kirim via internet/EmailJS, kita lempar error yang jelas
+      throw new Error(`Gagal mengirim email verifikasi ke ${user.email}. Alasan: ${mailErr.message || mailErr}`);
+    }
+
     // Masked email for security display (e.g., is***wc@gmail.com)
     const parts = user.email.split('@');
     const namePart = parts[0];
@@ -188,7 +211,8 @@ export const useAuthStore = defineStore('auth', () => {
       success: true,
       email: user.email,
       maskedEmail: masked,
-      otpCode: otpCode // Provided so user/admin can test locally or verify directly
+      simulated: emailResult.simulated,
+      otpCode: emailResult.simulated ? otpCode : null // Tampilkan hanya jika mode simulasi (karena belum setup API Key)
     };
   };
 
@@ -227,6 +251,21 @@ export const useAuthStore = defineStore('auth', () => {
     });
 
     localStorage.removeItem('mlabel_pwd_reset');
+
+    // Kirim notifikasi konfirmasi sukses ganti sandi ke email Super Admin
+    try {
+      const { sendEmailViaEmailJS } = await import('@/services/emailService');
+      await sendEmailViaEmailJS({
+        toEmail: resetData.email,
+        toName: 'Super Admin',
+        subject: '🔒 Pemberitahuan: Kata Sandi Super Admin Berhasil Diperbarui',
+        otpCode: 'BERHASIL',
+        message: 'Kata sandi akun Super Admin M-Label Anda baru saja berhasil diperbarui. Jika Anda tidak merasa melakukan tindakan ini, segera hubungi tim IT Security.',
+        type: 'PASSWORD_RESET_SUCCESS'
+      });
+    } catch (e) {
+      console.warn('Gagal mengirim konfirmasi perubahan sandi:', e);
+    }
 
     return { success: true, message: 'Kata sandi berhasil diperbarui. Silakan login kembali.' };
   };

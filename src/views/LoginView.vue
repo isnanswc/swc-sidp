@@ -417,37 +417,56 @@
         <!-- Step 1: Input Email -->
         <div v-if="resetStep === 1" class="space-y-4">
           <p class="text-xs text-zinc-600 leading-relaxed">
-            Masukkan alamat email akun Super Admin Anda. Sistem akan memverifikasi dan mengirimkan kode OTP satu kali pakai.
+            Masukkan alamat email akun <strong>Super Admin</strong> Anda. Sistem akan memverifikasi dan mengirimkan kode OTP satu kali pakai langsung ke kotak masuk email Anda.
           </p>
           <div>
-            <label class="block text-xs font-bold text-zinc-800 mb-1 font-mono">Email Terdaftar</label>
+            <label class="block text-xs font-bold text-zinc-800 mb-1 font-mono">Email Super Admin Terdaftar</label>
             <input
               v-model="resetEmailInput"
               type="email"
               required
-              class="w-full px-3 py-2 text-xs bg-zinc-50 border border-zinc-300 rounded-xl text-zinc-900 font-mono focus:border-red-600 focus:bg-white outline-none"
+              class="w-full px-3 py-2 text-xs bg-zinc-50 border border-zinc-300 rounded-xl text-zinc-900 font-mono focus:border-red-600 focus:bg-white outline-none font-bold"
               placeholder="nama@email.com"
             />
           </div>
           <button
             @click="handleSendOtp"
             :disabled="isResetting || !resetEmailInput"
-            class="w-full py-2.5 rounded-xl bg-zinc-950 hover:bg-red-600 font-bold font-mono tracking-wider uppercase text-xs text-white transition-colors cursor-pointer disabled:opacity-50"
+            class="w-full py-2.5 rounded-xl bg-zinc-950 hover:bg-red-600 font-bold font-mono tracking-wider uppercase text-xs text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {{ isResetting ? 'Mengirim...' : 'KIRIM KODE OTP' }}
+            <span v-if="isResetting" class="animate-spin text-xs">⏳</span>
+            <span>{{ isResetting ? 'Mengirim Email...' : 'KIRIM KODE OTP KE EMAIL' }}</span>
           </button>
         </div>
 
         <!-- Step 2: Input OTP & New Password -->
         <div v-else-if="resetStep === 2" class="space-y-4">
-          <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-1">
-            <p>Kode OTP telah dikirimkan ke: <strong>{{ resetMaskedEmail }}</strong></p>
-            <p v-if="demoOtpCode" class="font-mono font-bold text-[11px] text-emerald-800">
-              [Kode Verifikasi: {{ demoOtpCode }}]
+          <div class="p-3.5 rounded-2xl bg-zinc-900 text-white text-xs space-y-2 border border-zinc-800">
+            <div class="flex items-center gap-2 text-emerald-400 font-bold">
+              <span>📬</span>
+              <span>Kode OTP Terkirim ke Email</span>
+            </div>
+            <p class="text-[11.5px] text-zinc-300 leading-relaxed">
+              Kode verifikasi telah dikirimkan ke: <strong class="text-white font-mono">{{ resetMaskedEmail }}</strong>. Silakan periksa kotak masuk (Inbox) atau folder Spam Anda.
             </p>
+            <div v-if="demoOtpCode" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 font-mono text-[10.5px]">
+              <span class="font-bold">[Mode Lokal / Offline]:</span> Kode Anda: <strong>{{ demoOtpCode }}</strong>
+              <div class="text-[9.5px] text-zinc-400 mt-0.5">*EmailJS belum aktif di Pengaturan. Masukkan kode di atas untuk reset.</div>
+            </div>
           </div>
+
           <div>
-            <label class="block text-xs font-bold text-zinc-800 mb-1 font-mono">Kode OTP (6 Digit)</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-bold text-zinc-800 font-mono">Kode OTP (6 Digit)</label>
+              <button
+                type="button"
+                @click="handleResendOtp"
+                :disabled="resendCooldown > 0 || isResetting"
+                class="text-[11px] font-bold text-red-600 hover:text-red-700 disabled:text-zinc-400 cursor-pointer disabled:cursor-not-allowed font-mono"
+              >
+                {{ resendCooldown > 0 ? `Kirim Ulang (${resendCooldown}s)` : 'Kirim Ulang OTP' }}
+              </button>
+            </div>
             <input
               v-model="resetOtpInput"
               maxlength="6"
@@ -455,21 +474,24 @@
               placeholder="123456"
             />
           </div>
+
           <div>
             <label class="block text-xs font-bold text-zinc-800 mb-1 font-mono">Kata Sandi Baru</label>
             <input
               v-model="resetNewPassword"
               type="password"
               class="w-full px-3 py-2 text-xs bg-zinc-50 border border-zinc-300 rounded-xl text-zinc-900 font-mono focus:border-red-600 focus:bg-white outline-none"
-              placeholder="Minimal 8 karakter (kombinasi huruf & angka)"
+              placeholder="Minimal 6 karakter (kombinasi huruf & angka)"
             />
           </div>
+
           <button
             @click="handleVerifyAndReset"
             :disabled="isResetting || !resetOtpInput || !resetNewPassword"
-            class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold font-mono tracking-wider uppercase text-xs text-white transition-colors cursor-pointer disabled:opacity-50"
+            class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold font-mono tracking-wider uppercase text-xs text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {{ isResetting ? 'Menyimpan...' : 'SIMPAN KATA SANDI BARU' }}
+            <span v-if="isResetting" class="animate-spin text-xs">⏳</span>
+            <span>{{ isResetting ? 'Menyimpan...' : 'SIMPAN KATA SANDI BARU' }}</span>
           </button>
         </div>
 
@@ -525,6 +547,21 @@ const resetMaskedEmail = ref('');
 const demoOtpCode = ref('');
 const resetError = ref('');
 const isResetting = ref(false);
+const resendCooldown = ref(0);
+let cooldownTimer = null;
+
+const startCooldown = (seconds = 60) => {
+  resendCooldown.value = seconds;
+  if (cooldownTimer) clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(() => {
+    if (resendCooldown.value > 0) {
+      resendCooldown.value--;
+    } else {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+  }, 1000);
+};
 
 const handleLogin = async () => {
   errorMessage.value = '';
@@ -556,8 +593,24 @@ const handleSendOtp = async () => {
     resetMaskedEmail.value = res.maskedEmail;
     demoOtpCode.value = res.otpCode;
     resetStep.value = 2;
+    startCooldown(60);
   } catch (err) {
     resetError.value = err.message || 'Gagal mengirim kode verifikasi.';
+  } finally {
+    isResetting.value = false;
+  }
+};
+
+const handleResendOtp = async () => {
+  if (resendCooldown.value > 0 || isResetting.value) return;
+  resetError.value = '';
+  isResetting.value = true;
+  try {
+    const res = await authStore.requestPasswordResetOtp(resetEmailInput.value);
+    demoOtpCode.value = res.otpCode;
+    startCooldown(60);
+  } catch (err) {
+    resetError.value = err.message || 'Gagal mengirim ulang kode verifikasi.';
   } finally {
     isResetting.value = false;
   }
@@ -573,6 +626,7 @@ const handleVerifyAndReset = async () => {
       resetNewPassword.value
     );
     resetStep.value = 3;
+    if (cooldownTimer) clearInterval(cooldownTimer);
   } catch (err) {
     resetError.value = err.message || 'Verifikasi gagal.';
   } finally {

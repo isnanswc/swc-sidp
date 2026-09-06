@@ -72,6 +72,27 @@
           {{ configStore.labelSignList.length }} Aturan
         </span>
       </button>
+
+      <button
+        type="button"
+        @click="activeTab = 'email'"
+        :class="[
+          'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs',
+          activeTab === 'email'
+            ? 'bg-zinc-900 text-white shadow-xs'
+            : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
+        ]"
+      >
+        <span>📧 Layanan Email (EmailJS)</span>
+        <span
+          :class="[
+            'px-1.5 py-0.2 text-[9.5px] rounded-full font-black',
+            emailConfigState.isConfigured ? 'bg-emerald-500/20 text-emerald-700' : 'bg-zinc-200 text-zinc-600'
+          ]"
+        >
+          {{ emailConfigState.isConfigured ? 'Aktif' : 'Off' }}
+        </span>
+      </button>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -756,6 +777,163 @@
       </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 4: EMAIL SERVICE (EMAILJS / SMTP DISPATCH)                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab === 'email'" class="space-y-6 animate-fade-in">
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+        <div class="px-5 py-4 border-b border-zinc-100 bg-zinc-50/70 flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold text-sm">
+              📧
+            </div>
+            <div>
+              <h2 class="text-sm font-black text-zinc-900">Layanan Pengiriman Email (EmailJS REST API)</h2>
+              <p class="text-[11px] text-zinc-500">Pengiriman kode OTP lupa sandi & notifikasi keamanan ke email Super Admin</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span
+              :class="[
+                'px-2.5 py-0.5 rounded-full text-[10px] font-black border',
+                emailConfigState.isConfigured
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : 'bg-zinc-100 text-zinc-500 border-zinc-300'
+              ]"
+            >
+              {{ emailConfigState.isConfigured ? '● EmailJS Terhubung' : '○ Belum Dikonfigurasi' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="p-5 sm:p-6 space-y-4 text-xs">
+          <!-- Target Super Admin Notice -->
+          <div class="p-3.5 bg-zinc-900 text-white rounded-xl border border-zinc-800 flex items-center justify-between gap-3">
+            <div class="space-y-0.5">
+              <span class="text-[10.5px] font-mono text-zinc-400 block uppercase tracking-wider">Email Penerima Utama (Super Admin):</span>
+              <span class="text-xs sm:text-sm font-black font-mono text-red-400">isnanswc@gmail.com</span>
+            </div>
+            <span class="px-2 py-1 rounded bg-zinc-800 text-[10px] font-mono font-bold text-zinc-300 border border-zinc-700">
+              Primary Recipient
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Service ID -->
+            <div class="space-y-1.5">
+              <label class="font-bold text-zinc-800 flex items-center gap-1">
+                <span>Service ID EmailJS</span>
+                <span class="text-red-500">*</span>
+              </label>
+              <input
+                v-model="emailForm.serviceId"
+                type="text"
+                placeholder="Contoh: service_abc123"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 font-mono font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-red-500 bg-white"
+              />
+              <span class="text-[10px] text-zinc-400 font-mono">ID service email yang dibuat di dashboard EmailJS</span>
+            </div>
+
+            <!-- Template ID -->
+            <div class="space-y-1.5">
+              <label class="font-bold text-zinc-800 flex items-center gap-1">
+                <span>Template ID EmailJS</span>
+                <span class="text-red-500">*</span>
+              </label>
+              <input
+                v-model="emailForm.templateId"
+                type="text"
+                placeholder="Contoh: template_xyz789"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 font-mono font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-red-500 bg-white"
+              />
+              <span class="text-[10px] text-zinc-400 font-mono">ID template email untuk verifikasi OTP</span>
+            </div>
+
+            <!-- Public Key -->
+            <div class="space-y-1.5">
+              <label class="font-bold text-zinc-800 flex items-center gap-1">
+                <span>Public Key (User ID)</span>
+                <span class="text-red-500">*</span>
+              </label>
+              <input
+                v-model="emailForm.publicKey"
+                type="password"
+                placeholder="Contoh: user_pk_123456"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 font-mono font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-red-500 bg-white"
+              />
+              <span class="text-[10px] text-zinc-400 font-mono">Public key akun EmailJS Anda di menu Account > API Keys</span>
+            </div>
+
+            <!-- Sender Name -->
+            <div class="space-y-1.5">
+              <label class="font-bold text-zinc-800">Nama Pengirim (Display Name)</label>
+              <input
+                v-model="emailForm.senderName"
+                type="text"
+                placeholder="PT. Saptawarna Cemerlang - M-Label Security"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 font-medium text-zinc-900 outline-none focus:ring-2 focus:ring-red-500 bg-white"
+              />
+              <span class="text-[10px] text-zinc-400 font-mono">Nama pengirim yang muncul di email Super Admin</span>
+            </div>
+          </div>
+
+          <!-- Connection Test Box -->
+          <div class="p-4 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span class="font-bold text-zinc-800 block">🧪 Uji Coba Pengiriman Email Nyata</span>
+              <p class="text-[11px] text-zinc-500">Kirim email pengujian sekarang ke <strong class="text-zinc-800">isnanswc@gmail.com</strong> untuk memastikan setup berfungsi normal.</p>
+              <div v-if="emailTestMessage" :class="['mt-2 text-xs font-mono font-bold p-2 rounded-lg', emailTestSuccess ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200']">
+                {{ emailTestMessage }}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              @click="handleTestEmail"
+              :disabled="isTestingEmail"
+              class="px-4 py-2 rounded-xl text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-white transition-colors cursor-pointer disabled:opacity-40 shrink-0 flex items-center gap-1.5"
+            >
+              <span v-if="isTestingEmail" class="animate-spin">⏳</span>
+              <span>{{ isTestingEmail ? 'Mengirim Uji Coba...' : 'KIRIM EMAIL TES' }}</span>
+            </button>
+          </div>
+
+          <!-- Save Button -->
+          <div class="flex items-center justify-end pt-3 border-t border-zinc-100">
+            <button
+              type="button"
+              @click="handleSaveEmailSettings"
+              class="px-6 py-2 rounded-xl text-xs font-black bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-600/25 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              <span>Simpan Pengaturan Email</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Setup Guide -->
+      <div class="bg-gradient-to-br from-zinc-900 to-zinc-950 rounded-2xl p-5 text-white border border-zinc-800 shadow-md space-y-3">
+        <div class="flex items-center gap-2">
+          <span class="text-amber-400 text-base">💡</span>
+          <h3 class="text-xs font-black tracking-wide uppercase text-zinc-100">
+            Panduan Menghubungkan EmailJS (Gratis 200 Email/Bulan)
+          </h3>
+        </div>
+        <ol class="list-decimal list-inside text-xs text-zinc-300 space-y-1.5 pl-1 leading-relaxed">
+          <li>Buka situs <a href="https://www.emailjs.com" target="_blank" class="text-red-400 underline font-bold">emailjs.com</a> dan buat akun gratis.</li>
+          <li>Di menu <strong>Email Services</strong>, klik <em>Add New Service</em> dan pilih Gmail (hubungkan akun email pengirim Anda). Salin <strong>Service ID</strong>.</li>
+          <li>Di menu <strong>Email Templates</strong>, buat template baru dengan variabel:
+            <code class="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded text-[10.5px] font-mono ml-1">{{to_name}}</code>,
+            <code class="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded text-[10.5px] font-mono">{{otp_code}}</code>,
+            <code class="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded text-[10.5px] font-mono">{{message}}</code>. Salin <strong>Template ID</strong>.
+          </li>
+          <li>Buka menu <strong>Account > API Keys</strong> dan salin <strong>Public Key</strong> Anda, lalu tempelkan pada form di atas dan klik <em>Simpan Pengaturan Email</em>.</li>
+        </ol>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -1066,4 +1244,69 @@ const formatDate = (isoStr) => {
     return isoStr;
   }
 };
+
+// ── EMAILJS CONFIGURATION STATE & HANDLERS ──
+import { getEmailConfig, saveEmailConfig, testEmailConnection } from '@/services/emailService';
+
+const emailConfigState = reactive({
+  isConfigured: false
+});
+
+const emailForm = reactive({
+  serviceId: '',
+  templateId: '',
+  publicKey: '',
+  senderName: 'PT. Saptawarna Cemerlang - M-Label Security'
+});
+
+const isTestingEmail = ref(false);
+const emailTestMessage = ref('');
+const emailTestSuccess = ref(null);
+
+const loadEmailSettings = async () => {
+  try {
+    const cfg = await getEmailConfig();
+    emailForm.serviceId = cfg.serviceId;
+    emailForm.templateId = cfg.templateId;
+    emailForm.publicKey = cfg.publicKey;
+    emailForm.senderName = cfg.senderName || 'PT. Saptawarna Cemerlang - M-Label Security';
+    emailConfigState.isConfigured = cfg.isConfigured;
+  } catch (err) {
+    console.error('Failed to load email config:', err);
+  }
+};
+
+const handleSaveEmailSettings = async () => {
+  try {
+    await saveEmailConfig(emailForm);
+    emailConfigState.isConfigured = Boolean(emailForm.serviceId && emailForm.templateId && emailForm.publicKey);
+    alert('✅ Pengaturan EmailJS berhasil disimpan!');
+  } catch (err) {
+    alert(`❌ Gagal menyimpan pengaturan: ${err.message}`);
+  }
+};
+
+const handleTestEmail = async () => {
+  isTestingEmail.value = true;
+  emailTestMessage.value = '';
+  emailTestSuccess.value = null;
+  try {
+    // Simpan konfigurasi sementara dulu sebelum uji coba
+    await saveEmailConfig(emailForm);
+    emailConfigState.isConfigured = Boolean(emailForm.serviceId && emailForm.templateId && emailForm.publicKey);
+
+    const res = await testEmailConnection('isnanswc@gmail.com');
+    emailTestSuccess.value = true;
+    emailTestMessage.value = `✓ Berhasil! ${res.message}`;
+  } catch (err) {
+    emailTestSuccess.value = false;
+    emailTestMessage.value = `✕ Pengujian gagal: ${err.message}`;
+  } finally {
+    isTestingEmail.value = false;
+  }
+};
+
+onMounted(() => {
+  loadEmailSettings();
+});
 </script>
