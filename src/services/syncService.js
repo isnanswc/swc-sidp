@@ -577,6 +577,25 @@ export async function pushLocalToSupabase() {
       })());
     }
 
+    // 1j. Settings Sync (EmailJS Configuration & App Settings)
+    if (db.settings) {
+      tasks.push((async () => {
+        try {
+          const allSettings = await db.settings.toArray();
+          if (allSettings.length > 0) {
+            const payload = allSettings.map(st => ({
+              key: st.key,
+              value: typeof st.value === 'string' ? st.value : JSON.stringify(st.value),
+              updated_at: st.updatedAt || new Date().toISOString()
+            }));
+            await supabase.from('settings').upsert(payload, { onConflict: 'key' });
+          }
+        } catch (setErr) {
+          console.warn('[SyncPush] Settings sync notice:', setErr.message || setErr);
+        }
+      })());
+    }
+
     // Jalankan seluruh sync push secara PARALEL
     await Promise.all(tasks);
     await countUnsynced();
@@ -1104,6 +1123,37 @@ export async function pullFromSupabase() {
             if (toUpdate.length > 0) await db.standard_lengths.bulkPut(toUpdate);
             if (toAdd.length > 0) await db.standard_lengths.bulkAdd(toAdd);
           });
+        }
+      })());
+    }
+
+    // Pull Settings (EmailJS & System Settings)
+    if (db.settings) {
+      pullTasks.push((async () => {
+        try {
+          const { data: cloudSettings, error } = await supabase.from('settings').select('*');
+          if (!error && cloudSettings && cloudSettings.length > 0) {
+            const toUpdate = [];
+            for (const cs of cloudSettings) {
+              let parsedVal = cs.value;
+              try {
+                parsedVal = JSON.parse(cs.value);
+              } catch (e) {
+                parsedVal = cs.value;
+              }
+              toUpdate.push({
+                key: cs.key,
+                value: parsedVal,
+                updatedAt: cs.updated_at || new Date().toISOString()
+              });
+              if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.setItem(`mlabel_setting_${cs.key}`, JSON.stringify(parsedVal));
+              }
+            }
+            await db.settings.bulkPut(toUpdate);
+          }
+        } catch (setPullErr) {
+          console.warn('[SyncPull] Settings pull notice:', setPullErr.message || setPullErr);
         }
       })());
     }

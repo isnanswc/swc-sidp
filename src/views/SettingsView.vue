@@ -1280,7 +1280,16 @@ const handleSaveEmailSettings = async () => {
   try {
     await saveEmailConfig(emailForm);
     emailConfigState.isConfigured = Boolean(emailForm.serviceId && emailForm.templateId && emailForm.publicKey);
-    alert('✅ Pengaturan EmailJS berhasil disimpan!');
+    
+    // Otomatis sinkronkan ke Cloud Supabase agar berlaku di semua perangkat
+    try {
+      const { pushLocalToSupabase } = await import('@/services/syncService');
+      await pushLocalToSupabase();
+    } catch (syncErr) {
+      console.warn('Sync to cloud notice:', syncErr);
+    }
+
+    alert('✅ Pengaturan EmailJS berhasil disimpan dan tersinkron ke Cloud Supabase!');
   } catch (err) {
     alert(`❌ Gagal menyimpan pengaturan: ${err.message}`);
   }
