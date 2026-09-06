@@ -69,14 +69,6 @@
 
       <div class="flex items-center gap-2 flex-wrap text-xs">
         <select
-          v-model="filterDepartment"
-          class="bg-white border border-zinc-300 rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-red-600 cursor-pointer"
-        >
-          <option value="ALL">Semua Departemen</option>
-          <option v-for="d in DEPARTMENTS" :key="d.key" :value="d.key">{{ d.name }}</option>
-        </select>
-
-        <select
           v-model="filterRole"
           class="bg-white border border-zinc-300 rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-1 focus:ring-red-600 cursor-pointer"
         >
@@ -103,7 +95,7 @@
             <tr class="bg-zinc-50/90 border-b border-zinc-200 text-zinc-500 uppercase font-mono text-[10.5px]">
               <th class="py-3 px-4 text-center w-12">#</th>
               <th class="py-3 px-4">Pengguna</th>
-              <th class="py-3 px-4">Departemen / Unit</th>
+              <th class="py-3 px-4">Alamat Email</th>
               <th class="py-3 px-4">Peran (Role)</th>
               <th class="py-3 px-4">Keamanan PIN</th>
               <th class="py-3 px-4 text-center">Status</th>
@@ -152,14 +144,9 @@
                 </div>
               </td>
 
-              <!-- Department Badge -->
-              <td class="py-3.5 px-4">
-                <div class="font-bold text-zinc-900 leading-tight">
-                  {{ getDepartmentTitle(user.department) }}
-                </div>
-                <div class="text-[10px] text-zinc-400 font-mono truncate max-w-[140px]">
-                  {{ user.email }}
-                </div>
+              <!-- Email -->
+              <td class="py-3.5 px-4 font-mono font-medium text-zinc-700">
+                {{ user.email }}
               </td>
 
               <!-- Role Badge -->
@@ -322,7 +309,7 @@
             </div>
 
             <!-- Email -->
-            <div class="space-y-1.5">
+            <div class="space-y-1.5 sm:col-span-2">
               <label class="font-bold text-zinc-700">Alamat Email <span class="text-red-500">*</span></label>
               <input
                 v-model="userForm.email"
@@ -330,19 +317,6 @@
                 placeholder="budi@saptawarna.co.id"
                 class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 font-mono text-zinc-900 outline-none focus:ring-2 focus:ring-red-500"
               />
-            </div>
-
-            <!-- Departemen / Unit Kerja -->
-            <div class="space-y-1.5">
-              <label class="font-bold text-zinc-700">Departemen / Bagian <span class="text-red-500">*</span></label>
-              <select
-                v-model="userForm.department"
-                class="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-red-500 bg-white"
-              >
-                <option v-for="dept in DEPARTMENTS" :key="dept.key" :value="dept.key">
-                  {{ dept.name }}
-                </option>
-              </select>
             </div>
           </div>
 
@@ -631,7 +605,6 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   APP_MENUS,
   ROLE_PRESETS,
-  DEPARTMENTS,
   DEFAULT_SUPER_ADMIN,
   generatePresetPermissions,
   generateRandomPassword,
@@ -642,7 +615,6 @@ const userStore = useUserStore();
 const authStore = useAuthStore();
 
 const searchQuery = ref('');
-const filterDepartment = ref('ALL');
 const filterRole = ref('ALL');
 const filterStatus = ref('ALL');
 
@@ -660,11 +632,6 @@ const filteredUsers = computed(() => {
       const matchUser = (u.username || '').toLowerCase().includes(q);
       const matchEmail = (u.email || '').toLowerCase().includes(q);
       if (!matchName && !matchUser && !matchEmail) return false;
-    }
-
-    // Filter Department
-    if (filterDepartment.value !== 'ALL' && u.department !== filterDepartment.value) {
-      return false;
     }
 
     // Filter Role
@@ -689,11 +656,6 @@ const getRoleTitle = (role) => {
 const getRoleBadgeClass = (role) => {
   const p = ROLE_PRESETS.find(r => r.role === role);
   return p ? p.badgeColor : 'bg-zinc-800 text-white';
-};
-
-const getDepartmentTitle = (deptKey) => {
-  const d = DEPARTMENTS.find(dep => dep.key === deptKey);
-  return d ? d.name.replace('Produksi - ', '') : 'Produksi';
 };
 
 const getPermissionsSummary = (user) => {
@@ -725,7 +687,6 @@ const userForm = reactive({
   email: '',
   password: '',
   role: 'OPERATOR',
-  department: 'PRODUKSI_EXTRUSION',
   permissions: {}
 });
 
@@ -751,7 +712,6 @@ const openAddModal = () => {
   userForm.email = '';
   userForm.password = generateRandomPassword(12);
   userForm.role = 'OPERATOR';
-  userForm.department = 'PRODUKSI_EXTRUSION';
   userForm.permissions = generatePresetPermissions('OPERATOR');
 
   showUserModal.value = true;
@@ -768,7 +728,6 @@ const openEditModal = (user) => {
   userForm.email = user.email;
   userForm.password = '';
   userForm.role = user.role;
-  userForm.department = user.department || 'PRODUKSI_EXTRUSION';
 
   // Initialize permissions deep clone
   const userPerms = typeof user.permissionsJson === 'string'
@@ -827,7 +786,6 @@ const saveUser = async () => {
         email: userForm.email,
         password: userForm.password,
         role: userForm.role,
-        department: userForm.department,
         permissions: userForm.permissions
       });
     } else {
@@ -837,7 +795,6 @@ const saveUser = async () => {
         email: userForm.email,
         password: userForm.password,
         role: userForm.role,
-        department: userForm.department,
         permissions: userForm.permissions
       });
     }
