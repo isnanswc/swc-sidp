@@ -503,6 +503,103 @@ async function buildTargetedGroundingData(queryText, history = [], customOperato
     grounding += `\nDAFTAR OPERATOR PABRIK: ${opNames}\n`;
   }
 
+  // 4. IMS: STOK FINISHED GOODS (FG ROLL) - AKTIF & RIWAYAT UPDATE
+  try {
+    if (db.inventory_stock_uploads && db.inventory_current_stocks) {
+      const fgUploads = await db.inventory_stock_uploads.toArray();
+      const fgStocks = await db.inventory_current_stocks.toArray();
+
+      if (fgUploads.length > 0 || fgStocks.length > 0) {
+        const activeUploadIdStr = typeof window !== 'undefined' ? localStorage.getItem('m_label_active_fg_upload_id') : null;
+        const activeUploadId = activeUploadIdStr ? parseInt(activeUploadIdStr, 10) : (fgUploads[0]?.id || null);
+        const activeUpload = fgUploads.find(u => u.id === activeUploadId) || fgUploads[0] || null;
+
+        const totalFgRolls = fgStocks.reduce((sum, s) => sum + (parseInt(s.totalRoll, 10) || 0), 0);
+        const totalFgKg = fgStocks.reduce((sum, s) => sum + (parseFloat(s.totalKg) || 0), 0);
+        const totalFgPanjang = fgStocks.reduce((sum, s) => sum + (parseFloat(s.totalPanjang) || 0), 0);
+
+        grounding += `\nDATA STOK FINISHED GOODS (FG ROLL) - STATUS SAAT INI:\n`;
+        grounding += `- Status Acuan Stok Aktif: ${activeUpload ? `"${activeUpload.fileName}" (Tanggal Upload: ${activeUpload.uploadDate})` : 'Stok Berjalan'}\n`;
+        grounding += `- Total SKU Aktif: ${fgStocks.length.toLocaleString('id-ID')} SKU\n`;
+        grounding += `- Total Roll FG Tersedia: ${totalFgRolls.toLocaleString('id-ID')} Roll\n`;
+        grounding += `- Total Berat FG: ${totalFgKg.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg\n`;
+        grounding += `- Total Panjang FG: ${totalFgPanjang.toLocaleString('id-ID', { maximumFractionDigits: 0 })} Meter\n`;
+
+        // Top 8 SKU FG Terbesar
+        const topFg = [...fgStocks].sort((a, b) => (parseInt(b.totalRoll, 10) || 0) - (parseInt(a.totalRoll, 10) || 0)).slice(0, 8);
+        if (topFg.length > 0) {
+          grounding += `TOP 8 ITEM DENGAN STOK ROLL FG TERBANYAK:\n`;
+          topFg.forEach((item, idx) => {
+            grounding += `${idx + 1}. [${item.kodeFormula || item.jenis || 'FG'}] ${item.descriptionExcel || item.descriptionNav} -> ${item.totalRoll} Roll (${item.totalKg} kg, Lokasi: ${item.listRak || 'Gudang'})\n`;
+          });
+        }
+
+        // Riwayat Upload FG Lampau untuk perbandingan
+        if (fgUploads.length > 1) {
+          grounding += `RIWAYAT UPLOAD STOK FG LAMPAU UNTUK PERBANDINGAN:\n`;
+          fgUploads.slice(0, 5).forEach((u, idx) => {
+            const isCurrent = (u.id === activeUpload?.id);
+            grounding += `- Upload #${u.id} (${u.uploadDate}) [${u.fileName}]: ${u.totalRoll} Roll, ${u.totalSku} SKU ${isCurrent ? '⭐ [SEDANG AKTIF SEBAGAI ACUAN UTAMA]' : '(Stok Lampau)'}\n`;
+          });
+        }
+      }
+    }
+  } catch (fgErr) {
+    console.warn('AI Grounding FG Stock error:', fgErr);
+  }
+
+  // 5. IMS: STOK WIP (WORK IN PROCESS / JUMBO ROLL) - AKTIF & RIWAYAT UPDATE
+  try {
+    if (db.wip_updates && db.wip_rolls) {
+      const wipUpdates = await db.wip_updates.toArray();
+      const allWipRolls = await db.wip_rolls.toArray();
+
+      if (wipUpdates.length > 0 || allWipRolls.length > 0) {
+        const activeBatch = wipUpdates.find(u => u.isActive === 1 || u.isActive === true) || wipUpdates[0] || null;
+        const activeBatchId = activeBatch ? (activeBatch.uuid || activeBatch.id) : null;
+        
+        const activeWipRolls = activeBatchId
+          ? allWipRolls.filter(r => r.updateId === activeBatchId || String(r.updateId) === String(activeBatch.id))
+          : allWipRolls;
+
+        const rollsToAnalyze = activeWipRolls.length > 0 ? activeWipRolls : allWipRolls;
+        const totalWipRolls = rollsToAnalyze.length;
+        const totalWipKg = rollsToAnalyze.reduce((sum, r) => sum + (parseFloat(r.beratAktual) || parseFloat(r.beratTeori) || 0), 0);
+
+        // Sebaran Lokasi Rak WIP
+        const rackMap = {};
+        for (const r of rollsToAnalyze) {
+          const loc = r.lokasiAktif || 'STAGING';
+          rackMap[loc] = (rackMap[loc] || 0) + 1;
+        }
+
+        grounding += `\nDATA STOK JUMBO ROLL WIP (WORK IN PROCESS) - STATUS SAAT INI:\n`;
+        grounding += `- Acuan Stok WIP Aktif: ${activeBatch ? `"${activeBatch.title}" (Tanggal: ${activeBatch.tanggal})` : 'Stok Berjalan'}\n`;
+        grounding += `- Total Jumbo Roll WIP: ${totalWipRolls.toLocaleString('id-ID')} Roll\n`;
+        grounding += `- Total Berat WIP: ${totalWipKg.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg\n`;
+
+        const sortedRacks = Object.entries(rackMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        if (sortedRacks.length > 0) {
+          grounding += `SEBARAN RAK PENYIMPANAN WIP:\n`;
+          sortedRacks.forEach(([rack, count]) => {
+            grounding += `- Rak/Area ${rack}: ${count} Roll Jumbo\n`;
+          });
+        }
+
+        // Riwayat Sesi WIP Lampau untuk komparasi
+        if (wipUpdates.length > 1) {
+          grounding += `RIWAYAT UPDATE STOK WIP LAMPAU UNTUK PERBANDINGAN:\n`;
+          wipUpdates.slice(0, 5).forEach((b) => {
+            const isCurrent = (b.id === activeBatch?.id || b.uuid === activeBatch?.uuid);
+            grounding += `- Batch: "${b.title}" (${b.tanggal}): ${b.totalRolls} Roll, ${b.totalKg} kg ${isCurrent ? '⭐ [SEDANG AKTIF SEBAGAI ACUAN UTAMA]' : '(Stok Lampau)'}\n`;
+          });
+        }
+      }
+    }
+  } catch (wipErr) {
+    console.warn('AI Grounding WIP error:', wipErr);
+  }
+
   return grounding;
 }
 
@@ -535,13 +632,27 @@ Jika pengguna menanyakan kendala teknis proses slitting, rewind, printing rotogr
 - Cacat Blocking / Roll Lengket: Jelaskan residual solvent masih tinggi karena pengeringan belum tuntas, atau tension gulung berlebih di area dengan suhu ruangan tinggi.
 - Cacat Kerut (Wrinkle): Jelaskan misalignment pada bow/spreader roller atau variasi ketebalan (gauge profile) film induk.
 
+PEDOMAN PENGELOLAAN STOK IMS (FG ROLL & WIP JUMBO):
+- Jika pengguna menanyakan STOK (misal: "stok fg sekarang", "sisa stok roll", "stok m06", "stok wip"): WAJIB utamakan menjawab berdasarkan DATA STOK AKTIF di bawah (sebutkan total roll, kg, dan posisi raknya).
+- Jika pengguna meminta KOMPARASI / PERBANDINGAN dengan stok lampau (misal: "bandingkan stok sekarang dengan upload kemarin", "apakah stok naik atau turun?"): Bandingkan angka stok aktif dengan riwayat upload/batch lampau yang tercatat di fakta database.
+- Jika pengguna menanyakan roll spesifik yang tidak ditemukan di FG, tawarkan untuk memeriksa stok WIP Jumbo roll atau data produksi harian.
+
+SMART PRODUCTION CALCULATOR (KALKULATOR BERAT TEORI OTOMATIS):
+Jika pengguna meminta menghitung berat teori roll film:
+- Rumus Baku: Berat Teori (kg) = (Thickness (mc) × Width (mm) × Length (m) × Density) ÷ 1.000.000
+- Faktor Density: PET / VMPET = 1.40 g/cm³, CPP / VMCPP / BOPP / LLDPE = 0.91 g/cm³
+- Berikan langkah perhitungannya secara transparan, sebutkan rumus dan hasil akhirnya dalam satuan kg dengan 2 angka di belakang koma.
+
 KONTROL AKSI SISTEM (ACTION TRIGGERS):
-Jika pengguna meminta membuka fitur atau berpindah halaman di sistem:
+Jika pengguna meminta membuka fitur atau melakukan aksi:
 - Membuka form serah terima shift (contoh: "buka serah terima shift", "form serah terima"): sertakan tag "[ACTION:OPEN_SHIFT_HANDOVER]" di akhir jawaban Anda.
-- Membuka halaman SPK / Timeline (contoh: "buka spk", "lihat antrean spk"): sertakan tag "[ACTION:NAVIGATE:/spk]" di akhir jawaban Anda.
-- Membuka data roll / roll reject (contoh: "lihat data roll", "tampilkan reject"): sertakan tag "[ACTION:NAVIGATE:/data-roll]" di akhir jawaban Anda.
+- Membuka halaman SPK / Timeline: sertakan tag "[ACTION:NAVIGATE:/spk]" di akhir jawaban Anda.
+- Membuka data roll / roll reject: sertakan tag "[ACTION:NAVIGATE:/data-roll]" di akhir jawaban Anda.
+- Membuka Stok FG Roll (Inventory): sertakan tag "[ACTION:NAVIGATE:/inventory]" di akhir jawaban Anda.
+- Membuka WIP Jumbo Roll & Denah Rak: sertakan tag "[ACTION:NAVIGATE:/wip]" di akhir jawaban Anda.
 - Membuka pengaturan AI: sertakan tag "[ACTION:NAVIGATE:/settings]" di akhir jawaban Anda.
 - Membuka scan laporan: sertakan tag "[ACTION:NAVIGATE:/scan-report]" di akhir jawaban Anda.
+- Mengunduh / Export file Excel (contoh: "export data roll ke excel", "download excel reject", "buatkan excel"): sertakan tag "[ACTION:TRIGGER_EXPORT_EXCEL]" di akhir jawaban Anda.
 
 FORMAT LAPORAN WHATSAPP (EXECUTIVE WHATSAPP SUMMARY):
 Jika pengguna meminta membuat ringkasan/laporan WhatsApp (misal "buat rekap wa", "laporan whatsapp shift"):
@@ -653,6 +764,72 @@ export async function processAiQueryAsync(queryText, dataRolls = [], labels = []
   }
 
 
+
+  // 2b. Offline Local Handler: Kalkulator Berat Teori Otomatis
+  if (lowerQuery.includes('berat teori') || lowerQuery.includes('hitung berat') || lowerQuery.includes('kalkulator berat')) {
+    const tMatch = query.match(/(\d{1,3})\s*(?:mc|micron|mikron)/i);
+    const wMatch = query.match(/(\d{3,5})\s*(?:mm|mili|m)/i);
+    const lMatch = query.match(/(\d{3,6})\s*(?:m|meter)/i);
+    const isPet = /pet|vmpet/i.test(query);
+
+    if (tMatch && wMatch && lMatch) {
+      const thick = parseFloat(tMatch[1]);
+      const width = parseFloat(wMatch[1]);
+      const length = parseFloat(lMatch[1]);
+      const density = isPet ? 1.40 : 0.91;
+      const jenis = isPet ? 'PET / VMPET' : 'CPP / VMCPP / BOPP / LLDPE';
+      const beratTeori = ((thick * width * length * density) / 1000000).toFixed(2);
+
+      return {
+        text: `🧮 **Hasil Perhitungan Berat Teori Roll Film:**\n\n• **Parameter**: Tebal **${thick} mc** × Lebar **${width} mm** × Panjang **${length} m**\n• **Jenis Bahan**: **${jenis}** (Density: **${density} g/cm³**)\n• **Rumus**: ` + '`' + `(${thick} × ${width} × ${length} × ${density}) ÷ 1.000.000` + '`' + `\n\n🎯 **Berat Teori Bersih (Netto)**: **${beratTeori} kg**`,
+        suggestions: [
+          'Berapa berat teori jika tebal 25 mc?',
+          'Tampilkan stok FG roll aktif',
+          'Berapa roll jumbo WIP di rak?'
+        ]
+      };
+    }
+  }
+
+  // 2c. Offline Local Handler: Stok Finished Goods (FG) & WIP
+  if (lowerQuery.includes('stok') || lowerQuery.includes('inventory') || lowerQuery.includes('wip') || lowerQuery.includes('gudang')) {
+    try {
+      if (lowerQuery.includes('wip')) {
+        const wipRolls = db.wip_rolls ? await db.wip_rolls.toArray() : [];
+        const wipUpdates = db.wip_updates ? await db.wip_updates.toArray() : [];
+        const activeBatch = wipUpdates.find(u => u.isActive === 1 || u.isActive === true) || wipUpdates[0];
+        const activeRolls = activeBatch ? wipRolls.filter(r => r.updateId === activeBatch.uuid || String(r.updateId) === String(activeBatch.id)) : wipRolls;
+        const targetRolls = activeRolls.length > 0 ? activeRolls : wipRolls;
+        const totalKg = targetRolls.reduce((sum, r) => sum + (parseFloat(r.beratAktual) || parseFloat(r.beratTeori) || 0), 0);
+
+        return {
+          text: `📦 **Status Stok WIP Jumbo Roll:**\n\n• **Acuan Stok Aktif**: ${activeBatch ? `*${activeBatch.title}* (${activeBatch.tanggal})` : '*Stok Berjalan*'}\n• **Total Roll Jumbo**: **${targetRolls.length.toLocaleString('id-ID')} Roll**\n• **Total Berat**: **${totalKg.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg**\n\n💡 Ingin melihat denah posisi rak penyimpanan visual? Silakan minta *"Buka halaman WIP"*. [ACTION:NAVIGATE:/wip]`,
+          suggestions: [
+            'Buka denah rak WIP',
+            'Berapa stok FG roll saat ini?',
+            'Hitung total roll reject pabrik'
+          ]
+        };
+      } else {
+        const fgStocks = db.inventory_current_stocks ? await db.inventory_current_stocks.toArray() : [];
+        const fgUploads = db.inventory_stock_uploads ? await db.inventory_stock_uploads.toArray() : [];
+        const activeUpload = fgUploads[0];
+        const totalRolls = fgStocks.reduce((sum, s) => sum + (parseInt(s.totalRoll, 10) || 0), 0);
+        const totalKg = fgStocks.reduce((sum, s) => sum + (parseFloat(s.totalKg) || 0), 0);
+
+        return {
+          text: `📦 **Status Stok Finished Goods (FG Roll):**\n\n• **Acuan Stok Aktif**: ${activeUpload ? `*${activeUpload.fileName}* (${activeUpload.uploadDate})` : '*Stok Berjalan*'}\n• **Jumlah SKU**: **${fgStocks.length.toLocaleString('id-ID')} SKU**\n• **Total Roll FG**: **${totalRolls.toLocaleString('id-ID')} Roll**\n• **Total Berat**: **${totalKg.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg**\n\n💡 Ketik *"Buka halaman inventory"* untuk melihat daftar lengkap 27 kolom atau mengubah acuan stok aktif. [ACTION:NAVIGATE:/inventory]`,
+          suggestions: [
+            'Buka stok FG inventory',
+            'Berapa stok roll jumbo WIP?',
+            'Bandingkan dengan upload sebelumnya'
+          ]
+        };
+      }
+    } catch (e) {
+      console.warn('Offline stock query handler error:', e);
+    }
+  }
 
   const dataset = dataRolls.length > 0 ? dataRolls : labels;
   const total = dataset.length;

@@ -643,11 +643,14 @@ const conversations = ref([]);
 const currentSessionId = ref(null);
 
 const defaultChips = [
+  '📦 Berapa stok FG roll aktif saat ini?',
+  '🛢️ Berapa roll jumbo WIP yang siap pakai?',
+  '⚖️ Hitung berat teori roll tebal 20mc lebar 1020mm panjang 6000m',
+  '📊 Bandingkan stok FG sekarang dengan upload sebelumnya',
+  '📥 Export data roll reject ke file Excel',
   '📲 Buat Laporan WhatsApp Shift',
   '🔧 Solusi Cacat Telescoping & Kerut',
-  '📋 Buka Form Serah Terima Shift',
-  '📊 Hitung roll hold bulan april & 10 SPK tertinggi',
-  '🏭 Bandingkan output Slitting vs Rewind'
+  '📋 Buka Form Serah Terima Shift'
 ];
 
 // Current Conversation Messages
@@ -949,6 +952,15 @@ const handleSubmit = () => {
         } else if (actionTag.startsWith('NAVIGATE:')) {
           const navPath = actionTag.replace('NAVIGATE:', '').trim();
           if (navPath) router.push(navPath);
+        } else if (actionTag === 'TRIGGER_EXPORT_EXCEL') {
+          try {
+            if (dataRollStore.rolls && dataRollStore.rolls.length > 0) {
+              const exportName = `Export_Data_Roll_AI_${new Date().toISOString().slice(0, 10)}.xlsx`;
+              dataRollStore.exportToExcel(exportName);
+            }
+          } catch (expErr) {
+            console.warn('AI Trigger Export Excel error:', expErr);
+          }
         }
       }
 

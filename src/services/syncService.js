@@ -216,6 +216,66 @@ function mapDataRollFromSupabase(s) {
   };
 }
 
+// Map WIP Roll to Supabase Format
+function mapWipRollToSupabase(w) {
+  return {
+    uuid: w.uuid || `wip_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    update_id: w.updateId || '',
+    tanggal_spk: w.tanggalSpk || w.tanggalInput || '',
+    spk: w.spk || '',
+    lot: w.lot || '',
+    jenis: w.jenis || '',
+    kode_formula: w.kodeFormula || '',
+    thickness: parseFloat(w.thickness) || 0,
+    width: parseFloat(w.width) || 0,
+    length: parseFloat(w.length) || 0,
+    core: parseFloat(w.core) || 6,
+    od: w.od || '',
+    tanda: w.tanda || '',
+    berat_aktual: parseFloat(w.beratAktual) || 0,
+    berat_teori: parseFloat(w.beratTeori) || 0,
+    lokasi_aktif: w.lokasiAktif || '',
+    posisi_aktif: w.posisiAktif || '',
+    description_excel: w.descriptionExcel || '',
+    description_nav: w.descriptionNav || '',
+    keterangan: w.keterangan || '',
+    status: w.status || 'AVAILABLE',
+    is_deleted: false,
+    created_at: w.createdAt || new Date().toISOString(),
+    updated_at: w.updatedAt || new Date().toISOString()
+  };
+}
+
+function mapWipRollFromSupabase(s) {
+  return {
+    uuid: s.uuid,
+    updateId: s.update_id,
+    tanggalSpk: s.tanggal_spk,
+    tanggalInput: s.tanggal_spk,
+    spk: s.spk,
+    lot: s.lot,
+    jenis: s.jenis,
+    kodeFormula: s.kode_formula,
+    thickness: s.thickness,
+    width: s.width,
+    length: s.length,
+    core: s.core,
+    od: s.od,
+    tanda: s.tanda,
+    beratAktual: s.berat_aktual,
+    beratTeori: s.berat_teori,
+    lokasiAktif: s.lokasi_aktif,
+    posisiAktif: s.posisi_aktif,
+    descriptionExcel: s.description_excel,
+    descriptionNav: s.description_nav,
+    keterangan: s.keterangan,
+    status: s.status || 'AVAILABLE',
+    synced: 1,
+    createdAt: s.created_at,
+    updatedAt: s.updated_at
+  };
+}
+
 // ── TOMBSTONES: Cegah data yang sudah dihapus diunggah kembali (resurrect loop) ──
 const TOMBSTONE_MAX = 50000;
 export function getTombstones(key) {
@@ -611,6 +671,115 @@ export async function pushLocalToSupabase() {
           }
         } catch (usrPushErr) {
           console.warn('[SyncPush] Users registry notice:', usrPushErr.message || usrPushErr);
+        }
+      })());
+    }
+
+    // 1l. WIP Rolls & WIP Updates Sync (IMS Module)
+    if (db.wip_rolls) {
+      tasks.push((async () => {
+        try {
+          const deletedWipSet = new Set(getTombstones('wip_rolls'));
+          const allWips = await db.wip_rolls.toArray();
+          
+          // Bersihkan tombstone lokal
+          const zombieWips = allWips.filter(w => w.uuid && deletedWipSet.has(w.uuid));
+          if (zombieWips.length > 0) {
+            await db.wip_rolls.bulkDelete(zombieWips.map(z => z.id));
+          }
+
+          // Push rolls yang belum disinkron
+          const unsyncedWips = allWips.filter(w => (w.synced === 0 || !w.synced) && (!w.uuid || !deletedWipSet.has(w.uuid)));
+          if (unsyncedWips.length > 0) {
+            const CHUNK = 250;
+            for (let i = 0; i < unsyncedWips.length; i += CHUNK) {
+              const chunk = unsyncedWips.slice(i, i + CHUNK);
+              const payload = chunk.map(mapWipRollToSupabase);
+              const { error } = await supabase.from('wip_rolls').upsert(payload, { onConflict: 'uuid' });
+              if (error) {
+                console.warn('[SyncPush] WIP rolls chunk error:', error.message);
+                break;
+              }
+            }
+            await db.transaction('rw', db.wip_rolls, async () => {
+              for (const w of unsyncedWips) {
+                await db.wip_rolls.update(w.id, { synced: 1 });
+              }
+            });
+          }
+
+          // Sinkronkan registry batch upload WIP (wip_updates)
+          if (db.wip_updates) {
+            const updates = await db.wip_updates.toArray();
+            if (updates.length > 0) {
+              const payload = {
+                key: 'ims_wip_updates_registry',
+                value: JSON.stringify(updates.map(u => ({
+                  uuid: u.uuid,
+                  title: u.title,
+                  tanggal: u.tanggal,
+                  fileName: u.fileName,
+                  totalRolls: u.totalRolls,
+                  totalKg: u.totalKg,
+                  isActive: u.isActive,
+                  createdAt: u.createdAt,
+                  updatedAt: u.updatedAt
+                }))),
+                updated_at: new Date().toISOString()
+              };
+              await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+            }
+          }
+        } catch (wipPushErr) {
+          console.warn('[SyncPush] WIP sync error:', wipPushErr.message || wipPushErr);
+        }
+      })());
+    }
+
+    // 1m. Inventory FG Stock Sync (IMS Module)
+    if (db.inventory_stock_uploads) {
+      tasks.push((async () => {
+        try {
+          // Push master items jika ada
+          if (db.inventory_items) {
+            const items = await db.inventory_items.toArray();
+            if (items.length > 0) {
+              const payload = {
+                key: 'ims_inventory_master_items',
+                value: JSON.stringify(items),
+                updated_at: new Date().toISOString()
+              };
+              await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+            }
+          }
+
+          // Push stock uploads & current stock snapshot
+          const uploads = await db.inventory_stock_uploads.toArray();
+          const currentStocks = db.inventory_current_stocks ? await db.inventory_current_stocks.toArray() : [];
+          if (uploads.length > 0 || currentStocks.length > 0) {
+            const activeId = localStorage.getItem('m_label_active_fg_upload_id');
+            const payload = {
+              key: 'ims_inventory_stocks_registry',
+              value: JSON.stringify({
+                activeUploadId: activeId ? parseInt(activeId, 10) : null,
+                uploads: uploads.map(u => ({
+                  id: u.id,
+                  uploadDate: u.uploadDate,
+                  fileName: u.fileName,
+                  totalSku: u.totalSku,
+                  totalRoll: u.totalRoll,
+                  uploadedBy: u.uploadedBy,
+                  createdAt: u.createdAt,
+                  itemsJson: u.itemsJson
+                })),
+                currentStocks
+              }),
+              updated_at: new Date().toISOString()
+            };
+            await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+          }
+        } catch (invPushErr) {
+          console.warn('[SyncPush] Inventory sync error:', invPushErr.message || invPushErr);
         }
       })());
     }
@@ -1188,11 +1357,108 @@ export async function pullFromSupabase() {
                   console.warn('Sync pull users registry into db.users:', usrErr);
                 }
               }
+
+              // Jika ini registry batch update WIP, sinkronkan ke db.wip_updates
+              if (cs.key === 'ims_wip_updates_registry' && db.wip_updates && Array.isArray(parsedVal)) {
+                try {
+                  const existingBatches = await db.wip_updates.toArray();
+                  const batchMap = new Map(existingBatches.map(b => [b.uuid, b.id]));
+                  for (const cb of parsedVal) {
+                    const localId = batchMap.get(cb.uuid);
+                    if (localId) {
+                      await db.wip_updates.update(localId, { ...cb, id: localId });
+                    } else {
+                      const { id, ...newBatch } = cb;
+                      await db.wip_updates.add(newBatch);
+                    }
+                  }
+                } catch (wipBatchErr) {
+                  console.warn('Sync pull wip_updates registry:', wipBatchErr);
+                }
+              }
+
+              // Jika ini registry master items inventory, sinkronkan ke db.inventory_items
+              if (cs.key === 'ims_inventory_master_items' && db.inventory_items && Array.isArray(parsedVal)) {
+                try {
+                  const existingItems = await db.inventory_items.toArray();
+                  const itemMap = new Map(existingItems.map(i => [(i.descriptionExcel || '').trim().toLowerCase(), i.id]));
+                  for (const mi of parsedVal) {
+                    const key = (mi.descriptionExcel || '').trim().toLowerCase();
+                    const localId = itemMap.get(key);
+                    if (localId) {
+                      await db.inventory_items.update(localId, { ...mi, id: localId });
+                    } else {
+                      const { id, ...newItem } = mi;
+                      await db.inventory_items.add(newItem);
+                    }
+                  }
+                } catch (invItemErr) {
+                  console.warn('Sync pull inventory master items:', invItemErr);
+                }
+              }
+
+              // Jika ini registry stok FG, sinkronkan upload & current stock
+              if (cs.key === 'ims_inventory_stocks_registry' && parsedVal && typeof parsedVal === 'object') {
+                try {
+                  if (parsedVal.activeUploadId && typeof window !== 'undefined') {
+                    localStorage.setItem('m_label_active_fg_upload_id', String(parsedVal.activeUploadId));
+                  }
+                  if (db.inventory_stock_uploads && Array.isArray(parsedVal.uploads)) {
+                    for (const up of parsedVal.uploads) {
+                      const exist = await db.inventory_stock_uploads.where('uploadDate').equals(up.uploadDate).first();
+                      if (!exist) {
+                        const { id, ...newUp } = up;
+                        await db.inventory_stock_uploads.add(newUp);
+                      }
+                    }
+                  }
+                  if (db.inventory_current_stocks && Array.isArray(parsedVal.currentStocks) && parsedVal.currentStocks.length > 0) {
+                    await db.inventory_current_stocks.clear();
+                    const cleanStocks = parsedVal.currentStocks.map(s => {
+                      const { id, ...rest } = s;
+                      return rest;
+                    });
+                    await db.inventory_current_stocks.bulkAdd(cleanStocks);
+                  }
+                } catch (invStockErr) {
+                  console.warn('Sync pull inventory stocks:', invStockErr);
+                }
+              }
             }
             await db.settings.bulkPut(toUpdate);
           }
         } catch (setPullErr) {
           console.warn('[SyncPull] Settings pull notice:', setPullErr.message || setPullErr);
+        }
+      })());
+    }
+
+    // Pull WIP Rolls dari Cloud
+    if (db.wip_rolls) {
+      pullTasks.push((async () => {
+        try {
+          const { data: cloudWips, error } = await supabase.from('wip_rolls').select('*').limit(5000);
+          if (!error && cloudWips && cloudWips.length > 0) {
+            const existingWips = await db.wip_rolls.toArray();
+            const localMap = new Map(existingWips.map(w => [w.uuid, w.id]));
+            const toUpdate = [];
+            const toAdd = [];
+
+            for (const cw of cloudWips) {
+              const mapped = mapWipRollFromSupabase(cw);
+              const localId = localMap.get(cw.uuid);
+              if (localId) {
+                toUpdate.push({ ...mapped, id: localId });
+              } else {
+                toAdd.push(mapped);
+              }
+            }
+
+            if (toUpdate.length > 0) await db.wip_rolls.bulkPut(toUpdate);
+            if (toAdd.length > 0) await db.wip_rolls.bulkAdd(toAdd);
+          }
+        } catch (wipPullErr) {
+          console.warn('[SyncPull] WIP rolls pull notice:', wipPullErr.message || wipPullErr);
         }
       })());
     }
@@ -1206,6 +1472,8 @@ export async function pullFromSupabase() {
       window.dispatchEvent(new CustomEvent('sync:ai-config-updated'));
       window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
       window.dispatchEvent(new CustomEvent('sync:labels-updated'));
+      window.dispatchEvent(new CustomEvent('sync:wip-updated'));
+      window.dispatchEvent(new CustomEvent('sync:inventory-updated'));
     }
 
     syncState.lastSyncTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });

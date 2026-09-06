@@ -2421,10 +2421,20 @@ onMounted(async () => {
   timerInterval = setInterval(() => {
     nowTime.value = Date.now();
   }, 15000); // Tick every 15s for live countdown
+
+  const handleWipSync = async () => {
+    await wipStore.loadWipRolls();
+  };
+  window.addEventListener('sync:wip-updated', handleWipSync);
+  _wipSyncHandler = handleWipSync;
 });
 
+let _wipSyncHandler = null;
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
+  if (_wipSyncHandler) {
+    window.removeEventListener('sync:wip-updated', _wipSyncHandler);
+  }
 });
 
 // ── STOCK WIP COMPUTED PROPERTIES ──

@@ -1388,8 +1388,21 @@ const stockUploadForm = reactive({
   uploadedBy: 'Admin Inventory'
 });
 
+let _invSyncHandler = null;
 onMounted(async () => {
   await inventoryStore.loadInventory();
+
+  const handleInvSync = async () => {
+    await inventoryStore.loadInventory();
+  };
+  window.addEventListener('sync:inventory-updated', handleInvSync);
+  _invSyncHandler = handleInvSync;
+});
+
+onUnmounted(() => {
+  if (_invSyncHandler) {
+    window.removeEventListener('sync:inventory-updated', _invSyncHandler);
+  }
 });
 
 const formatNumber = (val) => {
