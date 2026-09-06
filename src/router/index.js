@@ -98,6 +98,12 @@ const routes = [
     name: 'UserManagement',
     component: () => import('@/views/UserManagementView.vue'),
     meta: { title: 'Kelola Pengguna & Hak Akses', menuKey: 'users' }
+  },
+  {
+    path: '/help',
+    name: 'Help',
+    component: () => import('@/views/HelpView.vue'),
+    meta: { title: 'Bantuan & Dokumentasi', menuKey: 'help' }
   }
 ];
 

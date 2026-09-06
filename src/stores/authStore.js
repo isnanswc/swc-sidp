@@ -93,6 +93,8 @@ export const useAuthStore = defineStore('auth', () => {
   const hasPermission = (menuKey, action = 'view') => {
     if (!currentUser.value) return false;
     if (currentUser.value.role === 'SUPER_ADMIN') return true;
+    // Menu Bantuan & Dokumentasi dapat dilihat oleh semua pengguna yang sedang login
+    if (menuKey === 'help' && action === 'view') return true;
 
     const perms = currentUser.value.permissions;
     if (!perms || !perms[menuKey]) return false;

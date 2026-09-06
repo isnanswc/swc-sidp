@@ -15,7 +15,8 @@ export const APP_MENUS = [
   { key: 'opname', name: 'Stok Opname', path: '/opname', category: 'GUDANG & LOGISTIK', icon: '📝' },
   { key: 'data_config', name: 'Data Configuration', path: '/data-config', category: 'MASTER DATA & SISTEM', icon: '⚙️' },
   { key: 'settings', name: 'Pengaturan & AI', path: '/settings', category: 'MASTER DATA & SISTEM', icon: '🔧' },
-  { key: 'users', name: 'Kelola Pengguna & Akses', path: '/users', category: 'MASTER DATA & SISTEM', icon: '👥' }
+  { key: 'users', name: 'Kelola Pengguna & Akses', path: '/users', category: 'MASTER DATA & SISTEM', icon: '👥' },
+  { key: 'help', name: 'Bantuan & Dokumentasi', path: '/help', category: 'INFORMASI & DOKUMENTASI', icon: '❓' }
 ];
 
 // Quick Role Presets Definition
@@ -129,6 +130,12 @@ export function generatePresetPermissions(role) {
         canView = true;
         canEdit = true;
       }
+    }
+
+    // Menu Bantuan & Panduan selalu terbuka untuk dilihat oleh semua role
+    if (menu.key === 'help') {
+      canView = true;
+      if (role === 'SUPER_ADMIN') canEdit = true;
     }
 
     permissions[menu.key] = { view: canView, edit: canEdit };
