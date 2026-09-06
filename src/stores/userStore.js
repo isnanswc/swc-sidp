@@ -4,6 +4,7 @@ import { db } from '@/db';
 import {
   hashPassword,
   generateSalt,
+  hashPin,
   DEFAULT_SUPER_ADMIN
 } from '@/services/authService';
 import { supabase } from '@/services/supabaseClient';
@@ -236,6 +237,29 @@ export const useUserStore = defineStore('user', () => {
     await fetchUsers();
   };
 
+  // Admin Set or Update PIN directly
+  const setUserPinByAdmin = async (id, pin, idleMinutes = 30) => {
+    const user = await db.users.get(id);
+    if (!user) throw new Error('Pengguna tidak ditemukan.');
+    if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      throw new Error('PIN harus tepat berupa 4 digit angka (0-9).');
+    }
+
+    const salt = generateSalt();
+    const pinHash = await hashPin(pin, salt);
+
+    await db.users.update(id, {
+      pinCode: pinHash,
+      pinSalt: salt,
+      pinEnabled: true,
+      idleTimeoutMinutes: Number(idleMinutes) || 30,
+      updatedAt: new Date().toISOString()
+    });
+
+    await syncUsersToCloud();
+    await fetchUsers();
+  };
+
   return {
     users,
     isLoading,
@@ -246,6 +270,7 @@ export const useUserStore = defineStore('user', () => {
     deleteUser,
     resetUserPassword,
     resetUserPin,
+    setUserPinByAdmin,
     syncUsersToCloud
   };
 });

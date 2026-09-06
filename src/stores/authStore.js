@@ -15,6 +15,7 @@ import {
   stopSessionHeartbeat,
   onSessionRevoked,
   initRealtimeSessionListener,
+  cleanupRealtimeSessionListener,
   getCurrentSessionId
 } from '@/services/sessionService';
 
@@ -72,10 +73,8 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       // Listen for remote revocation event from Super Admin
-      onSessionRevoked((reason) => {
-        alert(reason || 'Sesi login perangkat Anda telah dihentikan oleh Super Admin.');
-        logout();
-        window.location.hash = '#/login';
+      onSessionRevoked(async (reason) => {
+        await forceRemoteLogout(reason || 'Sesi login perangkat Anda telah dihentikan oleh Super Admin.');
       });
     } catch (err) {
       console.error('Error during initAuth:', err);
@@ -341,6 +340,37 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('mlabel_screen_locked');
   };
 
+  // Remote Forced Logout action (triggered by Super Admin revoke)
+  const forceRemoteLogout = async (reason = 'Sesi login perangkat Anda telah dihentikan oleh Super Admin.') => {
+    try {
+      await removeDeviceSession();
+    } catch (e) {}
+
+    stopSessionHeartbeat();
+    cleanupRealtimeSessionListener();
+
+    currentUser.value = null;
+    isLocked.value = false;
+    if (idleTimer) clearTimeout(idleTimer);
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('mlabel_session_user');
+      localStorage.removeItem('mlabel_user_role');
+      localStorage.removeItem('mlabel_screen_locked');
+      localStorage.removeItem('mlabel_current_session_id');
+    }
+
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('mlabel_revoked_notice', reason);
+    }
+
+    // Hard redirect to login page immediately and reload to kill all components
+    if (typeof window !== 'undefined') {
+      window.location.href = window.location.origin + window.location.pathname + '#/login?revoked=1';
+      window.location.reload();
+    }
+  };
+
   // Password Reset / OTP Flow for Super Admin & Users (via EmailJS)
   const requestPasswordResetOtp = async (emailInput) => {
     const trimmed = (emailInput || '').trim().toLowerCase();
@@ -483,6 +513,7 @@ export const useAuthStore = defineStore('auth', () => {
     initAuth,
     login,
     logout,
+    forceRemoteLogout,
     hasPermission,
     requestPasswordResetOtp,
     verifyOtpAndResetPassword

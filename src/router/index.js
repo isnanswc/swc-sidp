@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
+import { checkIsCurrentSessionRevoked } from '@/services/sessionService';
 
 const routes = [
   {
@@ -125,7 +126,14 @@ router.beforeEach(async (to, from, next) => {
     return next('/');
   }
 
-  // 3. Permission check for specific menu
+  // 3. KEAMANAN KETAT: Periksa apakah sesi perangkat ini telah dicabut oleh Super Admin
+  const isRevoked = await checkIsCurrentSessionRevoked();
+  if (isRevoked) {
+    await authStore.forceRemoteLogout('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
+    return next({ name: 'Login', query: { revoked: '1' } });
+  }
+
+  // 4. Permission check for specific menu
   if (to.meta.menuKey && !authStore.hasPermission(to.meta.menuKey, 'view')) {
     if (to.path !== '/') {
       return next('/');

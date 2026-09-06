@@ -50,7 +50,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
-import { getCurrentSessionId, updateSessionHeartbeat } from '@/services/sessionService';
+import { getCurrentSessionId, updateSessionHeartbeat, checkIsCurrentSessionRevoked } from '@/services/sessionService';
 import Sidebar from '@/components/Sidebar.vue';
 import Navbar from '@/components/Navbar.vue';
 import AiCopilotWidget from '@/components/ai/AiCopilotWidget.vue';
@@ -71,7 +71,9 @@ const toggleSidebar = () => {
 
 // Global Idle & Session Activity Tracking (throttled 30s)
 let lastActivityHeartbeat = 0;
-const onUserActivity = () => {
+let sessionRevokeWatchTimer = null;
+
+const onUserActivity = async () => {
   authStore.resetIdleTimer();
 
   const now = Date.now();
@@ -79,6 +81,12 @@ const onUserActivity = () => {
     lastActivityHeartbeat = now;
     const sessId = getCurrentSessionId();
     if (sessId) {
+      // Cek apakah sesi dicabut saat ada interaksi pengguna
+      const isRevoked = await checkIsCurrentSessionRevoked();
+      if (isRevoked) {
+        await authStore.forceRemoteLogout('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
+        return;
+      }
       updateSessionHeartbeat(sessId);
     }
   }
@@ -100,6 +108,16 @@ onMounted(() => {
   document.addEventListener('visibilitychange', onVisibilityChange);
 
   authStore.resetIdleTimer();
+
+  // Active polling watch: periksa pencabutan sesi setiap 4 detik untuk keamanan instan
+  sessionRevokeWatchTimer = setInterval(async () => {
+    if (authStore.isAuthenticated && route.name !== 'Login') {
+      const isRevoked = await checkIsCurrentSessionRevoked();
+      if (isRevoked) {
+        await authStore.forceRemoteLogout('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
+      }
+    }
+  }, 4000);
 });
 
 onUnmounted(() => {
@@ -110,5 +128,10 @@ onUnmounted(() => {
   window.removeEventListener('scroll', onUserActivity);
   window.removeEventListener('focus', onUserActivity);
   document.removeEventListener('visibilitychange', onVisibilityChange);
+
+  if (sessionRevokeWatchTimer) {
+    clearInterval(sessionRevokeWatchTimer);
+    sessionRevokeWatchTimer = null;
+  }
 });
 </script>

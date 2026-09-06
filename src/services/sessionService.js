@@ -412,9 +412,66 @@ export async function revokeAllUserSessions(userId, exceptSessionId = null, reas
 }
 
 /**
+ * Hapus seketika seluruh jejak sesi dari localStorage
+ */
+export function forceImmediatePurge() {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('mlabel_session_user');
+    localStorage.removeItem('mlabel_user_role');
+    localStorage.removeItem('mlabel_screen_locked');
+    localStorage.removeItem('mlabel_current_session_id');
+  }
+}
+
+let lastRevokedCheckTime = 0;
+let lastRevokedCheckStatus = false;
+
+/**
+ * Periksa apakah sesi perangkat saat ini telah dicabut oleh Super Admin.
+ * Didesain sangat cepat dengan caching 2 detik agar dapat dipanggil pada setiap navigasi menu (router.beforeEach)
+ * tanpa menimbulkan beban jaringan yang berlebihan.
+ */
+export async function checkIsCurrentSessionRevoked(force = false) {
+  const sessionId = getCurrentSessionId();
+  if (!sessionId) return false;
+
+  const now = Date.now();
+  if (!force && (now - lastRevokedCheckTime < 2000)) {
+    return lastRevokedCheckStatus;
+  }
+  lastRevokedCheckTime = now;
+
+  try {
+    const revokedList = await getRevokedSessions();
+    if (Array.isArray(revokedList) && revokedList.some(r => r.sessionId === sessionId)) {
+      lastRevokedCheckStatus = true;
+      forceImmediatePurge();
+      return true;
+    }
+
+    // Cek juga apakah sesi masih ada di daftar sesi aktif di cloud
+    const activeList = await getAllActiveSessions();
+    if (Array.isArray(activeList) && activeList.length > 0) {
+      const exists = activeList.some(s => s.sessionId === sessionId);
+      if (!exists) {
+        lastRevokedCheckStatus = true;
+        forceImmediatePurge();
+        return true;
+      }
+    }
+
+    lastRevokedCheckStatus = false;
+    return false;
+  } catch (e) {
+    return lastRevokedCheckStatus;
+  }
+}
+
+/**
  * Trigger semua callback listener saat sesi ini dicabut
  */
 function triggerRevocationCallbacks(reason) {
+  forceImmediatePurge();
   revocationListeners.forEach(cb => {
     try {
       cb(reason);

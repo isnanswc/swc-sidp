@@ -240,14 +240,19 @@
                     ></span>
                   </button>
 
-                  <!-- Reset PIN Button (If user has PIN enabled or set) -->
+                  <!-- Kelola / Reset PIN Button (Selalu Tampil untuk Semua Pengguna) -->
                   <button
-                    v-if="user.pinEnabled || user.pinCode"
-                    @click="handleAdminResetPin(user)"
-                    class="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-200 text-amber-800 transition-colors cursor-pointer border border-amber-300"
-                    title="Reset / Nonaktifkan PIN Pengguna Ini (Jika Lupa PIN)"
+                    @click="openPinModal(user)"
+                    :class="[
+                      'p-1.5 rounded-lg transition-colors cursor-pointer border flex items-center gap-1 font-mono text-[10px] font-black',
+                      user.pinEnabled 
+                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 shadow-2xs' 
+                        : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border-zinc-200'
+                    ]"
+                    :title="user.pinEnabled ? 'Kelola / Reset / Nonaktifkan PIN (Saat Ini Aktif)' : 'Atur PIN Kunci Layar untuk Pengguna Ini'"
                   >
-                    🔓 PIN
+                    <span>{{ user.pinEnabled ? '🔒' : '🔓' }}</span>
+                    <span>PIN</span>
                   </button>
 
                   <!-- Toggle Active Status -->
@@ -532,6 +537,35 @@
             </label>
           </div>
 
+          <!-- Quick PIN Management Section in Edit Modal -->
+          <div v-if="isEditing" class="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 flex items-center justify-between gap-3 shadow-2xs">
+            <div class="space-y-0.5">
+              <div class="flex items-center gap-2">
+                <span class="text-sm">🔒</span>
+                <label class="font-bold text-xs text-zinc-900">
+                  Keamanan Kunci Layar (PIN 4-Digit)
+                </label>
+                <span
+                  class="text-[9px] px-1.5 py-0.2 rounded font-mono font-black border"
+                  :class="editingUserPinStatus ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-zinc-100 text-zinc-500 border-zinc-200'"
+                >
+                  {{ editingUserPinStatus ? 'PIN AKTIF' : 'PIN NONAKTIF' }}
+                </span>
+              </div>
+              <p class="text-[10.5px] text-zinc-500 leading-relaxed">
+                Kelola PIN 4-digit atau nonaktifkan kunci layar akun ini jika pengguna lupa PIN.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              @click="openPinModalFromEdit"
+              class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs font-mono uppercase tracking-tight shrink-0 cursor-pointer shadow-xs"
+            >
+              Kelola PIN
+            </button>
+          </div>
+
           <!-- Error Feedback Banner -->
           <div v-if="modalError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
             <span>⚠️</span>
@@ -619,6 +653,133 @@
             class="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black font-mono uppercase text-xs"
           >
             Ubah Sandi
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL: KELOLA KEAMANAN PIN PENGGUNA (SUPER ADMIN) -->
+    <!-- ========================================================================= -->
+    <div
+      v-if="showPinModal"
+      class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+      @click.self="showPinModal = false"
+    >
+      <div class="bg-white rounded-3xl max-w-md w-full p-6 border border-zinc-200 shadow-2xl space-y-4 text-xs">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center text-lg font-black border border-amber-200">
+              🔒
+            </span>
+            <div>
+              <h3 class="text-sm font-black text-zinc-900">Kelola Keamanan PIN Layar</h3>
+              <p class="text-[11px] text-zinc-500 font-mono">{{ targetPinUser?.name }} (@{{ targetPinUser?.username }})</p>
+            </div>
+          </div>
+          <button @click="showPinModal = false" class="text-zinc-400 hover:text-zinc-800 cursor-pointer">✕</button>
+        </div>
+
+        <!-- Status Saat Ini -->
+        <div
+          class="p-3.5 rounded-2xl border flex items-center justify-between gap-2"
+          :class="targetPinUser?.pinEnabled ? 'bg-amber-50/70 border-amber-200' : 'bg-zinc-50 border-zinc-200'"
+        >
+          <div>
+            <span class="text-[10px] font-mono uppercase font-bold text-zinc-400">Status Kunci Layar</span>
+            <div
+              class="font-black text-xs flex items-center gap-1.5 mt-0.5"
+              :class="targetPinUser?.pinEnabled ? 'text-amber-900' : 'text-zinc-600'"
+            >
+              <span>{{ targetPinUser?.pinEnabled ? '● PIN AKTIF' : '○ PIN BELUM AKTIF' }}</span>
+              <span v-if="targetPinUser?.pinEnabled" class="text-[10px] font-normal text-zinc-500 font-mono">
+                (Idle {{ targetPinUser?.idleTimeoutMinutes || 30 }} mnt)
+              </span>
+            </div>
+          </div>
+
+          <!-- Tombol Reset / Nonaktifkan Cepat Jika Sedang Aktif -->
+          <button
+            v-if="targetPinUser?.pinEnabled || targetPinUser?.pinCode"
+            type="button"
+            @click="handleDisablePinByAdmin"
+            :disabled="isPinSubmitting"
+            class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-[10.5px] font-mono uppercase tracking-wider cursor-pointer shadow-xs disabled:opacity-50 shrink-0"
+          >
+            {{ isPinSubmitting ? 'Memproses...' : 'Nonaktifkan PIN' }}
+          </button>
+        </div>
+
+        <!-- Form Atur PIN Baru -->
+        <div class="border-t border-zinc-100 pt-2 space-y-3">
+          <div class="font-bold text-zinc-800 flex items-center justify-between">
+            <span>Atur / Ganti PIN 4-Digit Baru:</span>
+            <span class="text-[10px] text-zinc-400 font-mono">Angka 0-9</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10.5px] font-bold text-zinc-600 mb-1">PIN 4-Digit:</label>
+              <input
+                v-model="adminNewPin"
+                type="password"
+                maxlength="4"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                placeholder="4 digit"
+                class="w-full px-3 py-2 rounded-xl border border-zinc-300 font-mono text-center text-base font-black tracking-widest text-zinc-900 outline-none focus:ring-2 focus:ring-amber-500 bg-zinc-50/50"
+              />
+            </div>
+
+            <div>
+              <label class="block text-[10.5px] font-bold text-zinc-600 mb-1">Konfirmasi:</label>
+              <input
+                v-model="adminNewPinConfirm"
+                type="password"
+                maxlength="4"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                placeholder="Ulangi"
+                class="w-full px-3 py-2 rounded-xl border border-zinc-300 font-mono text-center text-base font-black tracking-widest text-zinc-900 outline-none focus:ring-2 focus:ring-amber-500 bg-zinc-50/50"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10.5px] font-bold text-zinc-600 mb-1">Waktu Tunggu Layar Terkunci (Idle Timeout):</label>
+            <select
+              v-model.number="adminIdleMinutes"
+              class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+            >
+              <option :value="5">5 Menit (Keamanan Ketat)</option>
+              <option :value="10">10 Menit</option>
+              <option :value="15">15 Menit</option>
+              <option :value="30">30 Menit (Standar Pabrik)</option>
+              <option :value="60">60 Menit (1 Jam)</option>
+            </select>
+          </div>
+        </div>
+
+        <div v-if="pinModalError" class="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+          ⚠️ {{ pinModalError }}
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="flex items-center justify-end gap-2 border-t border-zinc-100 pt-3">
+          <button
+            type="button"
+            @click="showPinModal = false"
+            class="px-3.5 py-1.5 rounded-xl bg-zinc-100 text-zinc-700 font-bold hover:bg-zinc-200 cursor-pointer text-xs"
+          >
+            Tutup
+          </button>
+          <button
+            type="button"
+            @click="handleSavePinByAdmin"
+            :disabled="isPinSubmitting || !adminNewPin"
+            class="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black font-mono uppercase text-xs cursor-pointer disabled:opacity-50 shadow-sm transition-colors"
+          >
+            {{ isPinSubmitting ? 'Menyimpan...' : 'SIMPAN PIN BARU' }}
           </button>
         </div>
       </div>
@@ -1025,16 +1186,90 @@ const saveUser = async () => {
   }
 };
 
-// Admin Reset PIN Action
-const handleAdminResetPin = async (user) => {
-  if (confirm(`Reset dan nonaktifkan PIN 4-digit untuk pengguna "${user.name} (@${user.username})"?\n\nTindakan ini akan menghapus PIN mereka sehingga mereka dapat membuka layar tanpa hambatan.`)) {
-    try {
-      await userStore.resetUserPin(user.id);
-      alert(`PIN untuk @${user.username} berhasil di-reset dan dinonaktifkan.`);
-    } catch (err) {
-      alert(err.message || 'Gagal mereset PIN pengguna.');
-    }
+// =========================================================================
+// ADMIN PIN MANAGEMENT (SUPER ADMIN)
+// =========================================================================
+const showPinModal = ref(false);
+const targetPinUser = ref(null);
+const adminNewPin = ref('');
+const adminNewPinConfirm = ref('');
+const adminIdleMinutes = ref(30);
+const isPinSubmitting = ref(false);
+const pinModalError = ref('');
+
+const editingUserPinStatus = computed(() => {
+  if (!editingUserId.value) return false;
+  const user = userStore.users.find(u => u.id === editingUserId.value);
+  return Boolean(user?.pinEnabled);
+});
+
+const openPinModal = (user) => {
+  targetPinUser.value = user;
+  adminNewPin.value = '';
+  adminNewPinConfirm.value = '';
+  adminIdleMinutes.value = user.idleTimeoutMinutes || 30;
+  pinModalError.value = '';
+  showPinModal.value = true;
+};
+
+const openPinModalFromEdit = () => {
+  const user = userStore.users.find(u => u.id === editingUserId.value);
+  if (user) {
+    openPinModal(user);
   }
+};
+
+const handleDisablePinByAdmin = async () => {
+  if (!targetPinUser.value) return;
+  if (!confirm(`Nonaktifkan kunci layar dan hapus PIN untuk pengguna "${targetPinUser.value.name} (@${targetPinUser.value.username})"?\n\nTindakan ini akan menghapus PIN sehingga pengguna tidak akan terkunci layarnya.`)) return;
+
+  isPinSubmitting.value = true;
+  pinModalError.value = '';
+  try {
+    await userStore.resetUserPin(targetPinUser.value.id);
+    alert(`PIN untuk @${targetPinUser.value.username} berhasil dinonaktifkan.`);
+    // Update target reference in place
+    targetPinUser.value.pinEnabled = false;
+    targetPinUser.value.pinCode = null;
+    showPinModal.value = false;
+  } catch (err) {
+    pinModalError.value = err.message || 'Gagal menonaktifkan PIN pengguna.';
+  } finally {
+    isPinSubmitting.value = false;
+  }
+};
+
+const handleSavePinByAdmin = async () => {
+  if (!targetPinUser.value) return;
+  pinModalError.value = '';
+
+  if (!adminNewPin.value || adminNewPin.value.length !== 4 || !/^\d{4}$/.test(adminNewPin.value)) {
+    pinModalError.value = 'PIN harus tepat terdiri dari 4 digit angka (0-9).';
+    return;
+  }
+  if (adminNewPin.value !== adminNewPinConfirm.value) {
+    pinModalError.value = 'Konfirmasi PIN baru tidak sesuai.';
+    return;
+  }
+
+  isPinSubmitting.value = true;
+  try {
+    await userStore.setUserPinByAdmin(targetPinUser.value.id, adminNewPin.value, adminIdleMinutes.value);
+    alert(`PIN 4-digit baru untuk @${targetPinUser.value.username} berhasil disimpan dan disinkronkan ke Cloud.`);
+    // Update local target ref
+    targetPinUser.value.pinEnabled = true;
+    targetPinUser.value.idleTimeoutMinutes = adminIdleMinutes.value;
+    showPinModal.value = false;
+  } catch (err) {
+    pinModalError.value = err.message || 'Gagal menyimpan PIN baru.';
+  } finally {
+    isPinSubmitting.value = false;
+  }
+};
+
+// Legacy fallback helper
+const handleAdminResetPin = async (user) => {
+  openPinModal(user);
 };
 
 const handleToggleStatus = async (user) => {

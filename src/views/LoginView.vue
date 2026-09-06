@@ -514,12 +514,13 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { DEFAULT_SUPER_ADMIN } from '@/services/authService';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 
 // Form State
@@ -532,6 +533,20 @@ const loginForm = reactive({
 const showPassword = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref('');
+
+onMounted(() => {
+  if (typeof sessionStorage !== 'undefined') {
+    const notice = sessionStorage.getItem('mlabel_revoked_notice');
+    if (notice) {
+      errorMessage.value = notice;
+      sessionStorage.removeItem('mlabel_revoked_notice');
+      return;
+    }
+  }
+  if (route.query.revoked) {
+    errorMessage.value = 'Sesi perangkat Anda telah dihentikan oleh Super Admin. Silakan login kembali.';
+  }
+});
 
 // Password Reset Modal State
 const showResetModal = ref(false);
