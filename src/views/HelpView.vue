@@ -1,9 +1,11 @@
 <template>
-  <div class="space-y-6 font-sans select-none max-w-6xl mx-auto pb-16">
-    <!-- Header Banner -->
-    <div class="bg-white p-4 sm:p-6 rounded-2xl border border-zinc-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div class="flex items-center gap-3.5">
-        <div class="w-12 h-12 rounded-2xl bg-zinc-950 text-white flex items-center justify-center shadow-sm border border-zinc-800 shrink-0">
+  <div class="space-y-6 font-sans select-none max-w-6xl mx-auto pb-20">
+    <!-- Header Banner: Pure White with Crisp Border & Red Line Accent -->
+    <div class="bg-white p-5 sm:p-7 rounded-3xl border border-zinc-200/80 shadow-xs relative overflow-hidden flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-zinc-900 to-red-600"></div>
+
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shadow-md border border-zinc-800 shrink-0">
           <svg class="w-6 h-6 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
@@ -11,41 +13,41 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-base sm:text-xl font-black text-zinc-900 tracking-tight">PUSAT BANTUAN & INFORMASI SISTEM</h1>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-red-50 text-red-700 border border-red-200">
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-200">
               v2.5 Next-Gen
             </span>
           </div>
           <p class="text-xs text-zinc-500 font-medium mt-0.5">
-            Panduan lengkap pengoperasian M-Label, dokumentasi alur manufaktur, profil pengembang, dan catatan sejarah evolusi sistem.
+            Panduan komprehensif M-Label, dokumentasi alur manufaktur, profil pengembang, dan catatan sejarah evolusi sistem.
           </p>
         </div>
       </div>
 
       <div class="flex items-center gap-2 shrink-0 self-start md:self-auto">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          Dokumentasi Aktif
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-700 text-xs font-bold">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+          Dokumentasi Resmi
         </span>
       </div>
     </div>
 
-    <!-- Sheet Switcher (Tab Navigation) -->
+    <!-- Sheet Switcher (Tab Navigation): Clean Pill Design -->
     <div class="flex items-center gap-2 border-b border-zinc-200 pb-2 overflow-x-auto select-none">
       <button
         type="button"
         @click="activeSheet = 'docs'"
         :class="[
-          'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs',
+          'px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs',
           activeSheet === 'docs'
             ? 'bg-zinc-900 text-white shadow-xs'
-            : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
+            : 'bg-white text-zinc-600 hover:bg-zinc-50 border border-zinc-200'
         ]"
       >
-        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <svg class="w-4 h-4" :class="activeSheet === 'docs' ? 'text-red-400' : 'text-zinc-400'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
         </svg>
         <span>Panduan Dokumentasi Program</span>
-        <span class="px-1.5 py-0.5 text-[10px] rounded-full font-bold bg-zinc-800 text-zinc-300">
+        <span class="px-2 py-0.5 text-[10px] rounded-full font-bold" :class="activeSheet === 'docs' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'">
           {{ filteredDocs.length }} Modul
         </span>
       </button>
@@ -54,17 +56,17 @@
         type="button"
         @click="activeSheet = 'about'"
         :class="[
-          'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs',
+          'px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs',
           activeSheet === 'about'
             ? 'bg-zinc-900 text-white shadow-xs'
-            : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
+            : 'bg-white text-zinc-600 hover:bg-zinc-50 border border-zinc-200'
         ]"
       >
-        <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <svg class="w-4 h-4" :class="activeSheet === 'about' ? 'text-red-400' : 'text-zinc-400'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
         <span>Tentang Saya & Sejarah Evolusi</span>
-        <span class="px-1.5 py-0.5 text-[10px] rounded-full font-bold bg-red-500/20 text-red-300">
+        <span class="px-2 py-0.5 text-[10px] rounded-full font-bold" :class="activeSheet === 'about' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600 border border-red-200'">
           Creator
         </span>
       </button>
@@ -231,283 +233,390 @@
     </div>
 
     <!-- ======================================================== -->
-    <!-- SHEET 2: ABOUT ME & REKAM JEJAK SEJARAH EVOLUSI -->
+    <!-- SHEET 2: ABOUT ME & SEJARAH EVOLUSI (Clean White, Red Accent) -->
     <!-- ======================================================== -->
-    <div v-show="activeSheet === 'about'" class="space-y-8">
-      <!-- Profile Card (Modern Industrial Design) -->
-      <div class="bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 text-white rounded-3xl p-6 sm:p-8 border border-zinc-800 shadow-xl relative overflow-hidden">
-        <!-- Background Ambient Accents -->
-        <div class="absolute -right-20 -top-20 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div class="absolute -left-20 -bottom-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div v-show="activeSheet === 'about'" class="space-y-12">
+      <!-- Creator Profile Card: Minimalist Crisp White with Red & Black Accents -->
+      <div class="bg-white rounded-3xl p-6 sm:p-10 border border-zinc-200 shadow-sm relative overflow-hidden transition hover:border-zinc-300">
+        <!-- Elegant subtle red gradient line on top -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-red-600"></div>
 
-        <div class="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-6">
-          <!-- Avatar / Monogram Badge -->
-          <div class="relative">
-            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-red-600 to-amber-500 p-1 shadow-xl flex items-center justify-center shrink-0">
-              <div class="w-full h-full bg-zinc-950 rounded-[22px] flex flex-col items-center justify-center text-center p-2">
-                <span class="text-2xl sm:text-3xl font-black tracking-tight text-white">IMS</span>
-                <span class="text-[9px] font-mono text-red-400 uppercase tracking-widest mt-0.5">DEV LEAD</span>
+        <!-- Ambient decorative corner watermark -->
+        <div class="absolute -right-10 -bottom-10 w-44 h-44 bg-red-50 rounded-full blur-2xl pointer-events-none opacity-60"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8">
+          <!-- Flat Minimalist Avatar Box with Animated Badge -->
+          <div class="relative shrink-0 group">
+            <div class="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-zinc-950 text-white p-1 shadow-lg border border-zinc-900 transition-transform duration-300 group-hover:scale-105 flex items-center justify-center">
+              <div class="w-full h-full rounded-[22px] bg-white border border-zinc-100 flex flex-col items-center justify-center p-3 text-center relative overflow-hidden">
+                <!-- Flat Minimalist Developer Illustration -->
+                <svg class="w-12 h-12 text-zinc-900 mb-1 group-hover:text-red-600 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span class="text-[11px] font-black tracking-wider text-zinc-900 font-mono">ISNAN M.S.</span>
+                <span class="text-[8.5px] font-bold text-red-600 uppercase tracking-widest">S.Kom.</span>
               </div>
             </div>
-            <div class="absolute -bottom-2 -right-2 px-2 py-0.5 rounded-full bg-emerald-500 text-zinc-950 text-[9px] font-black uppercase tracking-wider shadow-md">
-              Verified
+            <!-- Pulse Status Pill -->
+            <div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-red-600 text-white text-[9.5px] font-extrabold uppercase tracking-wider shadow-md flex items-center gap-1.5 whitespace-nowrap">
+              <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+              Creator
             </div>
           </div>
 
-          <!-- Info Details -->
-          <div class="flex-1 text-center md:text-left space-y-2.5">
+          <!-- Profile Details -->
+          <div class="flex-1 text-center md:text-left space-y-3">
             <div>
-              <div class="flex items-center justify-center md:justify-start gap-2 flex-wrap">
-                <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight">
+              <div class="flex items-center justify-center md:justify-start gap-2.5 flex-wrap">
+                <h2 class="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight">
                   Isnan Mauladi Syahputra, S.Kom.
                 </h2>
-                <span class="px-2.5 py-0.5 rounded-full bg-red-600/20 text-red-400 border border-red-500/30 text-[11px] font-bold">
-                  Software Creator & AI Programmer
+                <span class="px-2.5 py-0.5 rounded-lg bg-zinc-900 text-white text-[11px] font-bold">
+                  Lead Software Creator & AI Engineer
                 </span>
               </div>
-              <p class="text-xs sm:text-sm text-zinc-400 font-medium mt-1">
-                Full-Stack Web Developer & Industrial Systems Innovator
+              <p class="text-xs sm:text-sm text-zinc-500 font-medium mt-1">
+                Industrial System Architect & Full-Stack Web Developer
               </p>
             </div>
 
-            <!-- Mission Statement -->
-            <p class="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-3xl">
-              "Program <strong>M-Label</strong> lahir dan dibangun sebagai bentuk dedikasi serta kontribusi nyata untuk meringankan beban kerja operasional harian, mengeliminasi kesalahan manusia (human error), dan melipatgandakan efisiensi pencatatan di lingkungan industri manufaktur PT. Saptawarna Cemerlang. Dari proses manual kertas hingga kini menjadi platform cerdas berbasis AI dan Cloud, sistem ini didesain agar setiap detik kerja kita lebih bermakna dan bernilai tinggi."
-            </p>
+            <!-- Heartfelt Mission Quote -->
+            <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-zinc-700 text-xs sm:text-sm leading-relaxed relative">
+              <span class="text-red-600 font-black text-lg absolute -top-2 left-3">“</span>
+              <p class="italic pl-3 text-zinc-600">
+                Program <strong>M-Label</strong> lahir dan dibangun sebagai bentuk kontribusi nyata untuk meringankan serta melipatgandakan efisiensi kerja di lingkungan industri PT. Saptawarna Cemerlang. Menghilangkan beban penulisan manual yang melelahkan, mencegah salah hitung rumus, dan memberikan kepastian data yang rapi dan dapat diandalkan oleh seluruh rekan kerja di pabrik.
+              </p>
+            </div>
 
-            <!-- Skill Badges -->
-            <div class="flex items-center justify-center md:justify-start gap-2 flex-wrap pt-2">
-              <span class="px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-[11px] font-mono">
-                Vue 3 + Vite
+            <!-- Tech Badges: Clean Minimalist Tags -->
+            <div class="flex items-center justify-center md:justify-start gap-2 flex-wrap pt-1">
+              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                ⚡ Vue 3 & Vite
               </span>
-              <span class="px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-[11px] font-mono">
-                Dexie.js IndexedDB (Offline-First)
+              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                📦 Dexie IndexedDB (Offline-First)
               </span>
-              <span class="px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-[11px] font-mono">
-                Supabase Realtime Cloud
+              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                ☁️ Supabase Realtime
               </span>
-              <span class="px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-[11px] font-mono">
-                Google Gemini Vision AI (OCR)
+              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                🤖 Google Gemini Vision AI
               </span>
-              <span class="px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-[11px] font-mono">
-                Tailwind CSS
+              <span class="px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-xs font-semibold shadow-2xs hover:border-red-300 transition">
+                🎨 Tailwind CSS
               </span>
             </div>
           </div>
         </div>
 
-        <!-- Contact & Direct Links Bar -->
-        <div class="mt-6 pt-6 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div class="flex items-center gap-4 text-xs text-zinc-400 flex-wrap justify-center sm:justify-start">
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <strong>Email:</strong> isnanmauladi10@gmail.com
-            </span>
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <strong>Lokasi:</strong> PT. Saptawarna Cemerlang, Tangerang
-            </span>
+        <!-- Contact & Direct Actions Strip -->
+        <div class="mt-8 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-6 text-xs text-zinc-600 flex-wrap justify-center sm:justify-start">
+            <!-- Email -->
+            <a
+              href="mailto:isnanswc@gmail.com"
+              class="flex items-center gap-2 group hover:text-red-600 transition font-medium"
+            >
+              <div class="w-7 h-7 rounded-lg bg-zinc-100 group-hover:bg-red-50 text-zinc-700 group-hover:text-red-600 flex items-center justify-center transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span><strong>Email:</strong> isnanswc@gmail.com</span>
+            </a>
+
+            <!-- Location -->
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-lg bg-zinc-100 text-zinc-700 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <span><strong>Lokasi:</strong> PT. Saptawarna Cemerlang</span>
+            </div>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div>
             <a
-              href="mailto:isnanmauladi10@gmail.com?subject=Tanya%20Sistem%20M-Label"
-              class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-red-900/30 cursor-pointer"
+              href="mailto:isnanswc@gmail.com?subject=Tanya%20Sistem%20M-Label"
+              class="px-5 py-2.5 rounded-2xl bg-zinc-900 hover:bg-red-600 text-white text-xs font-bold transition-all duration-300 flex items-center gap-2 shadow-xs cursor-pointer group"
             >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 text-red-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              Hubungi Pengembang
+              <span>Kirim Pesan / Feedback</span>
             </a>
           </div>
         </div>
       </div>
 
-      <!-- Historical Evolution Timeline (From Manual Paper to Decision Support AI) -->
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-base sm:text-lg font-black text-zinc-900 tracking-tight flex items-center gap-2">
-              <span>🚀</span>
-              <span>Rekam Jejak & Sejarah Evolusi Inovasi Sistem</span>
-            </h3>
-            <p class="text-xs text-zinc-500 font-medium">
-              Perjalanan transformasi digital dari lembaran kertas manual hingga menjadi platform Executive Decision Support.
-            </p>
+      <!-- Historical Evolution Timeline (Alternating Left-Right Central Axis) -->
+      <div class="space-y-8">
+        <!-- Title Banner -->
+        <div class="text-center max-w-2xl mx-auto space-y-2">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-black uppercase tracking-wider">
+            <span>🚀</span> Rekam Jejak Transformasi
           </div>
-          <span class="px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 text-xs font-mono font-bold">
-            4 Generasi Inovasi
-          </span>
+          <h3 class="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight">
+            Evolusi Sistem Pembuatan Label & Pengolahan Data
+          </h3>
+          <p class="text-xs sm:text-sm text-zinc-500 leading-relaxed">
+            Perjalanan inovasi berkelanjutan dari lembaran kertas manual hingga menjadi platform Executive Decision Support System.
+          </p>
         </div>
 
-        <div class="relative border-l-2 border-red-500/40 ml-4 sm:ml-6 space-y-8 pl-6 sm:pl-8 py-2">
-          <!-- ERA 0: Masa Pra-Program (Manual Kertas) -->
-          <div class="relative group">
-            <!-- Timeline Dot -->
-            <div class="absolute -left-[35px] sm:-left-[43px] top-1.5 w-6 h-6 rounded-full bg-zinc-300 border-4 border-white flex items-center justify-center text-[10px] font-black text-zinc-700 shadow-sm">
-              0
-            </div>
+        <!-- Central Timeline Container -->
+        <div class="relative py-6">
+          <!-- Central Vertical Axis Line -->
+          <div class="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-zinc-200 via-red-500 to-zinc-200 -translate-x-1/2"></div>
 
-            <div class="bg-white rounded-2xl border border-zinc-200 p-5 shadow-xs transition hover:shadow-md">
-              <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
-                <div class="flex items-center gap-2">
-                  <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase bg-zinc-100 text-zinc-600">
-                    Era Awal (Masa Lalu)
-                  </span>
-                  <h4 class="text-sm sm:text-base font-bold text-zinc-800">
-                    Sistem Manual Kertas & Form Excel/Word Konvensional
-                  </h4>
-                </div>
-                <span class="text-[11px] font-mono text-zinc-400">Metode Konvensional</span>
-              </div>
+          <div class="space-y-12">
+            <!-- ============================================== -->
+            <!-- ITEM 1: ERA 0 - MANUAL KERTAS (KIRI di desktop) -->
+            <!-- ============================================== -->
+            <div class="relative flex flex-col md:flex-row items-center group">
+              <!-- Content Card (Left) -->
+              <div class="w-full md:w-1/2 pl-12 md:pl-0 md:pr-12">
+                <div class="bg-white rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
+                  <!-- Era Badge & Header -->
+                  <div class="flex items-center justify-between gap-2 mb-3">
+                    <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 border border-zinc-200">
+                      Era Pra-Sistem • Masa Lalu
+                    </span>
+                    <span class="text-[11px] font-mono text-zinc-400">Metode Manual</span>
+                  </div>
 
-              <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-                Sebelum hadirnya sistem digital, proses pembuatan label produksi dan pencatatan roll masih mengandalkan dokumen Microsoft Word atau Excel standar yang dicetak (print) dalam jumlah banyak. Operator lapangan harus menuliskan rincian data roll (nomor roll, berat timbangan, jenis bahan, meter) menggunakan pulpen secara manual.
-              </p>
+                  <!-- Flat Minimal Illustration: Paper & Pen -->
+                  <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-700 shadow-2xs">
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <line x1="10" y1="9" x2="8" y2="9" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-bold text-zinc-900">Form Excel / Word Diprint Massal</h4>
+                      <p class="text-[11px] text-zinc-500">Pencatatan bertumpu pada kertas fisik & pena</p>
+                    </div>
+                  </div>
 
-              <div class="mt-3 p-3 rounded-xl bg-red-50/60 border border-red-100 text-xs text-red-800 space-y-1">
-                <strong class="font-bold flex items-center gap-1">
-                  <span>⚠️</span> Kendala & Titik Kritis:
-                </strong>
-                <p>
-                  Sering terjadi salah tulis identitas roll, tulisan tangan sulit dibaca oleh gudang, resiko salah perhitungan berat teoritis (teori vs aktual), kertas basah/hilang di area mesin, serta ketiadaan validasi data secara otomatis.
-                </p>
-              </div>
-            </div>
-          </div>
+                  <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
+                    Sebelum hadirnya sistem, pembuatan label produksi dan pencatatan roll masih menggunakan dokumen Microsoft Word atau Excel yang dicetak banyak. Operator menuliskan seluruh data roll (nomor roll, berat timbangan, spesifikasi bahan, dan meter) menggunakan pulpen secara manual.
+                  </p>
 
-          <!-- ERA 1: Inovasi Generasi 1 (Excel Automation) -->
-          <div class="relative group">
-            <div class="absolute -left-[35px] sm:-left-[43px] top-1.5 w-6 h-6 rounded-full bg-blue-500 border-4 border-white flex items-center justify-center text-[10px] font-black text-white shadow-sm">
-              1
-            </div>
-
-            <div class="bg-white rounded-2xl border border-zinc-200 p-5 shadow-xs transition hover:shadow-md">
-              <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
-                <div class="flex items-center gap-2">
-                  <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200">
-                    Generasi 1 • Inovasi Awal
-                  </span>
-                  <h4 class="text-sm sm:text-base font-bold text-zinc-800">
-                    File Excel Khusus dengan Formula Berat Teori & Validasi Otomatis
-                  </h4>
-                </div>
-                <span class="text-[11px] font-mono text-blue-600 font-semibold">Excel Automation</span>
-              </div>
-
-              <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-                Langkah inovasi pertama diinisiasi oleh <strong>Isnan Mauladi Syahputra, S.Kom.</strong> dengan merancang template Excel interaktif khusus. Di dalamnya disematkan berbagai formula matematika (VLOOKUP, IF, kalkulasi densitas film) untuk menghitung berat teori secara otomatis seketika ukuran tebal, lebar, dan panjang dimasukkan.
-              </p>
-
-              <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div class="p-2.5 rounded-xl bg-blue-50/50 border border-blue-100 text-blue-900">
-                  <strong>Pencapaian:</strong> Operator tidak perlu lagi menghitung manual dengan kalkulator tangan, mengurangi kesalahan hitung berat teori hingga 70%.
-                </div>
-                <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-700">
-                  <strong>Keterbatasan:</strong> Masih bergantung pada satu PC lokal, file rentan ter-overwrite atau korup jika dipakai banyak orang bersamaan.
+                  <!-- Critical Points Box -->
+                  <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
+                    <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
+                      <span class="text-red-500">✕</span> Titik Kelemahan & Risiko:
+                    </div>
+                    <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
+                      <li>Sering terjadi salah tulis identitas nomor roll oleh operator.</li>
+                      <li>Tulisan tangan sulit dibaca oleh staf Gudang dan QC.</li>
+                      <li>Rawan salah hitung berat teoritis vs timbangan aktual.</li>
+                      <li>Kertas fisik mudah kotor, basah, atau hilang di area mesin.</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <!-- ERA 2: Inovasi Generasi 2 (Lightweight Web App HTML-JS) -->
-          <div class="relative group">
-            <div class="absolute -left-[35px] sm:-left-[43px] top-1.5 w-6 h-6 rounded-full bg-amber-500 border-4 border-white flex items-center justify-center text-[10px] font-black text-white shadow-sm">
-              2
+              <!-- Center Timeline Node (Number 0) -->
+              <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-300 flex items-center justify-center font-black text-xs text-zinc-600 shadow-md group-hover:border-zinc-900 group-hover:scale-110 transition-all z-10">
+                0
+              </div>
+
+              <!-- Right Side Spacer (Desktop) -->
+              <div class="hidden md:block md:w-1/2"></div>
             </div>
 
-            <div class="bg-white rounded-2xl border border-zinc-200 p-5 shadow-xs transition hover:shadow-md">
-              <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
-                <div class="flex items-center gap-2">
-                  <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200">
-                    Generasi 2 • Digitalisasi Web
-                  </span>
-                  <h4 class="text-sm sm:text-base font-bold text-zinc-800">
-                    Aplikasi Web HTML, CSS & JavaScript Sederhana
-                  </h4>
+            <!-- ============================================== -->
+            <!-- ITEM 2: INOVASI 1 - EXCEL KHUSUS (KANAN di desktop) -->
+            <!-- ============================================== -->
+            <div class="relative flex flex-col md:flex-row items-center group">
+              <!-- Left Side Spacer (Desktop) -->
+              <div class="hidden md:block md:w-1/2"></div>
+
+              <!-- Center Timeline Node (Number 1) -->
+              <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-400 flex items-center justify-center font-black text-xs text-zinc-800 shadow-md group-hover:border-red-500 group-hover:scale-110 transition-all z-10">
+                1
+              </div>
+
+              <!-- Content Card (Right) -->
+              <div class="w-full md:w-1/2 pl-12 md:pl-12">
+                <div class="bg-white rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
+                  <!-- Era Badge & Header -->
+                  <div class="flex items-center justify-between gap-2 mb-3">
+                    <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-800 border border-zinc-200">
+                      Inovasi Generasi 1 • Spreadsheet Cerdas
+                    </span>
+                    <span class="text-[11px] font-mono text-zinc-400">Formula Math</span>
+                  </div>
+
+                  <!-- Flat Minimal Illustration: Spreadsheet Automation -->
+                  <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-800 shadow-2xs">
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <line x1="3" y1="9" x2="21" y2="9" />
+                        <line x1="3" y1="15" x2="21" y2="15" />
+                        <line x1="9" y1="3" x2="9" y2="21" />
+                        <line x1="15" y1="3" x2="15" y2="21" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-bold text-zinc-900">File Excel Khusus Berformula</h4>
+                      <p class="text-[11px] text-zinc-500">Perhitungan berat teori & validasi otomatis</p>
+                    </div>
+                  </div>
+
+                  <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
+                    Langkah inovasi pertama diinisiasi oleh <strong>Isnan Mauladi Syahputra, S.Kom.</strong> dengan merancang template Excel khusus yang dilengkapi berbagai formula matematika otomatis. Begitu ukuran tebal, lebar, dan panjang dimasukkan, berat teoritis film dihitung seketika berdasarkan densitas material.
+                  </p>
+
+                  <!-- Impact Box -->
+                  <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
+                    <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
+                      <span class="text-emerald-600">✓</span> Nilai Tambah & Kemajuan:
+                    </div>
+                    <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
+                      <li>Operator tidak perlu lagi menghitung manual dengan kalkulator tangan.</li>
+                      <li>Mengurangi kesalahan perhitungan berat teori hingga lebih dari 70%.</li>
+                      <li>Adanya validasi dasar saat angka yang dimasukkan tidak wajar.</li>
+                    </ul>
+                  </div>
                 </div>
-                <span class="text-[11px] font-mono text-amber-600 font-semibold">Web Prototype</span>
-              </div>
-
-              <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-                Melihat kebutuhan akses yang lebih fleksibel dan tampilan yang lebih ramah bagi operator, sistem kemudian berevolusi menjadi program web ringan berbasis HTML dan vanilla JavaScript. Program ini mulai dilengkapi tampilan form modern, generator barcode instan, cetak thermal label langsung ke printer lapangan, dan validasi field formulir.
-              </p>
-
-              <div class="mt-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100 text-xs text-amber-900">
-                <strong>Dampak Positif:</strong> Mulai diadopsi secara resmi di lini kerja; operator merasa jauh lebih cepat dalam mencetak label produksi, serta tidak lagi terjadi bentrok file seperti saat masih menggunakan spreadsheet.
               </div>
             </div>
-          </div>
 
-          <!-- ERA 3: Inovasi Generasi Terkini (Modern M-Label Executive Platform) -->
-          <div class="relative group">
-            <div class="absolute -left-[35px] sm:-left-[43px] top-1.5 w-6 h-6 rounded-full bg-red-600 border-4 border-white flex items-center justify-center text-[10px] font-black text-white shadow-md animate-bounce">
-              ★
+            <!-- ============================================== -->
+            <!-- ITEM 3: INOVASI 2 - WEB SEDERHANA (KIRI di desktop) -->
+            <!-- ============================================== -->
+            <div class="relative flex flex-col md:flex-row items-center group">
+              <!-- Content Card (Left) -->
+              <div class="w-full md:w-1/2 pl-12 md:pl-0 md:pr-12">
+                <div class="bg-white rounded-3xl p-6 sm:p-7 border border-zinc-200 shadow-xs transition-all duration-300 hover:shadow-lg hover:border-zinc-300 group-hover:-translate-y-1 relative">
+                  <!-- Era Badge & Header -->
+                  <div class="flex items-center justify-between gap-2 mb-3">
+                    <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-900 text-white">
+                      Inovasi Generasi 2 • Digitalisasi Web
+                    </span>
+                    <span class="text-[11px] font-mono text-zinc-400">Web App HTML-JS</span>
+                  </div>
+
+                  <!-- Flat Minimal Illustration: Browser & Barcode -->
+                  <div class="mb-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-900 shadow-2xs">
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="2" y="3" width="20" height="14" rx="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                        <path d="M6 8h.01M9 8h.01" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-bold text-zinc-900">Program Web Ringan & Barcode Thermal</h4>
+                      <p class="text-[11px] text-zinc-500">Antarmuka formulir interaktif di browser</p>
+                    </div>
+                  </div>
+
+                  <p class="text-xs sm:text-sm text-zinc-600 leading-relaxed mb-4">
+                    Untuk mengatasi keterbatasan file Excel yang sering bentrok atau korup saat dibuka banyak komputer, sistem dikembangkan menjadi program web ringan berbasis HTML, CSS, dan JavaScript. Mulai dilengkapi generator barcode instan dan cetak thermal label langsung ke printer lapangan.
+                  </p>
+
+                  <!-- Impact Box -->
+                  <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1.5">
+                    <div class="font-bold text-zinc-800 flex items-center gap-1.5 text-[11.5px]">
+                      <span class="text-emerald-600">✓</span> Dampak Operasional:
+                    </div>
+                    <ul class="space-y-1 pl-4 list-disc text-[11px] text-zinc-500">
+                      <li>Tampilan antarmuka yang bersih dan ramah bagi operator lapangan.</li>
+                      <li>Proses cetak label menjadi jauh lebih cepat dan terstandarisasi.</li>
+                      <li>Tidak ada lagi ketergantungan pada file spreadsheet lokal.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Center Timeline Node (Number 2) -->
+              <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-9 h-9 rounded-2xl bg-white border-2 border-zinc-600 flex items-center justify-center font-black text-xs text-zinc-900 shadow-md group-hover:border-red-500 group-hover:scale-110 transition-all z-10">
+                2
+              </div>
+
+              <!-- Right Side Spacer (Desktop) -->
+              <div class="hidden md:block md:w-1/2"></div>
             </div>
 
-            <div class="bg-gradient-to-br from-white to-red-50/30 rounded-2xl border-2 border-red-500/30 p-5 sm:p-6 shadow-sm">
-              <div class="flex items-center justify-between gap-2 flex-wrap mb-2.5">
-                <div class="flex items-center gap-2">
-                  <span class="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase bg-red-600 text-white shadow-xs">
-                    Generasi Terkini • Modern M-Label
-                  </span>
-                  <h4 class="text-base sm:text-lg font-black text-zinc-900">
+            <!-- ============================================== -->
+            <!-- ITEM 4: INOVASI TERKINI - M-LABEL NEXT-GEN (KANAN di desktop) -->
+            <!-- ============================================== -->
+            <div class="relative flex flex-col md:flex-row items-center group">
+              <!-- Left Side Spacer (Desktop) -->
+              <div class="hidden md:block md:w-1/2"></div>
+
+              <!-- Center Timeline Node (Special Red Glowing Star) -->
+              <div class="absolute left-4 md:left-1/2 top-6 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-red-600/30 group-hover:scale-125 transition-all duration-300 z-10">
+                ★
+              </div>
+
+              <!-- Content Card (Right - Highlighted) -->
+              <div class="w-full md:w-1/2 pl-12 md:pl-12">
+                <div class="bg-white rounded-3xl p-6 sm:p-8 border-2 border-red-500/80 shadow-md transition-all duration-300 hover:shadow-xl group-hover:-translate-y-1 relative overflow-hidden">
+                  <!-- Red corner ribbon accent -->
+                  <div class="absolute top-0 right-0 w-24 h-24 overflow-hidden pointer-events-none">
+                    <div class="absolute transform rotate-45 bg-red-600 text-white text-[9px] font-black uppercase py-1 right-[-35px] top-[18px] w-[120px] text-center shadow-xs">
+                      Aktif
+                    </div>
+                  </div>
+
+                  <!-- Era Badge & Header -->
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-2xs">
+                      Generasi Terkini • Modern M-Label
+                    </span>
+                  </div>
+
+                  <h4 class="text-base sm:text-lg font-black text-zinc-900 mb-2">
                     Enterprise Manufacturing Intelligence & Decision Support System
                   </h4>
-                </div>
-                <span class="px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
-                  Active Production System
-                </span>
-              </div>
 
-              <p class="text-xs sm:text-sm text-zinc-700 leading-relaxed">
-                Kini, <strong>M-Label</strong> telah bertransformasi secara radikal menjadi sebuah ekosistem perangkat lunak manufaktur modern berkemampuan tinggi. Program ini <strong>bukan sekadar alat pendataan Roll ID atau pencetak label</strong>, melainkan sebuah mesin pengolah data industri yang mengubah input operasional lapangan menjadi <strong>informasi strategis untuk pengambilan keputusan tingkat manajemen (Executive Decision Support System)</strong>.
-              </p>
-
-              <!-- Fitur Pembeda Utama di Versi Ini -->
-              <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div class="bg-white p-3.5 rounded-xl border border-zinc-200 shadow-2xs space-y-1">
-                  <div class="flex items-center gap-1.5 text-xs font-bold text-zinc-900">
-                    <span class="text-red-600">📊</span> Executive Analytics
-                  </div>
-                  <p class="text-[11.5px] text-zinc-600 leading-normal">
-                    Dashboard visual memantau rasio output aktual vs target SPK, scrap percentage, tren shift harian, dan metrik efisiensi mesin secara real-time.
+                  <p class="text-xs sm:text-sm text-zinc-700 leading-relaxed mb-4">
+                    Kini, <strong>M-Label</strong> telah melompat jauh ke depan. Program ini <strong>bukan sekadar alat pendataan Roll ID atau pencetak label</strong>, melainkan sebuah mesin pengolah data industri cerdas yang mengubah input harian lapangan menjadi <strong>informasi strategis untuk pengambilan keputusan tingkat manajemen (Executive Decision Support System)</strong>.
                   </p>
-                </div>
 
-                <div class="bg-white p-3.5 rounded-xl border border-zinc-200 shadow-2xs space-y-1">
-                  <div class="flex items-center gap-1.5 text-xs font-bold text-zinc-900">
-                    <span class="text-blue-600">🤖</span> Google Gemini AI Vision
+                  <!-- 3 Pillar Capability Cards: Pure White with Crisp Border -->
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-5">
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
+                      <div class="text-base">📊</div>
+                      <div class="text-xs font-bold text-zinc-900">Executive Analytics</div>
+                      <p class="text-[10px] text-zinc-500 leading-tight">Monitoring KPI tonase, scrap ratio, dan kapasitas mesin real-time.</p>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
+                      <div class="text-base">🤖</div>
+                      <div class="text-xs font-bold text-zinc-900">Google Gemini AI</div>
+                      <p class="text-[10px] text-zinc-500 leading-tight">OCR Vision otomatis membaca tabel tulisan tangan operator.</p>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
+                      <div class="text-base">🛡️</div>
+                      <div class="text-xs font-bold text-zinc-900">Offline & Security</div>
+                      <p class="text-[10px] text-zinc-500 leading-tight">Dexie IndexedDB tahan mati internet & forced remote logout.</p>
+                    </div>
                   </div>
-                  <p class="text-[11.5px] text-zinc-600 leading-normal">
-                    Pindai lembar laporan tulisan tangan operator secara otomatis via OCR AI, mendeteksi tabel roll dan mengubahnya menjadi database dalam hitungan detik.
-                  </p>
-                </div>
 
-                <div class="bg-white p-3.5 rounded-xl border border-zinc-200 shadow-2xs space-y-1">
-                  <div class="flex items-center gap-1.5 text-xs font-bold text-zinc-900">
-                    <span class="text-emerald-600">🛡️</span> Hybrid Offline-Cloud & Keamanan
+                  <!-- Developer Note Footer -->
+                  <div class="p-3 rounded-2xl bg-zinc-900 text-white text-xs flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                      <span class="text-red-400">💡</span>
+                      <span class="italic text-[11px] text-zinc-300">
+                        "Data yang rapi adalah fondasi efisiensi; dan efisiensi adalah kunci kemenangan industri."
+                      </span>
+                    </div>
+                    <span class="text-[10px] font-mono text-zinc-400 shrink-0">— Isnan M.S.</span>
                   </div>
-                  <p class="text-[11.5px] text-zinc-600 leading-normal">
-                    Arsitektur Dexie IndexedDB menjamin sistem 100% tahan mati internet di pabrik, sinkronisasi Supabase Realtime, multi-device tracking, dan proteksi kunci PIN.
-                  </p>
                 </div>
-              </div>
-
-              <!-- Kutipan Filosofis -->
-              <div class="mt-4 p-3.5 rounded-xl bg-zinc-900 text-zinc-200 text-xs flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
-                  <span class="text-lg">💡</span>
-                  <span class="italic">
-                    "Data yang rapi adalah fondasi efisiensi; dan efisiensi adalah kunci kemenangan industri."
-                  </span>
-                </div>
-                <span class="text-[10px] font-mono text-zinc-400 shrink-0">— Isnan M.S., S.Kom.</span>
               </div>
             </div>
           </div>
