@@ -447,12 +447,8 @@
               <span>Kode OTP Terkirim ke Email Rahasia</span>
             </div>
             <p class="text-[11.5px] text-zinc-300 leading-relaxed">
-              Kode verifikasi telah dikirimkan ke email terdaftar: <strong class="text-emerald-400 font-mono">{{ resetMaskedEmail }}</strong>. Silakan periksa kotak masuk (Inbox) atau folder Spam Anda.
+              Kode verifikasi telah dikirimkan ke email terdaftar: <strong class="text-emerald-400 font-mono">{{ resetMaskedEmail }}</strong>. Silakan periksa kotak masuk (Inbox) atau folder Spam email Anda.
             </p>
-            <div v-if="demoOtpCode" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 font-mono text-[10.5px]">
-              <span class="font-bold">[Mode Lokal / Offline]:</span> Kode Anda: <strong>{{ demoOtpCode }}</strong>
-              <div class="text-[9.5px] text-zinc-400 mt-0.5">*EmailJS belum aktif di Pengaturan. Masukkan kode di atas untuk reset.</div>
-            </div>
           </div>
 
           <div>

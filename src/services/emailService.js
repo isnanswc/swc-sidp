@@ -47,12 +47,7 @@ export async function sendEmailViaEmailJS({ toEmail, toName, subject, otpCode, m
   const config = await getEmailConfig();
 
   if (!config.isConfigured) {
-    console.warn('[EmailService] EmailJS belum dikonfigurasi. Menjalankan fallback simulasi lokal.');
-    return {
-      success: true,
-      simulated: true,
-      message: 'EmailJS belum dikonfigurasi di Pengaturan. Sistem menggunakan mode verifikasi lokal.'
-    };
+    throw new Error('Layanan pengiriman email (EmailJS) belum aktif atau belum diisi di menu Pengaturan. Silakan hubungi Administrator atau lengkapi Service ID, Template ID, dan Public Key di menu Pengaturan.');
   }
 
   const nowFormatted = new Intl.DateTimeFormat('id-ID', {
