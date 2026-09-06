@@ -172,6 +172,55 @@
         </div>
       </div>
 
+      <!-- ── IN-CHAT MODEL SELECTOR & TEST BAR ── -->
+      <div class="px-3.5 py-1.5 bg-zinc-900 border-b border-zinc-800 text-zinc-300 flex items-center justify-between gap-2 text-xs select-none">
+        <div class="flex items-center gap-1.5 flex-1 min-w-0">
+          <span class="text-[10px] text-zinc-400 font-mono shrink-0">Model:</span>
+          <select
+            v-model="activeChatModel"
+            @change="handleChatModelChange"
+            class="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-[11px] font-mono font-bold rounded-lg px-2 py-1 border border-zinc-700 outline-none focus:ring-1 focus:ring-red-500 truncate cursor-pointer flex-1 max-w-[240px]"
+            title="Ganti model AI yang aktif merespon percakapan ini"
+          >
+            <option
+              v-for="m in chatAvailableModels"
+              :key="m.id"
+              :value="m.id"
+            >
+              {{ m.displayName || m.id }}
+            </option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Test Result Feedback Pill -->
+          <span
+            v-if="modelTestStatus.message"
+            :class="[
+              'text-[10px] font-mono px-2 py-0.5 rounded-full border flex items-center gap-1',
+              modelTestStatus.success === true ? 'bg-emerald-950/80 text-emerald-400 border-emerald-700' :
+              modelTestStatus.success === false ? 'bg-red-950/80 text-red-400 border-red-700' :
+              'bg-zinc-800 text-zinc-300 border-zinc-700'
+            ]"
+          >
+            <span v-if="modelTestStatus.testing" class="animate-spin text-[9px]">⏳</span>
+            <span>{{ modelTestStatus.message }}</span>
+          </span>
+
+          <!-- Test Button -->
+          <button
+            type="button"
+            @click="handleTestCurrentModel"
+            :disabled="modelTestStatus.testing"
+            class="px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 hover:border-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1 cursor-pointer"
+            title="Uji respon dan latensi model terpilih sekarang"
+          >
+            <span class="text-amber-400">⚡</span>
+            <span>{{ modelTestStatus.testing ? 'Menguji...' : 'Test' }}</span>
+          </button>
+        </div>
+      </div>
+
       <!-- MAIN CONTAINER (WITH SLIDE-OVER HISTORY DRAWER) -->
       <div class="relative flex-1 overflow-hidden flex flex-col bg-slate-50/60">
         <!-- ───────────────────────────────────────────────────────────────── -->
@@ -317,21 +366,40 @@
               v-else
               class="p-3.5 sm:p-4 rounded-2xl max-w-[96%] text-xs sm:text-[13px] leading-relaxed transition-all shadow-sm bg-white border border-slate-200 !text-slate-900 rounded-tl-xs space-y-2.5 select-text"
             >
-              <!-- AI Header: Red Accent Badge + Copy Button -->
-              <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 select-none">
-                <div class="flex items-center gap-1.5 text-[11px] font-black text-red-600 tracking-tight">
+              <!-- AI Header: Red Accent Badge, Model Attribution + Copy Button -->
+              <div class="flex items-center justify-between border-b border-slate-100 pb-1.5 select-none gap-2">
+                <div class="flex items-center gap-1.5 text-[11px] font-black text-red-600 tracking-tight shrink-0">
                   <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
                   <span>SWC Factory Intelligence</span>
                 </div>
-                <button
-                  @click="copyMessage(msg.text, idx)"
-                  class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
-                  :class="copiedIdx === idx ? 'bg-red-100 text-red-800 font-bold' : 'bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200'"
-                  title="Salin isi jawaban ini"
-                >
-                  <span>{{ copiedIdx === idx ? '✅' : '📋' }}</span>
-                  <span>{{ copiedIdx === idx ? 'Tersalin' : 'Salin' }}</span>
-                </button>
+
+                <div class="flex items-center gap-1.5 ml-auto">
+                  <!-- Model Name Attribution Badge -->
+                  <span
+                    v-if="msg.modelUsed"
+                    :class="[
+                      'px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border flex items-center gap-1 max-w-[170px] truncate',
+                      msg.isFallback
+                        ? 'bg-amber-50 text-amber-700 border-amber-300'
+                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                    ]"
+                    :title="msg.isFallback ? `Dijawab oleh model cadangan (${msg.modelUsed}) karena model utama tidak merespon.` : `Dijawab oleh ${msg.modelUsed}`"
+                  >
+                    <span>🤖</span>
+                    <span class="truncate">{{ msg.modelUsed }}</span>
+                    <span v-if="msg.isFallback" class="text-[9px] font-black text-amber-600 uppercase">(Fallback)</span>
+                  </span>
+
+                  <button
+                    @click="copyMessage(msg.text, idx)"
+                    class="px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                    :class="copiedIdx === idx ? 'bg-red-100 text-red-800 font-bold' : 'bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200'"
+                    title="Salin isi jawaban ini"
+                  >
+                    <span>{{ copiedIdx === idx ? '✅' : '📋' }}</span>
+                    <span>{{ copiedIdx === idx ? 'Tersalin' : 'Salin' }}</span>
+                  </button>
+                </div>
               </div>
 
               <!-- Main Text (Maximum Contrast & High Readability) -->
@@ -486,15 +554,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useAuthStore } from '@/stores/authStore';
-import { db } from '@/db';
+import { db, saveSetting } from '@/db';
 import { processAiQueryAsync } from '@/services/aiQueryService';
+import { getAiConfig, testGeminiModel, DEFAULT_AI_MODELS } from '@/services/geminiService';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -502,6 +571,15 @@ const dataRollStore = useDataRollStore();
 const labelStore = useLabelStore();
 const configStore = useConfigStore();
 const scheduleStore = useScheduleStore();
+
+// In-Chat Model Switcher & Live Tester State
+const activeChatModel = ref('gemini-3.5-flash');
+const chatAvailableModels = ref([...DEFAULT_AI_MODELS]);
+const modelTestStatus = reactive({
+  testing: false,
+  success: null,
+  message: ''
+});
 
 // Window State
 const isOpen = ref(false);
@@ -880,6 +958,8 @@ const handleSubmit = () => {
         sender: 'ai',
         text: rawText,
         isWaSummary,
+        modelUsed: response.modelUsed || activeChatModel.value || 'gemini-3.5-flash',
+        isFallback: Boolean(response.isFallback),
         metrics: response.metrics,
         tableData: response.tableData,
         tableTitle: response.tableTitle,
@@ -989,12 +1069,90 @@ const formatTimestamp = (isoStr) => {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 };
 
+// ── In-Chat Model Switcher & Live Tester Logic ──
+const loadAiChatConfig = async () => {
+  try {
+    const config = await getAiConfig();
+    if (config.availableModels && config.availableModels.length > 0) {
+      chatAvailableModels.value = config.availableModels;
+    }
+    if (config.selectedModel) {
+      activeChatModel.value = config.selectedModel;
+    }
+  } catch (err) {
+    console.warn('Gagal memuat konfigurasi model AI di chat:', err);
+  }
+};
+
+const handleChatModelChange = async () => {
+  try {
+    const newModel = activeChatModel.value;
+    await saveSetting('google_ai_model', newModel);
+    await saveSetting('gemini_model', newModel);
+    modelTestStatus.message = `Model diubah ke ${newModel}`;
+    modelTestStatus.success = true;
+    setTimeout(() => {
+      if (modelTestStatus.message.startsWith('Model diubah')) {
+        modelTestStatus.message = '';
+      }
+    }, 3000);
+  } catch (err) {
+    console.warn('Gagal menyimpan pergantian model:', err);
+  }
+};
+
+const handleTestCurrentModel = async () => {
+  if (modelTestStatus.testing) return;
+  const targetModel = activeChatModel.value;
+  modelTestStatus.testing = true;
+  modelTestStatus.message = 'Menguji...';
+  modelTestStatus.success = null;
+
+  try {
+    const result = await testGeminiModel(targetModel);
+    modelTestStatus.testing = false;
+    modelTestStatus.success = result.success;
+    if (result.success) {
+      modelTestStatus.message = `✓ Aktif (${result.latencyMs}ms)`;
+    } else {
+      modelTestStatus.message = `✕ Gagal: ${result.message || 'Error'}`;
+    }
+  } catch (err) {
+    modelTestStatus.testing = false;
+    modelTestStatus.success = false;
+    modelTestStatus.message = `✕ Gagal koneksi`;
+  }
+
+  // Clear message after 6 seconds
+  setTimeout(() => {
+    if (!modelTestStatus.testing) {
+      modelTestStatus.message = '';
+      modelTestStatus.success = null;
+    }
+  }, 6000);
+};
+
+const onAiConfigUpdated = (e) => {
+  if (e?.detail?.selectedModel) {
+    activeChatModel.value = e.detail.selectedModel;
+  }
+  loadAiChatConfig();
+};
+
 onMounted(() => {
   loadConversations();
+  loadAiChatConfig();
   if (typeof window !== 'undefined') {
     bubblePos.x = Math.max(20, window.innerWidth - 76);
     bubblePos.y = Math.max(20, window.innerHeight - 76);
     initModalPosition();
+    window.addEventListener('sync:ai-config-updated', onAiConfigUpdated);
+  }
+});
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('sync:ai-config-updated', onAiConfigUpdated);
   }
 });
 </script>

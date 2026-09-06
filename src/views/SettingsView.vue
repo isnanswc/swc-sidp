@@ -222,6 +222,118 @@
             </div>
           </div>
 
+          <!-- ── DAFTAR MODEL FALLBACK / CADANGAN (MAKSIMAL 5) ── -->
+          <div class="p-4 bg-amber-50/40 rounded-2xl border border-amber-200/80 space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <label class="block text-xs font-black text-zinc-900 flex items-center gap-1.5">
+                  <span>🔄 Daftar Model Cadangan / Fallback (Maksimal 5)</span>
+                  <span class="px-2 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-900 font-bold border border-amber-300">
+                    {{ fallbackModels.length }} / 5 Terkonfigurasi
+                  </span>
+                </label>
+                <p class="text-[10.5px] text-zinc-600 mt-0.5">
+                  Jika model utama gagal (limit kuota, timeout, 503), sistem otomatis beralih ke cadangan berurutan sesuai prioritas. Bisa di-drag & drop atau tombol panah.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                @click="addFallbackModel"
+                :disabled="fallbackModels.length >= 5"
+                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+              >
+                <span>+ Tambah Cadangan</span>
+              </button>
+            </div>
+
+            <!-- Empty State -->
+            <div v-if="fallbackModels.length === 0" class="p-3 bg-white rounded-xl border border-dashed border-amber-300 text-center text-xs text-amber-800">
+              Belum ada model cadangan. Klik <strong>+ Tambah Cadangan</strong> untuk menambahkan model cadangan jika model utama gagal.
+            </div>
+
+            <!-- Fallback Items List (Draggable) -->
+            <div v-else class="space-y-2">
+              <div
+                v-for="(fModel, fIdx) in fallbackModels"
+                :key="fIdx"
+                draggable="true"
+                @dragstart="onFallbackDragStart(fIdx, $event)"
+                @dragover.prevent="onFallbackDragOver(fIdx, $event)"
+                @drop="onFallbackDrop(fIdx, $event)"
+                @dragend="onFallbackDragEnd"
+                :class="[
+                  'p-2.5 bg-white rounded-xl border transition-all flex items-center gap-2 text-xs shadow-2xs',
+                  draggedFallbackIndex === fIdx ? 'border-amber-500 bg-amber-50/60 opacity-60 scale-[0.99]' : 'border-zinc-200 hover:border-amber-300'
+                ]"
+              >
+                <!-- Drag Handle -->
+                <div class="cursor-grab active:cursor-grabbing text-zinc-400 hover:text-zinc-700 px-1 select-none text-sm" title="Tahan dan geser untuk ubah prioritas">
+                  ⋮⋮
+                </div>
+
+                <!-- Priority Badge -->
+                <div class="shrink-0">
+                  <span :class="[
+                    'px-2 py-0.5 rounded-lg font-mono font-black text-[10px] border',
+                    fIdx === 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                  ]">
+                    #{{ fIdx + 1 }} {{ fIdx === 0 ? 'Prioritas 1' : 'Prioritas ' + (fIdx + 1) }}
+                  </span>
+                </div>
+
+                <!-- Model Selector Dropdown -->
+                <div class="flex-1 min-w-0">
+                  <select
+                    v-model="fallbackModels[fIdx]"
+                    class="w-full px-2.5 py-1.5 text-xs border border-zinc-300 rounded-lg font-bold bg-zinc-50 outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option
+                      v-for="m in availableModels"
+                      :key="m.id"
+                      :value="m.id"
+                      :disabled="m.id === activeModelId || (fallbackModels.includes(m.id) && fallbackModels[fIdx] !== m.id)"
+                    >
+                      {{ m.displayName || m.id }} {{ m.id === activeModelId ? '(Model Utama)' : '' }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Move Up / Down Buttons -->
+                <div class="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    @click="moveFallback(fIdx, -1)"
+                    :disabled="fIdx === 0"
+                    class="w-6 h-6 rounded bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-700 font-bold text-[10px] flex items-center justify-center cursor-pointer"
+                    title="Naikkan Prioritas"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    @click="moveFallback(fIdx, 1)"
+                    :disabled="fIdx === fallbackModels.length - 1"
+                    class="w-6 h-6 rounded bg-zinc-100 hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-700 font-bold text-[10px] flex items-center justify-center cursor-pointer"
+                    title="Turunkan Prioritas"
+                  >
+                    ▼
+                  </button>
+
+                  <!-- Remove Button -->
+                  <button
+                    type="button"
+                    @click="removeFallbackModel(fIdx)"
+                    class="w-6 h-6 rounded bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center cursor-pointer ml-0.5"
+                    title="Hapus Model Cadangan Ini"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Connection Test Status Box -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
@@ -246,15 +358,25 @@
             </div>
           </div>
 
-          <!-- Save Button -->
-          <div class="flex items-center justify-end pt-3 border-t border-zinc-100">
+          <!-- Action Buttons (Reset/Delete & Save) -->
+          <div class="flex items-center justify-between pt-3 border-t border-zinc-100 flex-wrap gap-2">
+            <button
+              type="button"
+              @click="handleDeleteAiConfig"
+              :disabled="!apiKey && !selectedModel"
+              class="px-4 py-2 rounded-xl text-xs font-bold bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Hapus konfigurasi AI dari browser dan Supabase Cloud"
+            >
+              <span>🗑️ Reset / Hapus Konfigurasi AI</span>
+            </button>
+
             <button
               type="button"
               @click="saveSettings"
-              class="px-6 py-2 rounded-xl text-xs font-black bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-600/25 transition-all flex items-center gap-1.5 cursor-pointer"
+              class="px-6 py-2 rounded-xl text-xs font-black bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-600/25 transition-all flex items-center gap-1.5 cursor-pointer ml-auto"
             >
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-              <span>Simpan Pengaturan Gemini</span>
+              <span>Simpan & Sinkronkan ke Cloud</span>
             </button>
           </div>
         </div>
@@ -948,6 +1070,13 @@ import {
   saveAutomationConfig,
   runDefectTagAnalysis
 } from '@/services/aiAutomationService';
+import {
+  getAiConfig,
+  saveAiConfig,
+  deleteAiConfig,
+  DEFAULT_AI_MODELS,
+  DEFAULT_FALLBACK_MODELS
+} from '@/services/geminiService';
 
 const configStore = useConfigStore();
 const activeTab = ref('gemini');
@@ -1022,6 +1151,10 @@ const testSuccess = ref(null);
 const testStatusText = ref('Belum diuji');
 const isFetchingModels = ref(false);
 
+// Fallback Models State (Maksimal 5)
+const fallbackModels = ref([...DEFAULT_FALLBACK_MODELS]);
+const draggedFallbackIndex = ref(null);
+
 const DEFAULT_MODELS = [
   { id: 'gemini-3.5-flash', displayName: 'Gemini 3.5 Flash (Rekomendasi Utama)', description: 'Generasi 3.5 Flash mutakhir — kapasitas token besar, pemrosesan cepat & akurasi analitis tertinggi.' },
   { id: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', description: 'Generasi 2.5 Flash.' },
@@ -1050,6 +1183,59 @@ const activeModelInfo = computed(() => {
   };
 });
 
+// ── Fallback Models Management & Drag-Drop ──
+const addFallbackModel = () => {
+  if (fallbackModels.value.length >= 5) {
+    alert('Maksimal 5 model cadangan.');
+    return;
+  }
+  // Cari model dari availableModels yang belum ada di activeModelId dan fallbackModels
+  const candidate = availableModels.value.find(m => m.id !== activeModelId.value && !fallbackModels.value.includes(m.id));
+  const newModel = candidate ? candidate.id : (availableModels.value[0]?.id || 'gemini-2.0-flash');
+  fallbackModels.value.push(newModel);
+};
+
+const removeFallbackModel = (idx) => {
+  fallbackModels.value.splice(idx, 1);
+};
+
+const moveFallback = (idx, direction) => {
+  const targetIdx = idx + direction;
+  if (targetIdx < 0 || targetIdx >= fallbackModels.value.length) return;
+  const temp = fallbackModels.value[idx];
+  fallbackModels.value[idx] = fallbackModels.value[targetIdx];
+  fallbackModels.value[targetIdx] = temp;
+};
+
+const onFallbackDragStart = (idx, e) => {
+  draggedFallbackIndex.value = idx;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+  }
+};
+
+const onFallbackDragOver = (idx, e) => {
+  e.preventDefault();
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move';
+  }
+};
+
+const onFallbackDrop = (idx, e) => {
+  e.preventDefault();
+  const fromIdx = draggedFallbackIndex.value !== null ? draggedFallbackIndex.value : parseInt(e.dataTransfer?.getData('text/plain'), 10);
+  if (!isNaN(fromIdx) && fromIdx !== idx && fromIdx >= 0 && fromIdx < fallbackModels.value.length) {
+    const item = fallbackModels.value.splice(fromIdx, 1)[0];
+    fallbackModels.value.splice(idx, 0, item);
+  }
+  draggedFallbackIndex.value = null;
+};
+
+const onFallbackDragEnd = () => {
+  draggedFallbackIndex.value = null;
+};
+
 // Automation Tab State
 const isDrawerOpen = ref(false);
 const isRunningAnalysis = ref(false);
@@ -1067,14 +1253,17 @@ const automationConfig = ref({
 });
 
 onMounted(async () => {
-  apiKey.value = await getSetting('google_ai_api_key', '');
-  const savedModel = await getSetting('google_ai_model', 'gemini-3.5-flash');
-  const savedModelList = await getSetting('google_ai_available_models', null);
-
-  if (savedModelList && Array.isArray(savedModelList) && savedModelList.length > 0) {
-    availableModels.value = savedModelList;
+  // Load AI configuration via geminiService
+  const aiCfg = await getAiConfig();
+  apiKey.value = aiCfg.apiKey || '';
+  if (aiCfg.availableModels && aiCfg.availableModels.length > 0) {
+    availableModels.value = aiCfg.availableModels;
+  }
+  if (Array.isArray(aiCfg.fallbackModels)) {
+    fallbackModels.value = [...aiCfg.fallbackModels];
   }
 
+  const savedModel = aiCfg.selectedModel || 'gemini-3.5-flash';
   const isPreset = availableModels.value.some(m => m.id === savedModel);
   if (isPreset) {
     selectedModel.value = savedModel;
@@ -1142,12 +1331,34 @@ const fetchModelsRealtime = async () => {
 
 const saveSettings = async () => {
   const modelToSave = activeModelId.value;
-  await saveSetting('google_ai_api_key', apiKey.value.trim());
-  await saveSetting('gemini_api_key', apiKey.value.trim());
-  await saveSetting('google_ai_model', modelToSave);
-  await saveSetting('gemini_model', modelToSave);
-  await saveSetting('google_ai_available_models', availableModels.value);
-  alert(`Pengaturan Google AI API Key dan Model (${modelToSave}) berhasil disimpan!`);
+  try {
+    await saveAiConfig({
+      apiKey: apiKey.value.trim(),
+      selectedModel: modelToSave,
+      fallbackModels: fallbackModels.value,
+      availableModels: availableModels.value
+    });
+    alert(`Pengaturan AI berhasil disimpan dan disinkronkan ke Cloud Supabase!\nModel Utama: ${modelToSave}\nCadangan: ${fallbackModels.value.join(', ') || 'Tidak ada'}`);
+  } catch (e) {
+    console.error('Gagal menyimpan setting AI:', e);
+    alert('Pengaturan tersimpan lokal, namun gagal sinkron ke cloud: ' + e.message);
+  }
+};
+
+const handleDeleteAiConfig = async () => {
+  if (!confirm('Apakah Anda yakin ingin menghapus konfigurasi AI dari browser dan Supabase Cloud?')) return;
+  try {
+    await deleteAiConfig();
+    apiKey.value = '';
+    selectedModel.value = 'gemini-2.5-flash';
+    customModelName.value = '';
+    fallbackModels.value = [];
+    testStatusText.value = 'Konfigurasi telah dihapus';
+    testSuccess.value = null;
+    alert('Konfigurasi Google AI berhasil dihapus dari penyimpanan lokal dan Supabase Cloud.');
+  } catch (e) {
+    alert('Gagal menghapus konfigurasi: ' + e.message);
+  }
 };
 
 const testApiConnection = async () => {

@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { supabase } from '@/services/supabaseClient';
 
 export const db = new Dexie('MLabelDB');
 
@@ -408,8 +409,48 @@ export async function saveSetting(key, value) {
     }
     localStorage.setItem(`mlabel_setting_${key}`, JSON.stringify(cleanValue));
     await db.settings.put({ key, value: cleanValue, updatedAt: new Date().toISOString() });
+
+    // Instantly sync to Supabase settings table if online
+    try {
+      if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+        const payload = {
+          key,
+          value: typeof cleanValue === 'string' ? cleanValue : JSON.stringify(cleanValue),
+          updated_at: new Date().toISOString()
+        };
+        supabase.from('settings').upsert([payload], { onConflict: 'key' }).then(({ error }) => {
+          if (error) console.warn('[Supabase Settings Sync] Notice:', error.message);
+        }).catch(err => {
+          console.warn('[Supabase Settings Sync] Push catch:', err);
+        });
+      }
+    } catch (sbErr) {
+      console.warn('[Supabase Settings Sync] Error:', sbErr);
+    }
   } catch (e) {
     console.error('Failed to save setting:', e);
+  }
+}
+
+export async function deleteSetting(key) {
+  try {
+    localStorage.removeItem(`mlabel_setting_${key}`);
+    await db.settings.delete(key);
+
+    // Instantly delete from Supabase settings table
+    try {
+      if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+        supabase.from('settings').delete().eq('key', key).then(({ error }) => {
+          if (error) console.warn('[Supabase Settings Delete] Notice:', error.message);
+        }).catch(err => {
+          console.warn('[Supabase Settings Delete] Catch:', err);
+        });
+      }
+    } catch (sbErr) {
+      console.warn('[Supabase Settings Delete] Error:', sbErr);
+    }
+  } catch (e) {
+    console.error('Failed to delete setting:', e);
   }
 }
 

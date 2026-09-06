@@ -1203,6 +1203,7 @@ export async function pullFromSupabase() {
     // Kirim notifikasi event ke store (agar Pinia langsung refresh tanpa perlu reload browser)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sync:config-updated'));
+      window.dispatchEvent(new CustomEvent('sync:ai-config-updated'));
       window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
       window.dispatchEvent(new CustomEvent('sync:labels-updated'));
     }

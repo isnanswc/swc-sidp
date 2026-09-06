@@ -9,6 +9,7 @@
  */
 
 import { db, getSetting } from '@/db';
+import { getAiModelCandidates } from '@/services/geminiService';
 
 const MONTH_NAMES = {
   'januari': 1, 'jan': 1,
@@ -272,70 +273,76 @@ function computeSubsetStats(rolls = []) {
  * Menghitung langsung di level IndexedDB (Dexie) tanpa menarik puluhan ribu objek ke memory.
  */
 export async function handleGeneralAiQuery(queryText, history = []) {
-  const apiKey = await getSetting('google_ai_api_key', '') || await getSetting('gemini_api_key', '');
-  const model = await getSetting('google_ai_model', 'gemini-3.5-flash');
+  const apiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
+  const modelCandidates = await getAiModelCandidates();
 
-  const generalGuidanceBridge = `\n\n💡 *Ada data produksi pabrik yang ingin Anda periksa saat ini? Saya siap membantu menganalisis:*\n• *Perhitungan jumlah & alasan roll REJECT / HOLD*\n• *Pencapaian & rekap performa per operator*\n• *Status jadwal dan antrean SPK aktif*`;
-
-  if (apiKey && apiKey.trim()) {
-    try {
-      const systemInstruction = `Anda adalah SWC AI Copilot, asisten manufaktur cerdas di PT SAPTAWARNA CEMERLANG (produsen flexible packaging: rotogravure printing, extrusion laminating, dry laminating, casting, metallizing, slitting, rewind).
+  if (apiKey && apiKey.trim() && modelCandidates.length > 0) {
+    const systemInstruction = `Anda adalah SWC AI Copilot, asisten manufaktur cerdas di PT SAPTAWARNA CEMERLANG (produsen flexible packaging: rotogravure printing, extrusion laminating, dry laminating, casting, metallizing, slitting, rewind).
 Pedoman Jawaban:
 1. Jawab pertanyaan umum pengguna secara ramah, cerdas, luwes, dan akurat (termasuk penjelasan istilah rotogravure, polimer film, slitting, salam, atau percakapan umum).
 2. Di akhir jawaban, sertakan ajakan ramah atau tawaran untuk membantu memeriksa laporan data produksi pabrik (seperti reject, SPK, atau operator).`;
 
-      const contents = [];
-      if (Array.isArray(history)) {
-        const recent = history.slice(-4);
-        for (const m of recent) {
-          contents.push({
-            role: m.sender === 'user' ? 'user' : 'model',
-            parts: [{ text: m.text }]
-          });
-        }
+    const contents = [];
+    if (Array.isArray(history)) {
+      const recent = history.slice(-4);
+      for (const m of recent) {
+        contents.push({
+          role: m.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: m.text }]
+        });
       }
-      contents.push({ role: 'user', parts: [{ text: queryText }] });
+    }
+    contents.push({ role: 'user', parts: [{ text: queryText }] });
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey.trim()
-        },
-        body: JSON.stringify({
-          contents,
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: {
-            temperature: 0.5,
-            maxOutputTokens: 8192 // Kapasitas penuh agar jawaban tidak pernah terpotong
+    for (let i = 0; i < modelCandidates.length; i++) {
+      const modelToTry = modelCandidates[i];
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey.trim()
           },
-          safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const resJson = await response.json();
-        const output = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (output) {
-          return {
-            text: output.trim(),
-            suggestions: [
-              'Hitung total roll reject di pabrik',
-              'Tampilkan status antrean SPK hari ini',
-              'Siapa operator slitting yang bertugas?'
+          body: JSON.stringify({
+            contents,
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            generationConfig: {
+              temperature: 0.5,
+              maxOutputTokens: 8192
+            },
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
             ]
-          };
+          })
+        });
+
+        if (response.ok) {
+          const resJson = await response.json();
+          const output = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (output && output.trim()) {
+            return {
+              text: output.trim(),
+              modelUsed: modelToTry,
+              isFallback: i > 0,
+              fallbackIndex: i,
+              suggestions: [
+                'Hitung total roll reject di pabrik',
+                'Tampilkan status antrean SPK hari ini',
+                'Siapa operator slitting yang bertugas?'
+              ]
+            };
+          }
+        } else {
+          console.warn(`[General AI] Model ${modelToTry} returned HTTP ${response.status}. Trying next fallback...`);
         }
+      } catch (e) {
+        console.warn(`[General AI] Error with model ${modelToTry}:`, e);
       }
-    } catch (e) {
-      console.warn('Gemini General Query fallback:', e);
     }
   }
 
@@ -503,18 +510,11 @@ async function buildTargetedGroundingData(queryText, history = [], customOperato
  * 4. GOOGLE GEMINI GENERATIVE AI ENGINE (PRIMARY INTELLIGENCE)
  */
 async function callGeminiGenerativeAi(userQuery, history, dataRolls, operators) {
-  const apiKey = await getSetting('google_ai_api_key', '') || await getSetting('gemini_api_key', '');
+  const apiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
   if (!apiKey || !apiKey.trim()) return null;
 
-  const configuredModel = await getSetting('google_ai_model', 'gemini-2.5-flash');
-
-  // Candidate models: try configured model first; if Google returns 404 (e.g. if set to gemini-3.5-flash), auto-fallback to official active models
-  const modelCandidates = [
-    configuredModel,
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash'
-  ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+  const modelCandidates = await getAiModelCandidates();
+  if (modelCandidates.length === 0) return null;
 
   // Build high-accuracy factual grounding from IndexedDB
   const groundingData = await buildTargetedGroundingData(userQuery, history, operators);
@@ -562,7 +562,8 @@ ${groundingData}`;
   }
   contents.push({ role: 'user', parts: [{ text: userQuery }] });
 
-  for (const modelToTry of modelCandidates) {
+  for (let i = 0; i < modelCandidates.length; i++) {
+    const modelToTry = modelCandidates[i];
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
       const response = await fetch(url, {
@@ -592,15 +593,19 @@ ${groundingData}`;
         const resJson = await response.json();
         const outputText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
         if (outputText && outputText.trim()) {
-          return outputText.trim();
+          return {
+            text: outputText.trim(),
+            modelUsed: modelToTry,
+            isFallback: i > 0,
+            fallbackIndex: i
+          };
         }
       } else {
         const errJson = await response.json().catch(() => null);
-        console.warn(`Gemini model ${modelToTry} returned status ${response.status}:`, errJson);
-        // Continue to next candidate model in loop
+        console.warn(`[Generative AI] Model ${modelToTry} returned status ${response.status}:`, errJson, 'Trying next fallback...');
       }
     } catch (e) {
-      console.warn(`Fetch error with model ${modelToTry}:`, e);
+      console.warn(`[Generative AI] Fetch error with model ${modelToTry}:`, e);
     }
   }
 
@@ -614,15 +619,18 @@ export async function processAiQueryAsync(queryText, dataRolls = [], labels = []
   const query = (queryText || '').trim();
   const lowerQuery = query.toLowerCase();
 
-  // 1. PRIORITAS UTAMA: REAL GENERATIVE AI (GEMINI 3.5 FLASH)
+  // 1. PRIORITAS UTAMA: REAL GENERATIVE AI (GEMINI 2.5/3.5 FLASH DENGAN FALLBACK QUEUE)
   // Jika API Key tersedia, seluruh penalaran & jawaban dihasilkan langsung oleh AI secara dinamis tanpa template kaku!
-  const apiKey = await getSetting('google_ai_api_key', '') || await getSetting('gemini_api_key', '');
+  const apiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
   if (apiKey && apiKey.trim()) {
     try {
       const generativeResponse = await callGeminiGenerativeAi(query, conversationHistory, dataRolls, customOperators);
       if (generativeResponse) {
         return {
-          text: generativeResponse,
+          text: generativeResponse.text || generativeResponse,
+          modelUsed: generativeResponse.modelUsed || 'Gemini',
+          isFallback: generativeResponse.isFallback || false,
+          fallbackIndex: generativeResponse.fallbackIndex || 0,
           suggestions: [
             'Rangkum alasan defect utama periode ini',
             'Bagaimana status SPK terkait?',

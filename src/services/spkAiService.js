@@ -1,4 +1,5 @@
 import { getSetting } from '@/db';
+import { getAiModelCandidates } from '@/services/geminiService';
 
 /**
  * Service Pemindaian & Ekstraksi AI Dokumen JADWAL SLITTING (3B-PROD)
@@ -172,9 +173,10 @@ export async function parseSpkDocumentImage(fileOrBase64, isCamera = false, film
  * Panggilan ke Google Gemini API Vision untuk ekstraksi dokumen fisik
  */
 async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/jpeg', filmConfigs = [], scheduleDate = null) {
-  let modelTarget = await getSetting('google_ai_model');
-  if (!modelTarget) modelTarget = await getSetting('gemini_model');
-  if (!modelTarget || modelTarget === '__custom__') modelTarget = 'gemini-2.0-flash';
+  const modelCandidates = await getAiModelCandidates();
+  if (!modelCandidates || modelCandidates.length === 0) {
+    modelCandidates.push('gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash');
+  }
 
   const prompt = `
 Analisis dokumen formulir fisik PT. Saptawarna Cemerlang "JADWAL SLITTING (Kode: 3B-PROD)".
@@ -210,60 +212,71 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
 4. Keluarkan HANYA array JSON murni tanpa pembuka/penutup markdown.
 `;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelTarget}:generateContent`;
-  
-  let response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey.trim()
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: mimeType, data: base64Data } }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          response_mime_type: 'application/json'
-        }
-      })
-    });
-  } catch (netErr) {
-    throw new Error('Gagal menghubungi server Google Gemini: ' + netErr.message);
-  }
+  let lastError = null;
 
-  if (!response.ok) {
-    let errText = '';
+  for (let i = 0; i < modelCandidates.length; i++) {
+    const modelTarget = modelCandidates[i];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelTarget}:generateContent`;
+
     try {
-      const errJson = await response.json();
-      errText = errJson.error?.message || response.statusText;
-    } catch (e) {
-      errText = await response.text();
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey.trim()
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: base64Data } }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            response_mime_type: 'application/json'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        let errText = '';
+        try {
+          const errJson = await response.json();
+          errText = errJson.error?.message || response.statusText;
+        } catch {
+          errText = await response.text();
+        }
+        console.warn(`[SPK Vision] Model ${modelTarget} returned HTTP ${response.status}: ${errText}. Mencoba model fallback...`);
+        lastError = new Error(`Model ${modelTarget} (${response.status}): ${errText}`);
+        continue;
+      }
+
+      const result = await response.json();
+      const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!text.trim()) {
+        console.warn(`[SPK Vision] Model ${modelTarget} mengembalikan output kosong. Mencoba fallback...`);
+        continue;
+      }
+
+      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      let parsed;
+      try {
+        parsed = JSON.parse(cleanJson);
+      } catch (parseErr) {
+        console.warn(`[SPK Vision] JSON Parse error on ${modelTarget}:`, text);
+        lastError = parseErr;
+        continue;
+      }
+
+      return postProcessExtractedRows(Array.isArray(parsed) ? parsed : [parsed], filmConfigs, scheduleDate);
+    } catch (netErr) {
+      console.warn(`[SPK Vision] Network error on model ${modelTarget}:`, netErr);
+      lastError = netErr;
     }
-    throw new Error(`Google Gemini Error (${response.status}): ${errText}`);
   }
 
-  const result = await response.json();
-  const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  if (!text.trim()) {
-    throw new Error('Google Gemini merespons dengan hasil kosong.');
-  }
-
-  const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  let parsed;
-  try {
-    parsed = JSON.parse(cleanJson);
-  } catch (parseErr) {
-    console.error('JSON Parse error on Gemini output:', text);
-    throw new Error('Gagal mengurai output JSON dari Gemini: ' + parseErr.message);
-  }
-
-  return postProcessExtractedRows(Array.isArray(parsed) ? parsed : [parsed], filmConfigs, scheduleDate);
+  throw lastError || new Error('Seluruh model Google Gemini Vision gagal memproses dokumen.');
 }
 
 /**
