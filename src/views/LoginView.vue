@@ -417,16 +417,16 @@
         <!-- Step 1: Input Email -->
         <div v-if="resetStep === 1" class="space-y-4">
           <p class="text-xs text-zinc-600 leading-relaxed">
-            Masukkan alamat email akun <strong>Super Admin</strong> Anda. Sistem akan memverifikasi dan mengirimkan kode OTP satu kali pakai langsung ke kotak masuk email Anda.
+            Masukkan alamat email resmi akun <strong>Super Admin</strong> Anda. Sistem akan memverifikasi dan mengirimkan kode OTP satu kali pakai secara rahasia ke kotak masuk email Anda.
           </p>
           <div>
-            <label class="block text-xs font-bold text-zinc-800 mb-1 font-mono">Email Super Admin Terdaftar</label>
+            <label class="block text-xs font-bold text-zinc-800 mb-1 font-mono">Email Akun Super Admin</label>
             <input
               v-model="resetEmailInput"
               type="email"
               required
-              class="w-full px-3 py-2 text-xs bg-zinc-50 border border-zinc-300 rounded-xl text-zinc-900 font-mono focus:border-red-600 focus:bg-white outline-none font-bold"
-              placeholder="nama@email.com"
+              class="w-full px-3 py-2.5 text-xs bg-zinc-50 border border-zinc-300 rounded-xl text-zinc-900 font-mono focus:border-red-600 focus:bg-white outline-none font-bold placeholder:font-normal placeholder:text-zinc-400 shadow-2xs"
+              placeholder="Ketik alamat email Super Admin terdaftar..."
             />
           </div>
           <button
@@ -444,10 +444,10 @@
           <div class="p-3.5 rounded-2xl bg-zinc-900 text-white text-xs space-y-2 border border-zinc-800">
             <div class="flex items-center gap-2 text-emerald-400 font-bold">
               <span>📬</span>
-              <span>Kode OTP Terkirim ke Email</span>
+              <span>Kode OTP Terkirim ke Email Rahasia</span>
             </div>
             <p class="text-[11.5px] text-zinc-300 leading-relaxed">
-              Kode verifikasi telah dikirimkan ke: <strong class="text-white font-mono">{{ resetMaskedEmail }}</strong>. Silakan periksa kotak masuk (Inbox) atau folder Spam Anda.
+              Kode verifikasi telah dikirimkan ke email terdaftar: <strong class="text-emerald-400 font-mono">{{ resetMaskedEmail }}</strong>. Silakan periksa kotak masuk (Inbox) atau folder Spam Anda.
             </p>
             <div v-if="demoOtpCode" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 font-mono text-[10.5px]">
               <span class="font-bold">[Mode Lokal / Offline]:</span> Kode Anda: <strong>{{ demoOtpCode }}</strong>
@@ -540,7 +540,7 @@ const errorMessage = ref('');
 // Password Reset Modal State
 const showResetModal = ref(false);
 const resetStep = ref(1); // 1: Email, 2: OTP, 3: Success
-const resetEmailInput = ref(DEFAULT_SUPER_ADMIN.email);
+const resetEmailInput = ref('');
 const resetOtpInput = ref('');
 const resetNewPassword = ref('');
 const resetMaskedEmail = ref('');
@@ -581,7 +581,9 @@ const openResetModal = () => {
   resetError.value = '';
   resetOtpInput.value = '';
   resetNewPassword.value = '';
-  resetEmailInput.value = DEFAULT_SUPER_ADMIN.email;
+  resetEmailInput.value = '';
+  demoOtpCode.value = '';
+  resetMaskedEmail.value = '';
   showResetModal.value = true;
 };
 

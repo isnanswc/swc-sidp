@@ -812,10 +812,10 @@
           <div class="p-3.5 bg-zinc-900 text-white rounded-xl border border-zinc-800 flex items-center justify-between gap-3">
             <div class="space-y-0.5">
               <span class="text-[10.5px] font-mono text-zinc-400 block uppercase tracking-wider">Email Penerima Utama (Super Admin):</span>
-              <span class="text-xs sm:text-sm font-black font-mono text-red-400">isnanswc@gmail.com</span>
+              <span class="text-xs sm:text-sm font-black font-mono text-emerald-400">is***wc@gmail.com</span>
             </div>
             <span class="px-2 py-1 rounded bg-zinc-800 text-[10px] font-mono font-bold text-zinc-300 border border-zinc-700">
-              Primary Recipient
+              Disamarkan demi Keamanan
             </span>
           </div>
 
@@ -882,7 +882,7 @@
           <div class="p-4 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span class="font-bold text-zinc-800 block">🧪 Uji Coba Pengiriman Email Nyata</span>
-              <p class="text-[11px] text-zinc-500">Kirim email pengujian sekarang ke <strong class="text-zinc-800">isnanswc@gmail.com</strong> untuk memastikan setup berfungsi normal.</p>
+              <p class="text-[11px] text-zinc-500">Kirim email pengujian sekarang ke email Super Admin (<strong class="text-zinc-800 font-mono">is***wc@gmail.com</strong>) untuk memastikan setup berfungsi normal.</p>
               <div v-if="emailTestMessage" :class="['mt-2 text-xs font-mono font-bold p-2 rounded-lg', emailTestSuccess ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200']">
                 {{ emailTestMessage }}
               </div>
