@@ -234,276 +234,129 @@
 
     <!-- ======================================================== -->
     <!-- SHEET 2: ABOUT ME & SEJARAH EVOLUSI (Clean White, Red Accent) -->
-    <!-- Dilengkapi Animasi Background Polkadot & 6 Band Industrial Streams Rapat -->
+    <!-- DILENGKAPI BACKGROUND POLKADOT & RANDOM SCATTERED INDUSTRIAL ICONS -->
+    <!-- (Roll Film, Karung Resin, Forklift, Komputer, AI, Biner, Excel, Pabrik) -->
     <!-- ======================================================== -->
-    <div v-show="activeSheet === 'about'" class="space-y-12 relative p-4 sm:p-8 rounded-3xl overflow-hidden bg-slate-50/50 border border-zinc-200/60">
+    <div v-show="activeSheet === 'about'" class="space-y-12 relative p-4 sm:p-8 rounded-3xl overflow-hidden bg-[#f8fafc] border border-zinc-200/80">
       
       <!-- ======================================================= -->
-      <!-- ANIMATED BACKGROUND: POLKADOT + HAIRLINE GRID + 6 DENSE STREAMS -->
+      <!-- ANIMATED BACKGROUND: POLKADOT MATRIX + SCATTERED ICONS -->
       <!-- ======================================================= -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <!-- 1. Polkadot Pattern Background (Dot Matrix Industrial Aesthetic) -->
-        <div class="absolute inset-0 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] [background-size:24px_24px] opacity-75"></div>
+        <!-- 1. Polkadot Pattern Background (Dot Matrix Aesthetic) -->
+        <div class="absolute inset-0 bg-[radial-gradient(#cbd5e1_1.3px,transparent_1.3px)] [background-size:24px_24px] opacity-80"></div>
 
         <!-- 2. Fine Hairline Grid Accent -->
         <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(24,24,27,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(24,24,27,0.03)_1px,transparent_1px)] bg-[size:52px_52px]"></div>
 
         <!-- 3. Ambient Soft Color Glows -->
-        <div class="absolute top-10 left-10 w-96 h-96 bg-red-500/5 rounded-full blur-3xl"></div>
+        <div class="absolute top-10 left-10 w-96 h-96 bg-red-500/6 rounded-full blur-3xl"></div>
         <div class="absolute bottom-10 right-10 w-96 h-96 bg-zinc-900/5 rounded-full blur-3xl"></div>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-red-600/3 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-red-600/4 rounded-full blur-3xl"></div>
 
         <!-- ===================================================== -->
-        <!-- STREAM 1: ROW AT 3% (Left to Right) -->
+        <!-- SCATTERED INDUSTRIAL ICONS (PADAT, TERSEBAR ACAK DI SELURUH LATAR) -->
         <!-- ===================================================== -->
-        <div class="absolute top-[3%] left-0 w-[200%] flex items-center justify-around stream-track stream-slow opacity-30">
-          <div class="industrial-icon text-red-600 transform -rotate-6">
+        <div
+          v-for="(item, idx) in scatteredIcons"
+          :key="idx"
+          class="absolute pointer-events-none select-none transition-transform"
+          :style="{
+            top: item.top,
+            left: item.left,
+            animationDelay: item.delay,
+            animationDuration: item.duration,
+            transform: 'rotate(' + item.rotation + 'deg) scale(' + item.scale + ')'
+          }"
+          :class="['floating-scatter-icon', item.animClass]"
+        >
+          <!-- 1. ROLL FILM -->
+          <div v-if="item.type === 'roll'" :class="item.colorClass" class="opacity-40">
             <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#fee2e2" fill-opacity="0.6" />
-              <line x1="36" y1="14" x2="42" y2="14" stroke-width="2.5" />
+              <ellipse cx="18" cy="24" rx="8" ry="16" fill="currentColor" fill-opacity="0.12" />
+              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="currentColor" fill-opacity="0.05" />
+              <ellipse cx="18" cy="24" rx="3.5" ry="7" fill="#ffffff" stroke="currentColor" stroke-width="2" />
+              <path d="M18 40c6 0 14 2 22 2" stroke-dasharray="3 2" />
             </svg>
           </div>
-          <div class="industrial-icon text-zinc-900 transform rotate-12">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#e4e4e7" fill-opacity="0.6" />
-              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform -rotate-12">
+
+          <!-- 2. KARUNG RESIN PP/PE -->
+          <div v-else-if="item.type === 'karung'" :class="item.colorClass" class="opacity-40">
             <svg class="w-9 h-9" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M12 14c0-4 4-6 12-6s12 2 12 6l3 22c0 3-4 6-15 6s-15-3-15-6z" fill="#fee2e2" fill-opacity="0.6" />
-              <rect x="18" y="21" width="12" height="9" rx="1.5" stroke="currentColor" fill="#ffffff" />
+              <path d="M12 14c0-4 4-6 12-6s12 2 12 6l3 22c0 3-4 6-15 6s-15-3-15-6z" fill="currentColor" fill-opacity="0.15" />
+              <ellipse cx="24" cy="8" rx="7" ry="2.5" fill="currentColor" />
+              <line x1="17" y1="12" x2="31" y2="12" stroke-width="3" stroke-linecap="round" />
+              <rect x="18" y="21" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="#ffffff" />
+              <text x="24" y="27.5" font-size="6.5" font-family="monospace" font-weight="900" text-anchor="middle" fill="currentColor" stroke="none">PP</text>
             </svg>
           </div>
-          <div class="industrial-icon text-zinc-900 transform rotate-6">
+
+          <!-- 3. FORKLIFT -->
+          <div v-else-if="item.type === 'forklift'" :class="item.colorClass" class="opacity-40">
             <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M6 32h18v-8l-8-6H8v14z" fill="#f4f4f5" />
+              <path d="M6 32h18v-8l-8-6H8v14z" fill="currentColor" fill-opacity="0.1" />
               <path d="M24 14h6v22" stroke-width="2.5" />
-              <circle cx="12" cy="36" r="4" fill="#18181b" />
+              <path d="M30 30h10v-4" stroke-width="2.5" stroke-linecap="round" />
+              <circle cx="12" cy="36" r="4.5" fill="#18181b" stroke="currentColor" stroke-width="1.8" />
+              <circle cx="26" cy="36" r="4.5" fill="#18181b" stroke="currentColor" stroke-width="1.8" />
             </svg>
           </div>
-          <!-- Repeat Set 1 -->
-          <div class="industrial-icon text-red-600 transform -rotate-6">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#fee2e2" fill-opacity="0.6" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-zinc-900 transform rotate-12">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#e4e4e7" />
-            </svg>
-          </div>
-        </div>
 
-        <!-- ===================================================== -->
-        <!-- STREAM 2: ROW AT 18% (Right to Left / Counter Stream) -->
-        <!-- ===================================================== -->
-        <div class="absolute top-[18%] left-0 w-[200%] flex items-center justify-around stream-track-reverse stream-mid opacity-30">
-          <div class="industrial-icon text-zinc-900 transform rotate-20">
+          <!-- 4. KOMPUTER KONTROL -->
+          <div v-else-if="item.type === 'komputer'" :class="item.colorClass" class="opacity-40">
             <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M24 6v4m0 28v4M6 24h4m28 0h4m-7.2-12.8-2.8 2.8m-16 16-2.8 2.8" stroke-width="3" stroke-linecap="round" />
-              <circle cx="24" cy="24" r="10" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform -rotate-10">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" />
-              <circle cx="18" cy="26" r="6" fill="#ffffff" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-zinc-900 transform rotate-8">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="12" y="12" width="24" height="24" rx="4" fill="#f4f4f5" />
-              <text x="24" y="27" font-size="10" font-family="monospace" font-weight="900" text-anchor="middle" fill="#dc2626">AI</text>
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform -rotate-4">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="10" y="8" width="28" height="18" rx="3" fill="#fee2e2" />
-              <line x1="16" y1="13" x2="16" y2="21" stroke-width="2" />
-              <line x1="22" y1="13" x2="22" y2="21" stroke-width="3" />
-              <line x1="28" y1="13" x2="28" y2="21" stroke-width="2" />
-            </svg>
-          </div>
-          <!-- Repeat Set 2 -->
-          <div class="industrial-icon text-zinc-900 transform rotate-20">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="24" cy="24" r="10" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform -rotate-10">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" />
-            </svg>
-          </div>
-        </div>
-
-        <!-- ===================================================== -->
-        <!-- STREAM 3: ROW AT 36% (Left to Right) -->
-        <!-- ===================================================== -->
-        <div class="absolute top-[36%] left-0 w-[200%] flex items-center justify-around stream-track stream-fast opacity-30">
-          <div class="industrial-icon text-red-600 transform -rotate-6">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="8" width="36" height="24" rx="3" fill="#fee2e2" />
+              <rect x="6" y="8" width="36" height="24" rx="3" fill="currentColor" fill-opacity="0.1" />
               <line x1="12" y1="15" x2="26" y2="15" stroke-width="2" />
+              <line x1="12" y1="21" x2="36" y2="21" stroke-width="2" stroke-dasharray="3 2" />
               <path d="M24 32v6M16 38h16" stroke-width="2.5" stroke-linecap="round" />
             </svg>
           </div>
-          <div class="industrial-icon text-zinc-900 transform rotate-14">
+
+          <!-- 5. KECERDASAN BUATAN (AI CHIP) -->
+          <div v-else-if="item.type === 'ai'" :class="item.colorClass" class="opacity-40">
             <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="8" y="22" width="32" height="18" rx="2" fill="#f4f4f5" />
-              <circle cx="16" cy="18" r="5" fill="#ffffff" stroke="currentColor" />
-              <circle cx="32" cy="18" r="5" fill="#ffffff" stroke="currentColor" />
+              <rect x="12" y="12" width="24" height="24" rx="4" fill="currentColor" fill-opacity="0.12" />
+              <text x="24" y="27" font-size="11" font-family="monospace" font-weight="900" text-anchor="middle" fill="currentColor" stroke="none">AI</text>
+              <line x1="18" y1="6" x2="18" y2="12" stroke-width="2.5" />
+              <line x1="30" y1="6" x2="30" y2="12" stroke-width="2.5" />
+              <line x1="18" y1="36" x2="18" y2="42" stroke-width="2.5" />
+              <line x1="30" y1="36" x2="30" y2="42" stroke-width="2.5" />
+              <line x1="6" y1="20" x2="12" y2="20" stroke-width="2.5" />
+              <line x1="36" y1="20" x2="42" y2="20" stroke-width="2.5" />
             </svg>
           </div>
-          <div class="industrial-icon text-red-600 transform -rotate-8">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="4" y="18" width="40" height="6" rx="1.5" fill="#fee2e2" />
-              <rect x="8" y="24" width="6" height="12" fill="currentColor" />
-              <rect x="21" y="24" width="6" height="12" fill="currentColor" />
+
+          <!-- 6. KODE BINER (0101 / BINARY DATA MATRIX) -->
+          <div v-else-if="item.type === 'biner'" :class="item.colorClass" class="opacity-40 font-mono font-black text-[10.5px] tracking-widest leading-none p-1 rounded-md border border-current/30 bg-white/40">
+            <div>0101</div>
+            <div>1010</div>
+          </div>
+
+          <!-- 7. SPREADSHEET EXCEL (XLSX FORMULA) -->
+          <div v-else-if="item.type === 'excel'" :class="item.colorClass" class="opacity-40">
+            <svg class="w-9 h-9" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="8" y="6" width="32" height="36" rx="3" fill="currentColor" fill-opacity="0.1" />
+              <line x1="8" y1="18" x2="40" y2="18" stroke-width="2" />
+              <line x1="20" y1="18" x2="20" y2="42" stroke-width="2" />
+              <rect x="12" y="10" width="10" height="10" rx="1.5" fill="currentColor" />
+              <text x="17" y="18" font-size="8" font-family="sans-serif" font-weight="900" text-anchor="middle" fill="#ffffff" stroke="none">X</text>
             </svg>
           </div>
-          <div class="industrial-icon text-zinc-900 transform rotate-8">
+
+          <!-- 8. PABRIK INDUSTRI & CEROBONG -->
+          <div v-else-if="item.type === 'pabrik'" :class="item.colorClass" class="opacity-40">
             <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="24" cy="20" r="11" fill="#f4f4f5" />
-              <circle cx="24" cy="20" r="2" fill="currentColor" />
-            </svg>
-          </div>
-          <!-- Repeat Set 3 -->
-          <div class="industrial-icon text-red-600 transform -rotate-6">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="8" width="36" height="24" rx="3" fill="#fee2e2" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-zinc-900 transform rotate-14">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="8" y="22" width="32" height="18" rx="2" fill="#f4f4f5" />
+              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="currentColor" fill-opacity="0.12" />
+              <line x1="36" y1="14" x2="42" y2="14" stroke-width="2.5" />
+              <path d="M36 40V14h6v26" fill="currentColor" fill-opacity="0.25" />
+              <circle cx="12" cy="32" r="2.5" fill="currentColor" stroke="none" />
+              <circle cx="22" cy="32" r="2.5" fill="currentColor" stroke="none" />
             </svg>
           </div>
         </div>
 
-        <!-- ===================================================== -->
-        <!-- STREAM 4: ROW AT 54% (Right to Left) -->
-        <!-- ===================================================== -->
-        <div class="absolute top-[54%] left-0 w-[200%] flex items-center justify-around stream-track-reverse stream-slow opacity-30">
-          <div class="industrial-icon text-zinc-900 transform -rotate-8">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="8" y="28" width="32" height="12" rx="2" fill="#f4f4f5" />
-              <rect x="18" y="10" width="12" height="18" rx="2" fill="#fee2e2" stroke="#dc2626" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform rotate-12">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="20" cy="20" r="11" fill="#fee2e2" />
-              <line x1="28" y1="28" x2="40" y2="40" stroke-width="3" stroke-linecap="round" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-zinc-900 transform -rotate-12">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="24" cy="24" r="13" fill="#f4f4f5" stroke-width="2" />
-              <circle cx="24" cy="24" r="5" fill="#fee2e2" stroke="#dc2626" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform rotate-6">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M12 32a8 8 0 0 1-1-15.9A12 12 0 0 1 34 16a9 9 0 0 1 2 16z" fill="#fee2e2" />
-              <polyline points="20 28 24 24 28 28" stroke-width="2" />
-            </svg>
-          </div>
-          <!-- Repeat Set 4 -->
-          <div class="industrial-icon text-zinc-900 transform -rotate-8">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="8" y="28" width="32" height="12" rx="2" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform rotate-12">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="20" cy="20" r="11" fill="#fee2e2" />
-            </svg>
-          </div>
-        </div>
-
-        <!-- ===================================================== -->
-        <!-- STREAM 5: ROW AT 72% (Left to Right) -->
-        <!-- ===================================================== -->
-        <div class="absolute top-[72%] left-0 w-[200%] flex items-center justify-around stream-track stream-mid opacity-30">
-          <div class="industrial-icon text-red-600 transform rotate-8">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#fee2e2" />
-              <path d="M18 8h18c4.4 0 8 7.2 8 16s-3.6 16-8 16H18" fill="#fecdd3" fill-opacity="0.4" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-zinc-900 transform -rotate-6">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M6 32h18v-8l-8-6H8v14z" fill="#fee2e2" />
-              <circle cx="12" cy="36" r="4" fill="#dc2626" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform -rotate-10">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="14" width="24" height="24" rx="5" fill="#fee2e2" />
-              <circle cx="18" cy="26" r="6" fill="#ffffff" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-zinc-900 transform rotate-10">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M24 6v4m0 28v4M6 24h4m28 0h4" stroke-width="3" />
-              <circle cx="24" cy="24" r="10" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <!-- Repeat Set 5 -->
-          <div class="industrial-icon text-red-600 transform rotate-8">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <ellipse cx="18" cy="24" rx="8" ry="16" fill="#fee2e2" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-zinc-900 transform -rotate-6">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M6 32h18v-8l-8-6H8v14z" fill="#fee2e2" />
-            </svg>
-          </div>
-        </div>
-
-        <!-- ===================================================== -->
-        <!-- STREAM 6: ROW AT 88% (Right to Left) -->
-        <!-- ===================================================== -->
-        <div class="absolute top-[88%] left-0 w-[200%] flex items-center justify-around stream-track-reverse stream-slow opacity-30">
-          <div class="industrial-icon text-zinc-900 transform -rotate-4">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform rotate-12">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="12" y="12" width="24" height="24" rx="4" fill="#fee2e2" />
-              <text x="24" y="27" font-size="10" font-family="monospace" font-weight="900" text-anchor="middle" fill="#dc2626">AI</text>
-            </svg>
-          </div>
-          <div class="industrial-icon text-zinc-900 transform -rotate-6">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="6" y="8" width="36" height="24" rx="3" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform rotate-6">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="20" cy="20" r="11" fill="#fee2e2" />
-            </svg>
-          </div>
-          <!-- Repeat Set 6 -->
-          <div class="industrial-icon text-zinc-900 transform -rotate-4">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M4 40h40M6 40V22l10 6V18l10 6V14l10 6v20" fill="#f4f4f5" />
-            </svg>
-          </div>
-          <div class="industrial-icon text-red-600 transform rotate-12">
-            <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="12" y="12" width="24" height="24" rx="4" fill="#fee2e2" />
-            </svg>
-          </div>
-        </div>
-
-        <!-- Soft Radial White Gradient to Keep Content Readable -->
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,250,252,0.85)_0%,rgba(248,250,252,0.45)_65%,transparent_100%)] pointer-events-none"></div>
+        <!-- Soft Radial White Gradient to Keep Content Crisp and Readable -->
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,250,252,0.85)_0%,rgba(248,250,252,0.35)_60%,transparent_100%)] pointer-events-none"></div>
       </div>
 
       <!-- ======================================================= -->
@@ -932,6 +785,83 @@ const toggleDoc = (id) => {
   expandedDocs.value[id] = !expandedDocs.value[id];
 };
 
+// =========================================================================
+// SCATTERED INDUSTRIAL ICONS FOR ABOUT SHEET BACKGROUND (POLKADOT SCATTER)
+// Roll Film, Karung, Forklift, Komputer, AI, Biner, Excel, Pabrik
+// =========================================================================
+const scatteredIcons = [
+  // SECTION 1: TOP AREA (Around Profile Card)
+  { type: 'roll', top: '2%', left: '4%', colorClass: 'text-zinc-900', rotation: 12, scale: 1.05, animClass: 'drift-up-down', delay: '0s', duration: '6s' },
+  { type: 'karung', top: '4%', left: '26%', colorClass: 'text-red-600', rotation: -15, scale: 0.95, animClass: 'drift-left-right', delay: '1.2s', duration: '7s' },
+  { type: 'biner', top: '1%', left: '50%', colorClass: 'text-zinc-800', rotation: 6, scale: 0.9, animClass: 'drift-up-down', delay: '2s', duration: '8s' },
+  { type: 'forklift', top: '3%', left: '72%', colorClass: 'text-zinc-950', rotation: -8, scale: 1.1, animClass: 'drift-left-right', delay: '0.5s', duration: '6.5s' },
+  { type: 'excel', top: '2%', left: '91%', colorClass: 'text-emerald-700', rotation: 14, scale: 1, animClass: 'drift-up-down', delay: '1.8s', duration: '7.5s' },
+
+  { type: 'pabrik', top: '9%', left: '15%', colorClass: 'text-red-600', rotation: -6, scale: 1.15, animClass: 'drift-left-right', delay: '2.5s', duration: '8s' },
+  { type: 'ai', top: '11%', left: '38%', colorClass: 'text-zinc-900', rotation: 10, scale: 1.05, animClass: 'drift-up-down', delay: '0.8s', duration: '7.2s' },
+  { type: 'komputer', top: '8%', left: '60%', colorClass: 'text-red-600', rotation: -12, scale: 1, animClass: 'drift-left-right', delay: '1.5s', duration: '6.8s' },
+  { type: 'roll', top: '10%', left: '84%', colorClass: 'text-zinc-900', rotation: 18, scale: 0.95, animClass: 'drift-up-down', delay: '3s', duration: '8.5s' },
+
+  { type: 'excel', top: '16%', left: '5%', colorClass: 'text-emerald-700', rotation: -10, scale: 1.05, animClass: 'drift-up-down', delay: '1.1s', duration: '7s' },
+  { type: 'biner', top: '17%', left: '28%', colorClass: 'text-red-600', rotation: 8, scale: 0.85, animClass: 'drift-left-right', delay: '2.2s', duration: '6.2s' },
+  { type: 'karung', top: '15%', left: '51%', colorClass: 'text-zinc-900', rotation: -14, scale: 1, animClass: 'drift-up-down', delay: '0.4s', duration: '7.8s' },
+  { type: 'pabrik', top: '18%', left: '76%', colorClass: 'text-red-600', rotation: 6, scale: 1.1, animClass: 'drift-left-right', delay: '1.7s', duration: '8.2s' },
+  { type: 'forklift', top: '16%', left: '94%', colorClass: 'text-zinc-950', rotation: -6, scale: 1, animClass: 'drift-up-down', delay: '2.9s', duration: '6.5s' },
+
+  // SECTION 2: TRANSITION & TIMELINE HEADER
+  { type: 'ai', top: '23%', left: '12%', colorClass: 'text-red-600', rotation: 15, scale: 1.1, animClass: 'drift-left-right', delay: '0.6s', duration: '7.4s' },
+  { type: 'komputer', top: '24%', left: '33%', colorClass: 'text-zinc-900', rotation: -8, scale: 0.95, animClass: 'drift-up-down', delay: '2.1s', duration: '8s' },
+  { type: 'roll', top: '22%', left: '67%', colorClass: 'text-red-600', rotation: 12, scale: 1.05, animClass: 'drift-left-right', delay: '1.4s', duration: '6.7s' },
+  { type: 'excel', top: '25%', left: '87%', colorClass: 'text-emerald-700', rotation: -12, scale: 1, animClass: 'drift-up-down', delay: '3.1s', duration: '7.6s' },
+
+  { type: 'pabrik', top: '30%', left: '3%', colorClass: 'text-zinc-900', rotation: 8, scale: 1.15, animClass: 'drift-up-down', delay: '1.3s', duration: '8.1s' },
+  { type: 'biner', top: '32%', left: '22%', colorClass: 'text-zinc-800', rotation: -6, scale: 0.9, animClass: 'drift-left-right', delay: '0.2s', duration: '6.9s' },
+  { type: 'forklift', top: '29%', left: '44%', colorClass: 'text-red-600', rotation: 10, scale: 1.05, animClass: 'drift-up-down', delay: '2.4s', duration: '7.3s' },
+  { type: 'karung', top: '31%', left: '79%', colorClass: 'text-zinc-900', rotation: -16, scale: 1, animClass: 'drift-left-right', delay: '1.9s', duration: '8.4s' },
+  { type: 'ai', top: '30%', left: '93%', colorClass: 'text-red-600', rotation: 14, scale: 1.1, animClass: 'drift-up-down', delay: '0.7s', duration: '6.6s' },
+
+  // SECTION 3: MID TIMELINE (ERA 0 & ERA 1)
+  { type: 'komputer', top: '38%', left: '10%', colorClass: 'text-red-600', rotation: -10, scale: 1, animClass: 'drift-left-right', delay: '1.6s', duration: '7.5s' },
+  { type: 'roll', top: '40%', left: '30%', colorClass: 'text-zinc-900', rotation: 16, scale: 1.05, animClass: 'drift-up-down', delay: '2.8s', duration: '8.2s' },
+  { type: 'excel', top: '37%', left: '56%', colorClass: 'text-emerald-700', rotation: -14, scale: 1.1, animClass: 'drift-left-right', delay: '0.9s', duration: '6.4s' },
+  { type: 'pabrik', top: '39%', left: '85%', colorClass: 'text-zinc-900', rotation: 6, scale: 1.1, animClass: 'drift-up-down', delay: '2.3s', duration: '7.9s' },
+
+  { type: 'karung', top: '46%', left: '5%', colorClass: 'text-red-600', rotation: 12, scale: 0.95, animClass: 'drift-up-down', delay: '0.5s', duration: '7.1s' },
+  { type: 'biner', top: '47%', left: '25%', colorClass: 'text-red-600', rotation: -8, scale: 0.85, animClass: 'drift-left-right', delay: '1.8s', duration: '8.5s' },
+  { type: 'forklift', top: '45%', left: '48%', colorClass: 'text-zinc-900', rotation: 8, scale: 1.05, animClass: 'drift-up-down', delay: '2.6s', duration: '6.8s' },
+  { type: 'ai', top: '48%', left: '70%', colorClass: 'text-zinc-900', rotation: -10, scale: 1.05, animClass: 'drift-left-right', delay: '1.2s', duration: '7.7s' },
+  { type: 'komputer', top: '46%', left: '92%', colorClass: 'text-red-600', rotation: 15, scale: 1, animClass: 'drift-up-down', delay: '3.2s', duration: '8.3s' },
+
+  // SECTION 4: LOWER TIMELINE (ERA 2 & ERA 3)
+  { type: 'roll', top: '54%', left: '12%', colorClass: 'text-red-600', rotation: -14, scale: 1.1, animClass: 'drift-left-right', delay: '1.4s', duration: '7.2s' },
+  { type: 'excel', top: '56%', left: '35%', colorClass: 'text-emerald-700', rotation: 10, scale: 1, animClass: 'drift-up-down', delay: '0.3s', duration: '8s' },
+  { type: 'pabrik', top: '53%', left: '62%', colorClass: 'text-zinc-900', rotation: -6, scale: 1.15, animClass: 'drift-left-right', delay: '2.1s', duration: '6.9s' },
+  { type: 'karung', top: '55%', left: '82%', colorClass: 'text-red-600', rotation: 12, scale: 1, animClass: 'drift-up-down', delay: '1.7s', duration: '7.4s' },
+
+  { type: 'forklift', top: '63%', left: '4%', colorClass: 'text-zinc-900', rotation: 6, scale: 1.05, animClass: 'drift-up-down', delay: '2.7s', duration: '7.8s' },
+  { type: 'biner', top: '65%', left: '20%', colorClass: 'text-zinc-800', rotation: -12, scale: 0.9, animClass: 'drift-left-right', delay: '0.8s', duration: '6.7s' },
+  { type: 'ai', top: '62%', left: '45%', colorClass: 'text-red-600', rotation: 16, scale: 1.1, animClass: 'drift-up-down', delay: '1.5s', duration: '8.1s' },
+  { type: 'komputer', top: '64%', left: '74%', colorClass: 'text-zinc-900', rotation: -8, scale: 1, animClass: 'drift-left-right', delay: '2.4s', duration: '7.5s' },
+  { type: 'roll', top: '63%', left: '94%', colorClass: 'text-red-600', rotation: 10, scale: 1, animClass: 'drift-up-down', delay: '0.1s', duration: '8.4s' },
+
+  // SECTION 5: BOTTOM AREA
+  { type: 'excel', top: '72%', left: '14%', colorClass: 'text-emerald-700', rotation: -10, scale: 1.05, animClass: 'drift-left-right', delay: '1.9s', duration: '7.3s' },
+  { type: 'pabrik', top: '74%', left: '33%', colorClass: 'text-red-600', rotation: 8, scale: 1.1, animClass: 'drift-up-down', delay: '0.7s', duration: '8.3s' },
+  { type: 'karung', top: '71%', left: '55%', colorClass: 'text-zinc-900', rotation: -14, scale: 0.95, animClass: 'drift-left-right', delay: '2.8s', duration: '6.6s' },
+  { type: 'biner', top: '75%', left: '80%', colorClass: 'text-red-600', rotation: 6, scale: 0.85, animClass: 'drift-up-down', delay: '1.3s', duration: '7.9s' },
+
+  { type: 'forklift', top: '82%', left: '6%', colorClass: 'text-red-600', rotation: -8, scale: 1.1, animClass: 'drift-up-down', delay: '0.4s', duration: '7.6s' },
+  { type: 'ai', top: '84%', left: '26%', colorClass: 'text-zinc-900', rotation: 12, scale: 1.05, animClass: 'drift-left-right', delay: '2.2s', duration: '8.2s' },
+  { type: 'komputer', top: '81%', left: '49%', colorClass: 'text-red-600', rotation: -10, scale: 1, animClass: 'drift-up-down', delay: '1.6s', duration: '6.8s' },
+  { type: 'roll', top: '83%', left: '72%', colorClass: 'text-zinc-900', rotation: 16, scale: 1.05, animClass: 'drift-left-right', delay: '3.3s', duration: '7.7s' },
+  { type: 'excel', top: '82%', left: '91%', colorClass: 'text-emerald-700', rotation: -12, scale: 1, animClass: 'drift-up-down', delay: '0.9s', duration: '8.5s' },
+
+  { type: 'pabrik', top: '91%', left: '16%', colorClass: 'text-zinc-900', rotation: 6, scale: 1.15, animClass: 'drift-left-right', delay: '1.5s', duration: '7.9s' },
+  { type: 'biner', top: '93%', left: '40%', colorClass: 'text-zinc-800', rotation: -8, scale: 0.9, animClass: 'drift-up-down', delay: '2.6s', duration: '6.7s' },
+  { type: 'karung', top: '90%', left: '63%', colorClass: 'text-red-600', rotation: 14, scale: 1, animClass: 'drift-left-right', delay: '0.5s', duration: '8.1s' },
+  { type: 'forklift', top: '92%', left: '85%', colorClass: 'text-zinc-900', rotation: -6, scale: 1.05, animClass: 'drift-up-down', delay: '1.8s', duration: '7.4s' }
+];
+
 // Comprehensive Documentation Database
 const docsData = [
   {
@@ -1213,50 +1143,35 @@ const filteredDocs = computed(() => {
   border-radius: 9999px;
 }
 
-/* Animated Industrial Streams (Drifting Left to Right) */
-.stream-track {
-  animation: moveTrackLeftToRight linear infinite;
+/* Floating Scatter Animations */
+.floating-scatter-icon {
   will-change: transform;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.04));
 }
 
-/* Animated Industrial Streams (Drifting Right to Left - Counter Movement) */
-.stream-track-reverse {
-  animation: moveTrackRightToLeft linear infinite;
-  will-change: transform;
+.drift-up-down {
+  animation: floatUpDown ease-in-out infinite alternate;
 }
 
-.stream-slow {
-  animation-duration: 48s;
+.drift-left-right {
+  animation: floatLeftRight ease-in-out infinite alternate;
 }
 
-.stream-mid {
-  animation-duration: 36s;
-}
-
-.stream-fast {
-  animation-duration: 28s;
-}
-
-@keyframes moveTrackLeftToRight {
+@keyframes floatUpDown {
   0% {
-    transform: translateX(-50%);
+    transform: translateY(0px) rotate(0deg);
   }
   100% {
-    transform: translateX(0%);
+    transform: translateY(-16px) rotate(4deg);
   }
 }
 
-@keyframes moveTrackRightToLeft {
+@keyframes floatLeftRight {
   0% {
-    transform: translateX(0%);
+    transform: translateX(0px) rotate(0deg);
   }
   100% {
-    transform: translateX(-50%);
+    transform: translateX(14px) rotate(-4deg);
   }
-}
-
-.industrial-icon {
-  transition: transform 0.25s ease;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04));
 }
 </style>
