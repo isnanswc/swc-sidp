@@ -31,61 +31,67 @@
           </span>
 
           <!-- Live Clock -->
-          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-800 border border-zinc-200">
-            <span>⏱️ {{ liveTimeString }}</span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-800 border border-zinc-200">
+            <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><polyline points="12 6 12 12 16 14" stroke-width="2"></polyline></svg>
+            <span>{{ liveTimeString }}</span>
           </span>
 
           <!-- Hari Kerja Produksi -->
-          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200" title="Hari Kerja Produksi pabrik (cut-off 07:00 pagi)">
-            <span>🏭 Hari Kerja: <strong>{{ workDateLabel }}</strong></span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200" title="Hari Kerja Produksi pabrik (cut-off 07:00 pagi)">
+            <svg class="w-3.5 h-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke-width="2"></rect><line x1="16" y1="2" x2="16" y2="6" stroke-width="2"></line><line x1="8" y1="2" x2="8" y2="6" stroke-width="2"></line><line x1="3" y1="10" x2="21" y2="10" stroke-width="2"></line></svg>
+            <span>Hari Kerja: <strong>{{ workDateLabel }}</strong></span>
           </span>
 
           <!-- Shift Aktif Badge -->
-          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>{{ currentShift.definition.shortName }} (Grup {{ currentShift.group }})</span>
           </span>
 
           <!-- Total Database Roll Badge (Live Verification) -->
-          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-900 border border-indigo-200" title="Total seluruh roll tersimpan di IndexedDB">
-            <span>💾 DB: <strong>{{ formatNum(allProductionRolls.length) }}</strong> Roll</span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-900 border border-indigo-200" title="Total seluruh roll tersimpan di IndexedDB">
+            <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3" stroke-width="2"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" stroke-width="2"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" stroke-width="2"></path></svg>
+            <span>DB: <strong>{{ formatNum(allProductionRolls.length) }}</strong> Roll</span>
           </span>
         </div>
 
-        <!-- Quick Navigation Actions (Compact) -->
+        <!-- Quick Navigation Actions (Minimalist Flat) -->
         <div class="flex items-center gap-1.5">
           <router-link
             to="/label"
-            class="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] font-mono flex items-center gap-1 transition-colors shadow-2xs"
+            class="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] font-mono flex items-center gap-1.5 transition-colors shadow-2xs"
             title="Cetak Label Roll Baru"
           >
-            <span>🏷️ Label</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><line x1="7" y1="7" x2="7.01" y2="7" stroke-width="2" stroke-linecap="round"></line></svg>
+            <span>Label</span>
           </router-link>
           <router-link
             to="/spk"
-            class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-black text-white font-bold text-[11px] font-mono flex items-center gap-1 transition-colors shadow-2xs"
+            class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-black text-white font-bold text-[11px] font-mono flex items-center gap-1.5 transition-colors shadow-2xs"
             title="Buka Manajemen SPK"
           >
-            <span>📑 SPK</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-width="2"></path><polyline points="14 2 14 8 20 8" stroke-width="2"></polyline><line x1="16" y1="13" x2="8" y2="13" stroke-width="2"></line><line x1="16" y1="17" x2="8" y2="17" stroke-width="2"></line></svg>
+            <span>SPK</span>
           </router-link>
           <router-link
             to="/inventory"
-            class="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-100 text-zinc-800 font-bold text-[11px] font-mono border border-zinc-200 flex items-center gap-1 transition-colors shadow-2xs"
+            class="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-100 text-zinc-800 font-bold text-[11px] font-mono border border-zinc-200 flex items-center gap-1.5 transition-colors shadow-2xs"
             title="Buka Manajemen Stok Gudang IMS"
           >
-            <span>📦 IMS</span>
+            <svg class="w-3.5 h-3.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke-width="2"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96" stroke-width="2"></polyline><line x1="12" y1="22.08" x2="12" y2="12" stroke-width="2"></line></svg>
+            <span>IMS</span>
           </router-link>
         </div>
       </div>
 
-      <!-- Baris 2: Judul Dashboard & Filter Waktu + Stepper Hari Sebelumnya -->
+      <!-- Baris 2: Judul Dashboard & Filter Dropdown Waktu + Stepper Minimalis -->
       <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3">
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-base sm:text-lg font-black text-zinc-950 tracking-tight">
               DASHBOARD PRODUKSI & STOK FILM
             </h1>
-            <span class="px-2 py-0.2 rounded bg-zinc-900 text-white font-mono text-[9px] font-black uppercase tracking-wider">
+            <span class="px-2 py-0.5 rounded-md bg-zinc-900 text-white font-mono text-[9px] font-black uppercase tracking-wider">
               COCKPIT
             </span>
           </div>
@@ -94,88 +100,80 @@
           </p>
         </div>
 
-        <!-- Frequency Selector + Stepper Hari Sebelumnya (Previous Multi-Times) -->
+        <!-- Filter Rentang Waktu Dropdown Minimalis + Stepper -->
         <div class="flex flex-wrap items-center gap-2 max-w-full">
-          
-          <!-- Stepper Tombol Hari Sebelumnya / Berikutnya -->
-          <div class="bg-zinc-100 p-1 rounded-xl border border-zinc-200 flex items-center gap-1 text-xs font-mono font-bold shrink-0 overflow-x-auto max-w-full">
+          <!-- Dropdown Periode Minimalis -->
+          <div class="relative flex items-center">
+            <select
+              v-model="selectedFrequency"
+              @change="onFrequencyChange"
+              class="appearance-none bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200/90 text-zinc-900 text-xs font-mono font-bold py-1.5 pl-3 pr-8 rounded-xl shadow-2xs outline-none cursor-pointer transition-colors focus:border-zinc-400"
+            >
+              <option v-for="freq in frequencyOptions" :key="freq.key" :value="freq.key">
+                {{ freq.label }}
+              </option>
+            </select>
+            <div class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+
+          <!-- Stepper Hari Minimalis (Hanya muncul saat mode DAY) -->
+          <div v-if="selectedFrequency === 'DAY'" class="bg-zinc-100/90 p-0.5 rounded-xl border border-zinc-200 flex items-center gap-0.5 text-xs font-mono font-bold shrink-0">
             <button
               @click="stepPrevDay"
-              class="px-2 sm:px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-200 text-zinc-850 border border-zinc-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1 active:scale-95 text-[11px] sm:text-xs shrink-0"
-              title="Lihat data hari sebelumnya (bisa diklik berkali-kali untuk mundur ke H-1, H-2, H-3, dst.)"
+              class="p-1.5 rounded-lg bg-white hover:bg-zinc-200 text-zinc-700 border border-zinc-200/80 shadow-2xs transition-all cursor-pointer active:scale-95"
+              title="Hari Sebelumnya (H-1)"
             >
-              <span>◀</span>
-              <span class="hidden xs:inline">Hari</span>
-              <span>Sebelumnya</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             </button>
 
             <!-- Active Target Date Display Badge -->
             <div
               :class="[
-                'px-2 sm:px-2.5 py-1 rounded-lg text-[10.5px] sm:text-[11px] font-bold transition-all flex items-center gap-1 sm:gap-1.5 shrink-0',
+                'px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 shrink-0',
                 dayOffset === 0
-                  ? 'bg-zinc-200/70 text-zinc-800'
+                  ? 'text-zinc-800'
                   : 'bg-red-50 text-red-700 border border-red-200 font-black'
               ]"
             >
-              <span>📅</span>
               <span>{{ activeTargetDateDisplay }}</span>
             </div>
 
-            <!-- Tombol Hari Berikutnya -->
             <button
               @click="stepNextDay"
               :disabled="dayOffset >= 0"
               :class="[
-                'px-2 sm:px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 text-[11px] sm:text-xs shrink-0',
+                'p-1.5 rounded-lg transition-all',
                 dayOffset < 0
-                  ? 'bg-white hover:bg-zinc-200 text-zinc-800 border border-zinc-300 shadow-2xs cursor-pointer active:scale-95'
-                  : 'bg-zinc-200/40 text-zinc-400 cursor-not-allowed border border-zinc-200'
+                  ? 'bg-white hover:bg-zinc-200 text-zinc-700 border border-zinc-200/80 shadow-2xs cursor-pointer active:scale-95'
+                  : 'text-zinc-300 cursor-not-allowed'
               ]"
-              title="Lihat data hari berikutnya"
+              title="Hari Berikutnya"
             >
-              <span class="hidden xs:inline">Berikutnya</span>
-              <span>▶</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </button>
 
-            <!-- Tombol Reset ke Hari Ini -->
             <button
               v-if="dayOffset !== 0"
               @click="resetToToday"
-              class="px-2 sm:px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-black text-white text-[10.5px] sm:text-[11px] transition-all cursor-pointer shadow-2xs font-black shrink-0"
+              class="px-2 py-1 rounded-lg bg-zinc-900 hover:bg-black text-white text-[10.5px] transition-all cursor-pointer shadow-2xs font-bold"
               title="Kembali ke Hari Ini"
             >
-              ↺ Hari Ini
-            </button>
-          </div>
-
-          <!-- Pilihan Rentang Waktu (Hari, Minggu, Bulan, 3 Bulan, 6 Bulan, Tahun, Custom) -->
-          <div class="bg-zinc-100 p-1 rounded-xl border border-zinc-200 flex items-center gap-0.5 text-xs font-mono font-bold shrink-0 overflow-x-auto max-w-full scrollbar-none">
-            <button
-              v-for="freq in frequencyOptions"
-              :key="freq.key"
-              @click="setFrequency(freq.key)"
-              :class="[
-                'px-2 sm:px-2.5 py-1 rounded-lg transition-all cursor-pointer text-center text-[10.5px] sm:text-[11px] shrink-0',
-                selectedFrequency === freq.key && (freq.key === 'CUSTOM' || dayOffset === 0)
-                  ? 'bg-zinc-950 text-white shadow-xs font-black'
-                  : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200/70'
-              ]"
-            >
-              {{ freq.label }}
+              Hari Ini
             </button>
           </div>
 
           <!-- Input Rentang Custom (Mulai & Selesai) -->
-          <div v-if="selectedFrequency === 'CUSTOM'" class="bg-white p-1 rounded-xl border border-zinc-300 shadow-2xs flex items-center gap-1.5 text-xs font-mono shrink-0">
-            <span class="text-zinc-500 pl-1 text-[10.5px] font-bold">Dari:</span>
+          <div v-if="selectedFrequency === 'CUSTOM'" class="bg-white p-1 rounded-xl border border-zinc-200 shadow-2xs flex items-center gap-1.5 text-xs font-mono shrink-0">
+            <span class="text-zinc-400 pl-1 text-[10.5px] font-bold">Dari:</span>
             <input
               type="date"
               v-model="customStartDate"
               @change="onCustomDateChange"
               class="px-2 py-0.5 rounded-lg border border-zinc-200 text-zinc-800 text-xs outline-none focus:border-red-500 font-mono"
             />
-            <span class="text-zinc-500 text-[10.5px] font-bold">s/d</span>
+            <span class="text-zinc-400 text-[10.5px] font-bold">s/d</span>
             <input
               type="date"
               v-model="customEndDate"
@@ -184,36 +182,34 @@
             />
           </div>
 
-          <!-- Informasi Rentang Tanggal Jelas -->
-          <div class="px-2.5 py-1 rounded-xl bg-red-50 border border-red-200 text-red-900 text-[10.5px] sm:text-[11px] font-mono font-bold flex items-center gap-1 shadow-2xs shrink-0">
-            <span>🗓️</span>
+          <!-- Subtitle Rentang Periode jika bukan mode DAY -->
+          <div v-if="selectedFrequency !== 'DAY'" class="px-2.5 py-1.5 rounded-xl bg-zinc-100 text-zinc-700 border border-zinc-200 text-[11px] font-mono font-medium flex items-center gap-1 shadow-2xs shrink-0">
             <span>{{ activePeriodSubtitle }}</span>
           </div>
-
         </div>
       </div>
     </div>
 
     <!-- ========================================================================= -->
-    <!-- 2. KPI SUMMARY METRIC CARDS (4 KARTU PADAT & MODERN)                      -->
+    <!-- 2. KPI SUMMARY METRIC CARDS (4 KARTU FLAT MINIMALIS & MODERN)             -->
     <!-- ========================================================================= -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 anim-enter-2">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 reveal-on-scroll">
       <!-- CARD 1: OUTPUT PRODUKSI ROLL -->
-      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-red-300 transition-all group flex flex-col justify-between">
+      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-2xs hover:border-red-300 transition-all group flex flex-col justify-between">
         <div class="flex items-center justify-between">
-          <span class="text-[9.5px] sm:text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono truncate">
+          <span class="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-400 uppercase tracking-wider font-mono truncate">
             Output Roll ({{ activePeriodSubtitle }})
           </span>
-          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
-            🏷️
+          <div class="w-8 h-8 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"></circle><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
           </div>
         </div>
-        <div class="mt-2">
+        <div class="mt-2.5">
           <div class="text-xl sm:text-2xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1">
             <span>{{ formatNum(kpiMetrics.totalRolls) }}</span>
             <span class="text-[11px] sm:text-xs font-bold text-zinc-500 font-sans">Roll</span>
           </div>
-          <div class="flex items-center gap-1 mt-1 text-[10px] sm:text-[11px] text-zinc-500 font-medium font-mono flex-wrap">
+          <div class="flex items-center gap-1 mt-1.5 text-[10px] sm:text-[11px] text-zinc-500 font-medium font-mono flex-wrap">
             <span class="text-zinc-900 font-bold">Slit: {{ formatNum(kpiMetrics.slittingRolls) }}</span>
             <span class="text-zinc-300">•</span>
             <span class="text-zinc-900 font-bold">Rwd: {{ formatNum(kpiMetrics.rewindRolls) }}</span>
@@ -224,42 +220,42 @@
       </div>
 
       <!-- CARD 2: TONASE BERAT BERSIH -->
-      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-zinc-400 transition-all group flex flex-col justify-between">
+      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-2xs hover:border-zinc-400 transition-all group flex flex-col justify-between">
         <div class="flex items-center justify-between">
-          <span class="text-[9.5px] sm:text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono truncate">
+          <span class="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-400 uppercase tracking-wider font-mono truncate">
             Tonase Bersih
           </span>
-          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-zinc-100 text-zinc-900 border border-zinc-200 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
-            ⚖️
+          <div class="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-800 border border-zinc-200 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 3v18M6 8l6-5 6 5M6 8a4 4 0 0 0 0 8h1M18 8a4 4 0 0 1 0 8h-1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
           </div>
         </div>
-        <div class="mt-2">
+        <div class="mt-2.5">
           <div class="text-xl sm:text-2xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1">
             <span>{{ formatNum(kpiMetrics.totalBeratKg) }}</span>
             <span class="text-[11px] sm:text-xs font-bold text-zinc-500 font-sans">Kg</span>
           </div>
-          <div class="text-[10px] sm:text-[11px] text-zinc-500 mt-1 font-medium font-mono truncate">
+          <div class="text-[10px] sm:text-[11px] text-zinc-500 mt-1.5 font-medium font-mono truncate">
             Total <strong>{{ (kpiMetrics.totalBeratKg / 1000).toFixed(2) }} Ton</strong> • {{ formatNum(kpiMetrics.totalMeter) }} M
           </div>
         </div>
       </div>
 
       <!-- CARD 3: YIELD KUALITAS QC (% PASS) -->
-      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-emerald-300 transition-all group flex flex-col justify-between">
+      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-2xs hover:border-emerald-300 transition-all group flex flex-col justify-between">
         <div class="flex items-center justify-between">
-          <span class="text-[9.5px] sm:text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono truncate">
+          <span class="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-400 uppercase tracking-wider font-mono truncate">
             Yield Rate (Mutu QC)
           </span>
-          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
-            🎯
+          <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-width="2"></path><polyline points="9 12 11 14 15 10" stroke-width="2"></polyline></svg>
           </div>
         </div>
-        <div class="mt-2">
+        <div class="mt-2.5">
           <div class="text-xl sm:text-2xl font-black text-emerald-600 font-mono tracking-tight flex items-baseline gap-1">
             <span>{{ kpiMetrics.yieldPassRate }}%</span>
             <span class="text-[9.5px] sm:text-[10.5px] font-bold text-emerald-700 font-sans">PASS</span>
           </div>
-          <div class="flex items-center gap-1 mt-1 text-[10px] sm:text-[11px] font-mono font-bold flex-wrap">
+          <div class="flex items-center gap-1 mt-1.5 text-[10px] sm:text-[11px] font-mono font-bold flex-wrap">
             <span class="text-emerald-700">{{ formatNum(kpiMetrics.passCount) }} Pass</span>
             <span class="text-zinc-300">•</span>
             <span class="text-amber-600">{{ formatNum(kpiMetrics.holdCount) }} Hold</span>
@@ -270,26 +266,26 @@
       </div>
 
       <!-- CARD 4: SHIFT BERJALAN & GROUP -->
-      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200 shadow-xs hover:border-blue-300 transition-all group flex flex-col justify-between">
+      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-2xs hover:border-blue-300 transition-all group flex flex-col justify-between">
         <div class="flex items-center justify-between">
-          <span class="text-[9.5px] sm:text-[10.5px] font-black text-zinc-400 uppercase tracking-wider font-mono truncate">
+          <span class="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-400 uppercase tracking-wider font-mono truncate">
             Shift Aktif
           </span>
-          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
-            🔄
+          <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><polyline points="12 6 12 12 16 14" stroke-width="2"></polyline></svg>
           </div>
         </div>
-        <div class="mt-2">
+        <div class="mt-2.5">
           <div class="text-lg sm:text-xl font-black text-zinc-950 font-mono tracking-tight truncate">
             {{ currentShift.definition.shortName }}
             <span class="text-[9.5px] sm:text-[10.5px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-800 ml-1 font-sans">Grup {{ currentShift.group }}</span>
           </div>
-          <div class="mt-1 flex items-center justify-between text-[10px] sm:text-[11px] font-mono text-zinc-500">
+          <div class="mt-1.5 flex items-center justify-between text-[10px] sm:text-[11px] font-mono text-zinc-500">
             <span class="truncate">{{ currentShift.definition.startTime }} - {{ currentShift.definition.endTime }}</span>
             <span class="font-bold text-zinc-800 ml-1 shrink-0">{{ shiftElapsedPercent }}%</span>
           </div>
           <!-- Live Shift Progress Bar -->
-          <div class="w-full bg-zinc-100 h-1.5 rounded-full mt-1 overflow-hidden">
+          <div class="w-full bg-zinc-100 h-1.5 rounded-full mt-1.5 overflow-hidden">
             <div
               class="bg-blue-600 h-full rounded-full transition-all duration-500"
               :style="{ width: `${shiftElapsedPercent}%` }"
@@ -302,10 +298,10 @@
     <!-- Banner Pemberitahuan Status Hari Ini / Tanggal Target (Berdasarkan Tanggal Aktual Produksi) -->
     <div
       v-if="kpiMetrics.totalRolls === 0 && selectedFrequency === 'DAY'"
-      class="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs anim-enter-2"
+      class="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs reveal-on-scroll"
     >
       <div class="flex items-start gap-2.5">
-        <span class="text-xl">ℹ️</span>
+        <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><line x1="12" y1="8" x2="12" y2="12" stroke-width="2"></line><line x1="12" y1="16" x2="12.01" y2="16" stroke-width="2"></line></svg>
         <div class="text-xs text-amber-950">
           <p class="font-bold">
             Belum ada rekaman output produksi pada <span class="font-mono underline">{{ activeTargetDateDisplay }}</span>.
@@ -319,7 +315,7 @@
         @click="stepPrevDay"
         class="shrink-0 px-3 py-1.5 bg-amber-200/90 hover:bg-amber-300 text-amber-950 border border-amber-300/80 rounded-xl font-mono font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95"
       >
-        <span>◀</span>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         <span>Cek Produksi Sebelumnya</span>
       </button>
     </div>
@@ -327,37 +323,61 @@
     <!-- ========================================================================= -->
     <!-- 3. ROW TENGAH: DIAGRAM GARIS MULTI-METRIK & TAB MESIN / DONAT OPERATOR   -->
     <!-- ========================================================================= -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 anim-enter-3">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 reveal-on-scroll">
       
       <!-- KIRI: DIAGRAM GARIS (TOTAL ROLL, PASS, HOLD, REJECT) - SPAN 7 KOLOM -->
-      <div class="lg:col-span-7 bg-white border border-zinc-200 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+      <div class="lg:col-span-7 bg-white border border-zinc-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
         <div>
           <!-- Header Diagram Garis -->
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-100 pb-3">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-sm sm:text-base font-black text-zinc-950">TREN KOMPARASI HASIL PRODUKSI</span>
-                <span class="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-zinc-900 text-white font-mono uppercase">
-                  {{ activePeriodSubtitle }}
-                </span>
+          <div class="flex flex-col gap-3 border-b border-zinc-100 pb-3">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm sm:text-base font-black text-zinc-950 tracking-tight">TREN KOMPARASI HASIL PRODUKSI</span>
+                  <span class="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-zinc-900 text-white font-mono uppercase">
+                    {{ activePeriodSubtitle }}
+                  </span>
+                </div>
+                <p class="text-[11px] text-zinc-500 font-medium mt-0.5">
+                  Perbandingan volume total roll, mutu PASS, karantina HOLD, dan afval REJECT.
+                </p>
               </div>
-              <p class="text-[11px] text-zinc-500 font-medium mt-0.5">
-                Perbandingan volume total roll, mutu PASS, karantina HOLD, dan afval REJECT.
-              </p>
+
+              <!-- Selector Granularitas (Auto / Harian / Mingguan / Bulanan) -->
+              <div class="flex items-center bg-zinc-100/90 p-0.5 rounded-xl border border-zinc-200 text-xs font-mono font-bold shrink-0 overflow-x-auto max-w-full scrollbar-none">
+                <button
+                  v-for="g in [
+                    { key: 'auto', label: 'Auto' },
+                    { key: 'daily', label: 'Harian' },
+                    { key: 'weekly', label: 'Mingguan' },
+                    { key: 'monthly', label: 'Bulanan' }
+                  ]"
+                  :key="g.key"
+                  @click="setChartGranularity(g.key)"
+                  :class="[
+                    'px-2.5 py-1 rounded-lg transition-all cursor-pointer text-[10.5px] shrink-0',
+                    chartGranularity === g.key
+                      ? 'bg-white text-zinc-950 shadow-2xs font-black'
+                      : 'text-zinc-500 hover:text-zinc-900'
+                  ]"
+                >
+                  {{ g.label }}
+                </button>
+              </div>
             </div>
 
             <!-- Custom Legend Badges (Click to Toggle On / Off) -->
-            <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] font-mono font-bold flex-wrap">
+            <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] font-mono font-bold flex-wrap justify-between sm:justify-start">
+              <div class="text-[10px] text-zinc-400 font-sans uppercase mr-1">Tampilkan:</div>
               <button
                 @click="toggleDataset('total')"
                 type="button"
                 :class="[
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none text-[10.5px]',
                   chartVisibility.total
                     ? 'bg-zinc-900 text-white border-zinc-900 shadow-2xs'
-                    : 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through opacity-60'
+                    : 'bg-zinc-50 text-zinc-400 border-zinc-200 line-through opacity-50'
                 ]"
-                title="Klik untuk tampilkan / sembunyikan grafik Total"
               >
                 <span class="w-2 h-2 rounded-full" :class="chartVisibility.total ? 'bg-white' : 'bg-zinc-400'"></span>
                 <span>Total</span>
@@ -366,12 +386,11 @@
                 @click="toggleDataset('pass')"
                 type="button"
                 :class="[
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none text-[10.5px]',
                   chartVisibility.pass
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
-                    : 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through opacity-60'
+                    : 'bg-zinc-50 text-zinc-400 border-zinc-200 line-through opacity-50'
                 ]"
-                title="Klik untuk tampilkan / sembunyikan grafik Pass"
               >
                 <span class="w-2 h-2 rounded-full" :class="chartVisibility.pass ? 'bg-emerald-500' : 'bg-zinc-400'"></span>
                 <span>Pass</span>
@@ -380,12 +399,11 @@
                 @click="toggleDataset('hold')"
                 type="button"
                 :class="[
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none text-[10.5px]',
                   chartVisibility.hold
                     ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-2xs'
-                    : 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through opacity-60'
+                    : 'bg-zinc-50 text-zinc-400 border-zinc-200 line-through opacity-50'
                 ]"
-                title="Klik untuk tampilkan / sembunyikan grafik Hold"
               >
                 <span class="w-2 h-2 rounded-full" :class="chartVisibility.hold ? 'bg-amber-500' : 'bg-zinc-400'"></span>
                 <span>Hold</span>
@@ -394,12 +412,11 @@
                 @click="toggleDataset('reject')"
                 type="button"
                 :class="[
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none text-[10.5px]',
                   chartVisibility.reject
                     ? 'bg-red-50 text-red-800 border-red-300 shadow-2xs'
-                    : 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through opacity-60'
+                    : 'bg-zinc-50 text-zinc-400 border-zinc-200 line-through opacity-50'
                 ]"
-                title="Klik untuk tampilkan / sembunyikan grafik Reject"
               >
                 <span class="w-2 h-2 rounded-full" :class="chartVisibility.reject ? 'bg-red-500' : 'bg-zinc-400'"></span>
                 <span>Reject</span>
@@ -411,7 +428,7 @@
           <div class="grid grid-cols-4 gap-2 my-3 text-center font-mono">
             <div
               @click="toggleDataset('total')"
-              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] select-none"
+              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] select-none"
               :class="chartVisibility.total ? 'bg-zinc-50 border-zinc-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
               title="Klik untuk on/off garis Total"
             >
@@ -420,7 +437,7 @@
             </div>
             <div
               @click="toggleDataset('pass')"
-              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] select-none"
+              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] select-none"
               :class="chartVisibility.pass ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
               title="Klik untuk on/off garis Pass"
             >
@@ -429,7 +446,7 @@
             </div>
             <div
               @click="toggleDataset('hold')"
-              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] select-none"
+              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] select-none"
               :class="chartVisibility.hold ? 'bg-amber-50/70 border-amber-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
               title="Klik untuk on/off garis Hold"
             >
@@ -438,7 +455,7 @@
             </div>
             <div
               @click="toggleDataset('reject')"
-              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.02] select-none"
+              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] select-none"
               :class="chartVisibility.reject ? 'bg-red-50/70 border-red-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
               title="Klik untuk on/off garis Reject"
             >
@@ -454,13 +471,13 @@
         </div>
 
         <div class="pt-2.5 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-          <span>* Periode ditampilkan: <strong>{{ activePeriodSubtitle }}</strong></span>
-          <span class="text-zinc-600 font-bold">Sinkronisasi Otomatis</span>
+          <span>* Periode: <strong>{{ activePeriodSubtitle }}</strong></span>
+          <span class="text-zinc-500 font-bold">Sinkronisasi Otomatis</span>
         </div>
       </div>
 
       <!-- KANAN: TAB MESIN & DIAGRAM DONAT OPERATOR - SPAN 5 KOLOM -->
-      <div class="lg:col-span-5 bg-white border border-zinc-200 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+      <div class="lg:col-span-5 bg-white border border-zinc-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
         <div>
           <!-- Header & Machine Tabs -->
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-100 pb-3">
@@ -469,7 +486,7 @@
               <p class="text-[11px] text-zinc-500 font-medium">Distribusi persen Pass, Hold, dan Reject.</p>
             </div>
 
-            <!-- Machine Tab Buttons (Slitting, Rewind, Casting) -->
+            <!-- Machine Tab Buttons (Slitting, Rewind, Casting) Minimalist -->
             <div class="bg-zinc-100 p-1 rounded-xl border border-zinc-200 flex items-center gap-1 text-[11px] font-mono font-bold shrink-0">
               <button
                 v-for="tab in machineTabs"
@@ -482,7 +499,6 @@
                     : 'text-zinc-600 hover:text-zinc-950'
                 ]"
               >
-                <span>{{ tab.icon }}</span>
                 <span>{{ tab.label }}</span>
               </button>
             </div>
@@ -493,7 +509,7 @@
             <div
               v-for="op in operatorQualityStats"
               :key="op.name"
-              class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/90 hover:border-zinc-300 transition-all flex items-center justify-between gap-3"
+              class="p-3.5 rounded-2xl bg-zinc-50/80 border border-zinc-200/90 hover:border-zinc-300 transition-all flex items-center justify-between gap-3"
             >
               <!-- Info Operator & Metrik Angka -->
               <div class="space-y-0.5">
@@ -573,7 +589,7 @@
               v-if="operatorQualityStats.length === 0"
               class="p-6 text-center text-xs text-zinc-400 font-medium bg-zinc-50 rounded-2xl border border-zinc-200 space-y-2.5"
             >
-              <div class="text-sm text-zinc-600 font-bold">🏭 Tidak ada output produksi mesin {{ selectedMachineTab }} pada {{ activePeriodSubtitle }}.</div>
+              <div class="text-sm text-zinc-600 font-bold">Tidak ada output produksi mesin {{ selectedMachineTab }} pada {{ activePeriodSubtitle }}.</div>
               <p class="text-[11px] text-zinc-400">Hasil produksi dihitung murni berdasarkan tanggal aktual pengerjaan roll.</p>
               
               <!-- Tampilkan Daftar Master Operator Database yang Tersedia untuk Mesin Ini -->
@@ -585,7 +601,7 @@
                     :key="dbOp.id"
                     class="px-2 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-white text-zinc-700 border border-zinc-200 shadow-2xs inline-flex items-center gap-1"
                   >
-                    <span>👤</span>
+                    <svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-width="2"></path><circle cx="12" cy="7" r="4" stroke-width="2"></circle></svg>
                     <span>{{ dbOp.nama }}</span>
                     <span class="text-blue-600">({{ dbOp.kodeOperator }})</span>
                     <span v-if="dbOp.kodeGrup" class="text-zinc-400 text-[9.5px]">Grup {{ dbOp.kodeGrup }}</span>
@@ -608,7 +624,7 @@
     <!-- ========================================================================= -->
     <!-- 4. BLOK MEMANJANG: TIMELINE SPK (ATAS: REALISASI, BAWAH: PLANNING)       -->
     <!-- ========================================================================= -->
-    <div class="bg-white border border-zinc-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3 anim-enter-4">
+    <div class="bg-white border border-zinc-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs space-y-3 reveal-on-scroll">
       
       <!-- Header Timeline -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-100 pb-3">
@@ -775,13 +791,13 @@
     <!-- ========================================================================= -->
     <!-- 5. BLOK KONDISI STOK IMS: 3 KRITERIA & 3 SATUAN KUANTITAS                 -->
     <!-- ========================================================================= -->
-    <div class="bg-white border border-zinc-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4 anim-enter-4">
+    <div class="bg-white border border-zinc-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs space-y-4 reveal-on-scroll">
       
       <!-- Header Stok & Filter Kriteria & Satuan -->
       <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 border-b border-zinc-100 pb-3">
         <div>
           <div class="flex items-center gap-2">
-            <span class="text-sm sm:text-base font-black text-zinc-950">KONDISI STOK GUDANG (ACUAN MENU IMS)</span>
+            <span class="text-sm sm:text-base font-black text-zinc-950 tracking-tight">KONDISI STOK GUDANG (ACUAN MENU IMS)</span>
             <span class="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-red-600 text-white font-mono">
               IMS LIVE DATA
             </span>
@@ -872,7 +888,7 @@
           to="/inventory"
           class="px-2.5 py-1 rounded-xl bg-white hover:bg-emerald-100 text-emerald-950 border border-emerald-300 font-mono font-bold text-[10.5px] transition-colors flex items-center gap-1 shadow-2xs self-start md:self-auto"
         >
-          <span>📦 Kelola di Menu IMS ➔</span>
+          <span>Kelola di Menu IMS ➔</span>
         </router-link>
       </div>
 
@@ -1292,8 +1308,8 @@ const frequencyOptions = [
   { key: '3MONTH', label: '3 Bulan' },
   { key: '6MONTH', label: '6 Bulan' },
   { key: 'YEAR', label: '1 Tahun' },
-  { key: 'ALL', label: '🌐 Semua' },
-  { key: 'CUSTOM', label: '📅 Custom' }
+  { key: 'ALL', label: 'Semua Riwayat' },
+  { key: 'CUSTOM', label: 'Rentang Kustom...' }
 ];
 
 const selectedFrequency = ref('DAY');
@@ -1301,6 +1317,19 @@ const dayOffset = ref(0); // 0 = Hari ini, -1 = Kemarin (H-1), -2 = 2 hari lalu 
 const customStartDate = ref('');
 const customEndDate = ref('');
 const isDashboardLoading = ref(true);
+
+// Granularitas Tampilan Diagram Garis (Auto, Harian, Mingguan, Bulanan)
+const chartGranularity = ref('auto'); // 'auto' | 'daily' | 'weekly' | 'monthly'
+
+const setChartGranularity = (gran) => {
+  chartGranularity.value = gran;
+  updateLineChart();
+};
+
+const onFrequencyChange = () => {
+  dayOffset.value = 0;
+  updateLineChart();
+};
 
 // Chart dataset visibility toggler
 const chartVisibility = ref({
@@ -1605,27 +1634,65 @@ const generateLineChartData = () => {
   let holdData = [];
   let rejectData = [];
 
-  if (selectedFrequency.value === 'DAY') {
-    // 2-Hourly Intervals of production day (07:00 to 05:00)
-    labels = ['07:00', '09:00', '11:00', '13:00', '15:00', '17:00', '19:00', '21:00', '23:00', '01:00', '03:00', '05:00'];
-    const buckets = labels.map(() => ({ total: 0, pass: 0, hold: 0, reject: 0 }));
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
+  // Granularitas eksplisit yang dipilih user: 'daily' | 'weekly' | 'monthly'
+  if (chartGranularity.value === 'daily') {
+    // Kumpulkan tanggal unik dari list atau rentang data
+    const dateMap = new Map();
+    // Cari min & max date
+    let minDate = null;
+    let maxDate = null;
     for (const item of list) {
-      const timeStr = item.verifiedAt || item.createdAt;
-      let hour = 9;
-      if (timeStr) {
-        const d = new Date(timeStr);
+      const prodDate = getRealProductionDate(item);
+      if (prodDate && /^\d{4}-\d{2}-\d{2}/.test(prodDate)) {
+        const d = new Date(prodDate);
         if (!isNaN(d.getTime())) {
-          hour = d.getHours();
+          if (!minDate || d < minDate) minDate = d;
+          if (!maxDate || d > maxDate) maxDate = d;
         }
       }
-      let bucketIdx = Math.floor(((hour - 7 + 24) % 24) / 2);
-      if (bucketIdx < 0 || bucketIdx >= 12) bucketIdx = 0;
-      buckets[bucketIdx].total++;
-      const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
-      if (st === 'HOLD') buckets[bucketIdx].hold++;
-      else if (st === 'REJECT' || st === 'NG') buckets[bucketIdx].reject++;
-      else buckets[bucketIdx].pass++;
+    }
+
+    // Jika tidak ada data tanggal valid, buat fallback 7 hari terakhir
+    if (!minDate || !maxDate) {
+      const now = new Date();
+      maxDate = new Date(now);
+      minDate = new Date(now);
+      minDate.setDate(now.getDate() - 6);
+    }
+
+    // Batasi maksimum 31 hari agar grafik tetap rapi dan tidak terlalu rapat
+    const diffDays = Math.round((maxDate.getTime() - minDate.getTime()) / 86400000);
+    if (diffDays > 31) {
+      const adjustedMin = new Date(maxDate);
+      adjustedMin.setDate(maxDate.getDate() - 30);
+      minDate = adjustedMin;
+    }
+
+    const cur = new Date(minDate);
+    const buckets = [];
+    while (cur <= maxDate) {
+      const yr = cur.getFullYear();
+      const mo = String(cur.getMonth() + 1).padStart(2, '0');
+      const da = String(cur.getDate()).padStart(2, '0');
+      const iso = `${yr}-${mo}-${da}`;
+      const dayLabel = `${cur.getDate()} ${monthNames[cur.getMonth()]}`;
+      labels.push(dayLabel);
+      buckets.push({ iso, total: 0, pass: 0, hold: 0, reject: 0 });
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    for (const item of list) {
+      const prodDate = getRealProductionDate(item);
+      const b = buckets.find(bk => bk.iso === prodDate);
+      if (b) {
+        b.total++;
+        const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+        if (st === 'HOLD') b.hold++;
+        else if (st === 'REJECT' || st === 'NG') b.reject++;
+        else b.pass++;
+      }
     }
 
     totalData = buckets.map(b => b.total);
@@ -1633,64 +1700,56 @@ const generateLineChartData = () => {
     holdData = buckets.map(b => b.hold);
     rejectData = buckets.map(b => b.reject);
 
-  } else if (selectedFrequency.value === 'WEEK') {
-    labels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-    const buckets = labels.map(() => ({ total: 0, pass: 0, hold: 0, reject: 0 }));
+  } else if (chartGranularity.value === 'weekly') {
+    // Kelompokkan per minggu (Minggu 1, Minggu 2, dst atau 4 - 8 bucket mingguan)
+    let minDate = null;
+    let maxDate = null;
+    for (const item of list) {
+      const prodDate = getRealProductionDate(item);
+      if (prodDate && /^\d{4}-\d{2}-\d{2}/.test(prodDate)) {
+        const d = new Date(prodDate);
+        if (!isNaN(d.getTime())) {
+          if (!minDate || d < minDate) minDate = d;
+          if (!maxDate || d > maxDate) maxDate = d;
+        }
+      }
+    }
+
+    if (!minDate || !maxDate) {
+      const now = new Date();
+      maxDate = new Date(now);
+      minDate = new Date(now);
+      minDate.setDate(now.getDate() - 28);
+    }
+
+    // Buat interval 7 hari (mingguan) maksimal 10 minggu
+    const totalMs = Math.max(86400000 * 7, maxDate.getTime() - minDate.getTime() + 86400000);
+    const numWeeks = Math.min(10, Math.max(1, Math.ceil(totalMs / (7 * 86400000))));
+    const buckets = [];
+
+    const weekIntervalMs = 7 * 86400000;
+    const startBaseMs = maxDate.getTime() + 86400000 - (numWeeks * weekIntervalMs);
+
+    for (let i = 0; i < numWeeks; i++) {
+      const wStart = new Date(startBaseMs + (i * weekIntervalMs));
+      const wEnd = new Date(wStart.getTime() + weekIntervalMs - 86400000);
+      const label = `${wStart.getDate()} ${monthNames[wStart.getMonth()]} - ${wEnd.getDate()} ${monthNames[wEnd.getMonth()]}`;
+      labels.push(label);
+      buckets.push({
+        startMs: wStart.getTime(),
+        endMs: wEnd.getTime() + 86400000,
+        total: 0,
+        pass: 0,
+        hold: 0,
+        reject: 0
+      });
+    }
 
     for (const item of list) {
       const prodDate = getRealProductionDate(item);
       if (prodDate) {
-        const d = new Date(prodDate);
-        if (!isNaN(d.getTime())) {
-          const dayIdx = (d.getDay() + 6) % 7;
-          buckets[dayIdx].total++;
-          const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
-          if (st === 'HOLD') buckets[dayIdx].hold++;
-          else if (st === 'REJECT' || st === 'NG') buckets[dayIdx].reject++;
-          else buckets[dayIdx].pass++;
-        }
-      }
-    }
-
-    totalData = buckets.map(b => b.total);
-    passData = buckets.map(b => b.pass);
-    holdData = buckets.map(b => b.hold);
-    rejectData = buckets.map(b => b.reject);
-
-  } else if (selectedFrequency.value === 'CUSTOM') {
-    // Custom date interval breakdown
-    const startStr = customStartDate.value || (list.length > 0 ? getRealProductionDate(list[0]) : '');
-    const endStr = customEndDate.value || (list.length > 0 ? getRealProductionDate(list[list.length - 1]) : '');
-
-    let startDate = startStr ? new Date(startStr) : new Date();
-    let endDate = endStr ? new Date(endStr) : new Date();
-    if (startDate > endDate) {
-      const temp = startDate;
-      startDate = endDate;
-      endDate = temp;
-    }
-
-    const diffDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-
-    if (diffDays <= 14) {
-      labels = [];
-      const buckets = [];
-      const cur = new Date(startDate);
-      while (cur <= endDate) {
-        const yr = cur.getFullYear();
-        const mo = String(cur.getMonth() + 1).padStart(2, '0');
-        const da = String(cur.getDate()).padStart(2, '0');
-        const iso = `${yr}-${mo}-${da}`;
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const dayLabel = `${cur.getDate()} ${months[cur.getMonth()]}`;
-        labels.push(dayLabel);
-        buckets.push({ iso, total: 0, pass: 0, hold: 0, reject: 0 });
-        cur.setDate(cur.getDate() + 1);
-      }
-
-      for (const item of list) {
-        const prodDate = getRealProductionDate(item);
-        const b = buckets.find(bk => bk.iso === prodDate);
+        const t = new Date(prodDate).getTime();
+        const b = buckets.find(bk => t >= bk.startMs && t < bk.endMs);
         if (b) {
           b.total++;
           const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
@@ -1699,121 +1758,29 @@ const generateLineChartData = () => {
           else b.pass++;
         }
       }
-
-      totalData = buckets.map(b => b.total);
-      passData = buckets.map(b => b.pass);
-      holdData = buckets.map(b => b.hold);
-      rejectData = buckets.map(b => b.reject);
-    } else {
-      const numBuckets = Math.min(diffDays, 8);
-      labels = [];
-      const buckets = [];
-      const interval = Math.ceil(diffDays / numBuckets);
-
-      for (let i = 0; i < numBuckets; i++) {
-        const bStart = new Date(startDate);
-        bStart.setDate(startDate.getDate() + i * interval);
-        const bEnd = new Date(bStart);
-        bEnd.setDate(bStart.getDate() + interval - 1);
-        if (bEnd > endDate) bEnd.setTime(endDate.getTime());
-        const label = `${bStart.getDate()}/${bStart.getMonth() + 1} - ${bEnd.getDate()}/${bEnd.getMonth() + 1}`;
-        labels.push(label);
-        buckets.push({
-          startMs: bStart.getTime(),
-          endMs: bEnd.getTime() + 86400000,
-          total: 0,
-          pass: 0,
-          hold: 0,
-          reject: 0
-        });
-      }
-
-      for (const item of list) {
-        const prodDate = getRealProductionDate(item);
-        if (prodDate) {
-          const t = new Date(prodDate).getTime();
-          const b = buckets.find(bk => t >= bk.startMs && t < bk.endMs);
-          if (b) {
-            b.total++;
-            const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
-            if (st === 'HOLD') b.hold++;
-            else if (st === 'REJECT' || st === 'NG') b.reject++;
-            else b.pass++;
-          }
-        }
-      }
-
-      totalData = buckets.map(b => b.total);
-      passData = buckets.map(b => b.pass);
-      holdData = buckets.map(b => b.hold);
-      rejectData = buckets.map(b => b.reject);
     }
 
-  } else {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    const curMonth = new Date().getMonth();
+    totalData = buckets.map(b => b.total);
+    passData = buckets.map(b => b.pass);
+    holdData = buckets.map(b => b.hold);
+    rejectData = buckets.map(b => b.reject);
+
+  } else if (chartGranularity.value === 'monthly') {
+    // Kelompokkan per bulan kalender
     const curYear = new Date().getFullYear();
+    const curMonth = new Date().getMonth();
+    const targetMonthDefs = [];
 
-    let targetMonthDefs = []; // Array of { label, year, month }
-
-    if (selectedFrequency.value === '3MONTH') {
-      for (let i = 2; i >= 0; i--) {
-        const d = new Date(curYear, curMonth - i, 1);
-        targetMonthDefs.push({
-          label: monthNames[d.getMonth()],
-          year: d.getFullYear(),
-          month: d.getMonth()
-        });
-      }
-    } else if (selectedFrequency.value === '6MONTH') {
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(curYear, curMonth - i, 1);
-        targetMonthDefs.push({
-          label: monthNames[d.getMonth()],
-          year: d.getFullYear(),
-          month: d.getMonth()
-        });
-      }
-    } else if (selectedFrequency.value === 'MONTH') {
-      labels = ['Mgg 1', 'Mgg 2', 'Mgg 3', 'Mgg 4', 'Mgg 5'];
-    } else if (selectedFrequency.value === 'ALL') {
-      // Group distinct YYYY-MM in dataset or last 12 months
-      const distinctYm = [...new Set(list.map(it => {
-        const p = getRealProductionDate(it);
-        return p && /^\d{4}-\d{2}/.test(p) ? p.slice(0, 7) : null;
-      }).filter(Boolean))].sort();
-
-      if (distinctYm.length > 0) {
-        const sliceYm = distinctYm.length > 12 ? distinctYm.slice(-12) : distinctYm;
-        for (const ym of sliceYm) {
-          const [y, m] = ym.split('-').map(Number);
-          targetMonthDefs.push({
-            label: `${monthNames[m - 1]} '${String(y).slice(2)}`,
-            year: y,
-            month: m - 1
-          });
-        }
-      } else {
-        targetMonthDefs = monthNames.map((m, idx) => ({ label: m, year: curYear, month: idx }));
-      }
-    } else {
-      // 1 YEAR (12 Months rolling)
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(curYear, curMonth - i, 1);
-        targetMonthDefs.push({
-          label: monthNames[d.getMonth()],
-          year: d.getFullYear(),
-          month: d.getMonth()
-        });
-      }
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(curYear, curMonth - i, 1);
+      targetMonthDefs.push({
+        label: monthNames[d.getMonth()],
+        year: d.getFullYear(),
+        month: d.getMonth()
+      });
     }
 
-    if (targetMonthDefs.length > 0) {
-      labels = targetMonthDefs.map(t => t.label);
-    } else if (labels.length === 0) {
-      labels = monthNames;
-    }
-
+    labels = targetMonthDefs.map(t => t.label);
     const buckets = labels.map(() => ({ total: 0, pass: 0, hold: 0, reject: 0 }));
 
     for (const item of list) {
@@ -1821,18 +1788,7 @@ const generateLineChartData = () => {
       if (prodDate) {
         const d = new Date(prodDate);
         if (!isNaN(d.getTime())) {
-          let bIdx = -1;
-          if (selectedFrequency.value === 'MONTH') {
-            bIdx = Math.min(4, Math.floor((d.getDate() - 1) / 7));
-          } else if (targetMonthDefs.length > 0) {
-            bIdx = targetMonthDefs.findIndex(t => t.month === d.getMonth() && (selectedFrequency.value === 'ALL' || t.year === d.getFullYear()));
-            if (bIdx === -1) {
-              bIdx = targetMonthDefs.findIndex(t => t.month === d.getMonth());
-            }
-          } else {
-            bIdx = d.getMonth() % labels.length;
-          }
-
+          const bIdx = targetMonthDefs.findIndex(t => t.month === d.getMonth() && t.year === d.getFullYear());
           if (bIdx >= 0 && bIdx < buckets.length) {
             buckets[bIdx].total++;
             const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
@@ -1848,6 +1804,251 @@ const generateLineChartData = () => {
     passData = buckets.map(b => b.pass);
     holdData = buckets.map(b => b.hold);
     rejectData = buckets.map(b => b.reject);
+
+  } else {
+    // Mode 'auto': Mengikuti frekuensi waktu selectedFrequency
+    if (selectedFrequency.value === 'DAY') {
+      // 2-Hourly Intervals of production day (07:00 to 05:00)
+      labels = ['07:00', '09:00', '11:00', '13:00', '15:00', '17:00', '19:00', '21:00', '23:00', '01:00', '03:00', '05:00'];
+      const buckets = labels.map(() => ({ total: 0, pass: 0, hold: 0, reject: 0 }));
+
+      for (const item of list) {
+        const timeStr = item.verifiedAt || item.createdAt;
+        let hour = 9;
+        if (timeStr) {
+          const d = new Date(timeStr);
+          if (!isNaN(d.getTime())) {
+            hour = d.getHours();
+          }
+        }
+        let bucketIdx = Math.floor(((hour - 7 + 24) % 24) / 2);
+        if (bucketIdx < 0 || bucketIdx >= 12) bucketIdx = 0;
+        buckets[bucketIdx].total++;
+        const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+        if (st === 'HOLD') buckets[bucketIdx].hold++;
+        else if (st === 'REJECT' || st === 'NG') buckets[bucketIdx].reject++;
+        else buckets[bucketIdx].pass++;
+      }
+
+      totalData = buckets.map(b => b.total);
+      passData = buckets.map(b => b.pass);
+      holdData = buckets.map(b => b.hold);
+      rejectData = buckets.map(b => b.reject);
+
+    } else if (selectedFrequency.value === 'WEEK') {
+      labels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+      const buckets = labels.map(() => ({ total: 0, pass: 0, hold: 0, reject: 0 }));
+
+      for (const item of list) {
+        const prodDate = getRealProductionDate(item);
+        if (prodDate) {
+          const d = new Date(prodDate);
+          if (!isNaN(d.getTime())) {
+            const dayIdx = (d.getDay() + 6) % 7;
+            buckets[dayIdx].total++;
+            const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+            if (st === 'HOLD') buckets[dayIdx].hold++;
+            else if (st === 'REJECT' || st === 'NG') buckets[dayIdx].reject++;
+            else buckets[dayIdx].pass++;
+          }
+        }
+      }
+
+      totalData = buckets.map(b => b.total);
+      passData = buckets.map(b => b.pass);
+      holdData = buckets.map(b => b.hold);
+      rejectData = buckets.map(b => b.reject);
+
+    } else if (selectedFrequency.value === 'CUSTOM') {
+      // Custom date interval breakdown
+      const startStr = customStartDate.value || (list.length > 0 ? getRealProductionDate(list[0]) : '');
+      const endStr = customEndDate.value || (list.length > 0 ? getRealProductionDate(list[list.length - 1]) : '');
+
+      let startDate = startStr ? new Date(startStr) : new Date();
+      let endDate = endStr ? new Date(endStr) : new Date();
+      if (startDate > endDate) {
+        const temp = startDate;
+        startDate = endDate;
+        endDate = temp;
+      }
+
+      const diffDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+      if (diffDays <= 14) {
+        labels = [];
+        const buckets = [];
+        const cur = new Date(startDate);
+        while (cur <= endDate) {
+          const yr = cur.getFullYear();
+          const mo = String(cur.getMonth() + 1).padStart(2, '0');
+          const da = String(cur.getDate()).padStart(2, '0');
+          const iso = `${yr}-${mo}-${da}`;
+          const dayLabel = `${cur.getDate()} ${monthNames[cur.getMonth()]}`;
+          labels.push(dayLabel);
+          buckets.push({ iso, total: 0, pass: 0, hold: 0, reject: 0 });
+          cur.setDate(cur.getDate() + 1);
+        }
+
+        for (const item of list) {
+          const prodDate = getRealProductionDate(item);
+          const b = buckets.find(bk => bk.iso === prodDate);
+          if (b) {
+            b.total++;
+            const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+            if (st === 'HOLD') b.hold++;
+            else if (st === 'REJECT' || st === 'NG') b.reject++;
+            else b.pass++;
+          }
+        }
+
+        totalData = buckets.map(b => b.total);
+        passData = buckets.map(b => b.pass);
+        holdData = buckets.map(b => b.hold);
+        rejectData = buckets.map(b => b.reject);
+      } else {
+        const numBuckets = Math.min(diffDays, 8);
+        labels = [];
+        const buckets = [];
+        const interval = Math.ceil(diffDays / numBuckets);
+
+        for (let i = 0; i < numBuckets; i++) {
+          const bStart = new Date(startDate);
+          bStart.setDate(startDate.getDate() + i * interval);
+          const bEnd = new Date(bStart);
+          bEnd.setDate(bStart.getDate() + interval - 1);
+          if (bEnd > endDate) bEnd.setTime(endDate.getTime());
+          const label = `${bStart.getDate()}/${bStart.getMonth() + 1} - ${bEnd.getDate()}/${bEnd.getMonth() + 1}`;
+          labels.push(label);
+          buckets.push({
+            startMs: bStart.getTime(),
+            endMs: bEnd.getTime() + 86400000,
+            total: 0,
+            pass: 0,
+            hold: 0,
+            reject: 0
+          });
+        }
+
+        for (const item of list) {
+          const prodDate = getRealProductionDate(item);
+          if (prodDate) {
+            const t = new Date(prodDate).getTime();
+            const b = buckets.find(bk => t >= bk.startMs && t < bk.endMs);
+            if (b) {
+              b.total++;
+              const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+              if (st === 'HOLD') b.hold++;
+              else if (st === 'REJECT' || st === 'NG') b.reject++;
+              else b.pass++;
+            }
+          }
+        }
+
+        totalData = buckets.map(b => b.total);
+        passData = buckets.map(b => b.pass);
+        holdData = buckets.map(b => b.hold);
+        rejectData = buckets.map(b => b.reject);
+      }
+
+    } else {
+      const curMonth = new Date().getMonth();
+      const curYear = new Date().getFullYear();
+
+      let targetMonthDefs = []; // Array of { label, year, month }
+
+      if (selectedFrequency.value === '3MONTH') {
+        for (let i = 2; i >= 0; i--) {
+          const d = new Date(curYear, curMonth - i, 1);
+          targetMonthDefs.push({
+            label: monthNames[d.getMonth()],
+            year: d.getFullYear(),
+            month: d.getMonth()
+          });
+        }
+      } else if (selectedFrequency.value === '6MONTH') {
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(curYear, curMonth - i, 1);
+          targetMonthDefs.push({
+            label: monthNames[d.getMonth()],
+            year: d.getFullYear(),
+            month: d.getMonth()
+          });
+        }
+      } else if (selectedFrequency.value === 'MONTH') {
+        labels = ['Mgg 1', 'Mgg 2', 'Mgg 3', 'Mgg 4', 'Mgg 5'];
+      } else if (selectedFrequency.value === 'ALL') {
+        // Group distinct YYYY-MM in dataset or last 12 months
+        const distinctYm = [...new Set(list.map(it => {
+          const p = getRealProductionDate(it);
+          return p && /^\d{4}-\d{2}/.test(p) ? p.slice(0, 7) : null;
+        }).filter(Boolean))].sort();
+
+        if (distinctYm.length > 0) {
+          const sliceYm = distinctYm.length > 12 ? distinctYm.slice(-12) : distinctYm;
+          for (const ym of sliceYm) {
+            const [y, m] = ym.split('-').map(Number);
+            targetMonthDefs.push({
+              label: `${monthNames[m - 1]} '${String(y).slice(2)}`,
+              year: y,
+              month: m - 1
+            });
+          }
+        } else {
+          targetMonthDefs = monthNames.map((m, idx) => ({ label: m, year: curYear, month: idx }));
+        }
+      } else {
+        // 1 YEAR (12 Months rolling)
+        for (let i = 11; i >= 0; i--) {
+          const d = new Date(curYear, curMonth - i, 1);
+          targetMonthDefs.push({
+            label: monthNames[d.getMonth()],
+            year: d.getFullYear(),
+            month: d.getMonth()
+          });
+        }
+      }
+
+      if (targetMonthDefs.length > 0) {
+        labels = targetMonthDefs.map(t => t.label);
+      } else if (labels.length === 0) {
+        labels = monthNames;
+      }
+
+      const buckets = labels.map(() => ({ total: 0, pass: 0, hold: 0, reject: 0 }));
+
+      for (const item of list) {
+        const prodDate = getRealProductionDate(item);
+        if (prodDate) {
+          const d = new Date(prodDate);
+          if (!isNaN(d.getTime())) {
+            let bIdx = -1;
+            if (selectedFrequency.value === 'MONTH') {
+              bIdx = Math.min(4, Math.floor((d.getDate() - 1) / 7));
+            } else if (targetMonthDefs.length > 0) {
+              bIdx = targetMonthDefs.findIndex(t => t.month === d.getMonth() && (selectedFrequency.value === 'ALL' || t.year === d.getFullYear()));
+              if (bIdx === -1) {
+                bIdx = targetMonthDefs.findIndex(t => t.month === d.getMonth());
+              }
+            } else {
+              bIdx = d.getMonth() % labels.length;
+            }
+
+            if (bIdx >= 0 && bIdx < buckets.length) {
+              buckets[bIdx].total++;
+              const st = String(item.qualityStatus || item.status || 'PASS').toUpperCase();
+              if (st === 'HOLD') buckets[bIdx].hold++;
+              else if (st === 'REJECT' || st === 'NG') buckets[bIdx].reject++;
+              else buckets[bIdx].pass++;
+            }
+          }
+        }
+      }
+
+      totalData = buckets.map(b => b.total);
+      passData = buckets.map(b => b.pass);
+      holdData = buckets.map(b => b.hold);
+      rejectData = buckets.map(b => b.reject);
+    }
   }
 
   return { labels, totalData, passData, holdData, rejectData };
@@ -1971,6 +2172,7 @@ watch(filteredLabels, () => {
     } else {
       updateLineChart();
     }
+    initScrollAnimations();
   });
 }, { deep: true });
 
@@ -2387,7 +2589,37 @@ const formatNum = (val) => {
 };
 
 // =========================================================================
-// 9. LIFECYCLE HOOKS
+// 9. SCROLL ANIMATION (REPEATING ANIMATE IN & OUT)
+// =========================================================================
+let scrollObserver = null;
+
+const initScrollAnimations = () => {
+  if (typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
+  
+  if (scrollObserver) {
+    scrollObserver.disconnect();
+  }
+
+  scrollObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      // Efek in dan out yang terus berulang ketika scroll
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-revealed');
+      } else {
+        entry.target.classList.remove('is-revealed');
+      }
+    });
+  }, {
+    threshold: 0.12,
+    rootMargin: '0px 0px -40px 0px'
+  });
+
+  const targets = document.querySelectorAll('.reveal-on-scroll');
+  targets.forEach((el) => scrollObserver.observe(el));
+};
+
+// =========================================================================
+// 10. LIFECYCLE HOOKS
 // =========================================================================
 onMounted(async () => {
   updateLiveTime();
@@ -2411,11 +2643,16 @@ onMounted(async () => {
 
   await nextTick();
   initLineChart();
+  initScrollAnimations();
 });
 
 onUnmounted(() => {
   if (liveTimer) clearInterval(liveTimer);
   if (lineComparisonChartInstance) lineComparisonChartInstance.destroy();
+  if (scrollObserver) {
+    scrollObserver.disconnect();
+    scrollObserver = null;
+  }
 });
 </script>
 
@@ -2464,5 +2701,28 @@ onUnmounted(() => {
 
 .anim-gradient-flow {
   animation: gradientFlow 4s ease infinite;
+}
+
+/* ========================================================================= */
+/* EFEK ANIMATE IN & OUT BERULANG KETIKA SCROLL KE BAWAH / ATAS            */
+/* ========================================================================= */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(22px) scale(0.99);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-on-scroll.is-revealed {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on-scroll {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
 }
 </style>
