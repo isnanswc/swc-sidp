@@ -1122,6 +1122,30 @@ export async function pullFromSupabase() {
       })());
     }
 
+    // Deteksi apakah Master Data Config telah di-wipe di Cloud Supabase
+    try {
+      const { data: wipeSetting } = await supabase.from('settings').select('value').eq('key', 'master_config_wiped_at').maybeSingle();
+      if (wipeSetting && wipeSetting.value) {
+        const cloudWipedTime = new Date(wipeSetting.value).getTime();
+        const localWipedTime = parseInt(localStorage.getItem('mlabel_local_config_wiped_at') || '0', 10);
+        if (cloudWipedTime > localWipedTime) {
+          localStorage.setItem('mlabel_local_config_wiped_at', String(cloudWipedTime));
+          await Promise.allSettled([
+            db.film_configs?.clear(),
+            db.bom_formulas?.clear(),
+            db.resin_items?.clear(),
+            db.mesin_list?.clear(),
+            db.operator_list?.clear(),
+            db.location_list?.clear(),
+            db.standard_lengths?.clear(),
+          ]);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('sync:config-updated'));
+          }
+        }
+      }
+    } catch (e) {}
+
     // Pull Operators
     if (db.operator_list) {
       pullTasks.push((async () => {

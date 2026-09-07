@@ -1095,18 +1095,20 @@ export const useConfigStore = defineStore('configStore', {
 
     // ── CLEAR / WIPE CONFIG DATA ──────────────────────────────────────────────
     async clearAllConfigData() {
+      // 1. Bersihkan seluruh tabel di IndexedDB lokal
       await Promise.all([
-        db.film_configs.clear(),
-        db.bom_formulas.clear(),
-        db.resin_items.clear(),
-        db.mesin_list.clear(),
-        db.operator_list.clear(),
-        db.location_list.clear(),
-        db.standard_lengths.clear(),
-        db.jenis_list.clear(),
-        db.jenis_bahan_list.clear(),
-        db.kategori_film_list.clear(),
-        db.tipe_bahan_list.clear(),
+        db.film_configs?.clear(),
+        db.bom_formulas?.clear(),
+        db.resin_items?.clear(),
+        db.mesin_list?.clear(),
+        db.operator_list?.clear(),
+        db.location_list?.clear(),
+        db.standard_lengths?.clear(),
+        db.label_signs?.clear(),
+        db.jenis_list?.clear(),
+        db.jenis_bahan_list?.clear(),
+        db.kategori_film_list?.clear(),
+        db.tipe_bahan_list?.clear(),
       ]);
 
       this.filmConfigs = [];
@@ -1116,21 +1118,59 @@ export const useConfigStore = defineStore('configStore', {
       this.operatorList = [];
       this.locationList = [];
       this.standardLengthList = [];
+      this.labelSignList = [];
       this.jenisList = [];
       this.jenisBahanList = [];
       this.kategoriFilmList = [];
       this.tipeBahanList = [];
+
+      // 2. Bersihkan seluruh tabel master config di Cloud Supabase
+      try {
+        const { supabase } = await import('@/services/supabaseClient');
+        const nilUuid = '00000000-0000-0000-0000-000000000000';
+
+        await Promise.allSettled([
+          supabase.from('film_configs').delete().neq('id', nilUuid),
+          supabase.from('bom_formulas').delete().neq('id', nilUuid),
+          supabase.from('resin_items').delete().neq('id', nilUuid),
+          supabase.from('mesin_list').delete().neq('id', nilUuid),
+          supabase.from('operator_list').delete().neq('id', nilUuid),
+          supabase.from('location_list').delete().neq('id', nilUuid),
+          supabase.from('standard_lengths').delete().neq('id', nilUuid),
+        ]);
+
+        const nowIso = new Date().toISOString();
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('mlabel_local_config_wiped_at', String(Date.now()));
+        }
+
+        // Catat waktu wipe di settings agar sinkronisasi multi-device mendeteksi pembersihan
+        await supabase.from('settings').upsert({
+          key: 'master_config_wiped_at',
+          value: nowIso,
+          updated_at: nowIso
+        }, { onConflict: 'key' });
+      } catch (errCloud) {
+        console.warn('[ConfigStore] Gagal menghapus config di Supabase:', errCloud);
+      }
     },
 
     async clearModuleConfigData(moduleKey) {
+      const nilUuid = '00000000-0000-0000-0000-000000000000';
+      let supabaseClient = null;
+      try {
+        const { supabase } = await import('@/services/supabaseClient');
+        supabaseClient = supabase;
+      } catch (e) {}
+
       if (moduleKey === 'formula_hub') {
         await Promise.all([
-          db.film_configs.clear(),
-          db.bom_formulas.clear(),
-          db.jenis_list.clear(),
-          db.jenis_bahan_list.clear(),
-          db.kategori_film_list.clear(),
-          db.tipe_bahan_list.clear(),
+          db.film_configs?.clear(),
+          db.bom_formulas?.clear(),
+          db.jenis_list?.clear(),
+          db.jenis_bahan_list?.clear(),
+          db.kategori_film_list?.clear(),
+          db.tipe_bahan_list?.clear(),
         ]);
         this.filmConfigs = [];
         this.bomFormulaList = [];
@@ -1138,23 +1178,52 @@ export const useConfigStore = defineStore('configStore', {
         this.jenisBahanList = [];
         this.kategoriFilmList = [];
         this.tipeBahanList = [];
+        if (supabaseClient) {
+          try {
+            await Promise.allSettled([
+              supabaseClient.from('film_configs').delete().neq('id', nilUuid),
+              supabaseClient.from('bom_formulas').delete().neq('id', nilUuid),
+            ]);
+          } catch (e) {}
+        }
       } else if (moduleKey === 'resin') {
-        await db.resin_items.clear();
+        await db.resin_items?.clear();
         this.resinItemList = [];
+        if (supabaseClient) {
+          try {
+            await supabaseClient.from('resin_items').delete().neq('id', nilUuid);
+          } catch (e) {}
+        }
       } else if (moduleKey === 'mesin_operator') {
         await Promise.all([
-          db.mesin_list.clear(),
-          db.operator_list.clear(),
+          db.mesin_list?.clear(),
+          db.operator_list?.clear(),
         ]);
         this.mesinList = [];
         this.operatorList = [];
+        if (supabaseClient) {
+          try {
+            await Promise.allSettled([
+              supabaseClient.from('mesin_list').delete().neq('id', nilUuid),
+              supabaseClient.from('operator_list').delete().neq('id', nilUuid),
+            ]);
+          } catch (e) {}
+        }
       } else if (moduleKey === 'gudang_standar') {
         await Promise.all([
-          db.location_list.clear(),
-          db.standard_lengths.clear(),
+          db.location_list?.clear(),
+          db.standard_lengths?.clear(),
         ]);
         this.locationList = [];
         this.standardLengthList = [];
+        if (supabaseClient) {
+          try {
+            await Promise.allSettled([
+              supabaseClient.from('location_list').delete().neq('id', nilUuid),
+              supabaseClient.from('standard_lengths').delete().neq('id', nilUuid),
+            ]);
+          } catch (e) {}
+        }
       }
     }
   }

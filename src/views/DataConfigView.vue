@@ -118,6 +118,23 @@
             <span>Import</span>
           </button>
 
+          <!-- 4. Hapus Semua Data Configuration Button -->
+          <button
+            @click="handleClearAllConfig"
+            :disabled="isClearing"
+            class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-[11px] sm:text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            title="Hapus seluruh master data configuration (tersinkronisasi bersih dengan Supabase Cloud)"
+          >
+            <svg v-if="!isClearing" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Hapus Semua Data</span>
+          </button>
+
           <!-- Hidden Input for Excel File -->
           <input
             ref="excelFileInput"
@@ -1732,6 +1749,41 @@ const executeImport = async () => {
     alert('Gagal mengimpor data: ' + err.message);
   } finally {
     isImporting.value = false;
+  }
+};
+
+// ── 🗑️ WIPE / CLEAR ALL CONFIG DATA (SYNCHRONIZED WITH SUPABASE) ──────────────
+const isClearing = ref(false);
+
+const handleClearAllConfig = async () => {
+  const confirmMsg =
+    '⚠️ PERINGATAN HAPUS SELURUH MASTER DATA CONFIGURATION:\n\n' +
+    'Tindakan ini akan mengosongkan SELURUH master data:\n' +
+    '• 🎞️ Formula & BOM Film\n' +
+    '• 🧪 Master Item Resin\n' +
+    '• 🏭 Mesin & Operator\n' +
+    '• 📍 Lokasi Gudang & Panjang Standar Roll\n' +
+    '• 🏷️ Parameter Tag & Tanda Label\n\n' +
+    'Data juga akan DIHAPUS DARI SUPABASE CLOUD agar tersinkronisasi bersih ke semua perangkat.\n\n' +
+    'Ketik "HAPUS" untuk melanjutkan:';
+
+  const input = prompt(confirmMsg);
+  if (input !== 'HAPUS') {
+    if (input !== null) {
+      alert('Penghapusan dibatalkan. Konfirmasi tidak sesuai.');
+    }
+    return;
+  }
+
+  isClearing.value = true;
+  try {
+    await configStore.clearAllConfigData();
+    alert('✓ Berhasil! Seluruh data configuration telah dikosongkan di lokal dan tersinkronisasi ke Supabase Cloud.');
+  } catch (err) {
+    console.error('Clear config error:', err);
+    alert('Terjadi kesalahan saat menghapus data configuration: ' + (err.message || err));
+  } finally {
+    isClearing.value = false;
   }
 };
 
