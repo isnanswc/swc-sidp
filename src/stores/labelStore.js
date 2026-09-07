@@ -287,8 +287,14 @@ export const useLabelStore = defineStore('labelStore', {
             }
           }
 
+          // Pastikan label di db.labels tidak pernah membawa flag data roll
+          delete item.isDataRoll;
+          delete item.originalRollId;
+
           return {
             ...item,
+            isDataRoll: false,
+            originalRollId: null,
             lot,
             turunan,
             kodeOperator: kodeOperator || (turunan ? turunan.charAt(0) : 'G'),
@@ -390,6 +396,7 @@ export const useLabelStore = defineStore('labelStore', {
         }
 
         this.labels = [...cleanStandardLabels, ...mappedDataRolls];
+        this.currentPage = Math.max(1, this.totalPages);
       } catch (err) {
         console.error('Failed to load labels:', err);
       } finally {
@@ -424,9 +431,13 @@ export const useLabelStore = defineStore('labelStore', {
     async addLabel(labelData) {
       const cleanData = { ...labelData };
       delete cleanData.id; // Pastikan id tidak null / 0 agar Dexie auto-increment
+      delete cleanData.isDataRoll;
+      delete cleanData.originalRollId;
 
       const record = {
         ...cleanData,
+        isDataRoll: false,
+        originalRollId: null,
         uniqId: cleanData.uniqId || generateUniqID('LBL'),
         synced: 0,
         createdAt: new Date().toISOString(),
@@ -440,9 +451,9 @@ export const useLabelStore = defineStore('labelStore', {
     },
 
     async updateLabel(id, updatedFields) {
+      const isRoll = typeof id === 'string' && id.startsWith('roll_');
       const item = this.labels.find(l => l.id === id);
-      const isRoll = (item && item.isDataRoll) || (typeof id === 'string' && id.startsWith('roll_'));
-      const rollId = item?.originalRollId || (typeof id === 'string' && id.startsWith('roll_') ? parseInt(id.replace('roll_', ''), 10) : null);
+      const rollId = isRoll ? (item?.originalRollId || parseInt(id.replace('roll_', ''), 10)) : null;
 
       if (isRoll && rollId && db.data_rolls) {
         // Update di database master data_rolls agar perubahan permanen
@@ -450,6 +461,7 @@ export const useLabelStore = defineStore('labelStore', {
           updatedAt: new Date().toISOString()
         };
         if (updatedFields.lot !== undefined) rollPayload.lot = updatedFields.lot;
+        if (updatedFields.turunan !== undefined) rollPayload.turunan = updatedFields.turunan;
         if (updatedFields.spk !== undefined) rollPayload.spk = updatedFields.spk;
         if (updatedFields.supplier !== undefined) rollPayload.supplier = updatedFields.supplier;
         if (updatedFields.width !== undefined) rollPayload.width = parseFloat(updatedFields.width) || 0;
@@ -458,9 +470,21 @@ export const useLabelStore = defineStore('labelStore', {
         if (updatedFields.netto !== undefined) rollPayload.netto = parseFloat(updatedFields.netto) || 0;
         if (updatedFields.status !== undefined) rollPayload.qualityStatus = updatedFields.status;
         if (updatedFields.operator !== undefined) rollPayload.operator = updatedFields.operator;
+        if (updatedFields.kodeOperator !== undefined) rollPayload.kodeOperator = updatedFields.kodeOperator;
+        if (updatedFields.shift !== undefined) rollPayload.shift = updatedFields.shift;
         if (updatedFields.mesin !== undefined) rollPayload.machineName = updatedFields.mesin;
         if (updatedFields.tanggal !== undefined) rollPayload.tanggal = updatedFields.tanggal;
         if (updatedFields.keterangan !== undefined) rollPayload.reasonDefect = updatedFields.keterangan;
+        if (updatedFields.kodePack !== undefined) rollPayload.kodePack = updatedFields.kodePack;
+        if (updatedFields.subKode !== undefined) rollPayload.subKode = updatedFields.subKode;
+        if (updatedFields.treatment !== undefined) rollPayload.treatment = updatedFields.treatment;
+        if (updatedFields.diameterCore !== undefined) rollPayload.core = parseFloat(updatedFields.diameterCore) || 6;
+        if (updatedFields.paperCore !== undefined) rollPayload.paperCore = updatedFields.paperCore;
+        if (updatedFields.meter !== undefined) rollPayload.meter = updatedFields.meter;
+        if (updatedFields.joint !== undefined) rollPayload.joint = updatedFields.joint;
+        if (updatedFields.od !== undefined) rollPayload.od = updatedFields.od;
+        if (updatedFields.kode !== undefined) rollPayload.kodeFormula = updatedFields.kode;
+        if (updatedFields.jenis !== undefined) rollPayload.jenis = updatedFields.jenis;
         
         await db.data_rolls.update(rollId, rollPayload);
       } else {
@@ -469,6 +493,8 @@ export const useLabelStore = defineStore('labelStore', {
           synced: 0,
           updatedAt: new Date().toISOString()
         };
+        delete payload.isDataRoll;
+        delete payload.originalRollId;
         if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
           await db.labels.update(id, payload);
         }
@@ -482,9 +508,9 @@ export const useLabelStore = defineStore('labelStore', {
     },
 
     async deleteLabel(id) {
+      const isRoll = typeof id === 'string' && id.startsWith('roll_');
       const item = this.labels.find(l => l.id === id);
-      const isRoll = (item && item.isDataRoll) || (typeof id === 'string' && id.startsWith('roll_'));
-      const rollId = item?.originalRollId || (typeof id === 'string' && id.startsWith('roll_') ? parseInt(id.replace('roll_', ''), 10) : null);
+      const rollId = isRoll ? (item?.originalRollId || parseInt(id.replace('roll_', ''), 10)) : null;
 
       // 1. Jika data bersumber dari data_rolls, hapus permanen dari db.data_rolls
       if (isRoll && rollId && db.data_rolls) {
@@ -492,20 +518,23 @@ export const useLabelStore = defineStore('labelStore', {
         const rUuid = rollObj?.uuid || item?.uniqId;
         await db.data_rolls.delete(rollId);
         if (rUuid) {
+          recordTombstones('data_rolls', [rUuid]);
           deleteFromSupabase('data_rolls', 'uuid', rUuid).catch(() => {});
         }
       }
 
-      // 2. Hapus dari db.labels jika tersimpan di sana
+      // 2. Hapus dari db.labels jika bukan data roll
       const targetUniqId = item?.uniqId;
-      if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
-        await db.labels.delete(id);
+      if (!isRoll) {
+        if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
+          await db.labels.delete(id);
+        } else if (item && item.uniqId) {
+          await db.labels.where('uniqId').equals(item.uniqId).delete();
+        }
         if (targetUniqId) {
+          recordTombstones('labels', [targetUniqId]);
           deleteFromSupabase('labels', 'uniq_id', targetUniqId).catch(() => {});
         }
-      } else if (item && item.uniqId) {
-        await db.labels.where('uniqId').equals(item.uniqId).delete();
-        deleteFromSupabase('labels', 'uniq_id', item.uniqId).catch(() => {});
       }
 
       // 3. Hapus dari state lokal
@@ -523,9 +552,9 @@ export const useLabelStore = defineStore('labelStore', {
       const rollUuids = [];
 
       for (const id of ids) {
+        const isRoll = typeof id === 'string' && id.startsWith('roll_');
         const item = this.labels.find(l => l.id === id);
-        const isRoll = (item && item.isDataRoll) || (typeof id === 'string' && id.startsWith('roll_'));
-        const rollId = item?.originalRollId || (typeof id === 'string' && id.startsWith('roll_') ? parseInt(id.replace('roll_', ''), 10) : null);
+        const rollId = isRoll ? (item?.originalRollId || parseInt(id.replace('roll_', ''), 10)) : null;
 
         if (isRoll && rollId) {
           rollIds.push(rollId);
@@ -536,10 +565,11 @@ export const useLabelStore = defineStore('labelStore', {
         }
       }
 
-      // Hapus dari kedua tabel IndexedDB secara permanen
+      // Hapus dari kedua tabel IndexedDB secara permanen dengan pencatatan tombstone
       if (regularLabelIds.length > 0) {
         await db.labels.bulkDelete(regularLabelIds);
         if (labelUniqIds.length > 0) {
+          recordTombstones('labels', labelUniqIds);
           deleteMultipleFromSupabase('labels', 'uniq_id', labelUniqIds).catch(() => {});
         }
       }
@@ -550,6 +580,7 @@ export const useLabelStore = defineStore('labelStore', {
         const allRollUuids = [...new Set([...rollUuids, ...foundUuids])];
         await db.data_rolls.bulkDelete(rollIds);
         if (allRollUuids.length > 0) {
+          recordTombstones('data_rolls', allRollUuids);
           deleteMultipleFromSupabase('data_rolls', 'uuid', allRollUuids).catch(() => {});
         }
       }
@@ -566,11 +597,19 @@ export const useLabelStore = defineStore('labelStore', {
       const copy = {
         ...item,
         id: undefined,
-        uniqId: generateUniqID(),
+        uniqId: generateUniqID('LBL'),
+        verified: 0,
+        verifiedAt: null,
+        verifiedBy: null,
         synced: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+      delete copy.isDataRoll;
+      delete copy.originalRollId;
+      copy.isDataRoll = false;
+      copy.originalRollId = null;
+
       const newId = await db.labels.add(copy);
       copy.id = newId;
       this.labels.push(copy);
@@ -687,7 +726,7 @@ export const useLabelStore = defineStore('labelStore', {
         const copy = {
           ...item,
           id: undefined,
-          uniqId: generateUniqID(),
+          uniqId: generateUniqID('LBL'),
           verified: 0,
           verifiedAt: null,
           verifiedBy: null,
@@ -695,6 +734,11 @@ export const useLabelStore = defineStore('labelStore', {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
+        delete copy.isDataRoll;
+        delete copy.originalRollId;
+        copy.isDataRoll = false;
+        copy.originalRollId = null;
+
         const newId = await db.labels.add(copy);
         copy.id = newId;
         newItems.push(copy);

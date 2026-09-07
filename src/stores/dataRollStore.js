@@ -392,6 +392,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       // Reload upload history list
       const updatedHistory = await db.data_roll_uploads.toArray();
       uploadHistory.value = updatedHistory.sort((a, b) => new Date(b.uploadDate || b.createdAt) - new Date(a.uploadDate || a.createdAt));
+      pushLocalToSupabase().catch(() => {});
     } catch (err) {
       console.error('Failed to sync DE verified batches:', err);
     }
@@ -549,6 +550,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
 
         await loadRolls();
         await loadUploadHistory();
+        pushLocalToSupabase().catch(() => {});
       }
     } catch (e) {
       console.error('Failed to delete upload history:', e);
@@ -877,5 +879,14 @@ if (typeof window !== 'undefined' && !window.__mlabel_data_roll_sync_listener_at
         console.warn('Auto reload dataRollStore failed:', e);
       }
     }, 1500);
+  });
+
+  window.addEventListener('sync:data-roll-uploads-updated', () => {
+    try {
+      const store = useDataRollStore();
+      store.loadUploadHistory();
+    } catch (e) {
+      console.warn('Auto reload uploadHistory failed:', e);
+    }
   });
 }

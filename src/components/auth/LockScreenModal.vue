@@ -220,10 +220,9 @@ const submitPin = async () => {
   }
 };
 
-const handleSwitchAccount = () => {
+const handleSwitchAccount = async () => {
   if (confirm('Keluar dari sesi ini dan kembali ke halaman login?')) {
-    authStore.logout();
-    router.push('/login');
+    await authStore.logout();
   }
 };
 

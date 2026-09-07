@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db, generateUniqID } from '@/db';
 import { useConfigStore } from '@/stores/configStore';
+import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones } from '@/services/syncService';
 
 export const useWipStore = defineStore('wip', () => {
   const wipUpdates = ref([]); // List of batch update sessions
@@ -140,6 +141,7 @@ export const useWipStore = defineStore('wip', () => {
         await db.wip_updates.update(update.id, { isActive: newStatus, updatedAt: new Date().toISOString() });
       }
     }
+    pushLocalToSupabase().catch(() => {});
   };
 
   // Create New WIP Update Batch from Upload / Import
@@ -244,6 +246,8 @@ export const useWipStore = defineStore('wip', () => {
     await db.wip_rolls.bulkAdd(formattedRecords);
     wipRolls.value.unshift(...formattedRecords);
 
+    pushLocalToSupabase().catch(() => {});
+
     return newBatch;
   };
 
@@ -260,12 +264,20 @@ export const useWipStore = defineStore('wip', () => {
     wipUpdates.value.splice(idx, 1);
 
     // Delete associated rolls
+    const rollsToDelete = await db.wip_rolls.where('updateId').equals(uuid).toArray();
+    const rollUuids = rollsToDelete.map(r => r.uuid).filter(Boolean);
+    if (rollUuids.length > 0) {
+      await recordTombstones('wip_rolls', rollUuids);
+      deleteMultipleFromSupabase('wip_rolls', 'uuid', rollUuids).catch(() => {});
+    }
     await db.wip_rolls.where('updateId').equals(uuid).delete();
     wipRolls.value = wipRolls.value.filter(r => r.updateId !== uuid);
 
     // If the deleted batch was active, activate the next available batch
     if (target.isActive && wipUpdates.value.length > 0) {
       await setActiveUpdate(wipUpdates.value[0]);
+    } else {
+      pushLocalToSupabase().catch(() => {});
     }
   };
 
@@ -279,6 +291,7 @@ export const useWipStore = defineStore('wip', () => {
     if (update.id) {
       await db.wip_updates.update(update.id, { title: update.title, updatedAt: update.updatedAt });
     }
+    pushLocalToSupabase().catch(() => {});
   };
 
   // Add Single Roll to an update batch
@@ -340,6 +353,7 @@ export const useWipStore = defineStore('wip', () => {
       if (batch.id) await db.wip_updates.update(batch.id, { totalRolls: batch.totalRolls, totalKg: batch.totalKg });
     }
 
+    pushLocalToSupabase().catch(() => {});
     return record;
   };
 
@@ -347,6 +361,7 @@ export const useWipStore = defineStore('wip', () => {
   const updateWipRoll = async (id, updatedFields) => {
     const fields = {
       ...updatedFields,
+      synced: 0,
       updatedAt: new Date().toISOString()
     };
     await db.wip_rolls.update(id, fields);
@@ -354,11 +369,16 @@ export const useWipStore = defineStore('wip', () => {
     if (idx !== -1) {
       wipRolls.value[idx] = { ...wipRolls.value[idx], ...fields };
     }
+    pushLocalToSupabase().catch(() => {});
   };
 
   // Delete a single roll
   const deleteWipRoll = async (id) => {
     const roll = wipRolls.value.find(r => r.id === id);
+    if (roll && roll.uuid) {
+      await recordTombstones('wip_rolls', [roll.uuid]);
+      deleteFromSupabase('wip_rolls', 'uuid', roll.uuid).catch(() => {});
+    }
     await db.wip_rolls.delete(id);
     wipRolls.value = wipRolls.value.filter(r => r.id !== id);
 
@@ -370,15 +390,22 @@ export const useWipStore = defineStore('wip', () => {
         if (batch.id) await db.wip_updates.update(batch.id, { totalRolls: batch.totalRolls, totalKg: batch.totalKg });
       }
     }
+    pushLocalToSupabase().catch(() => {});
   };
 
   // Clear all data
   const clearAllWipRolls = async () => {
+    const allUuids = wipRolls.value.map(r => r.uuid).filter(Boolean);
+    if (allUuids.length > 0) {
+      await recordTombstones('wip_rolls', allUuids);
+      deleteMultipleFromSupabase('wip_rolls', 'uuid', allUuids).catch(() => {});
+    }
     await db.wip_updates.clear();
     await db.wip_rolls.clear();
     wipUpdates.value = [];
     wipRolls.value = [];
     selectedUpdateId.value = null;
+    pushLocalToSupabase().catch(() => {});
   };
 
   return {
@@ -402,3 +429,21 @@ export const useWipStore = defineStore('wip', () => {
     clearAllWipRolls
   };
 });
+
+// Auto-reload wipStore whenever cloud sync or realtime updates wip data (debounced)
+if (typeof window !== 'undefined' && !window.__mlabel_wip_sync_listener_attached) {
+  window.__mlabel_wip_sync_listener_attached = true;
+  let reloadTimer = null;
+  window.addEventListener('sync:wip-updated', () => {
+    if (reloadTimer) clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(async () => {
+      try {
+        const store = useWipStore();
+        await store.loadWipRolls();
+      } catch (e) {
+        console.warn('Auto reload wipStore failed:', e);
+      }
+    }, 1500);
+  });
+}
+

@@ -1,5 +1,6 @@
 import { getSetting, db } from '@/db';
 import { DEFAULT_RESIN_ITEMS, normalizeResinName } from '@/stores/configStore';
+import { getAiConfig, getAiModelCandidates } from '@/services/geminiService';
 
 /**
  * Service untuk memproses ekstraksi gambar lembar laporan fisik menggunakan Google Gemini AI Vision
@@ -478,11 +479,16 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
 
   notify(1, 10, 'Mengompresi & mengoptimalkan resolusi lembar gambar...');
 
-  const apiKey = await getSetting('google_ai_api_key', '');
-  const model = await getSetting('google_ai_model', 'gemini-2.0-flash');
+  const aiCfg = await getAiConfig();
+  const apiKey = aiCfg.apiKey || (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
 
   if (!apiKey || !apiKey.trim()) {
     throw new Error('API Key Google AI belum dikonfigurasi. Buka menu Pengaturan & AI untuk memasukkan API Key.');
+  }
+
+  let modelCandidates = await getAiModelCandidates();
+  if (!modelCandidates || modelCandidates.length === 0) {
+    modelCandidates = [aiCfg.selectedModel || 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
   }
 
   const rawImagesArray = Array.isArray(base64Images) ? base64Images : [base64Images];
@@ -512,7 +518,7 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
   const pass1Execution = await executeGeminiWithFallback({
     parts: pass1Parts,
     apiKey,
-    preferredModel: model,
+    modelCandidates,
     generationConfig: { temperature: 0.0, response_mime_type: 'application/json' },
     notify,
     stepIndex: 3,
@@ -549,7 +555,7 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
   // 3. PASS 2: DEEP HANDWRITING ANOMALY AUDIT (jika ada nilai meragukan)
   try {
     notify(5, 92, 'Melakukan audit ketajaman tulisan tangan pada angka...');
-    const anomalies = await performDeepHandwritingAudit(compressedImages, apiKey, model);
+    const anomalies = await performDeepHandwritingAudit(compressedImages, apiKey, modelCandidates);
     if (anomalies && anomalies.length > 0 && parsedSession.shifts && parsedSession.shifts.length > 0) {
       const validAnomalies = anomalies.filter(a => {
         if (!a.nilai_rekomendasi || a.nilai_rekomendasi === a.nilai_terbaca) return false;
@@ -562,91 +568,128 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
     console.warn('Pass 2 Handwriting Audit skipped/failed:', auditErr.message);
   }
 
-  notify(5, 100, 'Selesai! Membuka verifikasi spreadsheet...');
+  notify(5, 100, `Selesai (${pass1Execution.modelUsed})! Membuka verifikasi spreadsheet...`);
   return parsedSession;
 }
 
 /**
- * Helper Eksekusi Google Gemini API dengan Auto-Retry Ringan
- * Hanya retry 1x pada 503/429 dengan jeda singkat. Tidak ada cascade multi-model agar tidak lambat.
+ * Helper Eksekusi Google Gemini API dengan Auto-Retry & Fallback Model Candidates
+ * Mencoba model utama terlebih dahulu. Jika gagal (misal 429 kuota/503/404), otomatis beralih ke model cadangan (fallback).
  */
 async function executeGeminiWithFallback({
   parts,
   apiKey,
-  preferredModel = 'gemini-2.0-flash',
+  preferredModel = null,
+  modelCandidates = null,
   generationConfig = {},
   notify = null,
   stepIndex = 3,
   stepBasePercent = 50
 }) {
-  const MAX_RETRIES = 2;
+  let candidates = Array.isArray(modelCandidates) && modelCandidates.length > 0 ? [...modelCandidates] : [];
+  if (preferredModel && !candidates.includes(preferredModel)) {
+    candidates.unshift(preferredModel);
+  }
+  if (candidates.length === 0) {
+    const configuredCandidates = await getAiModelCandidates();
+    candidates = configuredCandidates.length > 0 ? configuredCandidates : ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+  }
+
   let lastError = null;
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      if (attempt > 1 && typeof notify === 'function') {
+  for (let mIdx = 0; mIdx < candidates.length; mIdx++) {
+    const currentModel = candidates[mIdx];
+    const isLastModel = mIdx === candidates.length - 1;
+    const MAX_RETRIES = 2;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 1 && typeof notify === 'function') {
+          notify(
+            stepIndex,
+            Math.min(74, stepBasePercent + (attempt * 3)),
+            `Server sibuk (${currentModel}), mencoba ulang (percobaan ${attempt})...`
+          );
+        }
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey.trim()
+          },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              temperature: 0.0,
+              response_mime_type: 'application/json',
+              ...generationConfig
+            }
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            return { text, modelUsed: currentModel };
+          }
+          throw new Error(`Respon dari ${currentModel} kosong.`);
+        }
+
+        const errorBody = await response.json().catch(() => ({}));
+        const errorMsg = errorBody.error?.message || response.statusText || 'Unknown error';
+        lastError = new Error(`Google AI API Error (${response.status} pada ${currentModel}): ${errorMsg}`);
+
+        // Jika 503 / 429 dan masih ada percobaan ulang untuk model ini
+        if ((response.status === 503 || response.status === 429) && attempt < MAX_RETRIES) {
+          console.warn(`[AI Service] ${currentModel} sibuk (${response.status}), retry dalam 1s...`);
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+
+        // Jika bukan 503/429 atau percobaan habis untuk model ini, keluar loop retry agar beralih ke model berikutnya
+        break;
+      } catch (err) {
+        lastError = err;
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 800));
+        }
+      }
+    }
+
+    // Jika model ini gagal dan masih ada model kandidat cadangan berikutnya:
+    if (!isLastModel) {
+      const nextModel = candidates[mIdx + 1];
+      console.warn(`[AI Service] Model ${currentModel} gagal (${lastError?.message || 'Error'}). Beralih ke model fallback: ${nextModel}...`);
+      if (typeof notify === 'function') {
         notify(
           stepIndex,
-          Math.min(74, stepBasePercent + (attempt * 3)),
-          `Server sibuk, mencoba ulang ${preferredModel} (percobaan ${attempt})...`
+          Math.min(74, stepBasePercent + ((mIdx + 1) * 4)),
+          `Model ${currentModel} terkendala. Mengalihkan ke model cadangan (${nextModel})...`
         );
       }
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${preferredModel}:generateContent`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey.trim()
-        },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            temperature: 0.0,
-            response_mime_type: 'application/json',
-            ...generationConfig
-          }
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          return { text, modelUsed: preferredModel };
-        }
-        throw new Error(`Respon dari ${preferredModel} kosong.`);
-      }
-
-      const errorBody = await response.json().catch(() => ({}));
-      const errorMsg = errorBody.error?.message || response.statusText || 'Unknown error';
-      lastError = new Error(`Google AI API Error (${response.status}): ${errorMsg}`);
-
-      if ((response.status === 503 || response.status === 429) && attempt < MAX_RETRIES) {
-        console.warn(`[AI Service] ${preferredModel} sibuk (${response.status}), retry dalam 1s...`);
-        await new Promise(r => setTimeout(r, 1000));
-        continue;
-      }
-
-      throw lastError;
-    } catch (err) {
-      lastError = err;
-      if (attempt >= MAX_RETRIES) throw lastError;
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 500));
     }
   }
 
-  throw lastError || new Error('Gagal menghubungi Google AI.');
+  throw lastError || new Error('Seluruh model AI (utama dan fallback) gagal memproses dokumen.');
 }
 
 /**
  * Pass 2 / On-Demand: Deep Handwriting Anomaly Audit
  */
-export async function performDeepHandwritingAudit(imagesArray, apiKeyParam = null, modelParam = null) {
-  const apiKey = apiKeyParam || (await getSetting('google_ai_api_key', ''));
-  const model = modelParam || (await getSetting('google_ai_model', 'gemini-2.0-flash'));
+export async function performDeepHandwritingAudit(imagesArray, apiKeyParam = null, modelCandidatesParam = null) {
+  const aiCfg = await getAiConfig();
+  const apiKey = apiKeyParam || aiCfg.apiKey || (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
 
   if (!apiKey || !apiKey.trim()) return [];
+
+  let modelCandidates = Array.isArray(modelCandidatesParam) ? modelCandidatesParam : (modelCandidatesParam ? [modelCandidatesParam] : null);
+  if (!modelCandidates || modelCandidates.length === 0) {
+    modelCandidates = await getAiModelCandidates();
+  }
 
   const parts = [{ text: HANDWRITING_AUDIT_PROMPT }];
   for (let i = 0; i < imagesArray.length; i++) {
@@ -660,7 +703,7 @@ export async function performDeepHandwritingAudit(imagesArray, apiKeyParam = nul
     const auditExecution = await executeGeminiWithFallback({
       parts,
       apiKey,
-      preferredModel: model,
+      modelCandidates,
       generationConfig: { temperature: 0.1, response_mime_type: 'application/json' }
     });
 

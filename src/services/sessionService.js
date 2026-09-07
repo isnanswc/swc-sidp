@@ -425,46 +425,54 @@ export function forceImmediatePurge() {
 
 let lastRevokedCheckTime = 0;
 let lastRevokedCheckStatus = false;
+let isCheckingInBackground = false;
 
 /**
  * Periksa apakah sesi perangkat saat ini telah dicabut oleh Super Admin.
- * Didesain sangat cepat dengan caching 2 detik agar dapat dipanggil pada setiap navigasi menu (router.beforeEach)
- * tanpa menimbulkan beban jaringan yang berlebihan.
+ * Didesain instan (0ms) untuk navigasi router.beforeEach dengan sinkronisasi background
+ * dan dukungan Realtime WebSocket.
  */
 export async function checkIsCurrentSessionRevoked(force = false) {
   const sessionId = getCurrentSessionId();
   if (!sessionId) return false;
 
+  if (lastRevokedCheckStatus) return true;
+
   const now = Date.now();
-  if (!force && (now - lastRevokedCheckTime < 2000)) {
-    return lastRevokedCheckStatus;
-  }
-  lastRevokedCheckTime = now;
+  // Jalankan background refresh setiap 60 detik atau jika dipaksa (force)
+  if (force || (now - lastRevokedCheckTime > 60000)) {
+    lastRevokedCheckTime = now;
+    if (!isCheckingInBackground) {
+      isCheckingInBackground = true;
+      (async () => {
+        try {
+          const revokedList = await getRevokedSessions();
+          if (Array.isArray(revokedList) && revokedList.some(r => r.sessionId === sessionId)) {
+            lastRevokedCheckStatus = true;
+            triggerRevocationCallbacks('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
+            return;
+          }
 
-  try {
-    const revokedList = await getRevokedSessions();
-    if (Array.isArray(revokedList) && revokedList.some(r => r.sessionId === sessionId)) {
-      lastRevokedCheckStatus = true;
-      forceImmediatePurge();
-      return true;
+          const activeList = await getAllActiveSessions();
+          if (Array.isArray(activeList) && activeList.length > 0) {
+            const exists = activeList.some(s => s.sessionId === sessionId);
+            if (!exists) {
+              lastRevokedCheckStatus = true;
+              triggerRevocationCallbacks('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
+              return;
+            }
+          }
+          lastRevokedCheckStatus = false;
+        } catch (e) {
+          // ignore cloud fetch error
+        } finally {
+          isCheckingInBackground = false;
+        }
+      })();
     }
-
-    // Cek juga apakah sesi masih ada di daftar sesi aktif di cloud
-    const activeList = await getAllActiveSessions();
-    if (Array.isArray(activeList) && activeList.length > 0) {
-      const exists = activeList.some(s => s.sessionId === sessionId);
-      if (!exists) {
-        lastRevokedCheckStatus = true;
-        forceImmediatePurge();
-        return true;
-      }
-    }
-
-    lastRevokedCheckStatus = false;
-    return false;
-  } catch (e) {
-    return lastRevokedCheckStatus;
   }
+
+  return lastRevokedCheckStatus;
 }
 
 /**

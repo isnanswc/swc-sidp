@@ -566,6 +566,11 @@
               </td>
             </tr>
 
+            <!-- Latest Entry Bottom Anchor for auto-scroll to newest row -->
+            <tr ref="latestRowAnchorRef" id="latest-label-row-anchor" class="h-0 p-0 m-0 border-0 pointer-events-none">
+              <td :colspan="activeColumnCount + 1" class="h-0 p-0 m-0 border-0 leading-none"></td>
+            </tr>
+
             <tr v-if="labelStore.paginatedLabels.length === 0">
               <td :colspan="activeColumnCount + 1" class="py-12 text-center text-zinc-400">
                 <div class="text-3xl mb-2">🏷️</div>
@@ -4220,6 +4225,31 @@ const previewPages = computed(() => {
 
 // ── HIERARCHY / PARENT-CHILD VIEW STATE & LOGIC ─────────────────────────────
 const viewMode = ref('table'); // 'table' | 'hierarchy'
+const latestRowAnchorRef = ref(null);
+
+const scrollToLatestEntry = (delay = 200) => {
+  if (viewMode.value !== 'table') return;
+  nextTick(() => {
+    setTimeout(() => {
+      if (latestRowAnchorRef.value) {
+        latestRowAnchorRef.value.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      } else {
+        const el = document.getElementById('latest-label-row-anchor');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }
+    }, delay);
+  });
+};
+
+watch(viewMode, (newMode) => {
+  if (newMode === 'table') {
+    labelStore.currentPage = Math.max(1, labelStore.totalPages);
+    scrollToLatestEntry();
+  }
+});
+
 const expandedDates = reactive({});
 const expandedShifts = reactive({});
 const expandedLots = reactive({});
@@ -6107,6 +6137,10 @@ const resetFormToDefaults = () => {
   form.kode = '';
   form.keterangan = '';
   form.jenisPrint = 'FINISH GOODS';
+  delete form.isDataRoll;
+  delete form.originalRollId;
+  form.isDataRoll = false;
+  form.originalRollId = null;
 };
 
 const openModal = (item = -1) => {
@@ -6231,7 +6265,12 @@ const handleFormSubmit = async () => {
     await labelStore.updateLabel(payload.id, payload);
   } else {
     delete payload.id;
+    delete payload.isDataRoll;
+    delete payload.originalRollId;
+    payload.isDataRoll = false;
+    payload.originalRollId = null;
     await labelStore.addLabel(payload);
+    scrollToLatestEntry(300);
   }
   closeModal();
 };
@@ -6244,6 +6283,13 @@ const duplicateData = (item) => {
   Object.assign(form, item);
   form.id = null;
   form.uniqId = '';
+  delete form.isDataRoll;
+  delete form.originalRollId;
+  form.isDataRoll = false;
+  form.originalRollId = null;
+  form.verified = 0;
+  form.verifiedAt = null;
+  form.verifiedBy = null;
   form.shift = item.shift || scheduleStore.getCurrentShiftInfo().shiftCode;
 
   // Hitung tanggal shift & kode pack otomatis terlebih dahulu
@@ -6355,6 +6401,10 @@ onMounted(async () => {
   nextTick(() => {
     updateControlBarOffset();
     updateJenisKey();
+    if (viewMode.value === 'table') {
+      labelStore.currentPage = Math.max(1, labelStore.totalPages);
+      scrollToLatestEntry(350);
+    }
   });
   window.addEventListener('resize', updateControlBarOffset);
 });
@@ -6378,7 +6428,10 @@ const machineSheets = computed(() => {
 
 const selectMachineSheet = (sheetId) => {
   labelStore.filterMesin = sheetId;
-  labelStore.currentPage = 1;
+  if (viewMode.value === 'table') {
+    labelStore.currentPage = Math.max(1, labelStore.totalPages);
+    scrollToLatestEntry(150);
+  }
 };
 
 const getCountByMesin = (mesinId) => {

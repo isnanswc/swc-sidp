@@ -784,6 +784,67 @@ export async function pushLocalToSupabase() {
       })());
     }
 
+    // 1n. Data Roll Uploads History Sync
+    if (db.data_roll_uploads) {
+      tasks.push((async () => {
+        try {
+          const uploads = await db.data_roll_uploads.toArray();
+          if (uploads.length > 0) {
+            const payload = {
+              key: 'data_roll_uploads_registry',
+              value: JSON.stringify(uploads.map(u => ({
+                uuid: u.uuid,
+                uploadDate: u.uploadDate,
+                batchName: u.batchName,
+                source: u.source,
+                fileName: u.fileName,
+                machine: u.machine,
+                totalRolls: u.totalRolls,
+                totalKg: u.totalKg,
+                passCount: u.passCount,
+                holdCount: u.holdCount,
+                rejectCount: u.rejectCount,
+                uploadedBy: u.uploadedBy,
+                status: u.status,
+                rollsJson: u.rollsJson,
+                createdAt: u.createdAt,
+                updatedAt: u.updatedAt
+              }))),
+              updated_at: new Date().toISOString()
+            };
+            await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+
+            // Try upserting to data_roll_uploads table if available in Supabase
+            try {
+              const tablePayload = uploads.map(u => ({
+                uuid: u.uuid || `dru_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                upload_date: u.uploadDate || '',
+                batch_name: u.batchName || '',
+                source: u.source || '',
+                file_name: u.fileName || '',
+                machine: u.machine || '',
+                total_rolls: parseInt(u.totalRolls, 10) || 0,
+                total_kg: parseFloat(u.totalKg) || 0,
+                pass_count: parseInt(u.passCount, 10) || 0,
+                hold_count: parseInt(u.holdCount, 10) || 0,
+                reject_count: parseInt(u.rejectCount, 10) || 0,
+                uploaded_by: u.uploadedBy || '',
+                status: u.status || '',
+                rolls_json: typeof u.rollsJson === 'string' ? u.rollsJson : JSON.stringify(u.rollsJson || []),
+                created_at: u.createdAt || new Date().toISOString(),
+                updated_at: u.updatedAt || new Date().toISOString()
+              }));
+              await supabase.from('data_roll_uploads').upsert(tablePayload, { onConflict: 'uuid' });
+            } catch (tErr) {
+              // Ignore if dedicated table doesn't exist
+            }
+          }
+        } catch (druErr) {
+          console.warn('[SyncPush] Data roll uploads sync error:', druErr.message || druErr);
+        }
+      })());
+    }
+
     // Jalankan seluruh sync push secara PARALEL
     await Promise.all(tasks);
     await countUnsynced();
@@ -1424,6 +1485,25 @@ export async function pullFromSupabase() {
                   console.warn('Sync pull inventory stocks:', invStockErr);
                 }
               }
+
+              // Jika ini registry riwayat upload data roll, sinkronkan ke db.data_roll_uploads
+              if (cs.key === 'data_roll_uploads_registry' && db.data_roll_uploads && Array.isArray(parsedVal)) {
+                try {
+                  const existingBatches = await db.data_roll_uploads.toArray();
+                  const batchMap = new Map(existingBatches.map(b => [b.uuid, b.id]));
+                  for (const cb of parsedVal) {
+                    const localId = batchMap.get(cb.uuid);
+                    if (localId) {
+                      await db.data_roll_uploads.update(localId, { ...cb, id: localId });
+                    } else {
+                      const { id, ...newBatch } = cb;
+                      await db.data_roll_uploads.add(newBatch);
+                    }
+                  }
+                } catch (druErr) {
+                  console.warn('Sync pull data_roll_uploads registry:', druErr);
+                }
+              }
             }
             await db.settings.bulkPut(toUpdate);
           }
@@ -1463,6 +1543,47 @@ export async function pullFromSupabase() {
       })());
     }
 
+    // Pull Data Roll Uploads table dari Cloud jika ada
+    if (db.data_roll_uploads) {
+      pullTasks.push((async () => {
+        try {
+          const { data: cloudUploads, error } = await supabase.from('data_roll_uploads').select('*').limit(2000);
+          if (!error && cloudUploads && cloudUploads.length > 0) {
+            const existingBatches = await db.data_roll_uploads.toArray();
+            const localMap = new Map(existingBatches.map(b => [b.uuid, b.id]));
+            for (const cu of cloudUploads) {
+              const mapped = {
+                uuid: cu.uuid,
+                uploadDate: cu.upload_date,
+                batchName: cu.batch_name,
+                source: cu.source,
+                fileName: cu.file_name,
+                machine: cu.machine,
+                totalRolls: cu.total_rolls,
+                totalKg: cu.total_kg,
+                passCount: cu.pass_count,
+                holdCount: cu.hold_count,
+                rejectCount: cu.reject_count,
+                uploadedBy: cu.uploaded_by,
+                status: cu.status,
+                rollsJson: cu.rolls_json,
+                createdAt: cu.created_at,
+                updatedAt: cu.updated_at
+              };
+              const localId = localMap.get(cu.uuid);
+              if (localId) {
+                await db.data_roll_uploads.update(localId, { ...mapped, id: localId });
+              } else {
+                await db.data_roll_uploads.add(mapped);
+              }
+            }
+          }
+        } catch (e) {
+          // Table may not exist on cloud, fallback settings registry handles it
+        }
+      })());
+    }
+
     // Jalankan seluruh pull secara PARALEL
     await Promise.all(pullTasks);
 
@@ -1471,6 +1592,7 @@ export async function pullFromSupabase() {
       window.dispatchEvent(new CustomEvent('sync:config-updated'));
       window.dispatchEvent(new CustomEvent('sync:ai-config-updated'));
       window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
+      window.dispatchEvent(new CustomEvent('sync:data-roll-uploads-updated'));
       window.dispatchEvent(new CustomEvent('sync:labels-updated'));
       window.dispatchEvent(new CustomEvent('sync:wip-updated'));
       window.dispatchEvent(new CustomEvent('sync:inventory-updated'));

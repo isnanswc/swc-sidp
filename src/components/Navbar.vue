@@ -172,10 +172,9 @@ const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const configStore = useConfigStore();
 
-const handleLogout = () => {
+const handleLogout = async () => {
   if (confirm('Apakah Anda yakin ingin keluar dari sistem?')) {
-    authStore.logout();
-    router.push('/login');
+    await authStore.logout();
   }
 };
 

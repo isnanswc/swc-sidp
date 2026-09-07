@@ -2059,6 +2059,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { getSetting, saveSetting, db } from '@/db';
+import { getAiConfig } from '@/services/geminiService';
 import { useConfigStore } from '@/stores/configStore';
 import { extractReportFromImage, performDeepHandwritingAudit, matchMasterResin } from '@/services/aiReportService';
 import { exportCastingReportToExcel, exportMetalizeReportToExcel, exportFullSessionToExcel, calculateDurationMinutes, standardizeSpkInhouse } from '@/services/excelReportService';
@@ -2330,8 +2331,8 @@ const globalBalanceStatusTitle = computed(() => {
 
 // ── Lifecycle & Init ──
 onMounted(async () => {
-  const key = await getSetting('google_ai_api_key', '');
-  hasGoogleAiApiKey.value = Boolean(key && key.trim());
+  const aiCfg = await getAiConfig();
+  hasGoogleAiApiKey.value = Boolean(aiCfg.apiKey && aiCfg.apiKey.trim());
 
   await loadScanSessionsFromDb();
 });

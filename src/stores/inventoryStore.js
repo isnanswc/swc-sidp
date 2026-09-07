@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db } from '@/db';
+import { pushLocalToSupabase } from '@/services/syncService';
 
 export function parseNumSafe(val, fallback = 0) {
   if (val === undefined || val === null || val === '') return fallback;
@@ -291,6 +292,7 @@ export const useInventoryStore = defineStore('inventory', () => {
         console.error('Failed to set active FG upload:', err);
       }
     }
+    pushLocalToSupabase().catch(() => {});
   };
 
   // Load All Inventory Data
@@ -353,6 +355,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     const id = await db.inventory_items.add(record);
     record.id = id;
     masterItems.value.push(record);
+    pushLocalToSupabase().catch(() => {});
     return record;
   };
 
@@ -366,11 +369,13 @@ export const useInventoryStore = defineStore('inventory', () => {
     if (idx !== -1) {
       masterItems.value[idx] = { ...masterItems.value[idx], ...fields };
     }
+    pushLocalToSupabase().catch(() => {});
   };
 
   const deleteMasterItem = async (id) => {
     await db.inventory_items.delete(id);
     masterItems.value = masterItems.value.filter(i => i.id !== id);
+    pushLocalToSupabase().catch(() => {});
   };
 
   const importMasterItems = async (itemsList) => {
@@ -394,6 +399,7 @@ export const useInventoryStore = defineStore('inventory', () => {
 
     await db.inventory_items.bulkAdd(formatted);
     await loadInventory();
+    pushLocalToSupabase().catch(() => {});
     return formatted.length;
   };
 
@@ -506,7 +512,10 @@ export const useInventoryStore = defineStore('inventory', () => {
         localStorage.removeItem('m_label_active_fg_upload_id');
         await db.inventory_current_stocks.clear();
         currentStocks.value = [];
+        pushLocalToSupabase().catch(() => {});
       }
+    } else {
+      pushLocalToSupabase().catch(() => {});
     }
   };
 
@@ -574,3 +583,20 @@ export const useInventoryStore = defineStore('inventory', () => {
     calculateRollKg
   };
 });
+
+// Auto-reload inventoryStore whenever cloud sync updates inventory data (debounced)
+if (typeof window !== 'undefined' && !window.__mlabel_inventory_sync_listener_attached) {
+  window.__mlabel_inventory_sync_listener_attached = true;
+  let reloadTimer = null;
+  window.addEventListener('sync:inventory-updated', () => {
+    if (reloadTimer) clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(async () => {
+      try {
+        const store = useInventoryStore();
+        await store.loadInventory();
+      } catch (e) {
+        console.warn('Auto reload inventoryStore failed:', e);
+      }
+    }, 1500);
+  });
+}

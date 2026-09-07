@@ -578,6 +578,7 @@ import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useConfigStore } from '@/stores/configStore';
 import { db, getSetting, saveSetting } from '@/db';
+import { getAiConfig, getAiModelCandidates } from '@/services/geminiService';
 import { getResolvedGeminiApiKey } from '@/services/spkAiService';
 
 const scheduleStore = useScheduleStore();
@@ -940,7 +941,8 @@ const generateAiHandover = async (machineKey, forceRegenerate = false) => {
     } catch (e) {}
   }
 
-  const apiKey = await getResolvedGeminiApiKey();
+  const aiCfg = await getAiConfig();
+  const apiKey = aiCfg.apiKey || (await getResolvedGeminiApiKey());
   if (!apiKey) {
     aiError[machineKey] = 'API Key Google AI / Gemini belum dikonfigurasi di Pengaturan.';
     return;
@@ -986,33 +988,34 @@ KETERANGAN ROLL HOLD:
 ${holdLines}
 
 INSTRUKSI FORMAT OUTPUT:
-Gunakan format Markdown ringkas & padat dengan poin-poin terstruktur:
-1. **Ringkasan Output & Pencapaian**: Evaluasi performa output mesin dan rasio kualitas.
-2. **Sorotan Masalah & Defect**: Sebutkan defect/hold kritis yang terjadi pada SPK/lot tertentu dan potensi akar masalahnya.
-3. **Instruksi Prioritas Shift Baru**: Instruksi operasional konkret untuk Grup ${uShift?.group || 'berikutnya'} saat mengoperasikan mesin ${machineKey} (misal: kalibrasi pisau, cek tension roll, follow-up lot hold).
-Gunakan bahasa Indonesia baku pabrik industri yang lugas dan informatif.`;
+Gunakan format Markdown terstruktur, profesional, dan lengkap tanpa terpotong:
+1. **Ringkasan Output & Pencapaian**: Evaluasi performa output mesin dan rasio kualitas secara mendalam.
+2. **Sorotan Masalah & Defect**: Analisis defect/hold kritis yang terjadi pada SPK/lot tertentu dan potensi akar masalahnya.
+3. **Instruksi Prioritas Shift Baru**: Instruksi operasional konkret untuk Grup ${uShift?.group || 'berikutnya'} saat mengoperasikan mesin ${machineKey} (misal: kalibrasi pisau, cek tension roll, penanganan roll hold/reject).
+Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Berikan analisis menyeluruh tanpa memotong teks di tengah jalan.`;
 
-  const modelCandidates = [
-    'gemini-2.5-flash',
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-pro'
-  ];
+  let modelCandidates = await getAiModelCandidates();
+  if (!modelCandidates || modelCandidates.length === 0) {
+    modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  }
 
   let success = false;
   let lastErrMsg = '';
 
   for (const model of modelCandidates) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey.trim()
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.3,
-            maxOutputTokens: 800
+            maxOutputTokens: 8192
           }
         })
       });
@@ -1040,7 +1043,7 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas dan informatif.`;
       }
     } catch (err) {
       lastErrMsg = err.message;
-      console.warn(`Gemini handover attempt with model ${model} failed:`, err);
+      console.warn(`[Handover AI] Model ${model} gagal (${err.message}). Beralih ke model fallback...`);
     }
   }
 

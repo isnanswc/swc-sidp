@@ -327,19 +327,38 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Logout action
   const logout = async () => {
-    try {
-      await removeDeviceSession();
-    } catch (e) {
-      console.warn('Error removing device session:', e);
-    }
-    stopSessionHeartbeat();
-
+    // 1. Segera bersihkan state lokal dan timer
     currentUser.value = null;
     isLocked.value = false;
-    if (idleTimer) clearTimeout(idleTimer);
-    localStorage.removeItem('mlabel_session_user');
-    localStorage.removeItem('mlabel_user_role');
-    localStorage.removeItem('mlabel_screen_locked');
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
+    }
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('mlabel_session_user');
+      localStorage.removeItem('mlabel_user_role');
+      localStorage.removeItem('mlabel_screen_locked');
+      localStorage.removeItem('mlabel_current_session_id');
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.clear();
+    }
+
+    stopSessionHeartbeat();
+    cleanupRealtimeSessionListener();
+
+    // 2. Bersihkan sesi di cloud secara background (non-blocking)
+    try {
+      removeDeviceSession().catch(e => console.warn('Remove cloud session warning:', e));
+    } catch (e) {}
+
+    // 3. Pastikan terlempar keluar ke halaman login
+    if (typeof window !== 'undefined') {
+      const loginUrl = window.location.origin + window.location.pathname + '#/login';
+      window.location.href = loginUrl;
+      window.location.reload();
+    }
   };
 
   // Remote Forced Logout action (triggered by Super Admin revoke)
