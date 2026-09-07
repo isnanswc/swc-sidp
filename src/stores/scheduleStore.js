@@ -175,6 +175,8 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     SLITTING: null,
     REWIND: null
   });
+  const confirmedRosterShift = ref('');
+  const confirmedRosterDate = ref('');
 
   // Helper to parse 'YYYY-MM-DD' safely without timezone offset issues
   const parseDateOnly = (dateStr) => {
@@ -455,12 +457,20 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     const machines = ['CASTING', 'METALIZE', 'SLITTING', 'REWIND'];
     const roster = {};
 
+    const cleanGroup = (val) => String(val || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^GR(O)?UP/, '').trim();
+
     for (const m of machines) {
-      const matched = allOps.filter(o => 
-        o.mesin && o.mesin.toUpperCase() === m &&
-        (String(o.kodeGrup || '').toUpperCase() === assignedGroup || String(o.kodeGrup || '').toUpperCase() === `GRUP ${assignedGroup}`)
-      );
-      
+      const matched = allOps.filter(o => {
+        if (o.active === false) return false;
+        const opMesin = String(o.mesin || '').toUpperCase().trim();
+        const machineMatches = opMesin === m || opMesin.includes(m) || m.includes(opMesin);
+        if (!machineMatches) return false;
+
+        const opGrup = cleanGroup(o.kodeGrup);
+        const targetGrup = cleanGroup(assignedGroup);
+        return opGrup === targetGrup;
+      });
+
       roster[m] = matched.length > 0 ? matched[0] : null;
     }
 
@@ -472,12 +482,17 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
   // Confirm Handover Roster
   const confirmShiftHandover = async (rosterData) => {
+    const shift = currentHandoverShifts.value?.upcomingShift || currentShift.value;
     confirmedRoster.value = { ...rosterData };
+    confirmedRosterShift.value = shift ? shift.shiftCode : '';
+    confirmedRosterDate.value = shift ? shift.date : '';
     lastHandoverConfirmedAt.value = new Date().toISOString();
     showShiftHandoverModal.value = false;
 
     try {
       await saveSetting('confirmed_shift_roster', confirmedRoster.value);
+      await saveSetting('confirmed_shift_code', confirmedRosterShift.value);
+      await saveSetting('confirmed_shift_date', confirmedRosterDate.value);
       await saveSetting('last_handover_time', lastHandoverConfirmedAt.value);
     } catch (e) {
       console.error('Failed to persist shift roster:', e);
@@ -489,6 +504,12 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     try {
       const savedRoster = await getSetting('confirmed_shift_roster', null);
       if (savedRoster) confirmedRoster.value = savedRoster;
+
+      const savedShift = await getSetting('confirmed_shift_code', '');
+      if (savedShift) confirmedRosterShift.value = savedShift;
+
+      const savedDate = await getSetting('confirmed_shift_date', '');
+      if (savedDate) confirmedRosterDate.value = savedDate;
 
       const savedTime = await getSetting('last_handover_time', null);
       if (savedTime) lastHandoverConfirmedAt.value = savedTime;
@@ -509,6 +530,8 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     showShiftHandoverModal,
     lastHandoverConfirmedAt,
     confirmedRoster,
+    confirmedRosterShift,
+    confirmedRosterDate,
     currentNow,
     tickLiveClock,
     currentShift,

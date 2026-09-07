@@ -1067,19 +1067,35 @@ const getOperatorsForMachine = (machineName) => {
 };
 
 // Inisialisasi roster penugasan untuk Shift Yang AKAN Bekerja (Upcoming Shift)
-const initRosterFromSchedule = () => {
+const initRosterFromSchedule = async () => {
+  // 1. Pastikan daftar master operator termuat
+  if (!configStore.operatorList || configStore.operatorList.length === 0) {
+    await configStore.loadAll();
+  }
+
   const shift = upcomingShift.value;
   if (!shift) return;
   const scheduled = scheduleStore.getScheduledOperators(shift.date, shift.shiftCode, shift.group);
+
+  const cleanGroup = (val) => String(val || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^GR(O)?UP/, '').trim();
 
   for (const station of stations) {
     const m = station.machine;
     const scheduledOp = scheduled.roster[m];
 
-    if (scheduleStore.confirmedRoster && scheduleStore.confirmedRoster[m]) {
-      const existing = scheduleStore.confirmedRoster[m];
+    // Cek apakah ada confirmedRoster yang VALID untuk shift dan tanggal ini
+    const existing = (scheduleStore.confirmedRoster && scheduleStore.confirmedRoster[m]?.operatorId)
+      ? scheduleStore.confirmedRoster[m]
+      : null;
+
+    const isConfirmedForCurrentShift = existing &&
+      scheduleStore.confirmedRosterShift === shift.shiftCode &&
+      scheduleStore.confirmedRosterDate === shift.date;
+
+    if (isConfirmedForCurrentShift) {
       rosterForm[m] = { ...existing };
     } else if (scheduledOp) {
+      // Prioritas 1: Otomatis isi operator TERJADWAL dari jadwal shift
       rosterForm[m] = {
         operatorId: scheduledOp.id,
         operator: scheduledOp.nama,
@@ -1089,7 +1105,15 @@ const initRosterFromSchedule = () => {
         note: ''
       };
     } else {
-      const ops = getOperatorsForMachine(m);
+      // Prioritas 2: Cari operator yang cocok dengan mesin ini dan grup shift aktif
+      const targetGroup = cleanGroup(shift.group);
+      const ops = (configStore.operatorList || []).filter(o => {
+        if (o.active === false) return false;
+        const opM = String(o.mesin || '').toUpperCase();
+        const machMatch = opM === m || opM.includes(m) || m.includes(opM);
+        return machMatch && cleanGroup(o.kodeGrup) === targetGroup;
+      });
+
       if (ops.length > 0) {
         rosterForm[m] = {
           operatorId: ops[0].id,
@@ -1100,27 +1124,42 @@ const initRosterFromSchedule = () => {
           note: ''
         };
       } else {
-        rosterForm[m] = { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, note: '' };
+        // Fallback: Operator mesin tersebut (ditandai substitusi jika bukan grupnya)
+        const machineOps = getOperatorsForMachine(m);
+        if (machineOps.length > 0) {
+          rosterForm[m] = {
+            operatorId: machineOps[0].id,
+            operator: machineOps[0].nama,
+            kodeOperator: machineOps[0].kodeOperator,
+            group: machineOps[0].kodeGrup,
+            isSubstituted: cleanGroup(machineOps[0].kodeGrup) !== targetGroup,
+            note: ''
+          };
+        } else {
+          rosterForm[m] = { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, note: '' };
+        }
       }
     }
   }
 };
 
-watch(() => scheduleStore.showShiftHandoverModal, (newVal) => {
+watch(() => scheduleStore.showShiftHandoverModal, async (newVal) => {
   if (newVal) {
     scheduleStore.tickLiveClock();
     currentStep.value = 1; // Selalu mulai dari Step 1 (Laporan Shift Sebelumnya)
     activeMachineTab.value = 'SLITTING'; // Mesin pertama slitting sesuai instruksi
+    await configStore.loadAll();
     loadShiftSummary();
-    initRosterFromSchedule();
+    await initRosterFromSchedule();
   }
 });
 
 // Otomatis muat ulang data jika transisi shift terjadi saat modal sedang dibuka
-watch(() => upcomingShift.value?.shiftCode, () => {
+watch(() => upcomingShift.value?.shiftCode, async () => {
   if (scheduleStore.showShiftHandoverModal) {
+    await configStore.loadAll();
     loadShiftSummary();
-    initRosterFromSchedule();
+    await initRosterFromSchedule();
   }
 });
 
@@ -1147,9 +1186,10 @@ const handleConfirmRoster = () => {
   scheduleStore.confirmShiftHandover(rosterForm);
 };
 
-onMounted(() => {
+onMounted(async () => {
+  await configStore.loadAll();
   loadShiftSummary();
-  initRosterFromSchedule();
+  await initRosterFromSchedule();
 });
 </script>
 
