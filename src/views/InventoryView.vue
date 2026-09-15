@@ -1280,7 +1280,6 @@
 import { ref, computed, reactive, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useInventoryStore, parseFg27ColRow } from '@/stores/inventoryStore';
-import * as XLSX from 'xlsx';
 
 const route = useRoute();
 const router = useRouter();
@@ -1799,7 +1798,8 @@ const deleteUpload = async (upload) => {
   }
 };
 
-const downloadUploadTemplate = () => {
+const downloadUploadTemplate = async () => {
+  const XLSX = await import('xlsx');
   const data = [
     {
       'Description Excel': 'VMCPP M06 20 MC X 1060 MM = 6500 , 6 INCHI OD2.4+PLASMA A',
@@ -1837,7 +1837,8 @@ const downloadUploadTemplate = () => {
   XLSX.writeFile(wb, 'Template_Upload_Stock_FG_27_Kolom.xlsx');
 };
 
-const exportStockTersediaExcel = () => {
+const exportStockTersediaExcel = async () => {
+  const XLSX = await import('xlsx');
   const data = filteredCurrentStocks.value.map((s, idx) => ({
     No: idx + 1,
     'Description Excel': s.descriptionExcel,

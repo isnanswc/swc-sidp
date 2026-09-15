@@ -1,10 +1,54 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, markRaw } from 'vue';
 import { db } from '@/db';
-import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot, parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import { useGlobalLoading } from '@/services/loadingService';
 import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones, broadcastClearAllRolls } from '@/services/syncService';
+
+export function computeDataRollSortKeys(item) {
+  const rawDate = item.tanggalFormatted || item.tanggal || '';
+  const dateStr = rawDate ? String(rawDate).slice(0, 10) : '';
+
+  let mach = 'SLITTING';
+  if (item.machineName) mach = String(item.machineName).toUpperCase();
+  else if (item.mesin) mach = String(item.mesin).toUpperCase();
+  else if (item.slitting) mach = 'SLITTING';
+  else if (item.rewind) mach = 'REWIND';
+  else if (item.sml) mach = 'SML';
+
+  const fullLot = String(item.lot || '').toUpperCase();
+  const parts = fullLot.split('/');
+  const baseLot = parts.length >= 3 ? parts.slice(0, -1).join('/') : fullLot;
+
+  let t = String(item.turunan || '').toUpperCase();
+  if (!t && item.lot && parts.length >= 2) {
+    t = parts[parts.length - 1].toUpperCase();
+  }
+  const match = t.match(/^([A-Za-z]+)(\d+)(.*)$/);
+  const turunanNum = match ? parseInt(match[2], 10) : 999999;
+  const turunanPrefix = match ? match[1] : t;
+  const turunanExtra = match ? match[3] || '' : '';
+
+  const spkStr = String(item.spk || '').toUpperCase();
+  const packPrefix = String(item.kodePack || item.noPack || '').toUpperCase();
+  const rawSub = String(item.subKode || '').trim();
+  const subNum = parseInt(rawSub, 10);
+  const validSubNum = (!isNaN(subNum) && subNum > 0) ? subNum : 999999;
+  const packKey = String(item.kodePack || item.noPack || '').toUpperCase();
+
+  return {
+    _dateStr: dateStr,
+    _machName: mach,
+    _spk: spkStr,
+    _baseLot: baseLot,
+    _turunanNum: turunanNum,
+    _turunanPrefix: turunanPrefix,
+    _turunanExtra: turunanExtra,
+    _packPrefix: packPrefix,
+    _subNum: validSubNum,
+    _packKey: packKey
+  };
+}
 
 export const useDataRollStore = defineStore('dataRollStore', () => {
   const rolls = ref([]);
@@ -14,6 +58,11 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   const filterMachine = ref('ALL'); // 'ALL' | 'SLITTING' | 'REWIND' | 'SML'
   const filterStatus = ref('ALL');  // 'ALL' | 'PASS' | 'HOLD' | 'REJECT'
   const sortDirection = ref('desc'); // 'desc' | 'asc'
+
+  // Large-scale database windowing & metrics
+  const totalDbRolls = ref(0);
+  const isWindowed = ref(false);
+  const windowLimit = ref(20000);
 
   // Computed metrics
   const totalRolls = computed(() => rolls.value.length);
@@ -25,85 +74,66 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   const rewindCount = computed(() => rolls.value.filter(r => r.rewind === 1 || String(r.machineName || r.mesin || '').toUpperCase() === 'REWIND').length);
   const smlCount = computed(() => rolls.value.filter(r => r.sml === 1 || String(r.machineName || r.mesin || '').toUpperCase() === 'SML').length);
 
-  // Multi-level Hierarchical Sorting Comparator
-  // 1. Tanggal -> 2. Mesin -> 3. No. Lot (Slitting & Induk) -> 4. Turunan Set & Arm (HA01, HC01, HA02...) -> 5. Kode Pack
+  // Multi-level Hierarchical Sorting Comparator (Ultra-fast O(1) using precomputed keys)
   const sortDataRolls = (a, b) => {
-    // 1. Tanggal (Date)
-    const dateA = String(a.tanggalFormatted || a.tanggal || '');
-    const dateB = String(b.tanggalFormatted || b.tanggal || '');
+    // 1. Tanggal Produksi (Date)
+    const dateA = a._dateStr !== undefined ? a._dateStr : String(a.tanggalFormatted || a.tanggal || '');
+    const dateB = b._dateStr !== undefined ? b._dateStr : String(b.tanggalFormatted || b.tanggal || '');
     const dateComp = sortDirection.value === 'desc' 
       ? dateB.localeCompare(dateA) 
       : dateA.localeCompare(dateB);
     if (dateComp !== 0) return dateComp;
 
     // 2. Mesin (Machine)
-    const getMachineName = (item) => {
-      if (item.machineName) return String(item.machineName).toUpperCase();
-      if (item.mesin) return String(item.mesin).toUpperCase();
-      if (item.slitting) return 'SLITTING';
-      if (item.rewind) return 'REWIND';
-      if (item.sml) return 'SML';
-      return 'SLITTING';
-    };
-    const machA = getMachineName(a);
-    const machB = getMachineName(b);
+    const machA = a._machName !== undefined ? a._machName : String(a.machineName || a.mesin || 'SLITTING').toUpperCase();
+    const machB = b._machName !== undefined ? b._machName : String(b.machineName || b.mesin || 'SLITTING').toUpperCase();
     const machComp = machA.localeCompare(machB);
     if (machComp !== 0) return machComp;
 
-    // 3. No. Lot (Lot Induk & Batch Slitting, misal M07210726A210/D108 vs M07270726B205/F104)
-    const getBaseLot = (item) => {
-      const full = String(item.lot || '').toUpperCase();
-      const parts = full.split('/');
-      if (parts.length >= 3) {
-        return parts.slice(0, -1).join('/'); // take M07210726A210/D108
-      }
-      return full;
-    };
-    const baseLotA = getBaseLot(a);
-    const baseLotB = getBaseLot(b);
-    const lotComp = baseLotA.localeCompare(baseLotB, undefined, { numeric: true, sensitivity: 'base' });
+    // 3. No. SPK (Surat Perintah Kerja)
+    const spkA = a._spk !== undefined ? a._spk : String(a.spk || '').toUpperCase();
+    const spkB = b._spk !== undefined ? b._spk : String(b.spk || '').toUpperCase();
+    const spkComp = spkA.localeCompare(spkB, undefined, { numeric: true, sensitivity: 'base' });
+    if (spkComp !== 0) return spkComp;
+
+    // 4. Nomor Urut Turunan (Set Potong: Tarikan 01, 02, 03... mengunci roll HOLD/REJECT 0000 di posisinya)
+    const tNumA = a._turunanNum !== undefined ? a._turunanNum : 999999;
+    const tNumB = b._turunanNum !== undefined ? b._turunanNum : 999999;
+    if (tNumA !== tNumB) {
+      return tNumA - tNumB;
+    }
+
+    // 5. Posisi Arm / Chartingan (Arm A vs Arm C, Operator Prefix)
+    const tPrefA = a._turunanPrefix !== undefined ? a._turunanPrefix : '';
+    const tPrefB = b._turunanPrefix !== undefined ? b._turunanPrefix : '';
+    if (tPrefA !== tPrefB) {
+      return tPrefA.localeCompare(tPrefB);
+    }
+    const tExtA = a._turunanExtra !== undefined ? a._turunanExtra : '';
+    const tExtB = b._turunanExtra !== undefined ? b._turunanExtra : '';
+    if (tExtA !== tExtB) {
+      return tExtA.localeCompare(tExtB);
+    }
+
+    // 6. No. Lot (Base Lot jika nomor turunan sama)
+    const lotA = a._baseLot !== undefined ? a._baseLot : String(a.lot || '').toUpperCase();
+    const lotB = b._baseLot !== undefined ? b._baseLot : String(b.lot || '').toUpperCase();
+    const lotComp = lotA.localeCompare(lotB, undefined, { numeric: true, sensitivity: 'base' });
     if (lotComp !== 0) return lotComp;
 
-    // 4. Turunan (Set Potong & Arm: HA01 -> HC01 -> HA02 -> HC02...)
-    const getTurunanKey = (item) => {
-      let t = String(item.turunan || '').toUpperCase();
-      if (!t && item.lot) {
-        const parts = String(item.lot).split('/');
-        if (parts.length >= 2) t = parts[parts.length - 1].toUpperCase();
-      }
-      // Extract numeric suffix if any (e.g. HA01 -> num: 1, prefix: HA)
-      const match = t.match(/^([A-Za-z]+)(\d+)(.*)$/);
-      if (match) {
-        const prefix = match[1];
-        const num = parseInt(match[2], 10);
-        const extra = match[3] || '';
-        return { num, prefix, extra, raw: t };
-      }
-      return { num: 999999, prefix: t, extra: '', raw: t };
-    };
+    // 7. Sub Kode Resmi Numerik (>0) berurutan (PASS didahulukan sebelum HOLD/REJECT 0000 jika turunan sama)
+    const subA = a._subNum !== undefined ? a._subNum : 999999;
+    const subB = b._subNum !== undefined ? b._subNum : 999999;
+    if (subA !== subB) return subA - subB;
 
-    const tA = getTurunanKey(a);
-    const tB = getTurunanKey(b);
-
-    // First compare Set Number (e.g. 01 before 02)
-    if (tA.num !== tB.num) {
-      return tA.num - tB.num;
-    }
-    // Then compare Arm prefix (e.g. HA before HC)
-    if (tA.prefix !== tB.prefix) {
-      return tA.prefix.localeCompare(tB.prefix);
-    }
-    if (tA.extra !== tB.extra) {
-      return tA.extra.localeCompare(tB.extra);
-    }
-
-    // 5. Kode Pack / Codepack
-    const packA = String(a.kodePack || a.noPack || '').toUpperCase();
-    const packB = String(b.kodePack || b.noPack || '').toUpperCase();
+    // 8. Kode Pack / Codepack string fallback
+    const packA = a._packKey !== undefined ? a._packKey : String(a.kodePack || a.noPack || '').toUpperCase();
+    const packB = b._packKey !== undefined ? b._packKey : String(b.kodePack || b.noPack || '').toUpperCase();
     const packComp = packA.localeCompare(packB, undefined, { numeric: true, sensitivity: 'base' });
     if (packComp !== 0) return packComp;
 
-    return 0;
+    // 9. Timeline Fisik Asli (ID Record)
+    return (Number(a.id) || 0) - (Number(b.id) || 0);
   };
 
   const filteredRolls = computed(() => {
@@ -146,15 +176,33 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   });
 
   // Load from Dexie DB (Merges explicit data_rolls and all DE Report labels)
-  const loadRolls = async (force = false) => {
-    if (!force && rolls.value.length > 0 && !loading.value) {
+  const loadRolls = async (force = false, options = {}) => {
+    const opts = typeof options === 'object' && options !== null ? options : {};
+    const loadAll = opts.loadAll === true;
+    const limit = opts.limit || windowLimit.value || 5000;
+
+    if (!force && !loadAll && rolls.value.length > 0 && !loading.value) {
       return;
     }
     loading.value = true;
     const { startLoading, stopLoading } = useGlobalLoading();
     startLoading('Memuat data roll...');
     try {
-      const rawExplicit = db.data_rolls ? await db.data_rolls.toArray() : [];
+      let rawExplicit = [];
+      if (db.data_rolls) {
+        const totalRollsCount = await db.data_rolls.count();
+        totalDbRolls.value = totalRollsCount;
+
+        if (!loadAll && totalRollsCount > limit) {
+          rawExplicit = await db.data_rolls.orderBy('id').reverse().limit(limit).toArray();
+          rawExplicit.reverse();
+          isWindowed.value = true;
+        } else {
+          rawExplicit = await db.data_rolls.toArray();
+          isWindowed.value = false;
+        }
+      }
+
       const explicitRolls = rawExplicit.map(r => {
         const lot = r.lot || '';
         const turunan = r.turunan || '';
@@ -164,7 +212,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         const rawDate = r.tanggalFormatted || r.tanggal;
         const cleanDate = rawDate ? String(rawDate).slice(0, 10) : '';
 
-        return {
+        const baseRoll = {
           ...r,
           lot,
           turunan,
@@ -175,12 +223,22 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
           shift,
           supplier
         };
+        const sortKeys = computeDataRollSortKeys(baseRoll);
+        return markRaw({ ...baseRoll, ...sortKeys });
       });
 
       // Also load all labels from DE Report (db.labels)
       let deRolls = [];
       if (db.labels) {
-        const labelsList = await db.labels.toArray();
+        let labelsList = [];
+        const totalLabelsCount = await db.labels.count();
+        if (!loadAll && totalLabelsCount > limit) {
+          labelsList = await db.labels.orderBy('id').reverse().limit(limit).toArray();
+          labelsList.reverse();
+        } else {
+          labelsList = await db.labels.toArray();
+        }
+
         deRolls = labelsList.map(l => {
           const rawDate = l.tanggal || (l.verifiedAt ? l.verifiedAt.slice(0, 10) : (l.createdAt ? l.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10)));
           const cleanDate = rawDate ? String(rawDate).slice(0, 10) : '';
@@ -191,7 +249,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
           const core = l.paperCore ? (String(l.paperCore).includes('3') ? 3 : 6) : 6;
           const status = (l.status || 'PASS').toUpperCase();
 
-          return {
+          const deRollBase = {
             id: `de_label_${l.id}`,
             originalLabelId: l.id,
             uuid: l.uniqId || `de_roll_${l.id}`,
@@ -228,6 +286,8 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
             createdAt: l.createdAt || cleanDate,
             updatedAt: l.updatedAt || cleanDate
           };
+          const sortKeys = computeDataRollSortKeys(deRollBase);
+          return markRaw({ ...deRollBase, ...sortKeys });
         });
       }
 
@@ -276,6 +336,10 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       loading.value = false;
       stopLoading();
     }
+  };
+
+  const loadAllRolls = async () => {
+    return loadRolls(true, { loadAll: true });
   };
 
   // Load Upload History & Sync DE Verified Batches
@@ -760,8 +824,18 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
 
   // Export to Excel & Auto-record as Verified Batch
   const exportToExcel = async (itemsToExport = null, customFileName = null) => {
+    if (isWindowed.value && !itemsToExport) {
+      const { startLoading, stopLoading } = useGlobalLoading();
+      startLoading('Menyiapkan seluruh arsip data roll untuk diekspor ke Excel...');
+      try {
+        await loadAllRolls();
+      } finally {
+        stopLoading();
+      }
+    }
     const list = itemsToExport || filteredRolls.value;
     if (!list || list.length === 0) return;
+    const XLSX = await import('xlsx');
 
     const data = list.map((r, idx) => {
       // Pastikan Lot FG bersih dari turunan (e.g. M07260626A201/F201 murni, bukan M07260626A201/F201/GA07)
@@ -843,6 +917,8 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     filterMachine,
     filterStatus,
     sortDirection,
+    totalDbRolls,
+    isWindowed,
     totalRolls,
     passCount,
     holdCount,
@@ -852,6 +928,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     smlCount,
     filteredRolls,
     loadRolls,
+    loadAllRolls,
     loadUploadHistory,
     syncVerifiedDeBatches,
     importRolls,

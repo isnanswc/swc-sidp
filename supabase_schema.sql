@@ -1,17 +1,27 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- M-LABEL COMPLETE SUPABASE POSTGRESQL SCHEMA
 -- Ready for 1-Click Execution in Supabase SQL Editor
+-- ==============================================================================
+--
+-- JIKA DATABASE SUPABASE SUDAH AKTIF / TERDEPLOY SEBELUMNYA,
+-- CUKUP JALANKAN PERINTAH MIGRASI CEPAT INI DI SUPABASE SQL EDITOR:
+--
+-- ALTER TABLE public.labels ADD COLUMN IF NOT EXISTS mesin TEXT;
+-- ALTER TABLE public.labels ADD COLUMN IF NOT EXISTS keterangan TEXT;
+-- ALTER TABLE public.labels ADD COLUMN IF NOT EXISTS shift TEXT;
+-- CREATE INDEX IF NOT EXISTS idx_labels_updated_at ON public.labels(updated_at);
+-- CREATE INDEX IF NOT EXISTS idx_data_rolls_updated_at ON public.data_rolls(updated_at);
 -- ==============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS \$\$
+RETURNS TRIGGER AS $$
 BEGIN
    NEW.updated_at = NOW();
    RETURN NEW;
 END;
-\$\$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TABLE IF NOT EXISTS public.labels (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,6 +49,9 @@ CREATE TABLE IF NOT EXISTS public.labels (
     od TEXT,
     tanggal TEXT,
     jenis_print TEXT,
+    mesin TEXT,
+    keterangan TEXT,
+    shift TEXT,
     verified BOOLEAN DEFAULT FALSE,
     synced_by TEXT,
     is_deleted BOOLEAN DEFAULT FALSE,
@@ -49,6 +62,7 @@ CREATE TABLE IF NOT EXISTS public.labels (
 CREATE INDEX IF NOT EXISTS idx_labels_tanggal ON public.labels(tanggal);
 CREATE INDEX IF NOT EXISTS idx_labels_lot ON public.labels(lot);
 CREATE INDEX IF NOT EXISTS idx_labels_spk ON public.labels(spk);
+CREATE INDEX IF NOT EXISTS idx_labels_updated_at ON public.labels(updated_at);
 CREATE INDEX IF NOT EXISTS idx_labels_is_deleted ON public.labels(is_deleted);
 
 DROP TRIGGER IF EXISTS trg_labels_updated_at ON public.labels;
@@ -91,6 +105,7 @@ CREATE TABLE IF NOT EXISTS public.data_rolls (
 CREATE INDEX IF NOT EXISTS idx_data_rolls_tanggal ON public.data_rolls(tanggal);
 CREATE INDEX IF NOT EXISTS idx_data_rolls_lot ON public.data_rolls(lot);
 CREATE INDEX IF NOT EXISTS idx_data_rolls_spk ON public.data_rolls(spk);
+CREATE INDEX IF NOT EXISTS idx_data_rolls_updated_at ON public.data_rolls(updated_at);
 
 DROP TRIGGER IF EXISTS trg_data_rolls_updated_at ON public.data_rolls;
 CREATE TRIGGER trg_data_rolls_updated_at

@@ -8,6 +8,7 @@ export const syncState = reactive({
   isOnline: navigator.onLine,
   isSyncing: false,
   lastSyncTime: localStorage.getItem('mlabel_last_sync_time') || null,
+  lastSyncIso: localStorage.getItem('mlabel_last_sync_iso') || null,
   unsyncedCount: 0,
   realtimeConnected: false,
   lastError: null
@@ -16,7 +17,7 @@ export const syncState = reactive({
 // Network liveness listeners
 window.addEventListener('online', () => {
   syncState.isOnline = true;
-  syncAll();
+  syncAll(false);
 });
 window.addEventListener('offline', () => {
   syncState.isOnline = false;
@@ -24,6 +25,15 @@ window.addEventListener('offline', () => {
 
 // Helper to convert label from Dexie format to Supabase snake_case format
 function mapLabelToSupabase(l) {
+  // Simpan mesin, keterangan, shift, dan diameterCore ke dalam synced_by sebagai JSON metadata
+  // Hal ini menjamin 100% data tersimpan di Supabase tanpa memicu schema error PostgREST (PGRST204)
+  const meta = {
+    mesin: l.mesin || '',
+    keterangan: l.keterangan || '',
+    shift: l.shift || '',
+    diameterCore: l.diameterCore || (parseFloat(l.paperCore) < 4.5 && parseFloat(l.paperCore) > 0 ? 3 : 6)
+  };
+
   return {
     uniq_id: l.uniqId || l.uuid || `LBL-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     supplier: l.supplier || '',
@@ -50,6 +60,7 @@ function mapLabelToSupabase(l) {
     tanggal: l.tanggal || '',
     jenis_print: l.jenisPrint || '',
     verified: Boolean(l.verified),
+    synced_by: JSON.stringify(meta),
     is_deleted: Boolean(l.isDeleted),
     created_at: l.createdAt || new Date().toISOString(),
     updated_at: l.updatedAt || new Date().toISOString()
@@ -58,6 +69,17 @@ function mapLabelToSupabase(l) {
 
 // Helper to convert label from Supabase snake_case format to Dexie format
 function mapLabelFromSupabase(s) {
+  let meta = {};
+  if (s.synced_by) {
+    try {
+      meta = typeof s.synced_by === 'string' && s.synced_by.startsWith('{')
+        ? JSON.parse(s.synced_by)
+        : (typeof s.synced_by === 'object' && s.synced_by !== null ? s.synced_by : {});
+    } catch (e) {
+      meta = {};
+    }
+  }
+
   return {
     uniqId: s.uniq_id,
     supplier: s.supplier,
@@ -84,6 +106,10 @@ function mapLabelFromSupabase(s) {
     tanggal: s.tanggal,
     jenisPrint: s.jenis_print,
     verified: s.verified,
+    mesin: s.mesin || meta.mesin || '',
+    keterangan: s.keterangan || meta.keterangan || '',
+    shift: s.shift || meta.shift || '',
+    diameterCore: s.diameter_core || meta.diameterCore || (parseFloat(s.paper_core) < 4.5 && parseFloat(s.paper_core) > 0 ? 3 : 6),
     synced: 1,
     createdAt: s.created_at,
     updatedAt: s.updated_at
@@ -209,6 +235,10 @@ function mapDataRollFromSupabase(s) {
     kodePack: s.kode_pack,
     subKode: s.sub_kode,
     qualityStatus: s.quality_status,
+    operator: s.operator || '',
+    keterangan: s.keterangan || s.reason_defect || '',
+    reasonDefect: s.reason_defect || s.keterangan || '',
+    netto: s.netto !== undefined ? s.netto : undefined,
     verified: s.verified ? 1 : 0,
     synced: 1,
     createdAt: s.created_at,
@@ -857,15 +887,26 @@ export async function pushLocalToSupabase() {
 }
 
 // 2. PULL: Ambil data terbaru dari Supabase ke lokal Dexie (PARALLEL & BULK UPSERT)
-export async function pullFromSupabase() {
+export async function pullFromSupabase(forceFull = false) {
   if (!navigator.onLine) return;
   syncState.isSyncing = true;
   syncState.lastError = null;
 
+  const lastSyncIso = localStorage.getItem('mlabel_last_sync_iso');
+  const isDelta = !forceFull && Boolean(lastSyncIso);
+  const syncStartTime = new Date().toISOString();
+  let syncHasErrors = false;
+
+  if (isDelta) {
+    console.log(`[SyncPull] Memulai Sinkronisasi Delta (sejak ${lastSyncIso})...`);
+  } else {
+    console.log('[SyncPull] Memulai Sinkronisasi Penuh (Full Sync)...');
+  }
+
   try {
     const pullTasks = [];
 
-    // Pull Labels (Paginated Range)
+    // Pull Labels (Paginated Range - Delta or Full)
     if (db.labels) {
       pullTasks.push((async () => {
         const cloudLabels = [];
@@ -877,14 +918,21 @@ export async function pullFromSupabase() {
           while (true) {
             const from = page * PAGE_SIZE;
             const to = from + PAGE_SIZE - 1;
-            const { data, error } = await supabase
+            let query = supabase
               .from('labels')
               .select('*')
-              .order('updated_at', { ascending: false })
-              .range(from, to);
+              .order('updated_at', { ascending: true })
+              .order('id', { ascending: true });
+
+            if (isDelta) {
+              query = query.gt('updated_at', lastSyncIso);
+            }
+
+            const { data, error } = await query.range(from, to);
 
             if (error) {
               console.error('[SyncPull] Error fetching labels page ' + page + ':', error.message);
+              syncHasErrors = true;
               break;
             }
             if (!data || data.length === 0) {
@@ -900,52 +948,116 @@ export async function pullFromSupabase() {
           }
         } catch (err) {
           console.error('[SyncPull] Labels pull loop error:', err);
+          syncHasErrors = true;
         }
 
-        if (!fetchCompleted && cloudLabels.length === 0) return;
+        if (isDelta) {
+          // DELTA SYNC MODE: Hanya proses baris yang berubah, tanpa db.labels.toArray() seluruh tabel
+          if (cloudLabels.length === 0) return;
 
-        const cloudUniqIds = new Set(cloudLabels.map(cl => cl.uniq_id).filter(Boolean));
-        if (cloudUniqIds.size > 0) {
-          removeTombstones('labels', cloudUniqIds);
-        }
+          const toDeleteCloud = cloudLabels.filter(cl => cl.is_deleted);
+          const toUpsertCloud = cloudLabels.filter(cl => !cl.is_deleted);
 
-        const deletedLabelSet = new Set(getTombstones('labels'));
-        const existingLocal = await db.labels.toArray();
-        const localMap = new Map(existingLocal.map(l => [l.uniqId, l.id]));
-        const toUpdate = [];
-        const toAdd = [];
-
-        for (const cl of cloudLabels) {
-          if (deletedLabelSet.has(cl.uniq_id)) continue;
-          const mapped = mapLabelFromSupabase(cl);
-          const localId = localMap.get(cl.uniq_id);
-          if (localId) {
-            toUpdate.push({ ...mapped, id: localId });
-          } else {
-            toAdd.push(mapped);
+          if (toDeleteCloud.length > 0) {
+            const delIds = toDeleteCloud.map(cl => cl.uniq_id).filter(Boolean);
+            recordTombstones('labels', delIds);
+            for (const uid of delIds) {
+              await db.labels.where('uniqId').equals(uid).delete();
+            }
           }
-        }
 
-        let staleLocalLabels = [];
-        if (fetchCompleted) {
-          staleLocalLabels = existingLocal.filter(l => {
-            if (!l.uniqId) return false;
-            if (deletedLabelSet.has(l.uniqId) && !cloudUniqIds.has(l.uniqId)) return true;
-            if (l.synced === 1 && !cloudUniqIds.has(l.uniqId)) return true;
-            return false;
-          });
-        }
+          if (toUpsertCloud.length > 0) {
+            const cloudUniqIds = toUpsertCloud.map(cl => cl.uniq_id).filter(Boolean);
+            removeTombstones('labels', cloudUniqIds);
 
-        const CHUNK_DEXIE = 2500;
-        for (let i = 0; i < toUpdate.length; i += CHUNK_DEXIE) {
-          await db.labels.bulkPut(toUpdate.slice(i, i + CHUNK_DEXIE));
-        }
-        for (let i = 0; i < toAdd.length; i += CHUNK_DEXIE) {
-          await db.labels.bulkAdd(toAdd.slice(i, i + CHUNK_DEXIE));
-        }
-        if (staleLocalLabels.length > 0) {
-          console.log(`[SyncPull] Menghapus ${staleLocalLabels.length} label di lokal yang telah dihapus di cloud`);
-          await db.labels.bulkDelete(staleLocalLabels.map(s => s.id));
+            const existingLocal = await db.labels.where('uniqId').anyOf(cloudUniqIds).toArray();
+            const localMap = new Map(existingLocal.map(l => [l.uniqId, l]));
+            const toUpdate = [];
+            const toAdd = [];
+
+            for (const cl of toUpsertCloud) {
+              const mapped = mapLabelFromSupabase(cl);
+              const localRec = localMap.get(cl.uniq_id);
+              if (localRec) {
+                // Non-destructive merge: jangan pernah menimpa mesin/keterangan lokal yang sudah terisi dengan nilai kosong
+                toUpdate.push({
+                  ...localRec,
+                  ...mapped,
+                  mesin: mapped.mesin || localRec.mesin || '',
+                  keterangan: mapped.keterangan || localRec.keterangan || '',
+                  shift: mapped.shift || localRec.shift || '',
+                  diameterCore: mapped.diameterCore || localRec.diameterCore || 6,
+                  id: localRec.id
+                });
+              } else {
+                toAdd.push(mapped);
+              }
+            }
+
+            const CHUNK_DEXIE = 2500;
+            for (let i = 0; i < toUpdate.length; i += CHUNK_DEXIE) {
+              await db.labels.bulkPut(toUpdate.slice(i, i + CHUNK_DEXIE));
+            }
+            for (let i = 0; i < toAdd.length; i += CHUNK_DEXIE) {
+              await db.labels.bulkAdd(toAdd.slice(i, i + CHUNK_DEXIE));
+            }
+          }
+        } else {
+          // FULL SYNC MODE: Rekonsiliasi menyeluruh terhadap seluruh data lokal
+          if (!fetchCompleted && cloudLabels.length === 0) return;
+
+          const cloudUniqIds = new Set(cloudLabels.map(cl => cl.uniq_id).filter(Boolean));
+          if (cloudUniqIds.size > 0) {
+            removeTombstones('labels', cloudUniqIds);
+          }
+
+          const deletedLabelSet = new Set(getTombstones('labels'));
+          const existingLocal = await db.labels.toArray();
+          const localMap = new Map(existingLocal.map(l => [l.uniqId, l]));
+          const toUpdate = [];
+          const toAdd = [];
+
+          for (const cl of cloudLabels) {
+            if (deletedLabelSet.has(cl.uniq_id)) continue;
+            const mapped = mapLabelFromSupabase(cl);
+            const localRec = localMap.get(cl.uniq_id);
+            if (localRec) {
+              // Non-destructive merge
+              toUpdate.push({
+                ...localRec,
+                ...mapped,
+                mesin: mapped.mesin || localRec.mesin || '',
+                keterangan: mapped.keterangan || localRec.keterangan || '',
+                shift: mapped.shift || localRec.shift || '',
+                diameterCore: mapped.diameterCore || localRec.diameterCore || 6,
+                id: localRec.id
+              });
+            } else {
+              toAdd.push(mapped);
+            }
+          }
+
+          let staleLocalLabels = [];
+          if (fetchCompleted) {
+            staleLocalLabels = existingLocal.filter(l => {
+              if (!l.uniqId) return false;
+              if (deletedLabelSet.has(l.uniqId) && !cloudUniqIds.has(l.uniqId)) return true;
+              if (l.synced === 1 && !cloudUniqIds.has(l.uniqId)) return true;
+              return false;
+            });
+          }
+
+          const CHUNK_DEXIE = 2500;
+          for (let i = 0; i < toUpdate.length; i += CHUNK_DEXIE) {
+            await db.labels.bulkPut(toUpdate.slice(i, i + CHUNK_DEXIE));
+          }
+          for (let i = 0; i < toAdd.length; i += CHUNK_DEXIE) {
+            await db.labels.bulkAdd(toAdd.slice(i, i + CHUNK_DEXIE));
+          }
+          if (staleLocalLabels.length > 0) {
+            console.log(`[SyncPull] Menghapus ${staleLocalLabels.length} label di lokal yang telah dihapus di cloud`);
+            await db.labels.bulkDelete(staleLocalLabels.map(s => s.id));
+          }
         }
       })());
     }
@@ -953,14 +1065,26 @@ export async function pullFromSupabase() {
     // Pull SPK Batches
     if (db.spk_batches) {
       pullTasks.push((async () => {
-        const { data: cloudBatches } = await supabase.from('spk_batches').select('*');
+        let q = supabase.from('spk_batches').select('*');
+        if (isDelta) {
+          q = q.gt('updated_at', lastSyncIso);
+        }
+        const { data: cloudBatches } = await q;
         if (cloudBatches && cloudBatches.length > 0) {
-          const existingLocal = await db.spk_batches.toArray();
+          const uuids = cloudBatches.map(b => b.uuid).filter(Boolean);
+          const existingLocal = isDelta
+            ? await db.spk_batches.where('uuid').anyOf(uuids).toArray()
+            : await db.spk_batches.toArray();
           const localMap = new Map(existingLocal.map(b => [b.uuid, b.id]));
           const toUpdate = [];
           const toAdd = [];
 
           for (const cb of cloudBatches) {
+            if (cb.is_deleted) {
+              const localId = localMap.get(cb.uuid);
+              if (localId) await db.spk_batches.delete(localId);
+              continue;
+            }
             const bRecord = {
               uuid: cb.uuid,
               batchName: cb.batch_name,
@@ -992,14 +1116,26 @@ export async function pullFromSupabase() {
     // Pull SPK Plans
     if (db.spk_plans) {
       pullTasks.push((async () => {
-        const { data: cloudPlans } = await supabase.from('spk_plans').select('*');
+        let q = supabase.from('spk_plans').select('*');
+        if (isDelta) {
+          q = q.gt('updated_at', lastSyncIso);
+        }
+        const { data: cloudPlans } = await q;
         if (cloudPlans && cloudPlans.length > 0) {
-          const existingLocal = await db.spk_plans.toArray();
+          const uuids = cloudPlans.map(p => p.uuid).filter(Boolean);
+          const existingLocal = isDelta
+            ? await db.spk_plans.where('uuid').anyOf(uuids).toArray()
+            : await db.spk_plans.toArray();
           const localMap = new Map(existingLocal.map(p => [p.uuid, p.id]));
           const toUpdate = [];
           const toAdd = [];
 
           for (const cp of cloudPlans) {
+            if (cp.is_deleted) {
+              const localId = localMap.get(cp.uuid);
+              if (localId) await db.spk_plans.delete(localId);
+              continue;
+            }
             const pRecord = mapSpkPlanFromSupabase(cp);
             const localId = localMap.get(cp.uuid);
             if (localId) {
@@ -1017,7 +1153,7 @@ export async function pullFromSupabase() {
       })());
     }
 
-    // Pull Data Rolls (Paginated Range in chunks of 1000 to fetch all 10,000+ rolls)
+    // Pull Data Rolls (Paginated Range - Delta or Full)
     if (db.data_rolls) {
       pullTasks.push((async () => {
         const allCloudRolls = [];
@@ -1029,14 +1165,21 @@ export async function pullFromSupabase() {
           while (true) {
             const from = page * PAGE_SIZE;
             const to = from + PAGE_SIZE - 1;
-            const { data, error } = await supabase
+            let query = supabase
               .from('data_rolls')
               .select('*')
-              .order('created_at', { ascending: false })
-              .range(from, to);
+              .order('updated_at', { ascending: true })
+              .order('id', { ascending: true });
+
+            if (isDelta) {
+              query = query.gt('updated_at', lastSyncIso);
+            }
+
+            const { data, error } = await query.range(from, to);
 
             if (error) {
               console.error('[SyncPull] Error fetching data_rolls page ' + page + ':', error.message);
+              syncHasErrors = true;
               break;
             }
             if (!data || data.length === 0) {
@@ -1052,72 +1195,122 @@ export async function pullFromSupabase() {
           }
         } catch (errLoop) {
           console.error('[SyncPull] Exception in data_rolls pull loop:', errLoop);
+          syncHasErrors = true;
         }
 
-        // Jika fetch sama sekali gagal (misal koneksi terputus sebelum halaman pertama), jangan sentuh lokal
-        if (!fetchCompleted && allCloudRolls.length === 0) return;
+        if (isDelta) {
+          // DELTA SYNC MODE: Hanya proses baris yang berubah, tanpa db.data_rolls.toArray() seluruh tabel
+          if (allCloudRolls.length === 0) return;
 
-        const cloudUuids = new Set(allCloudRolls.map(cr => cr.uuid).filter(Boolean));
+          const toDeleteRolls = allCloudRolls.filter(cr => cr.is_deleted);
+          const toUpsertRolls = allCloudRolls.filter(cr => !cr.is_deleted);
 
-        // PENTING: Jika data ada di cloud, ini membuktikan data tersebut AKTIF dan TIDAK TERHAPUS!
-        // Segera hapus UUID-nya dari blacklist tombstone lokal (agar tidak terblokir di UI)
-        if (cloudUuids.size > 0) {
-          removeTombstones('data_rolls', cloudUuids);
-        }
-
-        const deletedRollSet = new Set(getTombstones('data_rolls'));
-        const existingLocal = await db.data_rolls.toArray();
-        const localMap = new Map(existingLocal.map(r => [r.uuid, r.id]));
-        const toUpdate = [];
-        const toAdd = [];
-
-        for (const cr of allCloudRolls) {
-          if (deletedRollSet.has(cr.uuid)) continue;
-          const mapped = mapDataRollFromSupabase(cr);
-          const localId = localMap.get(cr.uuid);
-          if (localId) {
-            toUpdate.push({ ...mapped, id: localId });
-          } else {
-            toAdd.push(mapped);
-          }
-        }
-
-        // REKONSILIASI DELETE UNTUK DATA ROLLS:
-        // HANYA hapus lokal jika:
-        // 1. Fetch cloud telah SELESAI 100% (fetchCompleted === true)
-        // 2. DAN roll lokal sudah pernah tersinkron (synced === 1) tetapi tidak ada di cloud
-        let staleLocalRolls = [];
-        if (fetchCompleted) {
-          const nowMs = Date.now();
-          staleLocalRolls = existingLocal.filter(r => {
-            if (!r.uuid) return false;
-            // Jika masuk tombstone dan memang tidak ada di cloud
-            if (deletedRollSet.has(r.uuid) && !cloudUuids.has(r.uuid)) return true;
-            // Jika tidak ada di cloud
-            if (!cloudUuids.has(r.uuid)) {
-              if (r.synced === 0 && r.createdAt) {
-                const ageMs = nowMs - new Date(r.createdAt).getTime();
-                if (!isNaN(ageMs) && ageMs < 60000) return false; // Jangan hapus data yang baru dibuat offline
-              }
-              return r.synced === 1;
+          if (toDeleteRolls.length > 0) {
+            const delUuids = toDeleteRolls.map(cr => cr.uuid).filter(Boolean);
+            recordTombstones('data_rolls', delUuids);
+            for (const u of delUuids) {
+              await db.data_rolls.where('uuid').equals(u).delete();
             }
-            return false;
-          });
-        }
+          }
 
-        // Simpan dalam chunk 2500 agar transaksi IndexedDB sangat stabil
-        const CHUNK_DEXIE = 2500;
-        for (let i = 0; i < toUpdate.length; i += CHUNK_DEXIE) {
-          await db.data_rolls.bulkPut(toUpdate.slice(i, i + CHUNK_DEXIE));
-        }
-        for (let i = 0; i < toAdd.length; i += CHUNK_DEXIE) {
-          await db.data_rolls.bulkAdd(toAdd.slice(i, i + CHUNK_DEXIE));
-        }
-        if (staleLocalRolls.length > 0) {
-          console.log(`[SyncPull] Menghapus ${staleLocalRolls.length} roll di lokal yang telah dihapus di cloud`);
-          const staleUuids = staleLocalRolls.map(s => s.uuid).filter(Boolean);
-          recordTombstones('data_rolls', staleUuids);
-          await db.data_rolls.bulkDelete(staleLocalRolls.map(s => s.id));
+          if (toUpsertRolls.length > 0) {
+            const cloudUuids = toUpsertRolls.map(cr => cr.uuid).filter(Boolean);
+            removeTombstones('data_rolls', cloudUuids);
+
+            const existingLocal = await db.data_rolls.where('uuid').anyOf(cloudUuids).toArray();
+            const localMap = new Map(existingLocal.map(r => [r.uuid, r]));
+            const toUpdate = [];
+            const toAdd = [];
+
+            for (const cr of toUpsertRolls) {
+              const mapped = mapDataRollFromSupabase(cr);
+              const localRec = localMap.get(cr.uuid);
+              if (localRec) {
+                toUpdate.push({
+                  ...localRec,
+                  ...mapped,
+                  machineName: mapped.machineName || localRec.machineName || '',
+                  keterangan: mapped.keterangan || localRec.keterangan || localRec.reasonDefect || '',
+                  reasonDefect: mapped.reasonDefect || localRec.reasonDefect || localRec.keterangan || '',
+                  id: localRec.id
+                });
+              } else {
+                toAdd.push(mapped);
+              }
+            }
+
+            const CHUNK_DEXIE = 2500;
+            for (let i = 0; i < toUpdate.length; i += CHUNK_DEXIE) {
+              await db.data_rolls.bulkPut(toUpdate.slice(i, i + CHUNK_DEXIE));
+            }
+            for (let i = 0; i < toAdd.length; i += CHUNK_DEXIE) {
+              await db.data_rolls.bulkAdd(toAdd.slice(i, i + CHUNK_DEXIE));
+            }
+          }
+        } else {
+          // FULL SYNC MODE: Rekonsiliasi menyeluruh terhadap seluruh data lokal
+          if (!fetchCompleted && allCloudRolls.length === 0) return;
+
+          const cloudUuids = new Set(allCloudRolls.map(cr => cr.uuid).filter(Boolean));
+
+          if (cloudUuids.size > 0) {
+            removeTombstones('data_rolls', cloudUuids);
+          }
+
+          const deletedRollSet = new Set(getTombstones('data_rolls'));
+          const existingLocal = await db.data_rolls.toArray();
+          const localMap = new Map(existingLocal.map(r => [r.uuid, r]));
+          const toUpdate = [];
+          const toAdd = [];
+
+          for (const cr of allCloudRolls) {
+            if (deletedRollSet.has(cr.uuid)) continue;
+            const mapped = mapDataRollFromSupabase(cr);
+            const localRec = localMap.get(cr.uuid);
+            if (localRec) {
+              toUpdate.push({
+                ...localRec,
+                ...mapped,
+                machineName: mapped.machineName || localRec.machineName || '',
+                keterangan: mapped.keterangan || localRec.keterangan || localRec.reasonDefect || '',
+                reasonDefect: mapped.reasonDefect || localRec.reasonDefect || localRec.keterangan || '',
+                id: localRec.id
+              });
+            } else {
+              toAdd.push(mapped);
+            }
+          }
+
+          let staleLocalRolls = [];
+          if (fetchCompleted) {
+            const nowMs = Date.now();
+            staleLocalRolls = existingLocal.filter(r => {
+              if (!r.uuid) return false;
+              if (deletedRollSet.has(r.uuid) && !cloudUuids.has(r.uuid)) return true;
+              if (!cloudUuids.has(r.uuid)) {
+                if (r.synced === 0 && r.createdAt) {
+                  const ageMs = nowMs - new Date(r.createdAt).getTime();
+                  if (!isNaN(ageMs) && ageMs < 60000) return false;
+                }
+                return r.synced === 1;
+              }
+              return false;
+            });
+          }
+
+          const CHUNK_DEXIE = 2500;
+          for (let i = 0; i < toUpdate.length; i += CHUNK_DEXIE) {
+            await db.data_rolls.bulkPut(toUpdate.slice(i, i + CHUNK_DEXIE));
+          }
+          for (let i = 0; i < toAdd.length; i += CHUNK_DEXIE) {
+            await db.data_rolls.bulkAdd(toAdd.slice(i, i + CHUNK_DEXIE));
+          }
+          if (staleLocalRolls.length > 0) {
+            console.log(`[SyncPull] Menghapus ${staleLocalRolls.length} roll di lokal yang telah dihapus di cloud`);
+            const staleUuids = staleLocalRolls.map(s => s.uuid).filter(Boolean);
+            recordTombstones('data_rolls', staleUuids);
+            await db.data_rolls.bulkDelete(staleLocalRolls.map(s => s.id));
+          }
         }
       })());
     }
@@ -1541,14 +1734,26 @@ export async function pullFromSupabase() {
     if (db.wip_rolls) {
       pullTasks.push((async () => {
         try {
-          const { data: cloudWips, error } = await supabase.from('wip_rolls').select('*').limit(5000);
+          let q = supabase.from('wip_rolls').select('*').limit(5000);
+          if (isDelta) {
+            q = q.gt('updated_at', lastSyncIso);
+          }
+          const { data: cloudWips, error } = await q;
           if (!error && cloudWips && cloudWips.length > 0) {
-            const existingWips = await db.wip_rolls.toArray();
+            const uuids = cloudWips.map(w => w.uuid).filter(Boolean);
+            const existingWips = isDelta
+              ? await db.wip_rolls.where('uuid').anyOf(uuids).toArray()
+              : await db.wip_rolls.toArray();
             const localMap = new Map(existingWips.map(w => [w.uuid, w.id]));
             const toUpdate = [];
             const toAdd = [];
 
             for (const cw of cloudWips) {
+              if (cw.is_deleted) {
+                const localId = localMap.get(cw.uuid);
+                if (localId) await db.wip_rolls.delete(localId);
+                continue;
+              }
               const mapped = mapWipRollFromSupabase(cw);
               const localId = localMap.get(cw.uuid);
               if (localId) {
@@ -1571,9 +1776,16 @@ export async function pullFromSupabase() {
     if (db.data_roll_uploads) {
       pullTasks.push((async () => {
         try {
-          const { data: cloudUploads, error } = await supabase.from('data_roll_uploads').select('*').limit(2000);
+          let q = supabase.from('data_roll_uploads').select('*').limit(2000);
+          if (isDelta) {
+            q = q.gt('updated_at', lastSyncIso);
+          }
+          const { data: cloudUploads, error } = await q;
           if (!error && cloudUploads && cloudUploads.length > 0) {
-            const existingBatches = await db.data_roll_uploads.toArray();
+            const uuids = cloudUploads.map(u => u.uuid).filter(Boolean);
+            const existingBatches = isDelta
+              ? await db.data_roll_uploads.where('uuid').anyOf(uuids).toArray()
+              : await db.data_roll_uploads.toArray();
             const localMap = new Map(existingBatches.map(b => [b.uuid, b.id]));
             for (const cu of cloudUploads) {
               const mapped = {
@@ -1611,6 +1823,14 @@ export async function pullFromSupabase() {
     // Jalankan seluruh pull secara PARALEL
     await Promise.all(pullTasks);
 
+    // Sukses: simpan ISO timestamp untuk delta sync berikutnya HANYA jika tidak ada error pada halaman penarikan
+    if (!syncHasErrors || forceFull) {
+      localStorage.setItem('mlabel_last_sync_iso', syncStartTime);
+      syncState.lastSyncIso = syncStartTime;
+    } else {
+      console.warn('[SyncPull] Beberapa halaman gagal ditarik, cursor delta sync TIDAK dimajukan agar data yang tertinggal dapat ditarik kembali.');
+    }
+
     // Kirim notifikasi event ke store (agar Pinia langsung refresh tanpa perlu reload browser)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sync:config-updated'));
@@ -1645,12 +1865,19 @@ export async function countUnsynced() {
 }
 
 // 4. Full Bidirectional Sync
-export async function syncAll() {
+export async function syncAll(forceFull = false) {
   if (syncState.isSyncing) return;
   // PULL FIRST! Selalu unduh dan rekonsiliasi data/hapus dari cloud sebelum mencoba push
-  await pullFromSupabase();
+  await pullFromSupabase(forceFull);
   await pushLocalToSupabase();
   await countUnsynced();
+}
+
+// 4b. Force Full Sync Reconciliation (Menghapus cursor delta dan menarik ulang 100% data dari cloud)
+export async function forceFullSync() {
+  localStorage.removeItem('mlabel_last_sync_iso');
+  syncState.lastSyncIso = null;
+  return syncAll(true);
 }
 
 // 5. Broadcast helper antar device (misal ketika Hapus Semua Data Roll ditekan)
@@ -1675,7 +1902,7 @@ let debounceConfigPullTimer = null;
 function debouncedPull(callback, table) {
   if (debounceConfigPullTimer) clearTimeout(debounceConfigPullTimer);
   debounceConfigPullTimer = setTimeout(async () => {
-    await pullFromSupabase();
+    await pullFromSupabase(false);
     if (callback) callback(table);
   }, 1000);
 }
@@ -1690,7 +1917,17 @@ export function startRealtimeSync(onDataChangeCallback) {
         const item = mapLabelFromSupabase(payload.new);
         const existing = await db.labels.where('uniqId').equals(item.uniqId).first();
         if (existing) {
-          await db.labels.update(existing.id, item);
+          // Non-destructive merge: pertahankan mesin dan keterangan lokal jika data cloud kosong
+          const merged = {
+            ...existing,
+            ...item,
+            mesin: item.mesin || existing.mesin || '',
+            keterangan: item.keterangan || existing.keterangan || '',
+            shift: item.shift || existing.shift || '',
+            diameterCore: item.diameterCore || existing.diameterCore || 6,
+            id: existing.id
+          };
+          await db.labels.update(existing.id, merged);
         } else {
           await db.labels.add(item);
         }
@@ -1748,7 +1985,16 @@ export function startRealtimeSync(onDataChangeCallback) {
         if (!deletedRollSet.has(item.uuid)) {
           const existing = await db.data_rolls.where('uuid').equals(item.uuid).first();
           if (existing) {
-            await db.data_rolls.update(existing.id, item);
+            // Non-destructive merge untuk data_rolls
+            const merged = {
+              ...existing,
+              ...item,
+              machineName: item.machineName || existing.machineName || '',
+              keterangan: item.keterangan || existing.keterangan || existing.reasonDefect || '',
+              reasonDefect: item.reasonDefect || existing.reasonDefect || existing.keterangan || '',
+              id: existing.id
+            };
+            await db.data_rolls.update(existing.id, merged);
           } else {
             await db.data_rolls.add(item);
           }

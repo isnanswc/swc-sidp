@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx';
-
 /**
  * Robust date parser for Indonesian text dates, Excel serials, ISO dates, and DMY
  */
@@ -1006,6 +1004,7 @@ export async function parseExcelFileDataRoll(file, onProgress = null) {
       try {
         if (onProgress) onProgress({ phase: 'reading', percent: 10, message: 'Membaca buffer file Excel...' });
         
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true, dense: true });
         const sheetNames = workbook.SheetNames || [];

@@ -1920,8 +1920,6 @@ import { useDataRollStore } from '@/stores/dataRollStore';
 import { useConfigStore } from '@/stores/configStore';
 import { db, generateUniqID } from '@/db';
 import { parseDateToIso, parseDataRollRow } from '@/services/dataRollParserService';
-import * as XLSX from 'xlsx';
-import ExcelJS from 'exceljs';
 
 const labelStore = useLabelStore();
 const dataRollStore = useDataRollStore();
@@ -4948,8 +4946,9 @@ const handleFileUpload = (e) => {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = (event) => {
+  reader.onload = async (event) => {
     try {
+      const XLSX = await import('xlsx');
       const data = new Uint8Array(event.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
@@ -5035,7 +5034,8 @@ const commitImportedRows = async () => {
 };
 
 // DOWNLOAD TEMPLATE EXCEL (SLITTING VS REWIND)
-const downloadSlittingTemplate = () => {
+const downloadSlittingTemplate = async () => {
+  const XLSX = await import('xlsx');
   if (isRewindSession.value) {
     const rewindHeaders = [
       [
@@ -5134,6 +5134,7 @@ const exportVerificationExcel = async () => {
   const isRewind = isRewindSession.value;
   const currentCols = columns.value;
 
+  const { default: ExcelJS } = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'M-Label PT Saptawarna Cemerlang';
   workbook.created = new Date();
@@ -5376,6 +5377,7 @@ const exportRewindExcel = async (rolls, customFileName) => {
     }
   }
 
+  const { default: ExcelJS } = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'M-Label PT Saptawarna Cemerlang';
   workbook.created = new Date();
@@ -5496,6 +5498,7 @@ const exportVerifiedExcel = async () => {
   }
 
   const items = filteredVerifiedList.value;
+  const { default: ExcelJS } = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'M-Label PT Saptawarna Cemerlang';
   workbook.created = new Date();

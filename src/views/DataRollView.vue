@@ -97,6 +97,21 @@
         </div>
       </div>
 
+      <!-- Windowed Loading Notice Banner -->
+      <div v-if="dataRollStore.isWindowed" class="bg-indigo-50 border border-indigo-200 rounded-xl px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-indigo-900 shadow-2xs animate-fade-in">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">⚡</span>
+          <span>Menampilkan <strong>{{ dataRollStore.rolls.length.toLocaleString('id-ID') }}</strong> data terbaru dari total <strong>{{ (dataRollStore.totalDbRolls || 0).toLocaleString('id-ID') }}</strong> roll di database lokal.</span>
+        </div>
+        <button
+          @click="dataRollStore.loadAllRolls()"
+          class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[11px] transition-all cursor-pointer shrink-0 shadow-xs"
+          title="Muat seluruh data riwayat arsip ke memori"
+        >
+          Muat Seluruh Arsip
+        </button>
+      </div>
+
       <!-- Toolbar & Action Buttons -->
       <div class="bg-white p-3 rounded-2xl border border-zinc-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
         <!-- Search Input -->

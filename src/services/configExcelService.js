@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import { db } from '@/db';
 import { getDefaultFilmAlias } from '@/stores/configStore';
 
@@ -173,7 +172,7 @@ function calculateAutoFitCols(exportRows, colsDef) {
 /**
  * Buat Sheet Object dari Data Config dengan Format Tabel Excel AutoFilter
  */
-function createConfigWorksheet(dataList, def) {
+function createConfigWorksheet(dataList, def, XLSX) {
   const exportRows = (dataList || []).map((row, idx) => {
     const obj = { '#': idx + 1 };
     def.columns.forEach(col => {
@@ -204,13 +203,14 @@ function createConfigWorksheet(dataList, def) {
 /**
  * 1. EXPORT SELURUH MASTER DATA KE 1 WORKBOOK DENGAN SHEET TERPISAH
  */
-export function exportAllConfigsToExcel(configStore) {
+export async function exportAllConfigsToExcel(configStore) {
+  const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
   const dateStr = new Date().toISOString().slice(0, 10);
 
   Object.values(CONFIG_SHEET_DEFS).forEach(def => {
     const rawData = configStore[def.stateKey] || [];
-    const ws = createConfigWorksheet(rawData, def);
+    const ws = createConfigWorksheet(rawData, def, XLSX);
     XLSX.utils.book_append_sheet(wb, ws, def.sheetName);
   });
 
@@ -221,21 +221,24 @@ export function exportAllConfigsToExcel(configStore) {
 /**
  * 2. EXPORT SINGLE TAB DATA CONFIGURATION
  */
-export function exportSingleConfigToExcel(configStore, tabId) {
+export async function exportSingleConfigToExcel(configStore, tabId) {
+  const XLSX = await import('xlsx');
   const def = CONFIG_SHEET_DEFS[tabId] || CONFIG_SHEET_DEFS.film;
   const wb = XLSX.utils.book_new();
   const dateStr = new Date().toISOString().slice(0, 10);
 
   const rawData = configStore[def.stateKey] || [];
-  const ws = createConfigWorksheet(rawData, def);
+  const ws = createConfigWorksheet(rawData, def, XLSX);
   XLSX.utils.book_append_sheet(wb, ws, def.sheetName);
-
+  const fileName = `Data_Configuration_${def.sheetName}_${dateStr}.xlsx`;
+  XLSX.writeFile(wb, fileName);
 }
 
 /**
  * 3. DOWNLOAD TEMPLATE EXCEL KOSONG SIAP ISI (DENGAN 1 BARIS CONTOH FORMAT)
  */
-export function downloadConfigExcelTemplate(specificSheetKey = null) {
+export async function downloadConfigExcelTemplate(specificSheetKey = null) {
+  const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
 
   const sampleRows = {
@@ -332,7 +335,7 @@ export function downloadConfigExcelTemplate(specificSheetKey = null) {
 
   targetDefs.forEach(def => {
     const sample = sampleRows[def.id] || [];
-    const ws = createConfigWorksheet(sample, def);
+    const ws = createConfigWorksheet(sample, def, XLSX);
     XLSX.utils.book_append_sheet(wb, ws, def.sheetName);
   });
 
@@ -348,6 +351,7 @@ export function downloadConfigExcelTemplate(specificSheetKey = null) {
  * Mengembalikan ringkasan sheet dan baris yang ditemukan
  */
 export async function parseImportConfigFile(file) {
+  const XLSX = await import('xlsx');
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {

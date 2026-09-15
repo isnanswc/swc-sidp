@@ -941,283 +941,22 @@
     <!-- ========================================================================= -->
     <!-- 6. MODAL KECIL INFORMASI SPK (PLANNING VS REALISASI)                      -->
     <!-- ========================================================================= -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-150 ease-out"
-        enter-from-class="opacity-0 scale-95"
-        enter-to-class="opacity-100 scale-100"
-        leave-active-class="transition duration-100 ease-in"
-        leave-from-class="opacity-100 scale-100"
-        leave-to-class="opacity-0 scale-95"
-      >
-        <div
-          v-if="showSpkModal && selectedSpkModal"
-          class="fixed inset-0 z-[110] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none font-sans"
-          @click.self="showSpkModal = false"
-        >
-          <div class="bg-white border border-zinc-200 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            
-            <!-- Modal Header -->
-            <div class="p-4 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 text-white flex items-center justify-between">
-              <div>
-                <div class="flex items-center gap-2">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase font-mono bg-red-600 text-white">
-                    DETAIL SPK
-                  </span>
-                  <h3 class="text-sm sm:text-base font-black font-mono tracking-tight">{{ selectedSpkModal.spkNo }}</h3>
-                </div>
-                <p class="text-[11px] text-zinc-400 mt-0.5 font-mono">
-                  Formula: {{ selectedSpkModal.formula }} ({{ selectedSpkModal.thickness }}μ) • Dokumen: {{ selectedSpkModal.docNo || '3B-PROD' }}
-                </p>
-              </div>
-
-              <button
-                @click="showSpkModal = false"
-                class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <!-- Modal Body: 2 Columns (Planning vs Realisasi) -->
-            <div class="p-4 space-y-3">
-              
-              <!-- Status Target & Waktu Pengerjaan -->
-              <div
-                v-if="selectedSpkModal.targetStatus"
-                class="p-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono font-bold"
-                :class="[selectedSpkModal.targetStatus.badgeClass, selectedSpkModal.targetStatus.borderClass]"
-              >
-                <div class="flex items-center gap-1.5">
-                  <span class="text-base">{{ selectedSpkModal.targetStatus.icon }}</span>
-                  <span>Status: {{ selectedSpkModal.targetStatus.label }}</span>
-                </div>
-                <div class="text-[11px] font-normal flex items-center gap-3">
-                  <span>🕒 Mulai: <strong class="font-bold">{{ selectedSpkModal.startTimeFormatted || '-' }}</strong></span>
-                  <span>🏁 Selesai: <strong class="font-bold">{{ selectedSpkModal.endTimeFormatted || '-' }}</strong></span>
-                </div>
-              </div>
-
-              <!-- Status & Achievement Bar -->
-              <div class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200/80">
-                <div class="flex items-center justify-between text-xs font-mono mb-1.5">
-                  <span class="font-bold text-zinc-600">Pencapaian SPK:</span>
-                  <span :class="[
-                    'font-black px-2 py-0.5 rounded text-[10.5px]',
-                    selectedSpkModal.status === 'DONE' ? 'bg-emerald-100 text-emerald-800' :
-                    selectedSpkModal.status === 'RUNNING' ? 'bg-blue-100 text-blue-800' : 'bg-zinc-200 text-zinc-700'
-                  ]">
-                    {{ selectedSpkModal.percent }}% ({{ selectedSpkModal.status }})
-                  </span>
-                </div>
-                <div class="w-full bg-zinc-200 h-2 rounded-full overflow-hidden">
-                  <div
-                    :class="[
-                      'h-full rounded-full transition-all duration-500',
-                      selectedSpkModal.status === 'DONE' ? 'bg-emerald-500' : 'bg-blue-600'
-                    ]"
-                    :style="{ width: `${selectedSpkModal.percent}%` }"
-                  ></div>
-                </div>
-              </div>
-
-              <!-- 2 Cards Grid -->
-              <div class="grid grid-cols-2 gap-3 text-xs font-mono">
-                
-                <!-- Kiri: PLANNING -->
-                <div class="p-3 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2">
-                  <div class="font-black text-amber-900 border-b border-amber-200/70 pb-1 flex items-center justify-between">
-                    <span>📋 PLANNING</span>
-                    <span class="text-[10px] text-amber-700">TARGET</span>
-                  </div>
-                  <div class="space-y-1 text-zinc-700 text-[11px]">
-                    <div class="flex justify-between">
-                      <span class="text-zinc-500">Target Roll:</span>
-                      <strong class="text-zinc-900">{{ formatNum(selectedSpkModal.planRoll) }} Roll</strong>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-zinc-500">Target Meter:</span>
-                      <strong class="text-zinc-900">{{ formatNum(selectedSpkModal.planMeter) }} m</strong>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-zinc-500">Jumbo Roll:</span>
-                      <strong class="text-zinc-900">{{ selectedSpkModal.planJumbo }} JR</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Kanan: REALISASI -->
-                <div class="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
-                  <div class="font-black text-emerald-900 border-b border-emerald-200/70 pb-1 flex items-center justify-between">
-                    <span>⚡ REALISASI</span>
-                    <span class="text-[10px] text-emerald-700">AKTUAL</span>
-                  </div>
-                  <div class="space-y-1 text-zinc-700 text-[11px]">
-                    <div class="flex justify-between">
-                      <span class="text-zinc-500">Roll Jadi:</span>
-                      <strong class="text-emerald-800 font-black">{{ formatNum(selectedSpkModal.actualRoll) }} Roll</strong>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-zinc-500">Meter Aktual:</span>
-                      <strong class="text-zinc-900">{{ formatNum(selectedSpkModal.actualMeter) }} m</strong>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-zinc-500">Berat Aktual:</span>
-                      <strong class="text-zinc-900">{{ formatNum(selectedSpkModal.actualKg) }} kg</strong>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              <!-- QC Mutu Rincian -->
-              <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between text-[11px] font-mono">
-                <span class="text-zinc-500 font-bold">Kualitas Hasil (QC):</span>
-                <div class="flex items-center gap-2 font-bold">
-                  <span class="text-emerald-700">{{ selectedSpkModal.passCount }} Pass</span>
-                  <span>•</span>
-                  <span class="text-amber-700">{{ selectedSpkModal.holdCount }} Hold</span>
-                  <span>•</span>
-                  <span class="text-red-700">{{ selectedSpkModal.rejectCount }} Rej</span>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- Modal Footer -->
-            <div class="p-3 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between">
-              <router-link
-                to="/spk"
-                class="text-xs font-mono font-bold text-red-600 hover:text-red-700 flex items-center gap-1"
-              >
-                <span>Buka di Menu SPK ➔</span>
-              </router-link>
-              <button
-                @click="showSpkModal = false"
-                class="px-4 py-1.5 rounded-xl bg-zinc-950 hover:bg-black text-white font-mono font-bold text-xs cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
-
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <DashboardSpkModal
+      v-model="showSpkModal"
+      :spk="selectedSpkModal"
+      :format-num="formatNum"
+    />
 
     <!-- ========================================================================= -->
     <!-- 7. MODAL INTERAKTIF: DRILL-DOWN RINCIAN STOK DESKRIPSI NAV               -->
     <!-- ========================================================================= -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="showStockModal"
-          class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 select-none font-sans"
-          @click.self="showStockModal = false"
-        >
-          <div class="bg-white border border-zinc-200 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            
-            <!-- Modal Header -->
-            <div class="p-4 sm:p-5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/70">
-              <div>
-                <div class="flex items-center gap-2">
-                  <span class="px-2 py-0.5 rounded-lg bg-red-600 text-white font-mono font-black text-xs">
-                    {{ selectedStockCategory?.key || 'DETAIL STOK' }}
-                  </span>
-                  <h2 class="text-base sm:text-lg font-black text-zinc-950">
-                    DETAIL STOK IMS BERDASARKAN DESKRIPSI NAV
-                  </h2>
-                </div>
-                <p class="text-xs text-zinc-500 font-medium mt-0.5">
-                  Dikelompokkan otomatis berdasarkan spesifikasi resmi Deskripsi NAV dari sesi aktif menu Stok Gudang (IMS).
-                </p>
-              </div>
-
-              <button
-                @click="showStockModal = false"
-                class="w-8 h-8 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-700 flex items-center justify-center font-black transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <!-- Modal Search Bar -->
-            <div class="p-3.5 border-b border-zinc-100 bg-white flex items-center justify-between gap-3">
-              <div class="relative flex-1">
-                <span class="absolute left-3 top-2.5 text-zinc-400 text-xs">🔍</span>
-                <input
-                  v-model="modalSearchQuery"
-                  type="text"
-                  placeholder="Cari deskripsi NAV, formula, source no, rak penyimpanan..."
-                  class="w-full pl-8 pr-4 py-1.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs font-mono focus:outline-none focus:border-red-500"
-                />
-              </div>
-            </div>
-
-            <!-- Modal Table -->
-            <div class="p-4 overflow-y-auto max-h-[58vh] space-y-3">
-              <div
-                v-for="group in groupedNavItems"
-                :key="group.descNav"
-                class="border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-2xs"
-              >
-                <div class="p-2.5 bg-zinc-50 border-b border-zinc-200/80 flex items-center justify-between">
-                  <span class="font-black text-xs font-mono text-zinc-900">{{ group.descNav }}</span>
-                  <span class="font-bold text-xs font-mono text-emerald-800">{{ formatNum(group.totalRolls) }} Roll • {{ formatNum(group.totalKg) }} kg</span>
-                </div>
-                <table class="w-full text-left text-[11px] font-mono">
-                  <thead class="bg-zinc-100/50 text-[9.5px] text-zinc-500 uppercase">
-                    <tr>
-                      <th class="p-2">Tipe</th>
-                      <th class="p-2">Source / Roll No</th>
-                      <th class="p-2">Dimensi</th>
-                      <th class="p-2 text-right">Kuantitas Roll</th>
-                      <th class="p-2 text-right">Panjang (m)</th>
-                      <th class="p-2 text-right">Berat (kg)</th>
-                      <th class="p-2">Lokasi Rak</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-zinc-100">
-                    <tr v-for="it in group.items" :key="it.id" class="hover:bg-zinc-50">
-                      <td class="p-2">
-                        <span :class="['px-1.5 py-0.2 rounded text-[9px] font-bold', it.stockType === 'FG' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800']">
-                          {{ it.stockType === 'FG' ? 'FG IMS' : 'JUMBO WIP' }}
-                        </span>
-                      </td>
-                      <td class="p-2 font-bold text-zinc-900">{{ it.sourceNo }}</td>
-                      <td class="p-2">{{ it.thick }}μ × {{ it.width }} mm</td>
-                      <td class="p-2 text-right font-black">{{ formatNum(it.totalRoll) }}</td>
-                      <td class="p-2 text-right">{{ formatNum(it.totalPanjang) }}</td>
-                      <td class="p-2 text-right font-bold text-red-600">{{ formatNum(it.totalKg) }}</td>
-                      <td class="p-2">{{ it.listRak || '-' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Modal Footer -->
-            <div class="p-3.5 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between">
-              <span class="text-[11px] text-zinc-400 font-mono">PT. Saptawarna Cemerlang — Inventory Control</span>
-              <button
-                @click="showStockModal = false"
-                class="px-4 py-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white font-mono font-bold text-xs cursor-pointer"
-              >
-                Tutup Jendela
-              </button>
-            </div>
-
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <DashboardStockDrilldownModal
+      v-model="showStockModal"
+      v-model:search-query="modalSearchQuery"
+      :selected-stock-category="selectedStockCategory"
+      :grouped-nav-items="groupedNavItems"
+      :format-num="formatNum"
+    />
 
   </div>
 </template>
@@ -1233,7 +972,8 @@ import { useSpkStore, evaluateTargetStatus } from '@/stores/spkStore';
 import { useWipStore } from '@/stores/wipStore';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
-import Chart from 'chart.js/auto';
+import DashboardSpkModal from '@/components/dashboard/DashboardSpkModal.vue';
+import DashboardStockDrilldownModal from '@/components/dashboard/DashboardStockDrilldownModal.vue';
 
 const authStore = useAuthStore();
 const labelStore = useLabelStore();
@@ -2234,10 +1974,11 @@ const generateLineChartData = () => {
   return { labels, totalData, passData, holdData, rejectData };
 };
 
-const initLineChart = () => {
+const initLineChart = async () => {
   if (!lineComparisonChartCanvas.value) return;
   if (lineComparisonChartInstance) lineComparisonChartInstance.destroy();
 
+  const { default: Chart } = await import('chart.js/auto');
   const { labels, totalData, passData, holdData, rejectData } = generateLineChartData();
 
   lineComparisonChartInstance = new Chart(lineComparisonChartCanvas.value, {

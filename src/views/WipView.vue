@@ -2179,7 +2179,6 @@ import {
   RACK_TOTAL_MAX_SPAN_M
 } from '@/services/wipParserService';
 import { formatLotVisual, formatInhouseLotInput } from '@/services/aiAutomationService';
-import * as XLSX from 'xlsx';
 
 const wipStore = useWipStore();
 const configStore = useConfigStore();
@@ -3342,7 +3341,7 @@ const handleDeleteRoll = async (roll) => {
 
 // ── EXPORT EXCEL ──
 
-const exportBatchToExcel = (batch) => {
+const exportBatchToExcel = async (batch) => {
   if (!batch) return;
   const bId = batch.uuid || batch.id;
   const rolls = wipStore.wipRolls.filter(r => r.updateId === bId || String(r.updateId) === String(batch.id));
@@ -3352,6 +3351,7 @@ const exportBatchToExcel = (batch) => {
     return;
   }
 
+  const XLSX = await import('xlsx');
   const exportData = rolls.map((r, i) => ({
     No: i + 1,
     'No SPK': r.spk || '',

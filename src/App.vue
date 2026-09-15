@@ -109,7 +109,7 @@ onMounted(() => {
 
   authStore.resetIdleTimer();
 
-  // Active polling watch: periksa pencabutan sesi setiap 4 detik untuk keamanan instan
+  // Background polling watch: periksa pencabutan sesi setiap 30 detik (juga dicek otomatis saat tab aktif kembali)
   sessionRevokeWatchTimer = setInterval(async () => {
     if (authStore.isAuthenticated && route.name !== 'Login') {
       const isRevoked = await checkIsCurrentSessionRevoked();
@@ -117,7 +117,7 @@ onMounted(() => {
         await authStore.forceRemoteLogout('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
       }
     }
-  }, 4000);
+  }, 30000);
 });
 
 onUnmounted(() => {

@@ -1,10 +1,101 @@
 import { defineStore } from 'pinia';
+import { markRaw } from 'vue';
 import { db, generateUniqID, getSetting, saveSetting } from '@/db';
-import * as XLSX from 'xlsx';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
 import { useGlobalLoading } from '@/services/loadingService';
 import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones } from '@/services/syncService';
+
+export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
+  const lot = String(item.lot || '').toUpperCase();
+  const parts = lot.split('/');
+  const baseLot = parts.length >= 3 ? parts.slice(0, -1).join('/') : lot;
+
+  let t = String(item.turunan || '').toUpperCase();
+  if (!t && parts.length >= 2) {
+    t = parts[parts.length - 1].toUpperCase();
+  }
+  const match = t.match(/^([A-Za-z]+)(\d+)(.*)$/);
+  const turunanNum = match ? parseInt(match[2], 10) : 999999;
+  const turunanPrefix = match ? match[1] : t;
+  const turunanExtra = match ? match[3] || '' : '';
+
+  const dateStr = String(item.tanggalFormatted || item.tanggal || '');
+  const mesin = String(item.mesin || item.machineName || defaultMesin).toUpperCase();
+  const spkStr = String(item.spk || '').toUpperCase();
+  const packPrefix = String(item.kodePack || '').toUpperCase();
+  const rawSub = String(item.subKode || '').trim();
+  const subNum = parseInt(rawSub, 10);
+  const validSubNum = (!isNaN(subNum) && subNum > 0) ? subNum : 999999;
+  const packKey = `${item.kodePack || ''}${item.subKode || ''}`.toUpperCase();
+
+  return {
+    _dateStr: dateStr,
+    _mesin: mesin,
+    _spk: spkStr,
+    _baseLot: baseLot,
+    _turunanNum: turunanNum,
+    _turunanPrefix: turunanPrefix,
+    _turunanExtra: turunanExtra,
+    _packPrefix: packPrefix,
+    _subNum: validSubNum,
+    _packKey: packKey
+  };
+}
+
+export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
+  // 1. Tanggal Produksi (Date)
+  const dateA = a._dateStr !== undefined ? a._dateStr : String(a.tanggalFormatted || a.tanggal || '');
+  const dateB = b._dateStr !== undefined ? b._dateStr : String(b.tanggalFormatted || b.tanggal || '');
+  const dateComp = sortOrder === 'desc' ? dateB.localeCompare(dateA) : dateA.localeCompare(dateB);
+  if (dateComp !== 0) return dateComp;
+
+  // 2. Mesin (Machine)
+  const machA = a._mesin !== undefined ? a._mesin : String(a.mesin || a.machineName || 'SLITTING').toUpperCase();
+  const machB = b._mesin !== undefined ? b._mesin : String(b.mesin || b.machineName || 'SLITTING').toUpperCase();
+  const machComp = machA.localeCompare(machB);
+  if (machComp !== 0) return machComp;
+
+  // 3. No. SPK (Surat Perintah Kerja)
+  const spkA = a._spk !== undefined ? a._spk : String(a.spk || '').toUpperCase();
+  const spkB = b._spk !== undefined ? b._spk : String(b.spk || '').toUpperCase();
+  const spkComp = spkA.localeCompare(spkB, undefined, { numeric: true, sensitivity: 'base' });
+  if (spkComp !== 0) return spkComp;
+
+  // 4. Nomor Urut Turunan (Set Potong: Tarikan 01, 02, 03... menjaga roll HOLD/REJECT 0000 di posisinya)
+  const tNumA = a._turunanNum !== undefined ? a._turunanNum : 999999;
+  const tNumB = b._turunanNum !== undefined ? b._turunanNum : 999999;
+  if (tNumA !== tNumB) return tNumA - tNumB;
+
+  // 5. Posisi Arm / Chartingan (Arm A vs Arm C, Operator Prefix)
+  const tPrefA = a._turunanPrefix !== undefined ? a._turunanPrefix : '';
+  const tPrefB = b._turunanPrefix !== undefined ? b._turunanPrefix : '';
+  if (tPrefA !== tPrefB) return tPrefA.localeCompare(tPrefB);
+
+  const tExtA = a._turunanExtra !== undefined ? a._turunanExtra : '';
+  const tExtB = b._turunanExtra !== undefined ? b._turunanExtra : '';
+  if (tExtA !== tExtB) return tExtA.localeCompare(tExtB);
+
+  // 6. Base Lot (Kelompok Lot Induk jika nomor turunan sama)
+  const baseLotA = a._baseLot !== undefined ? a._baseLot : String(a.lot || '').toUpperCase();
+  const baseLotB = b._baseLot !== undefined ? b._baseLot : String(b.lot || '').toUpperCase();
+  const lotComp = baseLotA.localeCompare(baseLotB, undefined, { numeric: true, sensitivity: 'base' });
+  if (lotComp !== 0) return lotComp;
+
+  // 7. Sub Kode Resmi Numerik (>0) berurutan (PASS didahulukan sebelum HOLD/REJECT 0000 jika turunan sama)
+  const subA = a._subNum !== undefined ? a._subNum : 999999;
+  const subB = b._subNum !== undefined ? b._subNum : 999999;
+  if (subA !== subB) return subA - subB;
+
+  // 8. Kode Pack string fallback
+  const packA = a._packKey !== undefined ? a._packKey : `${a.kodePack || ''}${a.subKode || ''}`;
+  const packB = b._packKey !== undefined ? b._packKey : `${b.kodePack || ''}${b.subKode || ''}`;
+  const packComp = packA.localeCompare(packB, undefined, { numeric: true, sensitivity: 'base' });
+  if (packComp !== 0) return packComp;
+
+  // 9. Timeline Fisik Asli (Waktu Input / ID Record)
+  return (Number(a.id) || 0) - (Number(b.id) || 0);
+}
 
 export const useLabelStore = defineStore('labelStore', {
   state: () => ({
@@ -17,11 +108,15 @@ export const useLabelStore = defineStore('labelStore', {
     sortOrder: 'asc',
     currentPage: 1,
     rowsPerPage: 25,
-    selectedIds: new Set()
+    selectedIds: new Set(),
+    totalDbCount: 0,
+    isWindowed: false,
+    windowLimit: 20000
   }),
 
   getters: {
     totalCount: (state) => state.labels.length,
+    totalDbLabels: (state) => state.totalDbCount || state.labels.length,
 
     duplicateKodePacks: (state) => {
       const counts = {};
@@ -91,70 +186,10 @@ export const useLabelStore = defineStore('labelStore', {
         return matchesSearch && matchesMesin && matchesStatus;
       });
 
-      // Natural Hierarchical Slitting Comparator
-      const compareHierarki = (a, b) => {
-        // 1. Tanggal (Date)
-        const dateA = String(a.tanggalFormatted || a.tanggal || '');
-        const dateB = String(b.tanggalFormatted || b.tanggal || '');
-        const dateComp = state.sortOrder === 'desc' ? dateB.localeCompare(dateA) : dateA.localeCompare(dateB);
-        if (dateComp !== 0) return dateComp;
-
-        // 2. Mesin (Machine)
-        const machA = String(a.mesin || a.machineName || 'SLITTING').toUpperCase();
-        const machB = String(b.mesin || b.machineName || 'SLITTING').toUpperCase();
-        const machComp = machA.localeCompare(machB);
-        if (machComp !== 0) return machComp;
-
-        // 3. Base Lot (Slitting & Induk, misal M07210726A210/D108 vs M07270726B205/F104)
-        const getBaseLot = (item) => {
-          const full = String(item.lot || '').toUpperCase();
-          const parts = full.split('/');
-          if (parts.length >= 3) {
-            return parts.slice(0, -1).join('/');
-          }
-          return full;
-        };
-        const baseLotA = getBaseLot(a);
-        const baseLotB = getBaseLot(b);
-        const lotComp = baseLotA.localeCompare(baseLotB, undefined, { numeric: true, sensitivity: 'base' });
-        if (lotComp !== 0) return lotComp;
-
-        // 4. Turunan (Set Potong & Arm: HA01 -> HC01 -> HA02 -> HC02...)
-        const getTurunanKey = (item) => {
-          let t = String(item.turunan || '').toUpperCase();
-          if (!t && item.lot) {
-            const parts = String(item.lot).split('/');
-            if (parts.length >= 2) t = parts[parts.length - 1].toUpperCase();
-          }
-          const match = t.match(/^([A-Za-z]+)(\d+)(.*)$/);
-          if (match) {
-            const prefix = match[1];
-            const num = parseInt(match[2], 10);
-            const extra = match[3] || '';
-            return { num, prefix, extra, raw: t };
-          }
-          return { num: 999999, prefix: t, extra: '', raw: t };
-        };
-
-        const tA = getTurunanKey(a);
-        const tB = getTurunanKey(b);
-
-        if (tA.num !== tB.num) return tA.num - tB.num;
-        if (tA.prefix !== tB.prefix) return tA.prefix.localeCompare(tB.prefix);
-        if (tA.extra !== tB.extra) return tA.extra.localeCompare(tB.extra);
-
-        // 5. Kode Pack / Codepack
-        const packA = `${a.kodePack || ''}${a.subKode || ''}`;
-        const packB = `${b.kodePack || ''}${b.subKode || ''}`;
-        const packComp = packA.localeCompare(packB, undefined, { numeric: true, sensitivity: 'base' });
-        if (packComp !== 0) return packComp;
-
-        return (Number(a.id) || 0) - (Number(b.id) || 0);
-      };
-
+      // Ultra-fast Hierarchical Slitting Comparator (O(1) comparisons using precomputed keys)
       return [...filtered].sort((a, b) => {
         if (state.sortBy === 'hierarki') {
-          return compareHierarki(a, b);
+          return compareHierarkiLabel(a, b, state.sortOrder);
         }
 
         let cmp = 0;
@@ -257,15 +292,30 @@ export const useLabelStore = defineStore('labelStore', {
   },
 
   actions: {
-    async loadLabels(force = false) {
-      if (!force && this.labels.length > 0 && !this.loading) {
+    async loadLabels(force = false, options = {}) {
+      const opts = typeof options === 'object' && options !== null ? options : {};
+      const loadAll = opts.loadAll === true;
+      const limit = opts.limit || this.windowLimit || 5000;
+
+      if (!force && !loadAll && this.labels.length > 0 && !this.loading) {
         return;
       }
       this.loading = true;
       const { startLoading, stopLoading } = useGlobalLoading();
       startLoading('Memuat data label...');
       try {
-        const raw = await db.labels.orderBy('id').toArray();
+        const totalInDb = await db.labels.count();
+        this.totalDbCount = totalInDb;
+
+        let raw = [];
+        if (!loadAll && totalInDb > limit) {
+          raw = await db.labels.orderBy('id').reverse().limit(limit).toArray();
+          raw.reverse();
+          this.isWindowed = true;
+        } else {
+          raw = await db.labels.orderBy('id').toArray();
+          this.isWindowed = false;
+        }
         
         // Auto-normalize any old field names if present
         const standardLabels = raw.map(item => {
@@ -291,7 +341,7 @@ export const useLabelStore = defineStore('labelStore', {
           delete item.isDataRoll;
           delete item.originalRollId;
 
-          return {
+          const baseObj = {
             ...item,
             isDataRoll: false,
             originalRollId: null,
@@ -317,6 +367,9 @@ export const useLabelStore = defineStore('labelStore', {
             status: item.status === 'OK' ? 'PASS' : (item.status || 'PASS'),
             jenisPrint: item.jenisPrint || 'FINISH GOODS'
           };
+
+          const sortKeys = computeLabelSortKeys(baseObj, baseObj.mesin || 'SLITTING');
+          return markRaw({ ...baseObj, ...sortKeys });
         });
 
         const deletedLabelSet = new Set(getTombstones('labels'));
@@ -328,7 +381,14 @@ export const useLabelStore = defineStore('labelStore', {
         // Load and map all imported Data Rolls (db.data_rolls) so they are available for re-printing
         let mappedDataRolls = [];
         if (db.data_rolls) {
-          const rawDataRolls = await db.data_rolls.toArray();
+          let rawDataRolls = [];
+          const totalRollsInDb = await db.data_rolls.count();
+          if (!loadAll && totalRollsInDb > limit) {
+            rawDataRolls = await db.data_rolls.orderBy('id').reverse().limit(limit).toArray();
+            rawDataRolls.reverse();
+          } else {
+            rawDataRolls = await db.data_rolls.toArray();
+          }
           const existingUuids = new Set(cleanStandardLabels.map(l => l.uniqId || l.uuid));
 
           mappedDataRolls = rawDataRolls
@@ -352,7 +412,7 @@ export const useLabelStore = defineStore('labelStore', {
               const calcCore = parseFloat(width) ? (((0.003077 * parseFloat(width) + 3.01532) * core) / 6).toFixed(2) : '0.00';
               const status = (r.qualityStatus || 'PASS').toUpperCase();
 
-              return {
+              const rollBaseObj = {
                 id: `roll_${r.id || r.uuid}`,
                 originalRollId: r.id,
                 isDataRoll: true,
@@ -392,6 +452,9 @@ export const useLabelStore = defineStore('labelStore', {
                 createdAt: r.createdAt || new Date().toISOString(),
                 updatedAt: r.updatedAt || new Date().toISOString()
               };
+
+              const sortKeys = computeLabelSortKeys(rollBaseObj, rollBaseObj.mesin || 'SLITTING');
+              return markRaw({ ...rollBaseObj, ...sortKeys });
             });
         }
 
@@ -403,6 +466,10 @@ export const useLabelStore = defineStore('labelStore', {
         this.loading = false;
         stopLoading();
       }
+    },
+
+    async loadAllLabels() {
+      return this.loadLabels(true, { loadAll: true });
     },
 
     async clearAllLabels() {
@@ -445,7 +512,9 @@ export const useLabelStore = defineStore('labelStore', {
       };
       const id = await db.labels.add(record);
       record.id = id;
-      this.labels.unshift(record); // Tambahkan ke daftar langsung
+      const sortKeys = computeLabelSortKeys(record, record.mesin || 'SLITTING');
+      this.labels.unshift(markRaw({ ...record, ...sortKeys }));
+      this.totalDbCount++;
       pushLocalToSupabase().catch(() => {});
       return record;
     },
@@ -502,7 +571,9 @@ export const useLabelStore = defineStore('labelStore', {
 
       const idx = this.labels.findIndex(l => l.id === id);
       if (idx !== -1) {
-        this.labels[idx] = { ...this.labels[idx], ...updatedFields, updatedAt: new Date().toISOString() };
+        const merged = { ...this.labels[idx], ...updatedFields, updatedAt: new Date().toISOString() };
+        const sortKeys = computeLabelSortKeys(merged, merged.mesin || 'SLITTING');
+        this.labels[idx] = markRaw({ ...merged, ...sortKeys });
       }
       pushLocalToSupabase().catch(() => {});
     },
@@ -540,6 +611,7 @@ export const useLabelStore = defineStore('labelStore', {
       // 3. Hapus dari state lokal
       this.labels = this.labels.filter(l => l.id !== id);
       this.selectedIds.delete(id);
+      if (this.totalDbCount > 0) this.totalDbCount--;
       if (this.currentPage > this.totalPages) {
         this.currentPage = Math.max(1, this.totalPages);
       }
@@ -588,6 +660,7 @@ export const useLabelStore = defineStore('labelStore', {
       const idSet = new Set(ids);
       this.labels = this.labels.filter(l => !idSet.has(l.id));
       this.selectedIds.clear();
+      this.totalDbCount = Math.max(0, this.totalDbCount - ids.length);
       if (this.currentPage > this.totalPages) {
         this.currentPage = Math.max(1, this.totalPages);
       }
@@ -612,7 +685,9 @@ export const useLabelStore = defineStore('labelStore', {
 
       const newId = await db.labels.add(copy);
       copy.id = newId;
-      this.labels.push(copy);
+      const sortKeys = computeLabelSortKeys(copy, copy.mesin || 'SLITTING');
+      this.labels.push(markRaw({ ...copy, ...sortKeys }));
+      this.totalDbCount++;
       this.currentPage = this.totalPages;
       return copy;
     },
@@ -638,13 +713,15 @@ export const useLabelStore = defineStore('labelStore', {
         }
         const idx = this.labels.findIndex(l => l.id === cleanId || l.id == rawId);
         if (idx !== -1) {
-          this.labels[idx] = {
+          const merged = {
             ...this.labels[idx],
             verified: 1,
             verifiedAt: now,
             verifiedBy,
             updatedAt: now
           };
+          const sortKeys = computeLabelSortKeys(merged, merged.mesin || 'SLITTING');
+          this.labels[idx] = markRaw({ ...merged, ...sortKeys });
         }
       }
 
@@ -669,7 +746,7 @@ export const useLabelStore = defineStore('labelStore', {
         const updated = await db.labels.update(cleanId, {
           verified: 0,
           verifiedAt: null,
-          verifiedBy: null,
+          verifiedBy,
           updatedAt: now
         });
         if (updated === 0 && db.data_rolls) {
@@ -682,13 +759,15 @@ export const useLabelStore = defineStore('labelStore', {
         }
         const idx = this.labels.findIndex(l => l.id === cleanId || l.id == rawId);
         if (idx !== -1) {
-          this.labels[idx] = {
+          const merged = {
             ...this.labels[idx],
             verified: 0,
             verifiedAt: null,
             verifiedBy: null,
             updatedAt: now
           };
+          const sortKeys = computeLabelSortKeys(merged, merged.mesin || 'SLITTING');
+          this.labels[idx] = markRaw({ ...merged, ...sortKeys });
         }
       }
 
@@ -714,7 +793,9 @@ export const useLabelStore = defineStore('labelStore', {
       }
       const idx = this.labels.findIndex(l => l.id === cleanId || l.id == id);
       if (idx !== -1) {
-        this.labels[idx] = { ...this.labels[idx], ...payload };
+        const merged = { ...this.labels[idx], ...payload };
+        const sortKeys = computeLabelSortKeys(merged, merged.mesin || 'SLITTING');
+        this.labels[idx] = markRaw({ ...merged, ...sortKeys });
       }
     },
 
@@ -741,15 +822,27 @@ export const useLabelStore = defineStore('labelStore', {
 
         const newId = await db.labels.add(copy);
         copy.id = newId;
-        newItems.push(copy);
+        const sortKeys = computeLabelSortKeys(copy, copy.mesin || 'SLITTING');
+        newItems.push(markRaw({ ...copy, ...sortKeys }));
       }
       this.labels.push(...newItems);
+      this.totalDbCount += newItems.length;
       this.currentPage = this.totalPages;
       return newItems;
     },
 
-    exportToExcel() {
+    async exportToExcel() {
+      if (this.isWindowed) {
+        const { startLoading, stopLoading } = useGlobalLoading();
+        startLoading('Menyiapkan seluruh arsip label untuk diekspor ke Excel...');
+        try {
+          await this.loadAllLabels();
+        } finally {
+          stopLoading();
+        }
+      }
       if (this.labels.length === 0) return;
+      const XLSX = await import('xlsx');
       let opList = [];
       try {
         const configStore = useConfigStore();

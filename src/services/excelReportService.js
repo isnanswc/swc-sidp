@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx';
-
 /**
  * Service untuk mengkonversi dan mengekspor data verifikasi ke file Excel multi-sheet (.xlsx).
  * Mendukung ekspor 1 shift tunggal maupun Multi-Shift (seluruh shift dalam 1 file Excel).
@@ -138,10 +136,24 @@ const COLS_WIDTH_7 = [
   { wch: 16 }, { wch: 9 }, { wch: 10 }, { wch: 18 }, { wch: 22 }, { wch: 12 }, { wch: 18 }
 ];
 
+function formatWorksheetDateCells(ws, XLSX) {
+  if (!ws || !ws['!ref'] || !XLSX) return;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+    const cellRef = XLSX.utils.encode_cell({ c: 0, r: R }); // Column A: Tanggal
+    const cell = ws[cellRef];
+    if (cell && typeof cell.v === 'number') {
+      cell.t = 'n';
+      cell.z = 'yyyy-mm-dd';
+    }
+  }
+}
+
 /**
  * Ekspor 1 Shift Spesifik ke Excel (.xlsx)
  */
-export function exportCastingReportToExcel(headerData, rollsData, resinData) {
+export async function exportCastingReportToExcel(headerData, rollsData, resinData) {
+  const XLSX = await import('xlsx');
   const tglFormatted = (headerData.tanggal || 'Laporan_Casting').replace(/[\s\/]/g, '_');
   const shiftName = (headerData.shift_name || headerData.shift_group || 'Shift').replace(/[\s\/]/g, '_');
   const fileName = `Laporan_Casting_${shiftName}_${tglFormatted}.xlsx`;
@@ -164,20 +176,6 @@ export function exportCastingReportToExcel(headerData, rollsData, resinData) {
     { 'Kategori': '6. Status Neraca', 'Jumlah (kg)': diff === 0 ? 'SEIMBANG (100% PAS)' : (diff > 0 ? 'LEBIH' : 'SUSUT') }
   ];
 
-  
-function formatWorksheetDateCells(ws) {
-  if (!ws || !ws['!ref']) return;
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-    const cellRef = XLSX.utils.encode_cell({ c: 0, r: R }); // Column A: Tanggal
-    const cell = ws[cellRef];
-    if (cell && typeof cell.v === 'number') {
-      cell.t = 'n';
-      cell.z = 'yyyy-mm-dd';
-    }
-  }
-}
-
   const wb = XLSX.utils.book_new();
 
   const ws1 = XLSX.utils.json_to_sheet(sheet1Data);
@@ -188,8 +186,8 @@ function formatWorksheetDateCells(ws) {
   ws2['!cols'] = COLS_WIDTH_7;
   ws3['!cols'] = [{ wch: 35 }, { wch: 25 }];
 
-  formatWorksheetDateCells(ws1);
-  formatWorksheetDateCells(ws2);
+  formatWorksheetDateCells(ws1, XLSX);
+  formatWorksheetDateCells(ws2, XLSX);
   XLSX.utils.book_append_sheet(wb, ws1, 'Laporan Produksi Roll');
   XLSX.utils.book_append_sheet(wb, ws2, 'Pemakaian Resin');
   XLSX.utils.book_append_sheet(wb, ws3, 'Material Balance');
@@ -330,7 +328,8 @@ const COLS_WIDTH_METALIZE = [
 /**
  * Ekspor 1 Shift Metalize Spesifik ke Excel (.xlsx)
  */
-export function exportMetalizeReportToExcel(headerData, metalizeRows) {
+export async function exportMetalizeReportToExcel(headerData, metalizeRows) {
+  const XLSX = await import('xlsx');
   const tglFormatted = (headerData.tanggal || 'Laporan_Metalize').replace(/[\s\/]/g, '_');
   const shiftName = (headerData.shift_name || headerData.shift_group || 'Shift').replace(/[\s\/]/g, '_');
   const fileName = `Laporan_Metalize_${shiftName}_${tglFormatted}.xlsx`;
@@ -372,7 +371,8 @@ export function exportMetalizeReportToExcel(headerData, metalizeRows) {
 /**
  * Ekspor Seluruh Sesi (Multi-Shift Harian) ke 1 File Excel Lengkap (.xlsx)
  */
-export function exportFullSessionToExcel(session) {
+export async function exportFullSessionToExcel(session) {
+  const XLSX = await import('xlsx');
   const tglFormatted = (session.tanggal || 'Harian').replace(/[\s\/]/g, '_');
   const sessionName = (session.name || `Laporan_${session.machine || 'Casting'}`).replace(/[\s\/]/g, '_');
   const fileName = `${sessionName}_${tglFormatted}.xlsx`;
@@ -486,8 +486,7 @@ export function exportFullSessionToExcel(session) {
   });
   const wsAllRolls = XLSX.utils.json_to_sheet(allRollsData);
   wsAllRolls['!cols'] = COLS_WIDTH_29;
-  formatWorksheetDateCells(wsAllRolls);
-  formatWorksheetDateCells(wsAllResin);
+  formatWorksheetDateCells(wsAllRolls, XLSX);
   XLSX.utils.book_append_sheet(wb, wsAllRolls, 'Semua Roll Harian (29 Kolom)');
 
   // 3. SHEET SEMUA RESIN (AKUMULASI SELURUH SHIFT DALAM 7 KOLOM)
@@ -499,6 +498,7 @@ export function exportFullSessionToExcel(session) {
   });
   const wsAllResin = XLSX.utils.json_to_sheet(allResinData);
   wsAllResin['!cols'] = COLS_WIDTH_7;
+  formatWorksheetDateCells(wsAllResin, XLSX);
   XLSX.utils.book_append_sheet(wb, wsAllResin, 'Semua Resin Harian (7 Kolom)');
 
   // 4. INDIVIDUAL SHEETS UNTUK TIAP SHIFT JIKA LEBIH DARI 1 SHIFT

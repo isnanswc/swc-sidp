@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { db, generateUUID, seedInitialOpnameIfEmpty } from '@/db';
-import * as XLSX from 'xlsx';
 
 export const useOpnameStore = defineStore('opnameStore', {
   state: () => ({
@@ -107,7 +106,8 @@ export const useOpnameStore = defineStore('opnameStore', {
       }
     },
 
-    exportToExcel() {
+    async exportToExcel() {
+      const XLSX = await import('xlsx');
       const data = this.filteredOpname.map((o, idx) => ({
         'No': idx + 1,
         'Kode Item': o.itemCode,

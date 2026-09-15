@@ -59,7 +59,7 @@
           (!syncState.isOnline ? 'bg-amber-50 border-amber-300 text-amber-800' :
           'bg-zinc-50 hover:bg-emerald-50 hover:border-emerald-300 border-zinc-200 text-zinc-700')
         ]"
-        :title="syncState.isSyncing ? 'Sedang menyinkronkan data...' : (syncState.isOnline ? 'Terhubung ke Supabase Cloud (Klik untuk sinkronkan sekarang)' : 'Mode Offline (Data tersimpan di lokal)')"
+        :title="syncState.isSyncing ? 'Sedang menyinkronkan data...' : (syncState.isOnline ? 'Terhubung ke Supabase Cloud (Klik untuk sinkronisasi cepat, Shift+Klik untuk sinkronisasi penuh)' : 'Mode Offline (Data tersimpan di lokal)')"
       >
         <span class="relative flex h-2 w-2 shrink-0">
           <span v-if="syncState.isSyncing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -161,7 +161,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useConfigStore } from '@/stores/configStore';
-import { syncState, syncAll, countUnsynced, startRealtimeSync } from '@/services/syncService';
+import { syncState, syncAll, forceFullSync, countUnsynced, startRealtimeSync } from '@/services/syncService';
 import ShiftHandoverModal from '@/components/schedule/ShiftHandoverModal.vue';
 
 defineEmits(['toggle-mobile-sidebar']);
@@ -178,8 +178,13 @@ const handleLogout = async () => {
   }
 };
 
-const handleManualSync = async () => {
-  await syncAll();
+const handleManualSync = async (event) => {
+  const forceFull = Boolean(event && (event.shiftKey || event.altKey));
+  if (forceFull) {
+    await forceFullSync();
+  } else {
+    await syncAll(false);
+  }
   await configStore.loadAll();
 };
 
