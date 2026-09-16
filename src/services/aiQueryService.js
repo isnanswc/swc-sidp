@@ -337,8 +337,8 @@ KEMAMPUAN MENJAWAB PERTANYAAN UMUM & PENGETAHUAN LUAS (GENERAL KNOWLEDGE):
           body: JSON.stringify(basePayload)
         });
 
-        // Fallback jika model tertentu menolak parameter tools (HTTP 400)
-        if (!response.ok && response.status === 400 && basePayload.tools) {
+        // Fallback jika model atau kuota menolak parameter tools (misal HTTP 400, 403, 429)
+        if (!response.ok && basePayload.tools) {
           delete basePayload.tools;
           response = await fetch(url, {
             method: 'POST',
@@ -830,8 +830,8 @@ ${groundingData}`;
         body: JSON.stringify(basePayload)
       });
 
-      // Fallback jika model tertentu menolak parameter tools (HTTP 400)
-      if (!response.ok && response.status === 400 && basePayload.tools) {
+      // Fallback jika model atau kuota menolak parameter tools (misal HTTP 400, 403, 429)
+      if (!response.ok && basePayload.tools) {
         delete basePayload.tools;
         response = await fetch(url, {
           method: 'POST',

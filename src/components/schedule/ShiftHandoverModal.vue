@@ -1038,8 +1038,8 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
         body: JSON.stringify(basePayload)
       });
 
-      // Fallback jika model tertentu menolak parameter tools (HTTP 400)
-      if (!res.ok && res.status === 400 && basePayload.tools) {
+      // Fallback jika model atau kuota menolak parameter tools (misal HTTP 400, 403, 429)
+      if (!res.ok && basePayload.tools) {
         delete basePayload.tools;
         res = await fetch(url, {
           method: 'POST',

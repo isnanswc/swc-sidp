@@ -11,8 +11,9 @@ export const DEFAULT_AI_MODELS = [
 ];
 
 export const DEFAULT_FALLBACK_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash'
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite'
 ];
 
 export const HEALTH_REGISTRY_KEY = 'google_ai_health_registry';
@@ -272,7 +273,14 @@ export async function deleteAiConfig() {
  */
 export async function getAiModelCandidates() {
   const config = await getAiConfig();
-  const configuredCandidates = [config.selectedModel, ...(config.fallbackModels || [])]
+  const baseCandidates = [
+    config.selectedModel,
+    ...(config.fallbackModels || []),
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite'
+  ];
+  const configuredCandidates = baseCandidates
     .filter((m, idx, arr) => m && m !== '__custom__' && arr.indexOf(m) === idx);
 
   if (configuredCandidates.length === 0) return [];
