@@ -279,15 +279,17 @@ export async function handleGeneralAiQuery(queryText, history = []) {
   const generalGuidanceBridge = `\n\n💡 *Ada data produksi pabrik yang ingin Anda periksa saat ini? Saya siap membantu menganalisis:*\n• *Perhitungan jumlah & alasan roll REJECT / HOLD*\n• *Pencapaian & rekap performa per operator*\n• *Status jadwal dan antrean SPK aktif*`;
 
   if (apiKey && apiKey.trim() && modelCandidates.length > 0) {
-    const systemInstruction = `Anda adalah SWC AI Copilot, asisten manufaktur cerdas di PT SAPTAWARNA CEMERLANG (PT SWC).
+    const systemInstruction = `Anda adalah SWC AI Copilot, asisten cerdas berwawasan luas di PT SAPTAWARNA CEMERLANG (PT SWC).
 IDENTITAS PERUSAHAAN WAJIB & MUTLAK:
 Nama perusahaan adalah PT SAPTAWARNA CEMERLANG (disingkat PT SWC), produsen flexible packaging terkemuka (rotogravure printing, extrusion laminating, dry laminating, casting, metallizing, slitting, rewind).
 DILARANG KERAS memplesetkan, menyingkat menjadi nama lain (seperti "Sumber Waras" atau nama fiktif lainnya), atau mengarang entitas perusahaan yang keliru.
 
-PEDOMAN ANTI-HALUSINASI & PENCARIAN WEB REALTIME:
-1. DILARANG MENGARANG: Jika informasi tidak diketahui atau tidak ada di internet, katakan secara jujur dan lugas bahwa data tidak tersedia. JANGAN PERNAH membuat fakta fiktif.
-2. Jawab pertanyaan umum pengguna secara ramah, cerdas, luwes, dan akurat (termasuk penjelasan istilah rotogravure, polimer film, slitting, salam, atau percakapan umum).
-3. Di akhir jawaban, sertakan ajakan ramah atau tawaran untuk membantu memeriksa laporan data produksi pabrik (seperti reject, SPK, atau operator).`;
+KEMAMPUAN MENJAWAB PERTANYAAN UMUM & PENGETAHUAN LUAS (GENERAL KNOWLEDGE):
+1. Anda adalah AI asisten pintar serba bisa yang ramah, sopan, komunikatif, dan berwawasan luas.
+2. Anda MAMPU dan DIIZINKAN menjawab SEGALA MACAM topik pertanyaan umum dari pengguna tanpa batasan (termasuk sains, fisika, kimia, biologi, matematika, teknologi, komputasi, sejarah, geografi, bahasa/terjemahan, tips sehari-hari, tutorial, resep masakan, kesehatan umum, percakapan santai, dan istilah industri manufaktur).
+3. Anda dilengkapi fitur Google Search (penelusuran web realtime). Gunakan penelusuran web ini secara otomatis untuk menjawab pertanyaan faktual, berita terkini, atau informasi eksternal agar jawaban akurat, mutakhir, dan bebas halusinasi.
+4. Jawablah dengan bahasa Indonesia yang ramah, santun, jelas, dan terstruktur rapi.
+5. (Opsional) Di akhir jawaban, Anda boleh menyisipkan ajakan hangat jika pengguna ingin dibantu menganalisis data produksi pabrik PT Saptawarna Cemerlang.`;
 
     const contents = [];
     if (Array.isArray(history)) {
@@ -406,18 +408,44 @@ PEDOMAN ANTI-HALUSINASI & PENCARIAN WEB REALTIME:
   }
 
   // Fallback offline answers
-  const q = queryText.toLowerCase();
-  let answer = 'Halo! Saya adalah **SWC AI Copilot**, asisten cerdas sistem manajemen produksi PT Saptawarna Cemerlang.';
-  if (q.includes('siapa kamu') || q.includes('kamu siapa')) {
-    answer = 'Saya adalah **SWC AI Copilot**, asisten cerdas terintegrasi untuk membantu analisis kualitas, pemantauan SPK, pelacakan roll WIP & FG, serta perhitungan statistik produksi di PT Saptawarna Cemerlang.';
-  } else if (q.includes('selamat pagi')) {
-    answer = 'Selamat pagi! Semangat beraktivitas di plant produksi hari ini.';
-  } else if (q.includes('selamat siang')) {
-    answer = 'Selamat siang! Semoga proses operasional dan serah terima shift berjalan lancar.';
-  } else if (q.includes('selamat malam')) {
-    answer = 'Selamat malam! Tetap utamakan keselamatan kerja (*safety first*) pada operasional shift malam.';
-  } else if (q.includes('slitting')) {
-    answer = '**Slitting** adalah proses memotong gulungan film induk (*jumbo roll*) menjadi beberapa gulungan roll yang lebih kecil (*slit rolls*) sesuai ukuran lebar dan panjang pesanan SPK customer.';
+  const q = queryText.toLowerCase().trim();
+  let answer = '';
+
+  // 1. Cek matematika sederhana lokal (misal: "hitung 25 * 4", "15 + 30", "100 / 5", "50 x 2")
+  const mathMatch = q.match(/(?:hitung\s+)?(\d+(?:[.,]\d+)?)\s*([\+\-\*\/xX:])\s*(\d+(?:[.,]\d+)?)/);
+  if (mathMatch) {
+    const num1 = parseFloat(mathMatch[1].replace(',', '.'));
+    const op = mathMatch[2].toLowerCase();
+    const num2 = parseFloat(mathMatch[3].replace(',', '.'));
+    let res = null;
+    if (op === '+') res = num1 + num2;
+    else if (op === '-') res = num1 - num2;
+    else if (op === '*' || op === 'x') res = num1 * num2;
+    else if (op === '/' || op === ':') res = num2 !== 0 ? num1 / num2 : 'Tak terdefinisi (pembagian dengan nol)';
+
+    if (res !== null) {
+      answer = `🧮 **Hasil Perhitungan:**\n\n${num1} ${op} ${num2} = **${typeof res === 'number' ? res.toLocaleString('id-ID', { maximumFractionDigits: 4 }) : res}**`;
+    }
+  }
+
+  if (!answer) {
+    if (q.includes('siapa kamu') || q.includes('kamu siapa')) {
+      answer = 'Saya adalah **SWC AI Copilot**, asisten cerdas berwawasan luas di PT Saptawarna Cemerlang. Saya siap membantu menjawab pertanyaan umum, sains, perhitungan, serta analisa data produksi pabrik.';
+    } else if (q.includes('selamat pagi')) {
+      answer = 'Selamat pagi! Semangat beraktivitas hari ini. Ada yang bisa saya bantu?';
+    } else if (q.includes('selamat siang')) {
+      answer = 'Selamat siang! Semoga pekerjaan dan proses produksi hari ini berjalan lancar.';
+    } else if (q.includes('selamat malam')) {
+      answer = 'Selamat malam! Tetap utamakan keselamatan kerja (*safety first*) pada operasional malam.';
+    } else if (q.includes('slitting')) {
+      answer = '**Slitting** adalah proses memotong gulungan film induk (*jumbo roll*) menjadi gulungan roll yang lebih kecil (*slit rolls*) sesuai pesanan SPK customer.';
+    } else if (q.includes('rotogravure')) {
+      answer = '**Rotogravure** adalah teknik cetak intaglio menggunakan silinder tembaga berukir (*engraved cylinder*) untuk mencetak film kemasan fleksibel dengan resolusi tinggi.';
+    } else if (q.includes('corona') || q.includes('dyne')) {
+      answer = '**Corona Treatment** adalah perlakuan permukaan film plastik menggunakan lucutan listrik frekuensi tinggi untuk menaikkan energi permukaan (*surface tension* / nilai Dyne) agar tinta dan lem laminasi melekat kuat.';
+    } else {
+      answer = `Halo! Saya adalah **SWC AI Copilot** di PT Saptawarna Cemerlang.\n\nUntuk menjawab pertanyaan umum secara mendalam dan melakukan penelusuran web Google (*Google Search Grounding*) secara realtime, pastikan koneksi internet dan API Key Google Gemini pada menu **Pengaturan (Settings)** telah aktif.`;
+    }
   }
 
   return {
@@ -703,16 +731,21 @@ IDENTITAS PERUSAHAAN WAJIB & MUTLAK:
 Nama perusahaan adalah PT SAPTAWARNA CEMERLANG (disingkat PT SWC), produsen flexible packaging terkemuka (rotogravure printing, extrusion laminating, dry laminating, casting, metallizing, slitting, rewind).
 DILARANG KERAS memplesetkan, menyingkat menjadi nama lain (seperti "Sumber Waras" atau nama fiktif lainnya), atau mengarang entitas perusahaan yang keliru.
 
+KEMAMPUAN MENJAWAB PERTANYAAN UMUM & PENGETAHUAN LUAS (GENERAL KNOWLEDGE):
+1. Anda adalah AI asisten pintar serba bisa yang ramah, komunikatif, dan berwawasan luas. Anda BISA, MAMPU, dan DIIZINKAN menjawab SEGALA MACAM pertanyaan umum dari pengguna tanpa batasan (seperti pengetahuan umum, sains, fisika, kimia, matematika, astronomi, sejarah, geografi, tips sehari-hari, tutorial, resep masakan, kesehatan umum, percakapan santai, maupun berita dunia terkini).
+2. ATURAN PEMISAHAN PERTANYAAN PABRIK vs UMUM:
+   - JIKA PERTANYAAN TENTANG DATA PABRIK INTERNAL (misal: SPK pabrik, nama operator, nomor lot, stok roll di rak, jumlah reject/hold shift): Wajib 100% mengacu pada FAKTA DATABASE PABRIK di bawah. Hanya jika data pabrik internal spesifik tersebut tidak ada di database, barulah nyatakan: "Data produksi tersebut tidak ditemukan pada database saat ini."
+   - JIKA PERTANYAAN TENTANG PENGETAHUAN UMUM / EKSTERNAL / SAINS / PERCAKAPAN (misal: "siapa presiden...", "bagaimana fotosintesis?", "rumus volume bola", "resep kopi", "terjemahkan kalimat ini", "apa kabar?"): JAWAB LANGSUNG SECARA LENGKAP, CERDAS, DAN SOLUTIF! DILARANG KERAS menolak pertanyaan umum atau menjawab "data tidak ditemukan" hanya karena tidak ada di database pabrik. Jawablah seperti asisten AI cerdas pada umumnya.
+
 PEDOMAN ANTI-HALUSINASI & DATA PABRIK:
 1. DATA INTERNAL PABRIK (SPK, nomor lot, roll, meter, operator, stok FG/WIP, rasio reject/hold): WAJIB 100% MENGACU PADA FAKTA DATABASE PABRIK DI BAWAH. DILARANG KERAS MENGARANG ANGKA ATAU MENERKA-NERKA jika tidak ada pada database.
-2. Jika pengguna meminta data pabrik tertentu yang TIDAK DITEMUKAN pada fakta database di bawah, nyatakan secara jujur dan lugas: "Data/informasi tersebut tidak ditemukan pada sistem database saat ini."
-3. DILARANG KERAS menggunakan format template kaku, teks berulang, atau data rekayasa/dummy/seed. Anda wajib merumuskan analisis murni sendiri secara luwes, orisinal, dan komunikatif layaknya seorang manajer pabrik profesional.
-4. Jika pengguna meminta menghitung jumlah barang (misalnya HOLD, REJECT, PASS) pada bulan tertentu (seperti April) atau meminta ranking 10 SPK tertinggi, gunakan FAKTA DATABASE DI BAWAH untuk menyebutkan angka totalnya secara tepat dan menyajikan daftar 10 nomor SPK dengan jumlah hold tertinggi secara berurutan.
-5. Berikan analisis singkat mengapa defect tersebut terjadi dan tindakan korektif kualitas (QC/Slitting/Rewind).
-6. Selesaikan jawaban secara tuntas sampai kalimat penutup, jangan pernah terpotong.
+2. DILARANG KERAS menggunakan format template kaku, teks berulang, atau data rekayasa/dummy/seed. Anda wajib merumuskan analisis murni sendiri secara luwes, orisinal, dan komunikatif layaknya seorang manajer pabrik profesional.
+3. Jika pengguna meminta menghitung jumlah barang (misalnya HOLD, REJECT, PASS) pada bulan tertentu (seperti April) atau meminta ranking 10 SPK tertinggi, gunakan FAKTA DATABASE DI BAWAH untuk menyebutkan angka totalnya secara tepat dan menyajikan daftar 10 nomor SPK dengan jumlah hold tertinggi secara berurutan.
+4. Berikan analisis singkat mengapa defect tersebut terjadi dan tindakan korektif kualitas (QC/Slitting/Rewind).
+5. Selesaikan jawaban secara tuntas sampai kalimat penutup, jangan pernah terpotong.
 
 PENCARIAN WEB REALTIME (GOOGLE SEARCH GROUNDING):
-Anda dilengkapi dengan alat Google Search. Jika pengguna menanyakan pengetahuan teknis eksternal, standar industri (seperti ASTM, ISO kemasan pangan, FDA), spesifikasi polimer (PET, CPP, BOPP, PE), perkembangan industri flexible packaging, atau jika Anda meragukan suatu fakta umum eksternal, gunakan penelusuran web secara realtime untuk memvalidasi fakta dan memberikan jawaban yang akurat, mutakhir, dan bebas halusinasi.
+Anda dilengkapi dengan alat Google Search. Jika pengguna menanyakan pengetahuan teknis eksternal, standar industri (seperti ASTM, ISO kemasan pangan, FDA), spesifikasi polimer (PET, CPP, BOPP, PE), perkembangan industri, berita terkini, atau fakta umum eksternal lainnya, gunakan penelusuran web secara realtime untuk memvalidasi fakta dan memberikan jawaban yang akurat, mutakhir, dan bebas halusinasi.
 
 KONSULTASI & TROUBLESHOOTING CACAT PRODUKSI FLEXIBLE PACKAGING:
 Jika pengguna menanyakan kendala teknis proses slitting, rewind, printing rotogravure, laminasi, atau casting:
@@ -871,8 +904,26 @@ export async function processAiQueryAsync(queryText, dataRolls = [], labels = []
   const query = (queryText || '').trim();
   const lowerQuery = query.toLowerCase();
 
-  // 1. PRIORITAS UTAMA: REAL GENERATIVE AI (GEMINI 2.5/3.5 FLASH DENGAN FALLBACK QUEUE)
-  // Jika API Key tersedia, seluruh penalaran & jawaban dihasilkan langsung oleh AI secara dinamis tanpa template kaku!
+  // 1. DETEKSI & ROUTING PERTANYAAN UMUM (GENERAL KNOWLEDGE & GREETING)
+  // Jika pertanyaan adalah sapaan, obrolan santai, sains, matematika, atau pertanyaan umum di luar data produksi pabrik:
+  // Langsung serahkan ke handleGeneralAiQuery (ringan, cepat, dan dilengkapi penelusuran web Google Search realtime tanpa beban memori data pabrik).
+  const GENERAL_GREETING_REGEX = /^(halo|hai|hello|hi|selamat\s+(pagi|siang|sore|malam)|assalamualaikum|siang|pagi|malam|apa kabar|kamu siapa|siapa kamu)\b/i;
+  const factoryKeywords = [
+    'roll', 'spk', 'operator', 'formula', 'slitting', 'rewind', 'casting', 'metalize',
+    'reject', 'hold', 'pass', 'defect', 'berat', 'kg', 'meter', 'lot', 'turunan',
+    'm07', 'vmcpp', 'vmpet', 'karantina', 'stok', 'inventory', 'wip', 'gudang',
+    'rak', 'shift', 'handover', 'serah terima', 'cacat', 'rusak', 'afval', 'laporan produksi'
+  ];
+  const hasFactoryKeyword = factoryKeywords.some(k => lowerQuery.includes(k));
+  const isGreeting = GENERAL_GREETING_REGEX.test(lowerQuery);
+  const isPureGeneralQuery = isGreeting || (!hasFactoryKeyword && !lowerQuery.includes('data roll') && !lowerQuery.includes('nomor roll') && !lowerQuery.includes('no roll'));
+
+  if (isPureGeneralQuery) {
+    return await handleGeneralAiQuery(query, conversationHistory);
+  }
+
+  // 2. PRIORITAS UTAMA: REAL GENERATIVE AI (GEMINI DENGAN FACTORY GROUNDING & FALLBACK QUEUE)
+  // Untuk pertanyaan seputar data pabrik, analisis kualitas, SPK, dan stok:
   const apiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
   if (apiKey && apiKey.trim()) {
     try {
@@ -893,15 +944,6 @@ export async function processAiQueryAsync(queryText, dataRolls = [], labels = []
     } catch (err) {
       console.warn('Gemini Generative API error, fallback ke local engine:', err);
     }
-  }
-
-  // 2. General Greeting Fallback (hanya jika Gemini offline/tanpa API key)
-  const GENERAL_GREETING_REGEX = /^(halo|hai|hello|hi|selamat\s+(pagi|siang|sore|malam)|assalamualaikum|siang|pagi|malam|apa kabar|kamu siapa|siapa kamu)\b/i;
-  const keywords = ['roll', 'spk', 'operator', 'formula', 'slitting', 'rewind', 'casting', 'metalize', 'reject', 'hold', 'pass', 'defect', 'berat', 'kg', 'meter', 'lot', 'turunan', 'm07', 'vmcpp', 'pet', 'vmpet', 'hitung', 'jumlah', 'total'];
-  const hasFactoryKeyword = keywords.some(k => lowerQuery.includes(k));
-
-  if (GENERAL_GREETING_REGEX.test(lowerQuery) || (!hasFactoryKeyword && query.length < 50)) {
-    return await handleGeneralAiQuery(query, conversationHistory);
   }
 
 
