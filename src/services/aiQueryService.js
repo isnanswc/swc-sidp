@@ -9,7 +9,7 @@
  */
 
 import { db, getSetting } from '@/db';
-import { getAiModelCandidates } from '@/services/geminiService';
+import { getAiModelCandidates, recordModelSuccess, recordModelFailure } from '@/services/geminiService';
 
 const MONTH_NAMES = {
   'januari': 1, 'jan': 1,
@@ -296,10 +296,14 @@ Pedoman Jawaban:
 
     for (let i = 0; i < modelCandidates.length; i++) {
       const modelToTry = modelCandidates[i];
+      const abortCtrl = new AbortController();
+      const timeoutId = setTimeout(() => abortCtrl.abort(), 7500);
+
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
         const response = await fetch(url, {
           method: 'POST',
+          signal: abortCtrl.signal,
           headers: {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey.trim()
@@ -321,10 +325,15 @@ Pedoman Jawaban:
           })
         });
 
+        clearTimeout(timeoutId);
+
         if (response.ok) {
           const resJson = await response.json();
           const output = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
           if (output && output.trim()) {
+            // Rekam model berhasil ke Cloud Database sebagai Sticky Winner
+            recordModelSuccess(modelToTry).catch(() => {});
+
             return {
               text: output.trim(),
               modelUsed: modelToTry,
@@ -338,10 +347,18 @@ Pedoman Jawaban:
             };
           }
         } else {
-          console.warn(`[General AI] Model ${modelToTry} returned HTTP ${response.status}. Trying next fallback...`);
+          const errData = await response.json().catch(() => null);
+          const errMsg = errData?.error?.message || `HTTP ${response.status}`;
+          console.warn(`[General AI] Model ${modelToTry} returned HTTP ${response.status}: ${errMsg}. Trying next fallback...`);
+          // Berikan Cooldown di Cloud Database
+          recordModelFailure(modelToTry, errMsg, response.status).catch(() => {});
         }
       } catch (e) {
-        console.warn(`[General AI] Error with model ${modelToTry}:`, e);
+        clearTimeout(timeoutId);
+        const isTimeout = e.name === 'AbortError';
+        const reason = isTimeout ? 'Timeout (>7.5s) - Server Google padat/hanging' : (e.message || 'Network error');
+        console.warn(`[General AI] Model ${modelToTry} failed: ${reason}`);
+        recordModelFailure(modelToTry, reason, isTimeout ? 408 : null).catch(() => {});
       }
     }
   }
@@ -371,6 +388,10 @@ Pedoman Jawaban:
   };
 }
 
+// In-memory grounding cache (2 menit) untuk mempercepat pertanyaan berturut-turut
+const memoryGroundingCache = new Map();
+const GROUNDING_CACHE_TTL = 120000;
+
 /**
  * DYNAMIC TARGETED FACTORY GROUNDING BUILDER
  * Menyusun ringkasan faktual mendalam dari IndexedDB untuk dianalisis langsung oleh Gemini
@@ -378,6 +399,27 @@ Pedoman Jawaban:
 async function buildTargetedGroundingData(queryText, history = [], customOperators = []) {
   if (!db || !db.data_rolls) return 'Database belum memiliki tabel data_rolls.';
   const q = (queryText || '').toLowerCase().trim();
+
+  // Cek Temporal / Month Filter Check (e.g. "april", "agustus", "bulan 4", etc.)
+  let targetMonthNum = null;
+  let targetMonthName = null;
+  for (const [mName, mNum] of Object.entries(MONTH_NAMES)) {
+    if (q.includes(mName)) {
+      targetMonthNum = mNum;
+      targetMonthName = mName.toUpperCase();
+      break;
+    }
+  }
+
+  const dateRange = extractDateRange(queryText);
+
+  // Cache hit check
+  const now = Date.now();
+  const cacheKey = `g_${targetMonthNum || 'all'}_${dateRange.startDate || ''}_${dateRange.endDate || ''}_${q.includes('wip') ? 'wip' : ''}_${q.includes('stok') ? 'stok' : ''}`;
+  const cached = memoryGroundingCache.get(cacheKey);
+  if (cached && (now - cached.time < GROUNDING_CACHE_TTL)) {
+    return cached.data;
+  }
 
   // 1. Overall stats
   const totalAll = await db.data_rolls.count();
@@ -389,19 +431,6 @@ async function buildTargetedGroundingData(queryText, history = [], customOperato
   grounding += `- Total Roll Keseluruhan: ${totalAll.toLocaleString('id-ID')} roll\n`;
   grounding += `- Status Keseluruhan: PASS = ${passAll} roll (${totalAll ? ((passAll/totalAll)*100).toFixed(1) : 0}%), HOLD = ${holdAll} roll (${totalAll ? ((holdAll/totalAll)*100).toFixed(1) : 0}%), REJECT = ${rejectAll} roll (${totalAll ? ((rejectAll/totalAll)*100).toFixed(1) : 0}%)\n`;
 
-  // 2. Temporal / Month Filter Check (e.g. "april", "agustus", "bulan 4", etc.)
-  let targetMonthNum = null;
-  let targetMonthName = null;
-  for (const [mName, mNum] of Object.entries(MONTH_NAMES)) {
-    if (q.includes(mName)) {
-      targetMonthNum = mNum;
-      targetMonthName = mName.toUpperCase();
-      break;
-    }
-  }
-
-  // Check if month or date range specified
-  const dateRange = extractDateRange(queryText);
   if (targetMonthNum || dateRange.hasRange) {
     const monthStr = targetMonthNum ? String(targetMonthNum).padStart(2, '0') : '';
     let periodTotal = 0;
@@ -600,6 +629,16 @@ async function buildTargetedGroundingData(queryText, history = [], customOperato
     console.warn('AI Grounding WIP error:', wipErr);
   }
 
+  // Simpan ke cache
+  try {
+    memoryGroundingCache.set(cacheKey, { time: now, data: grounding });
+    // Jaga cache agar tidak membengkak
+    if (memoryGroundingCache.size > 20) {
+      const oldestKey = memoryGroundingCache.keys().next().value;
+      memoryGroundingCache.delete(oldestKey);
+    }
+  } catch (cErr) {}
+
   return grounding;
 }
 
@@ -675,10 +714,14 @@ ${groundingData}`;
 
   for (let i = 0; i < modelCandidates.length; i++) {
     const modelToTry = modelCandidates[i];
+    const abortCtrl = new AbortController();
+    const timeoutId = setTimeout(() => abortCtrl.abort(), 7500);
+
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
       const response = await fetch(url, {
         method: 'POST',
+        signal: abortCtrl.signal,
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': apiKey.trim()
@@ -700,10 +743,15 @@ ${groundingData}`;
         })
       });
 
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const resJson = await response.json();
         const outputText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
         if (outputText && outputText.trim()) {
+          // Rekam model berhasil ke Cloud Database sebagai Sticky Winner
+          recordModelSuccess(modelToTry).catch(() => {});
+
           return {
             text: outputText.trim(),
             modelUsed: modelToTry,
@@ -713,10 +761,17 @@ ${groundingData}`;
         }
       } else {
         const errJson = await response.json().catch(() => null);
-        console.warn(`[Generative AI] Model ${modelToTry} returned status ${response.status}:`, errJson, 'Trying next fallback...');
+        const errMsg = errJson?.error?.message || `HTTP ${response.status}`;
+        console.warn(`[Generative AI] Model ${modelToTry} returned status ${response.status}: ${errMsg}. Trying next fallback...`);
+        // Catat kegagalan / rate limit (429) ke Cloud Database untuk Cooldown
+        recordModelFailure(modelToTry, errMsg, response.status).catch(() => {});
       }
     } catch (e) {
-      console.warn(`[Generative AI] Fetch error with model ${modelToTry}:`, e);
+      clearTimeout(timeoutId);
+      const isTimeout = e.name === 'AbortError';
+      const reason = isTimeout ? 'Timeout (>7.5s) - Server Google padat/hanging' : (e.message || 'Network error');
+      console.warn(`[Generative AI] Model ${modelToTry} error: ${reason}`);
+      recordModelFailure(modelToTry, reason, isTimeout ? 408 : null).catch(() => {});
     }
   }
 

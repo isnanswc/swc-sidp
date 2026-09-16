@@ -29,6 +29,9 @@ export const useAuthStore = defineStore('auth', () => {
       const saved = localStorage.getItem('mlabel_session_user');
       if (saved) {
         currentUser.value = JSON.parse(saved);
+        if (localStorage.getItem('mlabel_screen_locked') === 'true' && currentUser.value?.pinEnabled) {
+          isLocked.value = true;
+        }
       }
     } catch (e) {
       console.error('Failed to restore auth session:', e);
@@ -54,9 +57,20 @@ export const useAuthStore = defineStore('auth', () => {
             name: fresh.name,
             email: fresh.email,
             role: fresh.role,
-            permissions: typeof fresh.permissionsJson === 'string' ? JSON.parse(fresh.permissionsJson) : fresh.permissionsJson
+            department: fresh.department || 'PRODUKSI_EXTRUSION',
+            pinEnabled: Boolean(fresh.pinEnabled),
+            idleTimeoutMinutes: fresh.idleTimeoutMinutes !== undefined ? fresh.idleTimeoutMinutes : 30,
+            permissions: typeof fresh.permissionsJson === 'string' ? JSON.parse(fresh.permissionsJson) : fresh.permissionsJson,
+            lastLogin: fresh.lastLogin
           };
           localStorage.setItem('mlabel_session_user', JSON.stringify(currentUser.value));
+
+          // Pastikan status layar terkunci tetap terjaga jika sebelumnya terkunci
+          if (localStorage.getItem('mlabel_screen_locked') === 'true' && currentUser.value.pinEnabled) {
+            isLocked.value = true;
+          } else {
+            resetIdleTimer();
+          }
 
           // Pastikan sesi perangkat terdaftar (auto-register untuk perangkat yang sudah login sebelumnya)
           const currentSessId = getCurrentSessionId();
@@ -68,7 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
           }
         } else if (fresh && !fresh.active) {
           // User deactivated
-          logout();
+          await logout({ resetPin: false });
         }
       }
 
@@ -325,9 +339,32 @@ export const useAuthStore = defineStore('auth', () => {
     return sessionData;
   };
 
-  // Logout action
-  const logout = async () => {
-    // 1. Segera bersihkan state lokal dan timer
+  // Logout action (mirip WhatsApp: logout otomatis mereset PIN kunci layar)
+  const logout = async (options = { resetPin: true }) => {
+    const shouldResetPin = options?.resetPin ?? true;
+    const userId = currentUser.value?.id;
+
+    // 1. Reset PIN jika opsi resetPin aktif (fitur ala WhatsApp screen lock)
+    if (shouldResetPin && userId) {
+      try {
+        const nowIso = new Date().toISOString();
+        await db.users.update(userId, {
+          pinEnabled: false,
+          pinCode: null,
+          pinSalt: null,
+          updatedAt: nowIso
+        });
+
+        // Sinkronkan reset PIN ini ke Cloud Supabase registry
+        const { useUserStore } = await import('@/stores/userStore');
+        const userStore = useUserStore();
+        await userStore.syncUsersToCloud();
+      } catch (pinResetErr) {
+        console.warn('Failed to reset PIN on logout:', pinResetErr);
+      }
+    }
+
+    // 2. Segera bersihkan state lokal dan timer
     currentUser.value = null;
     isLocked.value = false;
     if (idleTimer) {
@@ -348,12 +385,12 @@ export const useAuthStore = defineStore('auth', () => {
     stopSessionHeartbeat();
     cleanupRealtimeSessionListener();
 
-    // 2. Bersihkan sesi di cloud secara background (non-blocking)
+    // 3. Bersihkan sesi di cloud secara background (non-blocking)
     try {
       removeDeviceSession().catch(e => console.warn('Remove cloud session warning:', e));
     } catch (e) {}
 
-    // 3. Pastikan terlempar keluar ke halaman login
+    // 4. Pastikan terlempar keluar ke halaman login
     if (typeof window !== 'undefined') {
       const loginUrl = window.location.origin + window.location.pathname + '#/login';
       window.location.href = loginUrl;

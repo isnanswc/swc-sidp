@@ -129,21 +129,32 @@
         </button>
       </div>
 
-      <!-- Action Footer: Switch User / Logout -->
-      <div class="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs font-mono">
+      <!-- Action Footer: Switch User / Logout & Forgot PIN -->
+      <div class="pt-3 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs font-mono">
         <button
           type="button"
           @click="handleSwitchAccount"
-          class="text-zinc-400 hover:text-red-400 transition-colors flex items-center gap-1.5 cursor-pointer"
+          class="text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-1.5 cursor-pointer text-[11px]"
         >
           <span>🔄</span>
-          <span>Ganti Akun / Logout</span>
+          <span>Ganti Akun</span>
         </button>
 
-        <span class="text-[10px] text-zinc-500" title="Hubungi Super Admin jika Anda lupa PIN">
-          Lupa PIN? Hubungi Admin
-        </span>
+        <button
+          type="button"
+          @click="handleForgotPinLogout"
+          class="text-[11px] font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-1 cursor-pointer hover:underline underline-offset-4"
+          title="Lupa PIN? Keluar dan reset PIN layar"
+        >
+          <span>🔓</span>
+          <span>Lupa PIN? Logout & Reset</span>
+        </button>
       </div>
+
+      <!-- Info Helper (WhatsApp Screen Lock Style) -->
+      <p class="text-[10px] text-zinc-500 font-mono leading-tight">
+        Lupa PIN? Logout untuk mereset PIN kunci layar (mirip WhatsApp). Anda dapat masuk kembali menggunakan kata sandi akun Anda.
+      </p>
 
     </div>
   </div>
@@ -220,9 +231,21 @@ const submitPin = async () => {
   }
 };
 
+const handleForgotPinLogout = async () => {
+  const confirmed = confirm(
+    'Lupa PIN Kunci Layar?\n\n' +
+    'Mirip dengan fitur di WhatsApp, Anda dapat keluar (logout) dari sesi ini dan PIN kunci layar akan otomatis direset.\n\n' +
+    'Anda akan diminta login kembali menggunakan kata sandi akun Anda.\n\n' +
+    'Lanjutkan logout dan reset PIN sekarang?'
+  );
+  if (confirmed) {
+    await authStore.logout({ resetPin: true });
+  }
+};
+
 const handleSwitchAccount = async () => {
-  if (confirm('Keluar dari sesi ini dan kembali ke halaman login?')) {
-    await authStore.logout();
+  if (confirm('Keluar dari sesi ini dan kembali ke halaman login?\n\nCatatan: PIN kunci layar juga akan direset.')) {
+    await authStore.logout({ resetPin: true });
   }
 };
 

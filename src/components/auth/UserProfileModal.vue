@@ -288,7 +288,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
 import { db } from '@/db';
@@ -332,6 +332,15 @@ const loadInitialSettings = async () => {
   }
 };
 
+// Pastikan pengaturan selalu ter-reload saat modal dibuka
+watch(() => authStore.showProfileModal, (isOpen) => {
+  if (isOpen) {
+    errorMsg.value = '';
+    successMsg.value = '';
+    loadInitialSettings();
+  }
+});
+
 const handleLockNow = () => {
   authStore.showProfileModal = false;
   authStore.lockScreen();
@@ -366,6 +375,11 @@ const handleSavePinSettings = async () => {
       updatePayload.pinSalt = salt;
     } else if (pinForm.enabled && !hasExistingPin.value && !pinForm.pin) {
       throw new Error('Silakan buat PIN 4-digit terlebih dahulu untuk mengaktifkan kunci layar.');
+    } else if (!pinForm.enabled) {
+      // Jika pengguna menonaktifkan kunci PIN, bersihkan hash PIN
+      updatePayload.pinCode = null;
+      updatePayload.pinSalt = null;
+      hasExistingPin.value = false;
     }
 
     await db.users.update(user.id, updatePayload);
@@ -375,10 +389,15 @@ const handleSavePinSettings = async () => {
     authStore.currentUser.idleTimeoutMinutes = pinForm.idleMinutes;
     localStorage.setItem('mlabel_session_user', JSON.stringify(authStore.currentUser));
 
+    if (!pinForm.enabled) {
+      localStorage.removeItem('mlabel_screen_locked');
+      authStore.isLocked = false;
+    }
+
     // Sinkronkan ke Cloud Supabase
     await userStore.syncUsersToCloud();
 
-    hasExistingPin.value = Boolean(updatePayload.pinCode || hasExistingPin.value);
+    hasExistingPin.value = Boolean(updatePayload.pinCode || (pinForm.enabled && hasExistingPin.value));
     pinForm.pin = '';
     pinForm.pinConfirm = '';
     authStore.resetIdleTimer();

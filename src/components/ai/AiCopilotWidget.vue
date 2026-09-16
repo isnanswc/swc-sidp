@@ -563,7 +563,7 @@ import { useScheduleStore } from '@/stores/scheduleStore';
 import { useAuthStore } from '@/stores/authStore';
 import { db, saveSetting } from '@/db';
 import { processAiQueryAsync } from '@/services/aiQueryService';
-import { getAiConfig, testGeminiModel, DEFAULT_AI_MODELS } from '@/services/geminiService';
+import { getAiConfig, testGeminiModel, getAiHealthRegistry, DEFAULT_AI_MODELS } from '@/services/geminiService';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -573,7 +573,7 @@ const configStore = useConfigStore();
 const scheduleStore = useScheduleStore();
 
 // In-Chat Model Switcher & Live Tester State
-const activeChatModel = ref('gemini-3.5-flash');
+const activeChatModel = ref('');
 const chatAvailableModels = ref([...DEFAULT_AI_MODELS]);
 const modelTestStatus = reactive({
   testing: false,
@@ -965,12 +965,18 @@ const handleSubmit = () => {
       }
 
       const isWaSummary = actionTag === 'WHATSAPP_SUMMARY' || query.toLowerCase().includes('whatsapp') || query.toLowerCase().includes('rekap wa');
+      const finalModelUsed = response.modelUsed || activeChatModel.value || 'Gemini';
+
+      // Sinkronkan activeChatModel dengan model yang berhasil merespon
+      if (response.modelUsed && activeChatModel.value !== response.modelUsed) {
+        activeChatModel.value = response.modelUsed;
+      }
 
       session.messages.push({
         sender: 'ai',
         text: rawText,
         isWaSummary,
-        modelUsed: response.modelUsed || activeChatModel.value || 'gemini-3.5-flash',
+        modelUsed: finalModelUsed,
         isFallback: Boolean(response.isFallback),
         metrics: response.metrics,
         tableData: response.tableData,
@@ -1088,7 +1094,12 @@ const loadAiChatConfig = async () => {
     if (config.availableModels && config.availableModels.length > 0) {
       chatAvailableModels.value = config.availableModels;
     }
-    if (config.selectedModel) {
+
+    // Periksa apakah ada Sticky Winner yang tersimpan di Cloud Database
+    const health = await getAiHealthRegistry();
+    if (health?.winner && chatAvailableModels.value.some(m => m.id === health.winner)) {
+      activeChatModel.value = health.winner;
+    } else if (config.selectedModel) {
       activeChatModel.value = config.selectedModel;
     }
   } catch (err) {
@@ -1151,6 +1162,12 @@ const onAiConfigUpdated = (e) => {
   loadAiChatConfig();
 };
 
+const onAiHealthUpdated = (e) => {
+  if (e?.detail?.winner && chatAvailableModels.value.some(m => m.id === e.detail.winner)) {
+    activeChatModel.value = e.detail.winner;
+  }
+};
+
 onMounted(() => {
   loadConversations();
   loadAiChatConfig();
@@ -1159,12 +1176,14 @@ onMounted(() => {
     bubblePos.y = Math.max(20, window.innerHeight - 76);
     initModalPosition();
     window.addEventListener('sync:ai-config-updated', onAiConfigUpdated);
+    window.addEventListener('sync:ai-health-updated', onAiHealthUpdated);
   }
 });
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('sync:ai-config-updated', onAiConfigUpdated);
+    window.removeEventListener('sync:ai-health-updated', onAiHealthUpdated);
   }
 });
 </script>

@@ -1,4 +1,5 @@
 import { getSetting, saveSetting, deleteSetting } from '@/db';
+import { supabase } from '@/services/supabaseClient';
 
 export const DEFAULT_AI_MODELS = [
   { id: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash (Rekomendasi)', description: 'Model generasi 2.5 Flash — cepat, akurat, dan stabil.' },
@@ -13,6 +14,189 @@ export const DEFAULT_FALLBACK_MODELS = [
   'gemini-2.0-flash',
   'gemini-1.5-flash'
 ];
+
+export const HEALTH_REGISTRY_KEY = 'google_ai_health_registry';
+
+// In-memory cache to eliminate repetitive DB queries within short bursts
+let memoryHealthRegistry = null;
+let lastHealthFetchTime = 0;
+const HEALTH_CACHE_TTL_MS = 15000; // 15 detik TTL
+
+/**
+ * Mengambil status kesehatan model & sticky winner dari Cloud Supabase (dengan IndexedDB fallback)
+ * Format data:
+ * {
+ *   winner: string | null,
+ *   winnerUpdatedAt: string,
+ *   cooldowns: { [modelId]: { until: number, reason: string, status: number, reportedAt: string } }
+ * }
+ */
+export async function getAiHealthRegistry(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && memoryHealthRegistry && (now - lastHealthFetchTime < HEALTH_CACHE_TTL_MS)) {
+    return memoryHealthRegistry;
+  }
+
+  let registry = null;
+
+  // 1. Ambil langsung dari Supabase Cloud Database (lintas device & akun)
+  try {
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', HEALTH_REGISTRY_KEY)
+        .maybeSingle();
+
+      if (!error && data && data.value) {
+        registry = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      }
+    }
+  } catch (e) {
+    console.warn('[GeminiHealth] Cloud fetch notice:', e);
+  }
+
+  // 2. Jika offline atau gagal fetch cloud, baca dari IndexedDB lokal
+  if (!registry) {
+    try {
+      const local = await getSetting(HEALTH_REGISTRY_KEY, null);
+      if (local) {
+        registry = typeof local === 'string' ? JSON.parse(local) : local;
+      }
+    } catch (e) {
+      console.warn('[GeminiHealth] Local fetch notice:', e);
+    }
+  }
+
+  if (!registry || typeof registry !== 'object') {
+    registry = { winner: null, cooldowns: {}, winnerUpdatedAt: null };
+  }
+  if (!registry.cooldowns) registry.cooldowns = {};
+
+  // Bersihkan cooldown yang sudah kedaluwarsa secara otomatis
+  let hasExpired = false;
+  for (const [model, info] of Object.entries(registry.cooldowns)) {
+    if (info && info.until && now >= info.until) {
+      delete registry.cooldowns[model];
+      hasExpired = true;
+    }
+  }
+
+  memoryHealthRegistry = registry;
+  lastHealthFetchTime = now;
+
+  if (hasExpired) {
+    saveAiHealthRegistry(registry).catch(() => {});
+  }
+
+  return registry;
+}
+
+/**
+ * Menyimpan status kesehatan model & sticky winner ke Cloud Database (Supabase)
+ */
+export async function saveAiHealthRegistry(registry) {
+  if (!registry) return;
+  memoryHealthRegistry = registry;
+  lastHealthFetchTime = Date.now();
+
+  const nowIso = new Date().toISOString();
+  const payload = {
+    key: HEALTH_REGISTRY_KEY,
+    value: JSON.stringify(registry),
+    updated_at: nowIso
+  };
+
+  // 1. Simpan ke local Dexie & localStorage
+  await saveSetting(HEALTH_REGISTRY_KEY, registry);
+
+  // 2. Simpan langsung ke Supabase Cloud (Background sync)
+  try {
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      supabase.from('settings').upsert([payload], { onConflict: 'key' }).then(({ error }) => {
+        if (error) console.warn('[GeminiHealth] Cloud upsert notice:', error.message);
+      }).catch(err => console.warn('[GeminiHealth] Push error:', err));
+    }
+  } catch (e) {
+    console.warn('[GeminiHealth] Cloud save notice:', e);
+  }
+
+  // Broadcast event agar UI dan tab lain terupdate seketika
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sync:ai-health-updated', { detail: registry }));
+  }
+}
+
+/**
+ * Mencatat model yang BERHASIL (Sticky Winner) dan menyimpannya ke Cloud Database
+ */
+export async function recordModelSuccess(modelId) {
+  if (!modelId || modelId === '__custom__') return;
+  try {
+    const registry = await getAiHealthRegistry();
+    let changed = false;
+
+    if (registry.winner !== modelId) {
+      registry.winner = modelId;
+      registry.winnerUpdatedAt = new Date().toISOString();
+      changed = true;
+    }
+
+    if (registry.cooldowns && registry.cooldowns[modelId]) {
+      delete registry.cooldowns[modelId];
+      changed = true;
+    }
+
+    if (changed) {
+      await saveAiHealthRegistry(registry);
+      console.log(`[SmartAI] 🏆 Model "${modelId}" berhasil merespon. Dipromosikan sebagai Sticky Winner di Cloud Database.`);
+    }
+  } catch (e) {
+    console.warn('[SmartAI] Error recording model success:', e);
+  }
+}
+
+/**
+ * Mencatat model yang GAGAL / LIMIT (Circuit Breaker Cooldown) dan menyimpannya ke Cloud Database
+ */
+export async function recordModelFailure(modelId, reason = 'Error', status = null) {
+  if (!modelId || modelId === '__custom__') return;
+  try {
+    const registry = await getAiHealthRegistry();
+    const now = Date.now();
+
+    // Tentukan durasi penalti cooldown:
+    // HTTP 429 (Rate Limit / Too Many Requests): 5 menit
+    // HTTP 503/500 (Overloaded): 3 menit
+    // Timeout (AbortError / hanging): 3 menit
+    // HTTP 404: 15 menit
+    let cooldownDurationMs = 3 * 60 * 1000;
+    if (status === 429) {
+      cooldownDurationMs = 5 * 60 * 1000;
+    } else if (status === 404) {
+      cooldownDurationMs = 15 * 60 * 1000;
+    }
+
+    const until = now + cooldownDurationMs;
+
+    registry.cooldowns[modelId] = {
+      until,
+      reason: String(reason || 'Rate limit / Error'),
+      status,
+      failedAt: new Date().toISOString()
+    };
+
+    // Jika model yang terkena limit ini tadinya adalah winner, copot status winner-nya
+    if (registry.winner === modelId) {
+      registry.winner = null;
+    }
+
+    await saveAiHealthRegistry(registry);
+    console.warn(`[SmartAI] ⚠️ Model "${modelId}" terkena limit/gagal (${status || ''} - ${reason}). Diberi Cooldown selama ${(cooldownDurationMs / 60000)} menit di Cloud Database.`);
+  } catch (e) {
+    console.warn('[SmartAI] Error recording model failure:', e);
+  }
+}
 
 /**
  * Mendapatkan konfigurasi AI lengkap dari IndexedDB / LocalStorage / Cloud
@@ -81,14 +265,47 @@ export async function deleteAiConfig() {
 }
 
 /**
- * Mengambil daftar prioritas model: [modelUtama, ...fallbackModels (maks 5)]
+ * Mengambil daftar prioritas model dinamis (Auto Rearrange & Sticky Winner dari Cloud Database)
+ * 1. Model pemenang terakhir (Sticky Winner di Cloud) diprioritaskan di indeks #0
+ * 2. Model sehat lainnya mengikuti
+ * 3. Model yang sedang dalam masa Cooldown (Rate Limit) digeser ke paling belakang
  */
 export async function getAiModelCandidates() {
   const config = await getAiConfig();
-  const candidates = [config.selectedModel, ...(config.fallbackModels || [])];
-  
-  // Saring agar unik, tidak kosong, dan bukan placeholder '__custom__'
-  return candidates.filter((m, idx, arr) => m && m !== '__custom__' && arr.indexOf(m) === idx);
+  const configuredCandidates = [config.selectedModel, ...(config.fallbackModels || [])]
+    .filter((m, idx, arr) => m && m !== '__custom__' && arr.indexOf(m) === idx);
+
+  if (configuredCandidates.length === 0) return [];
+
+  try {
+    const health = await getAiHealthRegistry();
+    const now = Date.now();
+    const cooldowns = health.cooldowns || {};
+    const winner = health.winner;
+
+    const healthy = [];
+    const cooling = [];
+
+    for (const model of configuredCandidates) {
+      const cd = cooldowns[model];
+      if (cd && cd.until && now < cd.until) {
+        cooling.push(model);
+      } else {
+        healthy.push(model);
+      }
+    }
+
+    // Jika ada Sticky Winner yang sehat di Cloud, tempatkan paling pertama!
+    if (winner && healthy.includes(winner)) {
+      const restHealthy = healthy.filter(m => m !== winner);
+      return [winner, ...restHealthy, ...cooling];
+    }
+
+    return [...healthy, ...cooling];
+  } catch (e) {
+    console.warn('[SmartAI] Error rearranging candidates:', e);
+    return configuredCandidates;
+  }
 }
 
 /**
