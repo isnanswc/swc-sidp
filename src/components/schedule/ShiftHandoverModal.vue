@@ -578,7 +578,7 @@ import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useConfigStore } from '@/stores/configStore';
 import { db, getSetting, saveSetting } from '@/db';
-import { getAiConfig, getAiModelCandidates } from '@/services/geminiService';
+import { getAiConfig, getAiModelCandidates, recordModelSuccess, recordModelFailure } from '@/services/geminiService';
 import { getResolvedGeminiApiKey } from '@/services/spkAiService';
 
 const scheduleStore = useScheduleStore();
@@ -965,7 +965,16 @@ const generateAiHandover = async (machineKey, forceRegenerate = false) => {
     `- Alasan: ${h.reason} (${h.count} roll) | SPK: ${h.spks.join(', ')} | Lot: ${h.lots.join(', ')}`
   ).join('\n') || '- Tidak ada hold.';
 
-  const prompt = `Anda adalah Asisten Supervisor AI Pabrik Manufaktur Plastik Film/Packaging (PT Sumber Waras Cemerlang).
+  const prompt = `Anda adalah Asisten Supervisor AI Pabrik Manufaktur Flexible Packaging di PT SAPTAWARNA CEMERLANG (PT SWC).
+IDENTITAS PERUSAHAAN WAJIB & MUTLAK:
+Nama perusahaan adalah PT SAPTAWARNA CEMERLANG (disingkat PT SWC).
+DILARANG KERAS memplesetkan atau mengubah nama perusahaan menjadi nama lain (seperti "Sumber Waras" atau nama fiktif lainnya).
+
+PEDOMAN ANTI-HALUSINASI MUTLAK:
+1. Hanya gunakan data aktual mesin, nomor SPK, dan daftar defect yang tercantum di bawah ini.
+2. DILARANG KERAS mengarang nomor lot, nama operator, atau angka produksi yang tidak ada pada data. Jika data tertentu kosong atau nihil, sebutkan apa adanya (misal: "Tidak ada roll hold/reject").
+3. Berikan analisis operasional yang logis berdasarkan parameter teknis flexible packaging (tension, suhu, keausan pisau, corona treater, dll).
+
 Buat ringkasan serah terima (shift handover summary) yang tajam, profesional, dan actionable untuk:
 - MESIN: ${machineKey}
 - Shift Selesai: ${pShift.definition.name} (Grup ${pShift.group}), Tanggal Kerja: ${pShift.date}
@@ -1003,32 +1012,85 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
   let lastErrMsg = '';
 
   for (const model of modelCandidates) {
+    const abortCtrl = new AbortController();
+    const timeoutId = setTimeout(() => abortCtrl.abort(), 7500);
+
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      const res = await fetch(url, {
+      
+      // Request payload dengan tools Google Search Grounding jika didukung model
+      const basePayload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ googleSearch: {} }],
+        generationConfig: {
+          temperature: 0.25,
+          maxOutputTokens: 8192
+        }
+      };
+
+      let res = await fetch(url, {
         method: 'POST',
+        signal: abortCtrl.signal,
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': apiKey.trim()
         },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 8192
-          }
-        })
+        body: JSON.stringify(basePayload)
       });
+
+      // Fallback jika model tertentu menolak parameter tools
+      if (!res.ok && res.status === 400) {
+        const errCheck = await res.json().catch(() => ({}));
+        if (JSON.stringify(errCheck).toLowerCase().includes('tool')) {
+          delete basePayload.tools;
+          res = await fetch(url, {
+            method: 'POST',
+            signal: abortCtrl.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey.trim()
+            },
+            body: JSON.stringify(basePayload)
+          });
+        } else {
+          throw new Error(errCheck?.error?.message || `HTTP ${res.status}`);
+        }
+      }
+
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `HTTP ${res.status}`);
+        const errMsg = errJson?.error?.message || `HTTP ${res.status}`;
+        recordModelFailure(model, errMsg, res.status).catch(() => {});
+        throw new Error(errMsg);
       }
 
       const data = await res.json();
-      const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      let generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (generatedText) {
+        // Ekstrak referensi web jika model melakukan browsing via Google Search Grounding
+        const webChunks = data?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        if (Array.isArray(webChunks) && webChunks.length > 0) {
+          const uniqueSources = [];
+          for (const c of webChunks) {
+            if (c.web?.uri && !uniqueSources.some(s => s.url === c.web.uri)) {
+              uniqueSources.push({
+                title: c.web.title || c.web.uri,
+                url: c.web.uri
+              });
+            }
+          }
+          if (uniqueSources.length > 0) {
+            generatedText = generatedText.trim() + '\n\n---\n🌐 *Referensi Web Terverifikasi (Google Search):*\n' +
+              uniqueSources.slice(0, 3).map(s => `• [${s.title}](${s.url})`).join('\n');
+          }
+        }
+
+        // Rekam model sukses ke Cloud Database sebagai Sticky Winner
+        recordModelSuccess(model).catch(() => {});
+
         const resultObj = {
           content: generatedText,
           model,
@@ -1042,8 +1104,12 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
         break;
       }
     } catch (err) {
+      clearTimeout(timeoutId);
       lastErrMsg = err.message;
-      console.warn(`[Handover AI] Model ${model} gagal (${err.message}). Beralih ke model fallback...`);
+      const isTimeout = err.name === 'AbortError';
+      const reason = isTimeout ? 'Timeout (>7.5s)' : (err.message || 'Error');
+      recordModelFailure(model, reason, isTimeout ? 408 : null).catch(() => {});
+      console.warn(`[Handover AI] Model ${model} gagal (${reason}). Beralih ke model fallback...`);
     }
   }
 

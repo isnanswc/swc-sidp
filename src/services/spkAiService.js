@@ -209,7 +209,11 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
    - Urutan baris JSON harus persis sesuai urutan pengerjaan pada lembar jadwal, dari baris paling atas ke baris paling bawah.
 3. ATURAN REWIND (UKURAN SAMA):
    - Jika kolom UP 1..UP 4 kosong / strip "-" (karena roll induk hanya di-REWIND dengan ukuran yang sama tanpa dibelah), isi up1 = lebarParent, dan up2..up4 = null.
-4. Keluarkan HANYA array JSON murni tanpa pembuka/penutup markdown.
+4. PEDOMAN ANTI-HALUSINASI MUTLAK:
+   - Dilarang mengarang atau menebak data yang tidak terlihat pada dokumen fisik.
+   - Ekstrak HANYA data yang benar-benar tercantum pada dokumen gambar.
+   - Jika kolom atau angka tidak ada, gunakan null atau 0 sesuai skema JSON di atas.
+5. Keluarkan HANYA array JSON murni tanpa pembuka/penutup markdown.
 `;
 
   let lastError = null;

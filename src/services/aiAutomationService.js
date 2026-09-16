@@ -1,4 +1,5 @@
 import { getSetting, saveSetting, db } from '@/db';
+import { getAiModelCandidates } from '@/services/geminiService';
 
 export const DEFAULT_DEFECT_TAGS = [
   'Kerut',
@@ -281,16 +282,18 @@ export async function runDefectTagAnalysis(force = false) {
       .map(l => (l.keterangan || '').trim())
       .filter(t => t.length > 1);
 
-    const apiKey = await getSetting('gemini_api_key', '');
-    const model = await getSetting('gemini_model', 'gemini-2.0-flash');
+    const apiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
+    let candidates = await getAiModelCandidates();
+    if (!candidates || candidates.length === 0) {
+      candidates = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    }
 
     let extractedTags = [];
     let methodUsed = 'Analisis Pola Lokal NLP';
 
     // 2. Jika API Key tersedia & ada teks keterangan, gunakan Google Gemini AI
     if (apiKey && apiKey.trim().length > 10 && defectTexts.length > 0) {
-      try {
-        const prompt = `Anda adalah asisten AI Quality Assurance untuk pabrik film plastik (CPP/BOPP).
+      const prompt = `Anda adalah asisten AI Quality Assurance untuk manufaktur film plastik packaging di PT SAPTAWARNA CEMERLANG (PT SWC).
 Berikut adalah catatan/keterangan kerusakan (HOLD & REJECT) asli dari operator produksi di lapangan:
 ${JSON.stringify(defectTexts.slice(-60), null, 2)}
 
@@ -301,35 +304,39 @@ Aturan:
 - Gunakan bahasa Indonesia baku / istilah pabrik yang umum.
 - Kembalikan HANYA format JSON Array murni: ["Tag 1", "Tag 2", ...] tanpa markdown atau penjelasan tambahan.`;
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey.trim()
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 500 }
-          })
-        });
+      for (const modelToTry of candidates) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey.trim()
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.2, maxOutputTokens: 500 }
+            })
+          });
 
-        if (response.ok) {
-          const resData = await response.json();
-          const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          const cleanedText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-          try {
-            const parsed = JSON.parse(cleanedText);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              extractedTags = parsed.map(t => String(t).trim()).filter(Boolean);
-              methodUsed = `Google Gemini (${model})`;
+          if (response.ok) {
+            const resData = await response.json();
+            const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanedText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            try {
+              const parsed = JSON.parse(cleanedText);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                extractedTags = parsed.map(t => String(t).trim()).filter(Boolean);
+                methodUsed = `Google Gemini (${modelToTry})`;
+                break;
+              }
+            } catch (parseErr) {
+              console.warn('Gagal mem-parse tag JSON dari Gemini:', parseErr);
             }
-          } catch (parseErr) {
-            console.warn('Gagal mem-parse tag JSON dari Gemini:', parseErr);
           }
+        } catch (geminiErr) {
+          console.warn(`Gemini AI (${modelToTry}) execution error, trying next fallback:`, geminiErr);
         }
-      } catch (geminiErr) {
-        console.warn('Gemini AI execution fallback to local NLP:', geminiErr);
       }
     }
 

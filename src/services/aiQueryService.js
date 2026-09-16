@@ -277,10 +277,15 @@ export async function handleGeneralAiQuery(queryText, history = []) {
   const modelCandidates = await getAiModelCandidates();
 
   if (apiKey && apiKey.trim() && modelCandidates.length > 0) {
-    const systemInstruction = `Anda adalah SWC AI Copilot, asisten manufaktur cerdas di PT SAPTAWARNA CEMERLANG (produsen flexible packaging: rotogravure printing, extrusion laminating, dry laminating, casting, metallizing, slitting, rewind).
-Pedoman Jawaban:
-1. Jawab pertanyaan umum pengguna secara ramah, cerdas, luwes, dan akurat (termasuk penjelasan istilah rotogravure, polimer film, slitting, salam, atau percakapan umum).
-2. Di akhir jawaban, sertakan ajakan ramah atau tawaran untuk membantu memeriksa laporan data produksi pabrik (seperti reject, SPK, atau operator).`;
+    const systemInstruction = `Anda adalah SWC AI Copilot, asisten manufaktur cerdas di PT SAPTAWARNA CEMERLANG (PT SWC).
+IDENTITAS PERUSAHAAN WAJIB & MUTLAK:
+Nama perusahaan adalah PT SAPTAWARNA CEMERLANG (disingkat PT SWC), produsen flexible packaging terkemuka (rotogravure printing, extrusion laminating, dry laminating, casting, metallizing, slitting, rewind).
+DILARANG KERAS memplesetkan, menyingkat menjadi nama lain (seperti "Sumber Waras" atau nama fiktif lainnya), atau mengarang entitas perusahaan yang keliru.
+
+PEDOMAN ANTI-HALUSINASI & PENCARIAN WEB REALTIME:
+1. DILARANG MENGARANG: Jika informasi tidak diketahui atau tidak ada di internet, katakan secara jujur dan lugas bahwa data tidak tersedia. JANGAN PERNAH membuat fakta fiktif.
+2. Jawab pertanyaan umum pengguna secara ramah, cerdas, luwes, dan akurat (termasuk penjelasan istilah rotogravure, polimer film, slitting, salam, atau percakapan umum).
+3. Di akhir jawaban, sertakan ajakan ramah atau tawaran untuk membantu memeriksa laporan data produksi pabrik (seperti reject, SPK, atau operator).`;
 
     const contents = [];
     if (Array.isArray(history)) {
@@ -301,38 +306,76 @@ Pedoman Jawaban:
 
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
-        const response = await fetch(url, {
+        const basePayload = {
+          contents,
+          tools: [{ googleSearch: {} }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 8192
+          },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+          ]
+        };
+
+        let response = await fetch(url, {
           method: 'POST',
           signal: abortCtrl.signal,
           headers: {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey.trim()
           },
-          body: JSON.stringify({
-            contents,
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            generationConfig: {
-              temperature: 0.5,
-              maxOutputTokens: 8192
-            },
-            safetySettings: [
-              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-              { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
-            ]
-          })
+          body: JSON.stringify(basePayload)
         });
+
+        // Fallback jika model tertentu menolak parameter tools
+        if (!response.ok && response.status === 400) {
+          const errCheck = await response.json().catch(() => ({}));
+          if (JSON.stringify(errCheck).toLowerCase().includes('tool')) {
+            delete basePayload.tools;
+            response = await fetch(url, {
+              method: 'POST',
+              signal: abortCtrl.signal,
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey.trim()
+              },
+              body: JSON.stringify(basePayload)
+            });
+          }
+        }
 
         clearTimeout(timeoutId);
 
         if (response.ok) {
           const resJson = await response.json();
-          const output = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          let output = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
           if (output && output.trim()) {
             // Rekam model berhasil ke Cloud Database sebagai Sticky Winner
             recordModelSuccess(modelToTry).catch(() => {});
+
+            // Ekstrak referensi web jika model melakukan browsing via Google Search Grounding
+            const webChunks = resJson.candidates?.[0]?.groundingMetadata?.groundingChunks;
+            if (Array.isArray(webChunks) && webChunks.length > 0) {
+              const uniqueSources = [];
+              for (const c of webChunks) {
+                if (c.web?.uri && !uniqueSources.some(s => s.url === c.web.uri)) {
+                  uniqueSources.push({
+                    title: c.web.title || c.web.uri,
+                    url: c.web.uri
+                  });
+                }
+              }
+              if (uniqueSources.length > 0) {
+                output = output.trim() + '\n\n---\n🌐 *Sumber Referensi Web (Google Search):*\n' +
+                  uniqueSources.slice(0, 3).map(s => `• [${s.title}](${s.url})`).join('\n');
+              }
+            }
 
             return {
               text: output.trim(),
@@ -655,13 +698,22 @@ async function callGeminiGenerativeAi(userQuery, history, dataRolls, operators) 
   // Build high-accuracy factual grounding from IndexedDB
   const groundingData = await buildTargetedGroundingData(userQuery, history, operators);
 
-  const systemInstruction = `Anda adalah SWC AI Copilot, asisten eksekutif manufaktur cerdas dan manajer kualitas senior di PT SAPTAWARNA CEMERLANG (produsen flexible packaging rotogravure).
+  const systemInstruction = `Anda adalah SWC AI Copilot, asisten eksekutif manufaktur cerdas dan manajer kualitas senior di PT SAPTAWARNA CEMERLANG (PT SWC).
 
-PEDOMAN MUTLAK:
-1. DILARANG KERAS menggunakan format template kaku, teks berulang, atau data rekayasa/dummy/seed. Anda wajib merumuskan analisis murni sendiri secara luwes, orisinal, dan komunikatif layaknya seorang manajer pabrik profesional.
-2. Jika pengguna meminta menghitung jumlah barang (misalnya HOLD, REJECT, PASS) pada bulan tertentu (seperti April) atau meminta ranking 10 SPK tertinggi, gunakan FAKTA DATABASE DI BAWAH untuk menyebutkan angka totalnya secara tepat dan menyajikan daftar 10 nomor SPK dengan jumlah hold tertinggi secara berurutan.
-3. Berikan analisis singkat mengapa defect tersebut terjadi dan tindakan korektif kualitas (QC/Slitting/Rewind).
-4. Selesaikan jawaban secara tuntas sampai kalimat penutup, jangan pernah terpotong.
+IDENTITAS PERUSAHAAN WAJIB & MUTLAK:
+Nama perusahaan adalah PT SAPTAWARNA CEMERLANG (disingkat PT SWC), produsen flexible packaging terkemuka (rotogravure printing, extrusion laminating, dry laminating, casting, metallizing, slitting, rewind).
+DILARANG KERAS memplesetkan, menyingkat menjadi nama lain (seperti "Sumber Waras" atau nama fiktif lainnya), atau mengarang entitas perusahaan yang keliru.
+
+PEDOMAN ANTI-HALUSINASI & DATA PABRIK:
+1. DATA INTERNAL PABRIK (SPK, nomor lot, roll, meter, operator, stok FG/WIP, rasio reject/hold): WAJIB 100% MENGACU PADA FAKTA DATABASE PABRIK DI BAWAH. DILARANG KERAS MENGARANG ANGKA ATAU MENERKA-NERKA jika tidak ada pada database.
+2. Jika pengguna meminta data pabrik tertentu yang TIDAK DITEMUKAN pada fakta database di bawah, nyatakan secara jujur dan lugas: "Data/informasi tersebut tidak ditemukan pada sistem database saat ini."
+3. DILARANG KERAS menggunakan format template kaku, teks berulang, atau data rekayasa/dummy/seed. Anda wajib merumuskan analisis murni sendiri secara luwes, orisinal, dan komunikatif layaknya seorang manajer pabrik profesional.
+4. Jika pengguna meminta menghitung jumlah barang (misalnya HOLD, REJECT, PASS) pada bulan tertentu (seperti April) atau meminta ranking 10 SPK tertinggi, gunakan FAKTA DATABASE DI BAWAH untuk menyebutkan angka totalnya secara tepat dan menyajikan daftar 10 nomor SPK dengan jumlah hold tertinggi secara berurutan.
+5. Berikan analisis singkat mengapa defect tersebut terjadi dan tindakan korektif kualitas (QC/Slitting/Rewind).
+6. Selesaikan jawaban secara tuntas sampai kalimat penutup, jangan pernah terpotong.
+
+PENCARIAN WEB REALTIME (GOOGLE SEARCH GROUNDING):
+Anda dilengkapi dengan alat Google Search. Jika pengguna menanyakan pengetahuan teknis eksternal, standar industri (seperti ASTM, ISO kemasan pangan, FDA), spesifikasi polimer (PET, CPP, BOPP, PE), perkembangan industri flexible packaging, atau jika Anda meragukan suatu fakta umum eksternal, gunakan penelusuran web secara realtime untuk memvalidasi fakta dan memberikan jawaban yang akurat, mutakhir, dan bebas halusinasi.
 
 KONSULTASI & TROUBLESHOOTING CACAT PRODUKSI FLEXIBLE PACKAGING:
 Jika pengguna menanyakan kendala teknis proses slitting, rewind, printing rotogravure, laminasi, atau casting:
@@ -719,38 +771,76 @@ ${groundingData}`;
 
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
-      const response = await fetch(url, {
+      const basePayload = {
+        contents,
+        tools: [{ googleSearch: {} }],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        generationConfig: {
+          temperature: 0.35,
+          maxOutputTokens: 8192
+        },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+        ]
+      };
+
+      let response = await fetch(url, {
         method: 'POST',
         signal: abortCtrl.signal,
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': apiKey.trim()
         },
-        body: JSON.stringify({
-          contents,
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: {
-            temperature: 0.35,
-            maxOutputTokens: 8192
-          },
-          safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
-          ]
-        })
+        body: JSON.stringify(basePayload)
       });
+
+      // Fallback jika model tertentu menolak parameter tools (HTTP 400)
+      if (!response.ok && response.status === 400) {
+        const errCheck = await response.json().catch(() => ({}));
+        if (JSON.stringify(errCheck).toLowerCase().includes('tool')) {
+          delete basePayload.tools;
+          response = await fetch(url, {
+            method: 'POST',
+            signal: abortCtrl.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey.trim()
+            },
+            body: JSON.stringify(basePayload)
+          });
+        }
+      }
 
       clearTimeout(timeoutId);
 
       if (response.ok) {
         const resJson = await response.json();
-        const outputText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+        let outputText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
         if (outputText && outputText.trim()) {
           // Rekam model berhasil ke Cloud Database sebagai Sticky Winner
           recordModelSuccess(modelToTry).catch(() => {});
+
+          // Ekstrak referensi web jika model melakukan browsing via Google Search Grounding
+          const webChunks = resJson.candidates?.[0]?.groundingMetadata?.groundingChunks;
+          if (Array.isArray(webChunks) && webChunks.length > 0) {
+            const uniqueSources = [];
+            for (const c of webChunks) {
+              if (c.web?.uri && !uniqueSources.some(s => s.url === c.web.uri)) {
+                uniqueSources.push({
+                  title: c.web.title || c.web.uri,
+                  url: c.web.uri
+                });
+              }
+            }
+            if (uniqueSources.length > 0) {
+              outputText = outputText.trim() + '\n\n---\n🌐 *Sumber Referensi Web (Google Search):*\n' +
+                uniqueSources.slice(0, 3).map(s => `• [${s.title}](${s.url})`).join('\n');
+            }
+          }
 
           return {
             text: outputText.trim(),
