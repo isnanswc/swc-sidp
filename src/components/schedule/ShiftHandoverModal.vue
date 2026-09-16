@@ -1021,7 +1021,7 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
       // Request payload dengan tools Google Search Grounding jika didukung model
       const basePayload = {
         contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ googleSearch: {} }],
+        tools: [{ google_search: {} }],
         generationConfig: {
           temperature: 0.25,
           maxOutputTokens: 8192
@@ -1038,23 +1038,18 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
         body: JSON.stringify(basePayload)
       });
 
-      // Fallback jika model tertentu menolak parameter tools
-      if (!res.ok && res.status === 400) {
-        const errCheck = await res.json().catch(() => ({}));
-        if (JSON.stringify(errCheck).toLowerCase().includes('tool')) {
-          delete basePayload.tools;
-          res = await fetch(url, {
-            method: 'POST',
-            signal: abortCtrl.signal,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey.trim()
-            },
-            body: JSON.stringify(basePayload)
-          });
-        } else {
-          throw new Error(errCheck?.error?.message || `HTTP ${res.status}`);
-        }
+      // Fallback jika model tertentu menolak parameter tools (HTTP 400)
+      if (!res.ok && res.status === 400 && basePayload.tools) {
+        delete basePayload.tools;
+        res = await fetch(url, {
+          method: 'POST',
+          signal: abortCtrl.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey.trim()
+          },
+          body: JSON.stringify(basePayload)
+        });
       }
 
       clearTimeout(timeoutId);
@@ -1071,15 +1066,15 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
 
       if (generatedText) {
         // Ekstrak referensi web jika model melakukan browsing via Google Search Grounding
-        const webChunks = data?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        const meta = data?.candidates?.[0]?.groundingMetadata || data?.candidates?.[0]?.grounding_metadata;
+        const webChunks = meta?.groundingChunks || meta?.grounding_chunks;
         if (Array.isArray(webChunks) && webChunks.length > 0) {
           const uniqueSources = [];
           for (const c of webChunks) {
-            if (c.web?.uri && !uniqueSources.some(s => s.url === c.web.uri)) {
-              uniqueSources.push({
-                title: c.web.title || c.web.uri,
-                url: c.web.uri
-              });
+            const uri = c.web?.uri || c.web?.url;
+            const title = c.web?.title || uri;
+            if (uri && !uniqueSources.some(s => s.url === uri)) {
+              uniqueSources.push({ title, url: uri });
             }
           }
           if (uniqueSources.length > 0) {

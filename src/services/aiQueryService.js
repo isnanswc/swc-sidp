@@ -276,6 +276,8 @@ export async function handleGeneralAiQuery(queryText, history = []) {
   const apiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
   const modelCandidates = await getAiModelCandidates();
 
+  const generalGuidanceBridge = `\n\n💡 *Ada data produksi pabrik yang ingin Anda periksa saat ini? Saya siap membantu menganalisis:*\n• *Perhitungan jumlah & alasan roll REJECT / HOLD*\n• *Pencapaian & rekap performa per operator*\n• *Status jadwal dan antrean SPK aktif*`;
+
   if (apiKey && apiKey.trim() && modelCandidates.length > 0) {
     const systemInstruction = `Anda adalah SWC AI Copilot, asisten manufaktur cerdas di PT SAPTAWARNA CEMERLANG (PT SWC).
 IDENTITAS PERUSAHAAN WAJIB & MUTLAK:
@@ -308,7 +310,7 @@ PEDOMAN ANTI-HALUSINASI & PENCARIAN WEB REALTIME:
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
         const basePayload = {
           contents,
-          tools: [{ googleSearch: {} }],
+          tools: [{ google_search: {} }],
           systemInstruction: { parts: [{ text: systemInstruction }] },
           generationConfig: {
             temperature: 0.4,
@@ -333,21 +335,18 @@ PEDOMAN ANTI-HALUSINASI & PENCARIAN WEB REALTIME:
           body: JSON.stringify(basePayload)
         });
 
-        // Fallback jika model tertentu menolak parameter tools
-        if (!response.ok && response.status === 400) {
-          const errCheck = await response.json().catch(() => ({}));
-          if (JSON.stringify(errCheck).toLowerCase().includes('tool')) {
-            delete basePayload.tools;
-            response = await fetch(url, {
-              method: 'POST',
-              signal: abortCtrl.signal,
-              headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': apiKey.trim()
-              },
-              body: JSON.stringify(basePayload)
-            });
-          }
+        // Fallback jika model tertentu menolak parameter tools (HTTP 400)
+        if (!response.ok && response.status === 400 && basePayload.tools) {
+          delete basePayload.tools;
+          response = await fetch(url, {
+            method: 'POST',
+            signal: abortCtrl.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey.trim()
+            },
+            body: JSON.stringify(basePayload)
+          });
         }
 
         clearTimeout(timeoutId);
@@ -360,15 +359,15 @@ PEDOMAN ANTI-HALUSINASI & PENCARIAN WEB REALTIME:
             recordModelSuccess(modelToTry).catch(() => {});
 
             // Ekstrak referensi web jika model melakukan browsing via Google Search Grounding
-            const webChunks = resJson.candidates?.[0]?.groundingMetadata?.groundingChunks;
+            const meta = resJson.candidates?.[0]?.groundingMetadata || resJson.candidates?.[0]?.grounding_metadata;
+            const webChunks = meta?.groundingChunks || meta?.grounding_chunks;
             if (Array.isArray(webChunks) && webChunks.length > 0) {
               const uniqueSources = [];
               for (const c of webChunks) {
-                if (c.web?.uri && !uniqueSources.some(s => s.url === c.web.uri)) {
-                  uniqueSources.push({
-                    title: c.web.title || c.web.uri,
-                    url: c.web.uri
-                  });
+                const uri = c.web?.uri || c.web?.url;
+                const title = c.web?.title || uri;
+                if (uri && !uniqueSources.some(s => s.url === uri)) {
+                  uniqueSources.push({ title, url: uri });
                 }
               }
               if (uniqueSources.length > 0) {
@@ -773,7 +772,7 @@ ${groundingData}`;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
       const basePayload = {
         contents,
-        tools: [{ googleSearch: {} }],
+        tools: [{ google_search: {} }],
         systemInstruction: { parts: [{ text: systemInstruction }] },
         generationConfig: {
           temperature: 0.35,
@@ -799,20 +798,17 @@ ${groundingData}`;
       });
 
       // Fallback jika model tertentu menolak parameter tools (HTTP 400)
-      if (!response.ok && response.status === 400) {
-        const errCheck = await response.json().catch(() => ({}));
-        if (JSON.stringify(errCheck).toLowerCase().includes('tool')) {
-          delete basePayload.tools;
-          response = await fetch(url, {
-            method: 'POST',
-            signal: abortCtrl.signal,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey.trim()
-            },
-            body: JSON.stringify(basePayload)
-          });
-        }
+      if (!response.ok && response.status === 400 && basePayload.tools) {
+        delete basePayload.tools;
+        response = await fetch(url, {
+          method: 'POST',
+          signal: abortCtrl.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey.trim()
+          },
+          body: JSON.stringify(basePayload)
+        });
       }
 
       clearTimeout(timeoutId);
@@ -825,15 +821,15 @@ ${groundingData}`;
           recordModelSuccess(modelToTry).catch(() => {});
 
           // Ekstrak referensi web jika model melakukan browsing via Google Search Grounding
-          const webChunks = resJson.candidates?.[0]?.groundingMetadata?.groundingChunks;
+          const meta = resJson.candidates?.[0]?.groundingMetadata || resJson.candidates?.[0]?.grounding_metadata;
+          const webChunks = meta?.groundingChunks || meta?.grounding_chunks;
           if (Array.isArray(webChunks) && webChunks.length > 0) {
             const uniqueSources = [];
             for (const c of webChunks) {
-              if (c.web?.uri && !uniqueSources.some(s => s.url === c.web.uri)) {
-                uniqueSources.push({
-                  title: c.web.title || c.web.uri,
-                  url: c.web.uri
-                });
+              const uri = c.web?.uri || c.web?.url;
+              const title = c.web?.title || uri;
+              if (uri && !uniqueSources.some(s => s.url === uri)) {
+                uniqueSources.push({ title, url: uri });
               }
             }
             if (uniqueSources.length > 0) {
