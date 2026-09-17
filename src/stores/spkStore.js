@@ -784,7 +784,7 @@ export const useSpkStore = defineStore('spk', () => {
       for (const [mapKey, spkData] of dataMap.entries()) {
         if (matchedKeys.has(mapKey)) continue;
         const normKey = normalizeKey(mapKey);
-        if (normKey === targetNorm || subNorms.some(sn => normKey === sn || (normKey.length >= 4 && sn.includes(normKey)))) {
+        if (normKey === targetNorm || subNorms.some(sn => normKey === sn || (sn.length >= 4 && normKey.includes(sn)))) {
           matchedSpkDataList.push(spkData);
           matchedKeys.add(mapKey);
         }
@@ -991,11 +991,18 @@ export const useSpkStore = defineStore('spk', () => {
       }
     }
 
-    // Index data rolls
+    // Index data rolls (with full deduplication to prevent double-counting)
     const processedSignatures = new Set();
+    const processedRollUuids = new Set();
+    const processedRollIds = new Set();
     for (let i = 0; i < rolls.length; i++) {
       const r = rolls[i];
       if (!r || !r.spk) continue;
+
+      // UUID/ID-based dedup: skip if already processed from labels
+      if (r.uuid && processedRollUuids.has(String(r.uuid))) continue;
+      if (r.id && processedRollIds.has(String(r.id))) continue;
+
       const s = String(r.spk).trim().toUpperCase();
       const rawLot = String(r.lot || '').trim();
       const turunan = String(r.turunan || '').trim();
@@ -1004,6 +1011,10 @@ export const useSpkStore = defineStore('spk', () => {
       const sig = `${s}::${cleanParent.toUpperCase()}::${turunan.toUpperCase()}`;
       if (turunan && processedSignatures.has(sig)) continue;
       if (turunan) processedSignatures.add(sig);
+
+      // Track this roll's identifiers
+      if (r.uuid) processedRollUuids.add(String(r.uuid));
+      if (r.id) processedRollIds.add(String(r.id));
 
       const entry = getOrInit(s);
       const w = parseFloat(r.width) || 0;
@@ -1084,6 +1095,13 @@ export const useSpkStore = defineStore('spk', () => {
     for (let i = 0; i < labels.length; i++) {
       const l = labels[i];
       if (!l || !l.spk) continue;
+
+      // UUID/ID-based dedup: skip if already processed from data_rolls
+      if (l.uniqId && processedRollUuids.has(String(l.uniqId))) continue;
+      if (l.uuid && processedRollUuids.has(String(l.uuid))) continue;
+      if (l.originalRollId && processedRollIds.has(String(l.originalRollId))) continue;
+      if (typeof l.id === 'number' && processedRollIds.has(String(l.id))) continue;
+
       const s = String(l.spk).trim().toUpperCase();
       const rawLot = String(l.lot || '').trim();
       const turunan = String(l.turunan || '').trim();
@@ -1091,6 +1109,10 @@ export const useSpkStore = defineStore('spk', () => {
       const sig = `${s}::${cleanParent.toUpperCase()}::${turunan.toUpperCase()}`;
       if (turunan && processedSignatures.has(sig)) continue;
       if (turunan) processedSignatures.add(sig);
+
+      // Track this label's identifiers
+      if (l.uniqId) processedRollUuids.add(String(l.uniqId));
+      if (l.uuid) processedRollUuids.add(String(l.uuid));
 
       const entry = getOrInit(s);
       const w = parseFloat(l.width || l.lebar) || 0;
@@ -1295,8 +1317,8 @@ export function parseSpkMetadata(spkNo, sampleDate = null) {
   let isTrial = cleanSpk.includes('TRIAL');
   let material = '';
 
-  // Extract year (4 digit 202x)
-  const yrMatch = cleanSpk.match(/\b(202\d)\b/);
+  // Extract year (4 digit 20xx)
+  const yrMatch = cleanSpk.match(/\b(20\d{2})\b/);
   if (yrMatch) {
     year = parseInt(yrMatch[1], 10);
   }
@@ -1308,10 +1330,10 @@ export function parseSpkMetadata(spkNo, sampleDate = null) {
     for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i];
       if (/^\d+$/.test(tok)) {
-        if (tok.length <= 3 && noUrut === null) {
-          noUrut = parseInt(tok, 10);
-        } else if (tok.length === 4 && year === null) {
+        if (tok.length === 4 && year === null && parseInt(tok, 10) >= 2000) {
           year = parseInt(tok, 10);
+        } else if (tok.length <= 4 && noUrut === null) {
+          noUrut = parseInt(tok, 10);
         }
       } else if (ROMAN_TO_MONTH[tok]) {
         romanMonth = tok;
@@ -1327,9 +1349,9 @@ export function parseSpkMetadata(spkNo, sampleDate = null) {
         romanMonth = tok;
         month = ROMAN_TO_MONTH[tok];
       } else if (/^\d+$/.test(tok)) {
-        if (tok.length === 4 && year === null) {
+        if (tok.length === 4 && year === null && parseInt(tok, 10) >= 2000) {
           year = parseInt(tok, 10);
-        } else if (tok.length <= 3 && noUrut === null) {
+        } else if (tok.length <= 4 && noUrut === null) {
           noUrut = parseInt(tok, 10);
         }
       } else if (tok !== 'SPK' && tok.length >= 2) {

@@ -648,7 +648,7 @@
                 v-for="(item, idx) in paginatedActiveSpkList"
                 :key="item.spkNo"
                 class="hover:bg-blue-50/50 transition-colors cursor-pointer"
-                @click="openSpkDetailDrawer(item)"
+                @click="openQuickDrawer(item)"
               >
                 <td class="px-4 py-3 text-zinc-400 font-bold">{{ (spkCurrentPage - 1) * spkPageSize + idx + 1 }}</td>
                 <td class="px-4 py-3">
@@ -1550,7 +1550,14 @@
         </div>
 
         <!-- Footer Drawer -->
-        <div class="p-4 border-t border-zinc-200 bg-zinc-50 flex justify-end">
+        <div class="p-4 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between">
+          <button
+            @click="showDetailDrawer = false; openSpkDetailDrawer(selectedSpkAnalytics)"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer flex items-center gap-1.5"
+          >
+            <span>Buka Halaman Penuh</span>
+            <span>→</span>
+          </button>
           <button @click="showDetailDrawer = false" class="px-5 py-2 bg-zinc-900 hover:bg-black text-white rounded-xl font-bold cursor-pointer">
             Tutup
           </button>
@@ -2834,10 +2841,54 @@ const totalDetailPageLotPages = computed(() => {
   return Math.ceil(filteredDetailPageLots.value.length / detailPageLotPageSize.value) || 1;
 });
 
+watch(detailPageLotSearch, () => {
+  detailPageLotCurrentPage.value = 1;
+});
+
 const paginatedDetailPageLots = computed(() => {
   const start = (detailPageLotCurrentPage.value - 1) * detailPageLotPageSize.value;
   return filteredDetailPageLots.value.slice(start, start + detailPageLotPageSize.value);
 });
+
+// Quick-view drawer: populates selectedSpkAnalytics and shows the overlay drawer
+const openQuickDrawer = (item) => {
+  if (!item) return;
+  const density = getFilmDensity(item.material, item.formula, item.spkNo, configStore?.filmConfigs);
+  const defThk = parseFloat(item.thickness) || 25;
+
+  const realLots = (item.realLots || []).map(lt => {
+    let wt = parseFloat(lt.weight) || 0;
+    if (wt <= 0) {
+      const thk = parseFloat(lt.thickness) || defThk;
+      const w = parseFloat(lt.width) || 0;
+      const m = parseFloat(lt.length) || 0;
+      wt = calculateBeratTeori(thk, w, m, density);
+    }
+    return { ...lt, weight: wt };
+  });
+
+  const wMap = new Map();
+  for (const lt of realLots) {
+    const w = Math.round(parseFloat(lt.width) || 0);
+    if (w > 0) {
+      if (!wMap.has(w)) wMap.set(w, { width: w, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+      const wObj = wMap.get(w);
+      wObj.totalRoll++;
+      wObj.totalMeter += parseFloat(lt.length) || 0;
+      wObj.totalKg += parseFloat(lt.weight) || 0;
+    }
+  }
+  const widthSummaries = Array.from(wMap.values()).sort((a, b) => b.width - a.width);
+  widthSummaries.forEach(w => { w.totalKg = Math.round(w.totalKg * 10) / 10; });
+
+  selectedSpkAnalytics.value = {
+    ...item,
+    realLots,
+    widthSummaries,
+    totalRealKg: Math.round(widthSummaries.reduce((sum, w) => sum + (w.totalKg || 0), 0) * 10) / 10 || item.totalRealKg,
+  };
+  showDetailDrawer.value = true;
+};
 
 const openSpkDetailDrawer = (item) => {
   if (!item) return;
@@ -2978,8 +3029,9 @@ const calculateRowTrim = (row) => {
 // ── DATE RANGE & FULL STANDARD SPK LOGIC ──
 
 const isDateRangeMode = ref(false);
-const verificationBatchStartDate = ref('2026-09-05');
-const verificationBatchEndDate = ref('2026-09-07');
+const todayIso = new Date().toISOString().slice(0, 10);
+const verificationBatchStartDate = ref(todayIso);
+const verificationBatchEndDate = ref(todayIso);
 const verificationBatchDateLabel = ref('');
 
 const monthNamesIndo = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -3380,12 +3432,25 @@ const handleVerificationKeydown = (e) => {
     enterCellEdit(selStart.value.r, selStart.value.c);
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
-    const r = selStart.value.r;
-    const c = selStart.value.c;
-    const col = vColumns[c];
-    if (col && !col.readonly && verificationStagingList.value[r]) {
-      verificationStagingList.value[r][col.key] = '';
-      recalcVerificationRow(verificationStagingList.value[r]);
+    const minR = vMinR.value;
+    const maxR = vMaxR.value;
+    const minC = vMinC.value;
+    const maxC = vMaxC.value;
+
+    for (let r = minR; r <= maxR; r++) {
+      const row = verificationStagingList.value[r];
+      if (!row) continue;
+      let rowChanged = false;
+      for (let c = minC; c <= maxC; c++) {
+        const col = vColumns[c];
+        if (col && !col.readonly) {
+          row[col.key] = '';
+          rowChanged = true;
+        }
+      }
+      if (rowChanged) {
+        recalcVerificationRow(row);
+      }
     }
   } else if (!isCtrl && !e.altKey && e.key.length === 1) {
     const col = vColumns[selStart.value.c];
