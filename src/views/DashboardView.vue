@@ -1274,11 +1274,12 @@ const currentPeriodRange = computed(() => {
   }
 
   if (selectedFrequency.value === 'CUSTOM') {
-    let startStr = customStartDate.value;
-    let endStr = customEndDate.value;
+    let startStr = String(customStartDate.value || '').trim();
+    let endStr = String(customEndDate.value || '').trim();
+    const firstDay = new Date(year, month, 1, 12, 0, 0);
+    const lastDay = new Date(year, month + 1, 0, 12, 0, 0);
+
     if (!startStr && !endStr) {
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
       return {
         startDate: firstDay,
         endDate: lastDay,
@@ -1293,13 +1294,18 @@ const currentPeriodRange = computed(() => {
       startStr = endStr;
       endStr = tmp;
     }
-    const [sy, sm, sd] = startStr.split('-').map(Number);
-    const [ey, em, ed] = endStr.split('-').map(Number);
+
+    const sParts = startStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const eParts = endStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+    const sDate = sParts ? new Date(parseInt(sParts[1], 10), parseInt(sParts[2], 10) - 1, parseInt(sParts[3], 10), 12, 0, 0) : firstDay;
+    const eDate = eParts ? new Date(parseInt(eParts[1], 10), parseInt(eParts[2], 10) - 1, parseInt(eParts[3], 10), 12, 0, 0) : lastDay;
+
     return {
-      startDate: new Date(sy, sm - 1, sd),
-      endDate: new Date(ey, em - 1, ed),
-      startIso: startStr,
-      endIso: endStr
+      startDate: sDate,
+      endDate: eDate,
+      startIso: toYmd(sDate),
+      endIso: toYmd(eDate)
     };
   }
 
@@ -1823,8 +1829,9 @@ const generateLineChartData = () => {
       const endSun = getSunday(getMonday(endD));
       const buckets = [];
       const cur = new Date(startMon);
+      let safety = 0;
 
-      while (cur <= endSun) {
+      while (cur <= endSun && safety++ < 500) {
         const wSun = getSunday(cur);
         labels.push(`${cur.getDate()} ${monthNames[cur.getMonth()]} - ${wSun.getDate()} ${monthNames[wSun.getMonth()]}`);
         buckets.push({ startIso: toYmd(cur), endIso: toYmd(wSun), total: 0, pass: 0, hold: 0, reject: 0 });
@@ -1914,8 +1921,9 @@ const generateLineChartData = () => {
       const end = range.endDate || new Date(yr, mo, 1);
       const cur = new Date(start.getFullYear(), start.getMonth(), 1);
       const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+      let safety = 0;
 
-      while (cur <= endMonth) {
+      while (cur <= endMonth && safety++ < 120) {
         targetMonthDefs.push({
           label: `${monthNames[cur.getMonth()]} '${String(cur.getFullYear()).slice(2)}`,
           year: cur.getFullYear(),
@@ -1963,6 +1971,15 @@ const generateLineChartData = () => {
     passData = buckets.map(b => b.pass);
     holdData = buckets.map(b => b.hold);
     rejectData = buckets.map(b => b.reject);
+  }
+
+  // Jaminan data selalu terisi minimal 1 label agar Chart.js tidak pernah menerima dataset kosong / null
+  if (!labels || labels.length === 0) {
+    labels = [activePeriodSubtitle.value || 'Periode Terpilih'];
+    totalData = [0];
+    passData = [0];
+    holdData = [0];
+    rejectData = [0];
   }
 
   // Sinkronkan ringkasan metrik chart (total, pass, hold, reject) dengan data yang sedang aktif dirender
@@ -2069,6 +2086,7 @@ const initLineChart = () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: { duration: 250 },
         interaction: {
           mode: 'index',
           intersect: false
@@ -2107,33 +2125,7 @@ const initLineChart = () => {
 
 const updateLineChart = () => {
   if (!lineComparisonChartCanvas.value) return;
-  if (!lineComparisonChartInstance) {
-    initLineChart();
-    return;
-  }
-  const { labels, totalData, passData, holdData, rejectData } = generateLineChartData();
-  lineComparisonChartInstance.data.labels = labels;
-  lineComparisonChartInstance.data.datasets[0].data = totalData;
-  lineComparisonChartInstance.data.datasets[1].data = passData;
-  lineComparisonChartInstance.data.datasets[2].data = holdData;
-  lineComparisonChartInstance.data.datasets[3].data = rejectData;
-  lineComparisonChartInstance.data.datasets[0].hidden = !chartVisibility.value.total;
-  lineComparisonChartInstance.data.datasets[1].hidden = !chartVisibility.value.pass;
-  lineComparisonChartInstance.data.datasets[2].hidden = !chartVisibility.value.hold;
-  lineComparisonChartInstance.data.datasets[3].hidden = !chartVisibility.value.reject;
-
-  const isDense = totalData.length > 90;
-  const pRadius = isDense ? 0 : 3.5;
-  const bWidth = isDense ? 1.8 : 2.5;
-  lineComparisonChartInstance.data.datasets[0].borderWidth = bWidth;
-  lineComparisonChartInstance.data.datasets[1].borderWidth = bWidth;
-  lineComparisonChartInstance.data.datasets[2].borderWidth = Math.max(1.5, bWidth - 0.5);
-  lineComparisonChartInstance.data.datasets[3].borderWidth = Math.max(1.5, bWidth - 0.5);
-  for (let i = 0; i < 4; i++) {
-    lineComparisonChartInstance.data.datasets[i].pointRadius = pRadius;
-  }
-
-  lineComparisonChartInstance.update();
+  initLineChart();
 };
 
 // Reaktif re-render diagram garis saat data roll / label selesai dimuat dari IndexedDB
