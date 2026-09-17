@@ -6463,13 +6463,6 @@ const detectedOperator = computed(() => {
     const opClean = form.operator.trim().toUpperCase();
     const byName = configStore.operatorList.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
     if (byName) return byName;
-    return {
-      id: `custom-${opClean}`,
-      nama: form.operator,
-      kodeOperator: form.kodeOperator || (detectedPrefix.value || 'H'),
-      mesin: form.mesin,
-      active: true
-    };
   }
   if (form.kodeOperator) {
     const codeClean = form.kodeOperator.trim().toUpperCase();
@@ -6493,7 +6486,7 @@ const detectedOperator = computed(() => {
     || null;
 });
 
-// Daftar operator khusus untuk mesin yang sedang dipilih di form
+// Daftar operator khusus untuk mesin yang sedang dipilih di form (murni dari database real)
 const machineOperators = computed(() => {
   const list = (configStore.operatorList || []).filter(o => o.active !== false);
   let matched = list;
@@ -6501,24 +6494,7 @@ const machineOperators = computed(() => {
     const filtered = list.filter(o => isMachineMatch(o.mesin, form.mesin));
     if (filtered.length > 0) matched = filtered;
   }
-  const result = [...matched];
-
-  // Pastikan operator yang sedang aktif di form.operator selalu ada dalam daftar pilihan dropdown
-  if (form.operator) {
-    const cleanOp = form.operator.trim().toUpperCase();
-    const exists = result.some(o => o.nama && o.nama.trim().toUpperCase() === cleanOp);
-    if (!exists) {
-      result.push({
-        id: `custom-${cleanOp}`,
-        nama: form.operator,
-        kodeOperator: form.kodeOperator || 'H',
-        mesin: form.mesin,
-        active: true
-      });
-    }
-  }
-
-  return result.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+  return [...matched].sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
 });
 
 const selectedOperatorId = computed(() => {
@@ -6603,21 +6579,32 @@ const getActiveShiftOperator = (machineName) => {
     console.warn('Error getScheduledOperators:', e);
   }
 
-  // 4. Fallback: Operator aktif yang cocok dengan mesin
+  // 4. Riwayat real produksi: periksa operator yang membuat label/roll terakhir pada shift & mesin ini di database
+  try {
+    const recentLabel = (labelStore.labels || []).find(l => 
+      l.operator &&
+      isMachineMatch(l.mesin, m) &&
+      (!l.tanggal || l.tanggal === shift.date) &&
+      (!l.shift || String(l.shift) === String(shift.shiftCode))
+    );
+    if (recentLabel) {
+      const opInMaster = activeOps.find(o => o.nama && o.nama.toUpperCase() === recentLabel.operator.toUpperCase());
+      if (opInMaster) return opInMaster;
+      return { id: `real-${recentLabel.operator}`, nama: recentLabel.operator, kodeOperator: recentLabel.kodeOperator || '', mesin: m };
+    }
+  } catch (e) {}
+
+  // 5. Fallback real database: Operator aktif yang cocok dengan mesin
   const matchedByMachine = activeOps.find(o => isMachineMatch(o.mesin, m));
   if (matchedByMachine) return matchedByMachine;
 
-  // 5. Fallback: Operator aktif dari grup shift saat ini
+  // 6. Fallback real database: Operator aktif dari grup shift saat ini
   if (currentGroup) {
     const matchedByGroup = activeOps.find(o => cleanGroupStr(o.kodeGrup) === currentGroup);
     if (matchedByGroup) return matchedByGroup;
   }
 
-  // 6. Fallback Pabrik Standar: Operator resmi PT SWC sesuai jadwal shift
-  const stdOp = scheduleStore.getStandardFallbackOperator(m, currentGroup, shift.shiftCode);
-  if (stdOp) return stdOp;
-
-  // 7. Fallback master: Operator aktif pertama
+  // 7. Fallback real database: Operator aktif pertama yang terdaftar di master
   return activeOps[0] || configStore.operatorList[0] || null;
 };
 
@@ -6754,17 +6741,17 @@ const openModal = async (item = -1) => {
     form.shift = currentShift.shiftCode;
     form.tanggalShift = currentShift.date;
     form.tanggal = currentShift.date;
-    // Ambil default operator aktif shift untuk mesin ini
+    // Ambil default operator aktif shift untuk mesin ini (100% dari database real)
     const activeOp = getActiveShiftOperator(form.mesin);
     if (activeOp) {
       form.operator = activeOp.nama;
-      form.kodeOperator = activeOp.kodeOperator;
-      form.turunan = `${activeOp.kodeOperator}A01`;
+      form.kodeOperator = activeOp.kodeOperator || '';
+      const opPrefix = activeOp.kodeOperator || 'H';
+      form.turunan = `${opPrefix}A01`;
     } else {
-      const stdOp = scheduleStore.getStandardFallbackOperator(form.mesin, currentShift.group, currentShift.shiftCode);
-      form.operator = stdOp.nama;
-      form.kodeOperator = stdOp.kodeOperator;
-      form.turunan = `${stdOp.kodeOperator}A01`;
+      form.operator = '';
+      form.kodeOperator = '';
+      form.turunan = 'HA01';
     }
     if (form.mesin === 'REWIND') {
       lotSearchSource.value = 'DATA_ROLL';

@@ -21,50 +21,6 @@ export const ROTATION_CYCLE = [
   SHIFT_PATTERNS.PATTERN_2
 ];
 
-export const STANDARD_FALLBACK_OPERATORS = {
-  SLITTING: {
-    A: { id: 'std-G', nama: 'SANAN', kodeOperator: 'G', mesin: 'SLITTING', kodeGrup: 'A', active: true },
-    B: { id: 'std-H', nama: 'UMAR', kodeOperator: 'H', mesin: 'SLITTING', kodeGrup: 'B', active: true },
-    C: { id: 'std-I', nama: 'HENDRI', kodeOperator: 'I', mesin: 'SLITTING', kodeGrup: 'C', active: true },
-  },
-  REWIND: {
-    A: { id: 'std-J', nama: 'DZAKI', kodeOperator: 'J', mesin: 'REWIND', kodeGrup: 'A', active: true },
-    B: { id: 'std-K', nama: 'DAVVA', kodeOperator: 'K', mesin: 'REWIND', kodeGrup: 'B', active: true },
-    C: { id: 'std-J', nama: 'DZAKI', kodeOperator: 'J', mesin: 'REWIND', kodeGrup: 'A', active: true },
-  },
-  CASTING: {
-    A: { id: 'std-A', nama: 'SUDARMAJI', kodeOperator: 'A', mesin: 'CASTING', kodeGrup: 'A', active: true },
-    B: { id: 'std-B', nama: 'SUHANDI', kodeOperator: 'B', mesin: 'CASTING', kodeGrup: 'B', active: true },
-    C: { id: 'std-C', nama: 'HERU', kodeOperator: 'C', mesin: 'CASTING', kodeGrup: 'C', active: true },
-  },
-  METALIZE: {
-    A: { id: 'std-D', nama: 'TUKIMIN', kodeOperator: 'D', mesin: 'METALIZE', kodeGrup: 'A', active: true },
-    B: { id: 'std-E', nama: 'FIRMAN', kodeOperator: 'E', mesin: 'METALIZE', kodeGrup: 'B', active: true },
-    C: { id: 'std-F', nama: 'ANWAR', kodeOperator: 'F', mesin: 'METALIZE', kodeGrup: 'C', active: true },
-  }
-};
-
-export const getStandardFallbackOperator = (machineName, groupCode, shiftCode = '1') => {
-  const normM = (machineName || 'SLITTING').toUpperCase();
-  let mKey = 'SLITTING';
-  if (normM.includes('REW')) mKey = 'REWIND';
-  else if (normM.includes('CAST')) mKey = 'CASTING';
-  else if (normM.includes('MET')) mKey = 'METALIZE';
-  else mKey = 'SLITTING';
-
-  const cleanGrp = String(groupCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^GR(O)?UP/, '').trim() || 'A';
-
-  if (mKey === 'REWIND') {
-    if (String(shiftCode) === '2' || cleanGrp === 'B') {
-      return { ...STANDARD_FALLBACK_OPERATORS.REWIND.B };
-    }
-    return { ...STANDARD_FALLBACK_OPERATORS.REWIND.A };
-  }
-
-  const machMap = STANDARD_FALLBACK_OPERATORS[mKey] || STANDARD_FALLBACK_OPERATORS.SLITTING;
-  const found = machMap[cleanGrp] || machMap['A'];
-  return { ...found };
-};
 
 export const SHIFT_DEFINITIONS = {
   '1': {
@@ -605,7 +561,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
       if (matched.length > 0) {
         roster[m] = matched[0];
       } else {
-        roster[m] = getStandardFallbackOperator(m, assignedGroup, shiftCode);
+        roster[m] = null;
       }
     }
 
@@ -1066,8 +1022,6 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     loadConfirmedRoster,
     extractOperatorFromRoll,
     detectWorkDateShiftMode,
-    getActualWorkHistory,
-    STANDARD_FALLBACK_OPERATORS,
-    getStandardFallbackOperator
+    getActualWorkHistory
   };
 });
