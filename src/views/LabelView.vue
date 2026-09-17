@@ -1044,7 +1044,7 @@
                           :title="getParentWidthStatus(lotNode).tooltip"
                         >
                           <span :class="getParentWidthStatus(lotNode).textClass">
-                            {{ lotNode.parentWidth || lotNode.width }} MM
+                            {{ lotNode.parentWidth }} MM
                           </span>
                           <span class="text-[9px] opacity-60 ml-0.5">✏️</span>
 
@@ -1180,7 +1180,7 @@
                       ]"
                       :title="getParentWidthStatus(lotNode).tooltip"
                     >
-                      <span :class="getParentWidthStatus(lotNode).textClass">{{ lotNode.parentWidth || lotNode.width }}mm</span>
+                      <span :class="getParentWidthStatus(lotNode).textClass">{{ lotNode.parentWidth }}mm</span>
                       <span class="text-[8px] opacity-60">✏️</span>
                     </span>
 
@@ -3789,6 +3789,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useWipStore } from '@/stores/wipStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
+import { useSpkStore, getFilmDensity } from '@/stores/spkStore';
 import { saveSetting, getSetting } from '@/db';
 import { getActiveQuickTags, checkAndRunScheduledAutomation, DEFAULT_DEFECT_TAGS, formatLotVisual, formatInhouseLotInput } from '@/services/aiAutomationService';
 import { getAgingCountdownInfo } from '@/services/wipParserService';
@@ -3804,6 +3805,7 @@ const authStore = useAuthStore();
 const wipStore = useWipStore();
 const dataRollStore = useDataRollStore();
 const scheduleStore = useScheduleStore();
+const spkStore = useSpkStore();
 
 // Custom directive untuk auto focus input inline
 const vFocus = {
@@ -4986,6 +4988,74 @@ const calculateSequenceLengthSummary = (items) => {
   };
 };
 
+const findSpkPlanForLot = (spkNo) => {
+  if (!spkNo || spkNo === '-' || spkNo === 'ALL') return null;
+  const cleanSpk = String(spkNo).trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+  if (!cleanSpk) return null;
+  const plans = spkStore.plans || [];
+  return plans.find(p => {
+    if (!p.spkNo) return false;
+    const cleanP = String(p.spkNo).trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+    return cleanP === cleanSpk || cleanSpk.includes(cleanP) || cleanP.includes(cleanSpk);
+  }) || null;
+};
+
+const findWipRollForLot = (lotStr, spkNo) => {
+  const cleanLot = (lotStr || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+  const cleanSpk = (spkNo || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+  const allWip = wipStore.wipRolls || [];
+  if (cleanLot) {
+    const foundByLot = allWip.find(r => {
+      const rLot = (r.lot || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+      return rLot && (rLot === cleanLot || rLot.includes(cleanLot) || cleanLot.includes(rLot));
+    });
+    if (foundByLot) return foundByLot;
+  }
+  if (cleanSpk && cleanSpk !== '-') {
+    const foundBySpk = allWip.find(r => {
+      const rSpk = (r.spk || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+      return rSpk && (rSpk === cleanSpk || rSpk.includes(cleanSpk));
+    });
+    if (foundBySpk) return foundBySpk;
+  }
+  return null;
+};
+
+const getSumChildWidthForLot = (items, spkPlan) => {
+  if (!items || items.length === 0) return 0;
+  
+  if (spkPlan) {
+    if (Array.isArray(spkPlan.upList) && spkPlan.upList.length > 0) {
+      const sumUp = spkPlan.upList.reduce((acc, u) => acc + (parseFloat(u.lebar) || 0), 0);
+      if (sumUp > 0) return sumUp;
+    }
+    const chartJson = typeof spkPlan.chartingJson === 'string' ? JSON.parse(spkPlan.chartingJson || '[]') : (spkPlan.chartingJson || []);
+    if (Array.isArray(chartJson) && chartJson.length > 0) {
+      const sumChart = chartJson.reduce((acc, c) => acc + (parseFloat(c.lebar || c.width) || 0), 0);
+      if (sumChart > 0) return sumChart;
+    }
+  }
+
+  const chartSummary = calculateChartinganWidthSummary(items);
+  if (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1) {
+    return chartSummary.baseChartWidth;
+  }
+
+  const firstSeqRolls = items.filter(i => {
+    const parsed = parseTurunan(i.turunan);
+    return (parsed.noUrut || 1) === 1;
+  });
+  if (firstSeqRolls.length > 1) {
+    const sumSet = firstSeqRolls.reduce((acc, r) => acc + (parseFloat(r.width) || 0), 0);
+    if (sumSet > 0) return sumSet;
+  }
+
+  if (chartSummary.baseChartWidth > 0) {
+    return chartSummary.baseChartWidth;
+  }
+  return parseFloat(items[0]?.width) || 0;
+};
+
 const hierarchyTree = computed(() => {
   // Hanya proses jika mode hierarki sedang aktif, untuk menghemat CPU & memori saat mode tabel
   if (viewMode.value !== 'hierarchy') return [];
@@ -5111,22 +5181,65 @@ const hierarchyTree = computed(() => {
         const firstItem = sortedTurunan[0] || {};
         const uniqueKey = `${dateKey}_${shiftData.shiftNum}_${shiftData.opName}_${pureLot}`;
 
-        const sumChart = calculateChartinganWidthSummary(sortedTurunan);
+        const spkPlan = findSpkPlanForLot(firstItem.spk);
+        const wipRoll = findWipRollForLot(pureLot, firstItem.spk);
+        const sumChildWidth = getSumChildWidthForLot(sortedTurunan, spkPlan);
+
+        // 1. Tentukan Lebar Teori Parent (Parent Width)
+        // JANGAN PERNAH mengambil lebar child tunggal!
+        let parentWidth = 0;
+        if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) > 0) {
+          parentWidth = parseFloat(firstItem.parentWidth);
+        } else if (spkPlan && parseFloat(spkPlan.lebarParent) > 0) {
+          parentWidth = parseFloat(spkPlan.lebarParent);
+        } else if (wipRoll && parseFloat(wipRoll.width) > 0) {
+          parentWidth = parseFloat(wipRoll.width);
+        } else if (sumChildWidth >= 1800) {
+          parentWidth = sumChildWidth <= 2305 ? 2320 : (sumChildWidth + 15);
+        } else {
+          parentWidth = 2320;
+        }
+
+        // 2. Tentukan Panjang Teori Parent (Parent Meter) - Jangan pernah 0
         const seqSummary = calculateSequenceLengthSummary(sortedTurunan);
-        const sumChildWidth = sumChart.baseChartWidth;
-        const parentTrim = firstItem.parentTrim !== undefined ? parseFloat(firstItem.parentTrim) : 0;
-        const parentWidth = firstItem.parentWidth ? parseFloat(firstItem.parentWidth) : (sumChart.baseChartWidth + parentTrim);
-        const parentMeter = firstItem.parentMeter ? parseFloat(firstItem.parentMeter) : (seqSummary.totalParentLength || parseFloat(firstItem.length) || 0);
-        const parentDensity = firstItem.parentDensity || getDensityForJenis(firstItem.jenis, firstItem.kode) || 0.91;
-        const parentBeratTeori = firstItem.parentBeratTeori ? parseFloat(firstItem.parentBeratTeori) : calculateBeratTeori(firstItem.thickness, parentWidth, parentMeter, parentDensity);
+        let parentMeter = 0;
+        if (firstItem.parentMeter && parseFloat(firstItem.parentMeter) > 0) {
+          parentMeter = parseFloat(firstItem.parentMeter);
+        } else if (spkPlan && parseFloat(spkPlan.panjangParent) > 0) {
+          parentMeter = parseFloat(spkPlan.panjangParent);
+        } else if (wipRoll && parseFloat(wipRoll.length) > 0) {
+          parentMeter = parseFloat(wipRoll.length);
+        } else if (parseFloat(firstItem.length) > 0) {
+          parentMeter = parseFloat(firstItem.length);
+        } else if (parseFloat(firstItem.meter) > 0) {
+          parentMeter = parseFloat(firstItem.meter);
+        } else if (seqSummary.totalParentLength > 0) {
+          parentMeter = seqSummary.totalParentLength;
+        } else {
+          parentMeter = 12000;
+        }
+
+        // 3. Tebal Parent
+        const parentThickness = parseFloat(firstItem.thickness) || (spkPlan ? parseFloat(spkPlan.thickness) : 0) || (wipRoll ? parseFloat(wipRoll.thickness) : 0) || 20;
+
+        // 4. Density
+        const parentDensity = firstItem.parentDensity || getFilmDensity(firstItem.jenis, firstItem.kode, firstItem.spk) || 0.91;
+
+        // 5. Berat Teori Parent dari dimensi Parent
+        let parentBeratTeori = 0;
+        if (firstItem.parentBeratTeori && parseFloat(firstItem.parentBeratTeori) > 0) {
+          parentBeratTeori = parseFloat(firstItem.parentBeratTeori);
+        } else {
+          parentBeratTeori = calculateBeratTeori(parentThickness, parentWidth, parentMeter, parentDensity);
+        }
+
+        // 6. Berat Aktual Timbangan (jika user pernah input manual)
         const parentBeratAktual = (firstItem.parentBeratAktual !== undefined && firstItem.parentBeratAktual !== null && firstItem.parentBeratAktual !== '') ? parseFloat(firstItem.parentBeratAktual) : null;
-        const parentBeratMasuk = (firstItem.parentBeratMasuk !== undefined && firstItem.parentBeratMasuk !== null && firstItem.parentBeratMasuk !== '')
-          ? parseFloat(firstItem.parentBeratMasuk)
-          : (parentBeratAktual && parentBeratAktual > 0 ? parentBeratAktual : parentBeratTeori);
+        const parentBeratMasuk = parentBeratAktual && parentBeratAktual > 0 ? parentBeratAktual : parentBeratTeori;
         
         // Sisa Panjang Jumbo Induk (Meter & Kg)
         const parentSisaMeter = firstItem.parentSisaMeter !== undefined ? parseFloat(firstItem.parentSisaMeter) : 0;
-        const parentSisaKg = parentSisaMeter > 0 ? calculateBeratTeori(firstItem.thickness, parentWidth, parentSisaMeter, parentDensity) : 0;
+        const parentSisaKg = parentSisaMeter > 0 ? calculateBeratTeori(parentThickness, parentWidth, parentSisaMeter, parentDensity) : 0;
 
         // Total Output Terdata = Sum Netto Child + Sisa Jumbo (Kg)
         const totalOutputTerdata = lotTotalNetto + parentSisaKg;
@@ -5143,7 +5256,7 @@ const hierarchyTree = computed(() => {
           mesin: firstItem.mesin || '-',
           jenis: firstItem.jenis || '',
           kode: firstItem.kode || '',
-          thickness: firstItem.thickness || '',
+          thickness: parentThickness,
           width: firstItem.width || '',
           length: firstItem.length || '',
           parentWidth,
@@ -5151,7 +5264,7 @@ const hierarchyTree = computed(() => {
           parentSisaMeter,
           parentSisaKg: parentSisaKg > 0 ? parseFloat(parentSisaKg.toFixed(2)) : 0,
           parentDensity,
-          parentBeratTeori: parentBeratTeori > 0 ? parseFloat(parentBeratTeori.toFixed(2)) : null,
+          parentBeratTeori: parentBeratTeori > 0 ? parseFloat(parentBeratTeori.toFixed(2)) : 0,
           parentBeratAktual: parentBeratAktual > 0 ? parseFloat(parentBeratAktual.toFixed(2)) : null,
           parentBeratMasuk: parentBeratMasuk > 0 ? parseFloat(parentBeratMasuk.toFixed(2)) : null,
           sumChildWidth,
@@ -5845,16 +5958,21 @@ const openParentLotModal = (lotNode) => {
   parentLotForm.kode = lotNode.kode || first.kode || '';
   parentLotForm.thickness = lotNode.thickness || first.thickness || '';
   
-  if (first.parentWidth) {
+  if (first.parentWidth && parseFloat(first.parentWidth) > 0) {
     parentLotForm.parentWidth = parseFloat(first.parentWidth);
+  } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) > 0) {
+    parentLotForm.parentWidth = parseFloat(lotNode.parentWidth);
   } else {
-    parentLotForm.parentWidth = (chartSummary.baseChartWidth + existingTrim).toFixed(0);
+    parentLotForm.parentWidth = 2320;
   }
+  onParentWidthChange();
 
-  if (first.parentMeter) {
+  if (first.parentMeter && parseFloat(first.parentMeter) > 0) {
     parentLotForm.parentMeter = parseFloat(first.parentMeter);
+  } else if (lotNode.parentMeter && parseFloat(lotNode.parentMeter) > 0) {
+    parentLotForm.parentMeter = parseFloat(lotNode.parentMeter);
   } else {
-    parentLotForm.parentMeter = seqSummary.totalParentLength || first.length || '';
+    parentLotForm.parentMeter = seqSummary.totalParentLength || parseFloat(first.length || first.meter) || 12000;
   }
 
   parentLotForm.sisaMeter = first.parentSisaMeter !== undefined ? parseFloat(first.parentSisaMeter) : 0;
@@ -7357,6 +7475,7 @@ onMounted(async () => {
     configStore.loadAll(),
     wipStore.loadWipRolls(),
     dataRollStore.loadRolls(),
+    spkStore.loadAll().catch(() => {}),
     refreshQuickTags()
   ]);
   checkAndRunScheduledAutomation().then(() => refreshQuickTags());
