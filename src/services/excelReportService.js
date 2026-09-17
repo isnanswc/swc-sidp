@@ -13,7 +13,7 @@ export const ROMAN_MONTHS = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII
 export function standardizeSpkInhouse(rawSpk, fallbackDate) {
   if (!rawSpk && !fallbackDate) return '';
   let str = String(rawSpk || '').trim().toUpperCase();
-  str = str.replace(/\s*\/\s*/g, '/');
+  str = str.replace(/\s*[\/\-]\s*/g, '/');
 
   if (str.includes('/')) {
     const parts = str.split('/');
