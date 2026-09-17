@@ -45,22 +45,6 @@
         </button>
 
         <button
-          @click="activeSheet = 'list'"
-          :class="[
-            'px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0',
-            activeSheet === 'list'
-              ? 'bg-zinc-900 text-white shadow-xs font-black'
-              : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
-          ]"
-        >
-          <span>📋</span>
-          <span>2. List SPK</span>
-          <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-zinc-200 text-zinc-800">
-            {{ activeSpkList.length }}
-          </span>
-        </button>
-
-        <button
           @click="activeSheet = 'planned'"
           :class="[
             'px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0',
@@ -70,9 +54,25 @@
           ]"
         >
           <span>📝</span>
-          <span>3. Planned SPK</span>
+          <span>2. Planned SPK</span>
           <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-white/20 text-white">
             {{ spkStore.plans.length }}
+          </span>
+        </button>
+
+        <button
+          @click="activeSheet = 'list'"
+          :class="[
+            'px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer whitespace-nowrap shrink-0',
+            activeSheet === 'list'
+              ? 'bg-zinc-900 text-white shadow-xs font-black'
+              : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
+          ]"
+        >
+          <span>📋</span>
+          <span>3. List SPK</span>
+          <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-zinc-200 text-zinc-800">
+            {{ allSpkList.length }}
           </span>
         </button>
       </div>
@@ -505,21 +505,120 @@
 
     </div>
 
-    <!-- SHEET 2: LIST SPK (BERBAGI DATA TERPADU)                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SHEET 3: LIST SPK (INHOUSE & EXTERNAL TABS, TIMELINE SORTED)       -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div v-else-if="activeSheet === 'list'" class="space-y-4 animate-fade-in">
       
-      <!-- Filter Bar -->
-      <div class="bg-white p-3 sm:p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
-        <div class="flex items-center gap-2.5 flex-1 max-w-md">
-          <input
-            v-model="searchSpkQuery"
-            placeholder="Cari nomor SPK, lot, atau formula..."
-            class="w-full px-3 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none font-mono"
-          />
+      <!-- SUB-TABS: SPK NORMAL (INHOUSE) & SPK LAIN-LAIN (EXTERNAL) -->
+      <div class="bg-white p-2.5 sm:p-3 rounded-3xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-1.5 p-1 bg-zinc-100 rounded-2xl border border-zinc-200/80 overflow-x-auto custom-scrollbar-x">
+          <button
+            @click="spkListTab = 'inhouse'"
+            :class="[
+              'px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap',
+              spkListTab === 'inhouse'
+                ? 'bg-zinc-900 text-white shadow-xs font-black'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
+            ]"
+          >
+            <span>🏭</span>
+            <span>SPK Normal (Inhouse)</span>
+            <span :class="['px-2 py-0.5 rounded-full text-[10px] font-mono font-black', spkListTab === 'inhouse' ? 'bg-red-600 text-white' : 'bg-zinc-200 text-zinc-800']">
+              {{ inhouseSpkList.length }}
+            </span>
+          </button>
+
+          <button
+            @click="spkListTab = 'external'"
+            :class="[
+              'px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap',
+              spkListTab === 'external'
+                ? 'bg-purple-900 text-white shadow-xs font-black'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
+            ]"
+          >
+            <span>🌐</span>
+            <span>SPK Lain-lain (External)</span>
+            <span :class="['px-2 py-0.5 rounded-full text-[10px] font-mono font-black', spkListTab === 'external' ? 'bg-purple-600 text-white' : 'bg-zinc-200 text-zinc-800']">
+              {{ externalSpkList.length }}
+            </span>
+          </button>
         </div>
-        <div class="text-xs text-zinc-500 font-medium">
-          Menampilkan <strong class="text-zinc-900 font-bold">{{ filteredActiveSpkList.length }}</strong> SPK aktif
+
+        <!-- Quick Summary Metrics for Active Tab -->
+        <div class="flex items-center gap-2.5 sm:gap-4 text-xs font-mono px-1 flex-wrap">
+          <div class="text-zinc-500">
+            Total: <strong class="text-zinc-900 font-bold font-mono">{{ currentTabSpkList.length }}</strong> SPK
+          </div>
+          <div class="text-zinc-300">•</div>
+          <div class="text-zinc-500">
+            Roll: <strong class="text-emerald-700 font-bold font-mono">{{ formatNumber(currentTabSpkList.reduce((acc, s) => acc + (s.totalRealRolls || 0), 0)) }}</strong>
+          </div>
+          <div class="text-zinc-300">•</div>
+          <div class="text-zinc-500">
+            Meter: <strong class="text-blue-700 font-bold font-mono">{{ formatNumber(currentTabSpkList.reduce((acc, s) => acc + (s.totalRealMeter || 0), 0)) }} m</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters & Controls Bar -->
+      <div class="bg-white p-3 sm:p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
+        <!-- Search Input -->
+        <div class="flex items-center gap-2 flex-1 min-w-[220px]">
+          <div class="relative w-full">
+            <input
+              v-model="searchSpkQuery"
+              :placeholder="spkListTab === 'inhouse' ? 'Cari SPK inhouse, no urut, formula, atau mesin...' : 'Cari SPK external, vendor (Panverta, Trias...), spek...'"
+              class="w-full pl-8 pr-7 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none font-mono"
+            />
+            <span class="absolute left-2.5 top-2.5 text-zinc-400 text-xs">🔍</span>
+            <button
+              v-if="searchSpkQuery"
+              @click="searchSpkQuery = ''"
+              class="absolute right-2.5 top-2 text-zinc-400 hover:text-zinc-600 font-bold text-xs cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Dropdowns & Sorting -->
+        <div class="flex items-center gap-2 flex-wrap text-xs">
+          <!-- Filter Tahun -->
+          <div class="flex items-center gap-1">
+            <span class="text-zinc-400 text-[11px] font-medium">Tahun:</span>
+            <select v-model="spkFilterYear" class="p-1.5 border border-zinc-300 rounded-lg text-xs bg-white font-mono font-bold">
+              <option value="ALL">Semua Tahun</option>
+              <option v-for="y in availableSpkYears" :key="y" :value="y">{{ y }}</option>
+            </select>
+          </div>
+
+          <!-- Filter Bulan -->
+          <div class="flex items-center gap-1">
+            <span class="text-zinc-400 text-[11px] font-medium">Bulan:</span>
+            <select v-model="spkFilterMonth" class="p-1.5 border border-zinc-300 rounded-lg text-xs bg-white font-mono">
+              <option v-for="m in availableSpkMonths" :key="m.val" :value="m.val">{{ m.label }}</option>
+            </select>
+          </div>
+
+          <!-- Filter Mesin -->
+          <div class="flex items-center gap-1">
+            <span class="text-zinc-400 text-[11px] font-medium">Mesin:</span>
+            <select v-model="spkFilterMachine" class="p-1.5 border border-zinc-300 rounded-lg text-xs bg-white font-mono">
+              <option v-for="m in availableSpkMachines" :key="m" :value="m">{{ m === 'ALL' ? 'Semua Mesin' : m }}</option>
+            </select>
+          </div>
+
+          <!-- Sort Direction Toggle -->
+          <button
+            @click="spkSortDirection = spkSortDirection === 'desc' ? 'asc' : 'desc'"
+            class="px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white hover:bg-zinc-100 font-mono font-bold flex items-center gap-1.5 text-zinc-700 cursor-pointer"
+            :title="spkSortDirection === 'desc' ? 'Garis waktu terbaru dulu' : 'Garis waktu terlama dulu'"
+          >
+            <span>{{ spkSortDirection === 'desc' ? '⏳ Terbaru' : '⌛ Terlama' }}</span>
+            <span class="text-[10px]">{{ spkSortDirection === 'desc' ? '↓' : '↑' }}</span>
+          </button>
         </div>
       </div>
 
@@ -530,20 +629,19 @@
             <thead class="bg-zinc-100/80 border-b border-zinc-200 text-zinc-600 font-bold">
               <tr>
                 <th class="px-4 py-3 text-left w-12 font-mono">#</th>
-                <th class="px-4 py-3 text-left">Nomor SPK</th>
-                <th class="px-4 py-3 text-left">Tahun / Periode</th>
-                <th class="px-4 py-3 text-left">Formula & Spek</th>
-                <th class="px-4 py-3 text-center">Jumbo Roll (JR)</th>
+                <th class="px-4 py-3 text-left">Nomor SPK & Partner</th>
+                <th class="px-4 py-3 text-left">Garis Waktu</th>
+                <th class="px-4 py-3 text-left">Formula & Mesin</th>
                 <th class="px-4 py-3 text-right">Hasil Aktual</th>
-                <th class="px-4 py-3 text-center">QC Status</th>
-                <th class="px-4 py-3 text-center">Progres</th>
+                <th class="px-4 py-3 text-center">Status Mutu (QC)</th>
+                <th class="px-4 py-3 text-center">Alokasi / JR</th>
                 <th class="px-4 py-3 text-center w-28">Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-zinc-100 font-mono">
-              <tr v-if="filteredActiveSpkList.length === 0">
-                <td colspan="9" class="py-12 text-center text-zinc-400 font-sans text-xs">
-                  Tidak ada data SPK aktif yang cocok
+              <tr v-if="filteredSpkList.length === 0">
+                <td colspan="8" class="py-12 text-center text-zinc-400 font-sans text-xs">
+                  Tidak ada data SPK {{ spkListTab === 'inhouse' ? 'Inhouse' : 'External' }} yang cocok dengan filter
                 </td>
               </tr>
               <tr
@@ -554,39 +652,66 @@
               >
                 <td class="px-4 py-3 text-zinc-400 font-bold">{{ (spkCurrentPage - 1) * spkPageSize + idx + 1 }}</td>
                 <td class="px-4 py-3">
-                  <div class="font-black text-sm text-zinc-900 flex items-center gap-1.5">
+                  <div class="font-black text-sm text-zinc-900 flex items-center gap-1.5 flex-wrap">
                     <span>{{ item.spkNo }}</span>
-                    <span v-if="item.isCrossOrderWarning" class="text-amber-500" title="Cross-order multi SPK">⚠️</span>
+                    <span
+                      :class="[
+                        'text-[9.5px] px-1.5 py-0.2 rounded font-bold font-mono',
+                        item.category === 'INHOUSE' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                      ]"
+                    >
+                      {{ item.category === 'INHOUSE' ? 'INHOUSE' : item.vendor }}
+                    </span>
+                    <span v-if="item.isTrial" class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-100 text-amber-800 font-mono">
+                      TRIAL
+                    </span>
                   </div>
-                  <div class="text-[10px] text-zinc-400 font-sans">{{ item.plan?.docNo || '3B-PROD' }}</div>
+                  <div class="text-[10.5px] text-zinc-400 font-sans mt-0.5">
+                    {{ item.plan ? `Rencana: ${item.plan.docNo || '3B-PROD'}` : 'Riwayat Data Roll' }}
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-zinc-700">
-                  <div class="font-bold font-mono">{{ item.year }} • {{ item.monthName }}</div>
-                  <div class="text-[10px] text-zinc-400 font-sans">{{ item.supplier }}</div>
+                  <div class="font-black font-mono text-zinc-900 flex items-center gap-1.5">
+                    <span>{{ item.year }} • {{ item.monthName }}</span>
+                    <span v-if="item.romanMonth" class="text-zinc-400 font-normal">({{ item.romanMonth }})</span>
+                  </div>
+                  <div class="text-[10.5px] text-zinc-500 font-sans mt-0.5 flex items-center gap-1">
+                    <span v-if="item.noUrut !== null" class="px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-800 font-mono font-bold text-[10px]">
+                      No. Urut: {{ item.noUrut }}
+                    </span>
+                    <span v-else class="text-zinc-400 italic">Non-urutan</span>
+                  </div>
                 </td>
                 <td class="px-4 py-3">
-                  <span class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 font-bold text-[11px]">
-                    {{ item.formula }} - {{ item.thickness }}μ
-                  </span>
-                </td>
-                <td class="px-4 py-3 text-center font-bold text-zinc-700">
-                  {{ item.totalJumbo }} JR
+                  <div class="flex items-center gap-1 flex-wrap">
+                    <span class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 font-bold text-[11px]">
+                      {{ item.formula }} {{ item.thickness !== '-' ? `(${item.thickness}μ)` : '' }}
+                    </span>
+                  </div>
+                  <div class="text-[10px] text-zinc-500 mt-1 font-sans flex items-center gap-1 flex-wrap">
+                    <span v-for="m in item.machines" :key="m" class="px-1.5 py-0.2 rounded bg-zinc-200/70 text-zinc-700 font-mono text-[9px] font-bold">
+                      {{ m }}
+                    </span>
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-right">
-                  <div class="font-black text-emerald-700">{{ item.totalRealRolls }} Roll</div>
-                  <div class="text-[10px] text-zinc-400 font-sans">{{ formatNumber(item.totalRealKg) }} kg • {{ formatNumber(item.totalRealMeter) }} m</div>
-                </td>
-                <td class="px-4 py-3 text-center">
-                  <div class="flex items-center justify-center gap-1 text-[10px] font-bold">
-                    <span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">{{ item.passCount }}P</span>
-                    <span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">{{ item.holdCount }}H</span>
-                    <span class="px-1.5 py-0.2 rounded bg-red-100 text-red-800">{{ item.rejectCount }}R</span>
+                  <div class="font-black text-emerald-700 text-sm">{{ item.totalRealRolls }} Roll</div>
+                  <div class="text-[10px] text-zinc-400 font-sans mt-0.5">
+                    {{ formatNumber(item.totalRealMeter) }} m • {{ formatNumber(item.totalRealKg) }} kg
                   </div>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <span class="px-2.5 py-1 rounded-full text-[10.5px] font-black bg-zinc-100 text-zinc-800">
-                    {{ item.achievementPercent }}%
-                  </span>
+                  <div class="flex items-center justify-center gap-1 text-[10px] font-bold font-mono">
+                    <span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800" title="Pass / OK">{{ item.passCount }} OK</span>
+                    <span v-if="item.holdCount > 0" class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800" title="Hold">{{ item.holdCount }} H</span>
+                    <span v-if="item.rejectCount > 0" class="px-1.5 py-0.2 rounded bg-red-100 text-red-800" title="Reject">{{ item.rejectCount }} R</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-center font-bold text-zinc-700">
+                  <div class="font-mono">{{ item.totalJumbo }} JR</div>
+                  <div v-if="item.plan" class="text-[9.5px] font-sans text-emerald-700 font-bold">
+                    {{ item.achievementPercent }}% Target
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-center" @click.stop>
                   <button
@@ -601,10 +726,10 @@
           </table>
         </div>
 
-        <!-- PAGINATION & LAZY CONTROLS BAR (RINGAN & CEPAT) -->
+        <!-- PAGINATION BAR -->
         <div class="p-3 sm:p-3.5 bg-zinc-50 border-t border-zinc-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
           <div class="text-zinc-500 font-medium text-center sm:text-left">
-            Menampilkan <strong class="text-zinc-900 font-bold font-mono">{{ ((spkCurrentPage - 1) * spkPageSize) + (filteredActiveSpkList.length ? 1 : 0) }} – {{ Math.min(spkCurrentPage * spkPageSize, filteredActiveSpkList.length) }}</strong> dari <strong class="text-zinc-900 font-bold font-mono">{{ filteredActiveSpkList.length }}</strong> SPK
+            Menampilkan <strong class="text-zinc-900 font-bold font-mono">{{ ((spkCurrentPage - 1) * spkPageSize) + (filteredSpkList.length ? 1 : 0) }} – {{ Math.min(spkCurrentPage * spkPageSize, filteredSpkList.length) }}</strong> dari <strong class="text-zinc-900 font-bold font-mono">{{ filteredSpkList.length }}</strong> SPK
           </div>
 
           <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
@@ -1780,7 +1905,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue';
+import { ref, computed, reactive, onMounted, watch } from 'vue';
 import { useSpkStore, evaluateTargetStatus } from '@/stores/spkStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
@@ -2524,65 +2649,158 @@ const getChildPanjang = (row) => {
   return ups.length > 0 && ups[0].panjang ? ups[0].panjang : 12000;
 };
 
-// ── SHEET 2: ACTIVE SPK LIST (SORTED BY YEAR, MONTH, SPK DESC & PAGINATED) ──
-
+// ── SHEET 3: ALL DATA ROLL SPK LIST (INHOUSE & EXTERNAL TABS, TIMELINE SORTED) ──
+const spkListTab = ref('inhouse'); // 'inhouse' | 'external'
+const spkFilterYear = ref('ALL');
+const spkFilterMonth = ref('ALL');
+const spkFilterMachine = ref('ALL');
+const spkSortDirection = ref('desc'); // 'desc' | 'asc'
 const spkCurrentPage = ref(1);
 const spkPageSize = ref(10);
 const drawerLotSearch = ref('');
 
-const activeSpkList = computed(() => {
-  const map = new Map();
-  const dataMap = spkStore.spkRealtimeDataMap || new Map();
-
-  // 1. Ambil dari spk plans
-  for (const p of (spkStore.plans || [])) {
-    const a = planAnalyticsMap.value[p.id || p.spkNo];
-    if (a) map.set(p.spkNo, a);
-  }
-
-  // 2. Ambil dari dataMap keys yang belum ada di spk plans
-  for (const spkKey of dataMap.keys()) {
-    if (!map.has(spkKey)) {
-      const a = spkStore.getSpkRealtimeAnalytics(spkKey, null);
-      if (a) map.set(spkKey, a);
-    }
-  }
-
-  // 3. Urutkan sesuai Tahun, Bulan, dan Waktu/Urutan SPK dari paling baru ke paling lama
-  return Array.from(map.values()).sort((a, b) => {
-    if ((b.year || 0) !== (a.year || 0)) {
-      return (b.year || 0) - (a.year || 0);
-    }
-    if ((b.month || 0) !== (a.month || 0)) {
-      return (b.month || 0) - (a.month || 0);
-    }
-    const timeA = a.timestamp || 0;
-    const timeB = b.timestamp || 0;
-    if (timeB !== timeA) {
-      return timeB - timeA;
-    }
-    return String(b.spkNo || '').localeCompare(String(a.spkNo || ''), undefined, { numeric: true, sensitivity: 'base' });
-  });
+// Total all unique SPKs from store
+const allSpkList = computed(() => {
+  return spkStore.allDataRollSpkList || [];
 });
 
-const filteredActiveSpkList = computed(() => {
+// Backward compatibility alias for any template/header count
+const activeSpkList = allSpkList;
+
+// Tab 1: SPK Normal (Inhouse SPK)
+const inhouseSpkList = computed(() => {
+  return allSpkList.value.filter(s => s.category === 'INHOUSE');
+});
+
+// Tab 2: SPK Lain-lain (External SPK)
+const externalSpkList = computed(() => {
+  return allSpkList.value.filter(s => s.category === 'EXTERNAL');
+});
+
+// List based on active tab
+const currentTabSpkList = computed(() => {
+  return spkListTab.value === 'inhouse' ? inhouseSpkList.value : externalSpkList.value;
+});
+
+// Available years for dropdown based on active tab
+const availableSpkYears = computed(() => {
+  const yrs = new Set();
+  currentTabSpkList.value.forEach(s => {
+    if (s.year) yrs.add(s.year);
+  });
+  return Array.from(yrs).sort((a, b) => b - a);
+});
+
+// Available months for dropdown
+const availableSpkMonths = computed(() => [
+  { val: 'ALL', label: 'Semua Bulan' },
+  { val: 1, label: '01 - Januari' },
+  { val: 2, label: '02 - Februari' },
+  { val: 3, label: '03 - Maret' },
+  { val: 4, label: '04 - April' },
+  { val: 5, label: '05 - Mei' },
+  { val: 6, label: '06 - Juni' },
+  { val: 7, label: '07 - Juli' },
+  { val: 8, label: '08 - Agustus' },
+  { val: 9, label: '09 - September' },
+  { val: 10, label: '10 - Oktober' },
+  { val: 11, label: '11 - November' },
+  { val: 12, label: '12 - Desember' }
+]);
+
+// Available machines for dropdown
+const availableSpkMachines = computed(() => [
+  'ALL', 'SLITTING', 'REWIND', 'CASTING', 'METALIZE'
+]);
+
+// Filtered and timeline sorted list
+const filteredSpkList = computed(() => {
   const q = (searchSpkQuery.value || '').trim().toLowerCase();
-  if (!q) return activeSpkList.value;
-  return activeSpkList.value.filter(item => {
-    return String(item.spkNo || '').toLowerCase().includes(q) ||
-      String(item.formula || '').toLowerCase().includes(q) ||
-      String(item.year || '').includes(q) ||
-      String(item.monthName || '').toLowerCase().includes(q);
+  const yr = spkFilterYear.value;
+  const mo = spkFilterMonth.value;
+  const mach = spkFilterMachine.value;
+
+  const filtered = currentTabSpkList.value.filter(item => {
+    // Search query
+    if (q) {
+      const matchQuery =
+        String(item.spkNo || '').toLowerCase().includes(q) ||
+        String(item.vendor || '').toLowerCase().includes(q) ||
+        String(item.formula || '').toLowerCase().includes(q) ||
+        String(item.thickness || '').toLowerCase().includes(q) ||
+        String(item.year || '').includes(q) ||
+        String(item.monthName || '').toLowerCase().includes(q) ||
+        (item.machines || []).some(m => String(m).toLowerCase().includes(q));
+      if (!matchQuery) return false;
+    }
+
+    // Filter Year
+    if (yr !== 'ALL' && Number(item.year) !== Number(yr)) {
+      return false;
+    }
+
+    // Filter Month
+    if (mo !== 'ALL' && Number(item.month) !== Number(mo)) {
+      return false;
+    }
+
+    // Filter Machine
+    if (mach !== 'ALL') {
+      const hasMach = (item.machines || []).some(m => String(m).toUpperCase() === mach);
+      if (!hasMach) return false;
+    }
+
+    return true;
+  });
+
+  // Timeline Sorting: Tahun -> Bulan -> No Urut / Timestamp -> SPK No
+  const dir = spkSortDirection.value;
+  return filtered.sort((a, b) => {
+    // 1. Tahun
+    if ((b.year || 0) !== (a.year || 0)) {
+      return dir === 'desc' ? (b.year || 0) - (a.year || 0) : (a.year || 0) - (b.year || 0);
+    }
+    // 2. Bulan
+    if ((b.month || 0) !== (a.month || 0)) {
+      return dir === 'desc' ? (b.month || 0) - (a.month || 0) : (a.month || 0) - (b.month || 0);
+    }
+    // 3. No Urut (jika ada)
+    if (a.noUrut !== null && b.noUrut !== null && a.noUrut !== b.noUrut) {
+      return dir === 'desc' ? b.noUrut - a.noUrut : a.noUrut - b.noUrut;
+    }
+    if (a.noUrut !== null && b.noUrut === null) return dir === 'desc' ? -1 : 1;
+    if (a.noUrut === null && b.noUrut !== null) return dir === 'desc' ? 1 : -1;
+    // 4. Timestamp Produksi Aktual
+    const timeA = a.latestTimestamp || 0;
+    const timeB = b.latestTimestamp || 0;
+    if (timeB !== timeA) {
+      return dir === 'desc' ? timeB - timeA : timeA - timeB;
+    }
+    // 5. Alfabetis Nomor SPK
+    return dir === 'desc'
+      ? String(b.spkNo || '').localeCompare(String(a.spkNo || ''), undefined, { numeric: true, sensitivity: 'base' })
+      : String(a.spkNo || '').localeCompare(String(b.spkNo || ''), undefined, { numeric: true, sensitivity: 'base' });
   });
 });
+
+// Backward compatibility alias
+const filteredActiveSpkList = filteredSpkList;
 
 const totalSpkPages = computed(() => {
-  return Math.ceil(filteredActiveSpkList.value.length / spkPageSize.value) || 1;
+  return Math.ceil(filteredSpkList.value.length / spkPageSize.value) || 1;
 });
 
 const paginatedActiveSpkList = computed(() => {
   const start = (spkCurrentPage.value - 1) * spkPageSize.value;
-  return filteredActiveSpkList.value.slice(start, start + spkPageSize.value);
+  return filteredSpkList.value.slice(start, start + spkPageSize.value);
+});
+
+// When changing tab, reset page to 1
+watch(spkListTab, () => {
+  spkCurrentPage.value = 1;
+});
+watch([spkFilterYear, spkFilterMonth, spkFilterMachine, searchSpkQuery], () => {
+  spkCurrentPage.value = 1;
 });
 
 const filteredDrawerLots = computed(() => {
@@ -2622,7 +2840,16 @@ const paginatedDetailPageLots = computed(() => {
 });
 
 const openSpkDetailDrawer = (item) => {
-  selectedDetailSpk.value = item;
+  if (!item) return;
+  const speed = item.speed || spkStore.getSlittingSpeed(item.formula);
+  const timeEst = spkStore.calculateEstimateMinutes(item.totalRealMeter || 0, item.totalJumbo || 1, speed);
+  selectedDetailSpk.value = {
+    ...item,
+    speed,
+    totalMinutes: item.totalMinutes || timeEst.totalMinutes,
+    cuttingMinutes: item.cuttingMinutes || timeEst.cuttingMinutes,
+    changeOverMinutes: item.changeOverMinutes || timeEst.changeOverMinutes
+  };
   detailPageLotSearch.value = '';
   detailPageLotCurrentPage.value = 1;
   activeSheet.value = 'detail';

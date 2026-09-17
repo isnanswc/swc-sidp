@@ -866,6 +866,238 @@ export const useSpkStore = defineStore('spk', () => {
     };
   };
 
+  // ── UNRESTRICTED REALTIME AGGREGATION FOR ALL DATA ROLLS (SHEET 3: LIST SPK) ──
+  const allDataRollSpkList = computed(() => {
+    const rolls = dataRollStore.rolls || [];
+    const labels = labelStore.labels || [];
+    const plansList = plans.value || [];
+    const spkMap = new Map();
+
+    const getOrInit = (spkKey) => {
+      const clean = String(spkKey || '').trim().toUpperCase();
+      if (!spkMap.has(clean)) {
+        spkMap.set(clean, {
+          spkNo: clean,
+          lots: new Map(),
+          totalRealRolls: 0,
+          totalRealMeter: 0,
+          totalRealKg: 0,
+          passCount: 0,
+          holdCount: 0,
+          rejectCount: 0,
+          machines: new Set(),
+          formulas: new Set(),
+          thicknesses: new Set(),
+          dates: [],
+          latestTimestamp: 0,
+          plan: null
+        });
+      }
+      return spkMap.get(clean);
+    };
+
+    // Attach plans first
+    for (const p of plansList) {
+      if (!p || !p.spkNo) continue;
+      const entry = getOrInit(p.spkNo);
+      if (!entry.plan) entry.plan = p;
+      if (p.formula) entry.formulas.add(String(p.formula).toUpperCase());
+      if (p.thickness) entry.thicknesses.add(parseFloat(p.thickness) || 0);
+      if (p.tanggal) {
+        const pt = new Date(p.tanggal).getTime();
+        if (pt > entry.latestTimestamp) entry.latestTimestamp = pt;
+      }
+    }
+
+    // Index data rolls
+    const processedSignatures = new Set();
+    for (let i = 0; i < rolls.length; i++) {
+      const r = rolls[i];
+      if (!r || !r.spk) continue;
+      const s = String(r.spk).trim().toUpperCase();
+      const rawLot = String(r.lot || '').trim();
+      const turunan = String(r.turunan || '').trim();
+      const cleanParent = extractCleanParentLot(rawLot, turunan) || rawLot.split('/')[0] || rawLot;
+      
+      const sig = `${s}::${cleanParent.toUpperCase()}::${turunan.toUpperCase()}`;
+      if (turunan && processedSignatures.has(sig)) continue;
+      if (turunan) processedSignatures.add(sig);
+
+      const entry = getOrInit(s);
+      const w = parseFloat(r.width) || 0;
+      const m = parseFloat(r.length) || 0;
+      const kg = parseFloat(r.netto) || 0;
+      const st = String(r.qualityStatus || 'PASS').toUpperCase();
+      const mach = String(r.machineName || r.mesin || (r.slitting ? 'SLITTING' : (r.rewind ? 'REWIND' : ''))).toUpperCase();
+      const formula = String(r.kodeFormula || r.jenis || '').toUpperCase();
+      const thk = parseFloat(r.thickness) || 0;
+      const rawDate = r.tanggal || r.tanggalFormatted || r.createdAt;
+
+      if (mach) entry.machines.add(mach);
+      if (formula) entry.formulas.add(formula);
+      if (thk > 0) entry.thicknesses.add(thk);
+
+      if (rawDate) {
+        const t = new Date(rawDate).getTime();
+        if (!isNaN(t) && t > entry.latestTimestamp) entry.latestTimestamp = t;
+        entry.dates.push(rawDate);
+      }
+
+      entry.totalRealRolls++;
+      entry.totalRealMeter += m;
+      entry.totalRealKg += kg;
+
+      if (st === 'PASS' || st === 'OK') entry.passCount++;
+      else if (st === 'HOLD') entry.holdCount++;
+      else if (st === 'REJECT' || st === 'NG') entry.rejectCount++;
+      else entry.passCount++;
+
+      let displayLot = rawLot;
+      if (turunan && !rawLot.toUpperCase().includes(turunan.toUpperCase())) {
+        displayLot = rawLot ? `${rawLot} / ${turunan}` : turunan;
+      }
+      const rollKey = r.uuid ? `R_${r.uuid}` : (r.id ? `R_ID_${r.id}` : `R_${i}`);
+      entry.lots.set(rollKey, {
+        id: r.id || rollKey,
+        lot: displayLot || `ROLL_${i + 1}`,
+        parentLot: cleanParent,
+        turunan,
+        width: w,
+        length: m,
+        weight: kg,
+        status: st,
+        machine: mach || 'SLITTING',
+        source: 'DATA_ROLL',
+        date: rawDate,
+        formula,
+        thickness: thk
+      });
+    }
+
+    // Also scan labels table for any label rolls
+    for (let i = 0; i < labels.length; i++) {
+      const l = labels[i];
+      if (!l || !l.spk) continue;
+      const s = String(l.spk).trim().toUpperCase();
+      const rawLot = String(l.lot || '').trim();
+      const turunan = String(l.turunan || '').trim();
+      const cleanParent = extractCleanParentLot(rawLot, turunan) || rawLot.split('/')[0] || rawLot;
+      const sig = `${s}::${cleanParent.toUpperCase()}::${turunan.toUpperCase()}`;
+      if (turunan && processedSignatures.has(sig)) continue;
+      if (turunan) processedSignatures.add(sig);
+
+      const entry = getOrInit(s);
+      const w = parseFloat(l.width) || 0;
+      const m = parseFloat(l.length || l.meter) || 0;
+      const kg = parseFloat(l.netto || l.beratNetto) || 0;
+      const st = String(l.status || 'PASS').toUpperCase();
+      const mach = String(l.noMesin || 'SLITTING').toUpperCase();
+      const formula = String(l.kodeFormula || l.formula || l.type || '').toUpperCase();
+      const thk = parseFloat(l.thickness || l.ketebalan) || 0;
+      const rawDate = l.tanggal || l.createdAt;
+
+      if (mach) entry.machines.add(mach);
+      if (formula) entry.formulas.add(formula);
+      if (thk > 0) entry.thicknesses.add(thk);
+
+      if (rawDate) {
+        const t = new Date(rawDate).getTime();
+        if (!isNaN(t) && t > entry.latestTimestamp) entry.latestTimestamp = t;
+        entry.dates.push(rawDate);
+      }
+
+      entry.totalRealRolls++;
+      entry.totalRealMeter += m;
+      entry.totalRealKg += kg;
+
+      if (st === 'PASS' || st === 'OK') entry.passCount++;
+      else if (st === 'HOLD') entry.holdCount++;
+      else if (st === 'REJECT' || st === 'NG') entry.rejectCount++;
+      else entry.passCount++;
+
+      let displayLot = rawLot;
+      if (turunan && !rawLot.toUpperCase().includes(turunan.toUpperCase())) {
+        displayLot = rawLot ? `${rawLot} / ${turunan}` : turunan;
+      }
+      const rollKey = l.uniqId ? `L_${l.uniqId}` : (l.id ? `L_ID_${l.id}` : `L_${i}`);
+      entry.lots.set(rollKey, {
+        id: l.id || rollKey,
+        lot: displayLot || `ROLL_${i + 1}`,
+        parentLot: cleanParent,
+        turunan,
+        width: w,
+        length: m,
+        weight: kg,
+        status: st,
+        machine: mach || 'SLITTING',
+        source: 'LABEL',
+        date: rawDate,
+        formula,
+        thickness: thk,
+        operator: l.operator || '-'
+      });
+    }
+
+    // Convert map to array with parsed metadata
+    const resultList = [];
+    for (const item of spkMap.values()) {
+      const sampleDate = item.dates[0] || (item.latestTimestamp > 0 ? new Date(item.latestTimestamp).toISOString() : null);
+      const meta = parseSpkMetadata(item.spkNo, sampleDate);
+      
+      const formulaStr = Array.from(item.formulas).filter(Boolean).join(', ') || item.plan?.formula || '-';
+      const thkStr = Array.from(item.thicknesses).filter(t => t > 0).join(', ') || (item.plan?.thickness ? `${item.plan.thickness}` : '-');
+      const machinesArr = Array.from(item.machines).filter(Boolean);
+      if (machinesArr.length === 0) machinesArr.push('SLITTING');
+
+      const realLots = Array.from(item.lots.values());
+      const totalJumbo = item.plan?.jumlahJumbo || Math.max(1, Math.ceil(item.totalRealRolls / 2));
+      const plannedMeter = item.plan ? (item.plan.totalPlannedMeter || (item.plan.panjangParent * totalJumbo)) : item.totalRealMeter;
+      const plannedRolls = item.plan?.totalPlannedRolls || item.totalRealRolls;
+      const achievementPercent = plannedMeter > 0 ? Math.min(100, Math.round((item.totalRealMeter / plannedMeter) * 100)) : 100;
+
+      resultList.push({
+        spkNo: item.spkNo,
+        category: meta.category,
+        year: meta.year,
+        month: meta.month,
+        monthName: meta.monthName,
+        romanMonth: meta.romanMonth,
+        noUrut: meta.noUrut,
+        vendor: meta.vendor,
+        isTrial: meta.isTrial,
+        material: meta.material,
+        isSupplierInhouse: meta.category === 'INHOUSE',
+        supplier: meta.vendor,
+        totalRealRolls: item.totalRealRolls,
+        totalRealMeter: Math.round(item.totalRealMeter),
+        totalRealKg: Math.round(item.totalRealKg * 10) / 10,
+        passCount: item.passCount,
+        holdCount: item.holdCount,
+        rejectCount: item.rejectCount,
+        machines: machinesArr,
+        formula: formulaStr,
+        thickness: thkStr,
+        totalJumbo,
+        plannedMeter,
+        plannedRolls,
+        achievementPercent,
+        latestTimestamp: item.latestTimestamp,
+        realLots,
+        plan: item.plan
+      });
+    }
+
+    return resultList;
+  });
+
+  const getAllSpkAnalytics = (spkNo) => {
+    const clean = String(spkNo || '').trim().toUpperCase();
+    if (!clean) return null;
+    const found = allDataRollSpkList.value.find(s => s.spkNo === clean);
+    if (found) return found;
+    return getSpkRealtimeAnalytics(clean, null);
+  };
+
   return {
     plans,
     batches,
@@ -888,6 +1120,126 @@ export const useSpkStore = defineStore('spk', () => {
     activeBatch,
     activeDateWindow,
     spkRealtimeDataMap,
-    getSpkRealtimeAnalytics
+    getSpkRealtimeAnalytics,
+    allDataRollSpkList,
+    getAllSpkAnalytics,
+    parseSpkMetadata
   };
 });
+
+export const ROMAN_TO_MONTH = {
+  'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+  'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
+};
+
+export const MONTH_NAMES_ID = [
+  '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+export function parseSpkMetadata(spkNo, sampleDate = null) {
+  const cleanSpk = String(spkNo || '').trim().toUpperCase();
+  if (!cleanSpk) {
+    return {
+      spkNo: '',
+      category: 'INHOUSE',
+      year: new Date().getFullYear(),
+      month: new Date().getMonth() + 1,
+      monthName: MONTH_NAMES_ID[new Date().getMonth() + 1] || 'September',
+      romanMonth: '',
+      noUrut: null,
+      vendor: 'PT SWC (INHOUSE)',
+      isTrial: false,
+      material: 'CPP'
+    };
+  }
+
+  // Check category:
+  // INHOUSE if contains /SPK/ or starts with SPK/ or ends with /SPK or is TRIAL/V/SPK...
+  const isInhouse = cleanSpk.includes('/SPK/') || cleanSpk.startsWith('SPK/') || cleanSpk.endsWith('/SPK') || cleanSpk === 'SPK';
+  const category = isInhouse ? 'INHOUSE' : 'EXTERNAL';
+
+  let year = null;
+  let month = null;
+  let romanMonth = '';
+  let noUrut = null;
+  let vendor = isInhouse ? 'PT SWC (INHOUSE)' : 'EKSTERNAL';
+  let isTrial = cleanSpk.includes('TRIAL');
+  let material = '';
+
+  // Extract year (4 digit 202x)
+  const yrMatch = cleanSpk.match(/\b(202\d)\b/);
+  if (yrMatch) {
+    year = parseInt(yrMatch[1], 10);
+  }
+
+  // Tokenize by '/' or '-'
+  const tokens = cleanSpk.split(/[\/\-_]/).map(t => t.trim()).filter(Boolean);
+
+  if (isInhouse) {
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (/^\d+$/.test(tok)) {
+        if (tok.length <= 3 && noUrut === null) {
+          noUrut = parseInt(tok, 10);
+        } else if (tok.length === 4 && year === null) {
+          year = parseInt(tok, 10);
+        }
+      } else if (ROMAN_TO_MONTH[tok]) {
+        romanMonth = tok;
+        month = ROMAN_TO_MONTH[tok];
+      }
+    }
+  } else {
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (['CPP', 'PET', 'BOPP', 'VMPET', 'VMCPP', 'METALIZE', 'LLDPE'].includes(tok)) {
+        material = tok;
+      } else if (ROMAN_TO_MONTH[tok]) {
+        romanMonth = tok;
+        month = ROMAN_TO_MONTH[tok];
+      } else if (/^\d+$/.test(tok)) {
+        if (tok.length === 4 && year === null) {
+          year = parseInt(tok, 10);
+        } else if (tok.length <= 3 && noUrut === null) {
+          noUrut = parseInt(tok, 10);
+        }
+      } else if (tok !== 'SPK' && tok.length >= 2) {
+        if (vendor === 'EKSTERNAL' || vendor === '') {
+          vendor = tok;
+        } else if (tokens[i - 1] === 'MAX' && tok === 'BF') {
+          vendor = 'MAX-BF';
+        } else if (tokens[i - 1] === 'MAX' && tok === 'O2') {
+          vendor = 'MAX-O2';
+        }
+      }
+    }
+  }
+
+  // Fallback for date if year or month missing
+  if ((!year || !month) && sampleDate) {
+    const d = new Date(sampleDate);
+    if (!isNaN(d.getTime())) {
+      if (!year) year = d.getFullYear();
+      if (!month) month = d.getMonth() + 1;
+    }
+  }
+
+  if (!year) year = new Date().getFullYear();
+  if (!month) month = new Date().getMonth() + 1;
+  const monthName = MONTH_NAMES_ID[month] || 'September';
+
+  return {
+    spkNo: cleanSpk,
+    category,
+    year,
+    month,
+    monthName,
+    romanMonth,
+    noUrut,
+    vendor,
+    isTrial,
+    material
+  };
+}
+
