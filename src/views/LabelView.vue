@@ -1004,17 +1004,97 @@
                       <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate">
                         🏷️ {{ lotNode.lot }}
                       </span>
-                      <span class="px-1.5 py-0.2 rounded text-[9px] sm:text-[9.5px] font-black border uppercase bg-zinc-100 text-zinc-700 border-zinc-300 shrink-0">
-                        {{ lotNode.mesin }}
-                      </span>
                       <span class="text-[11px] font-mono text-zinc-500 font-bold hidden md:inline">
                         SPK: <strong class="text-zinc-800">{{ lotNode.spk }}</strong>
                       </span>
 
-                      <!-- Subtitle Dimensi Induk (Desktop only) -->
-                      <span class="text-[11px] font-bold text-zinc-500 truncate hidden lg:inline font-mono" title="Dimensi Induk Jumbo Roll">
-                        • {{ [lotNode.jenis, lotNode.kode, `${lotNode.thickness}MC × ${lotNode.parentWidth || lotNode.width}MM`].filter(Boolean).join(' ') }}
-                      </span>
+                      <!-- Subtitle Dimensi Induk & Inline Edit Width (Desktop & Tablet) -->
+                      <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono" @click.stop>
+                        <span class="text-zinc-400 font-bold">•</span>
+                        <span class="font-bold text-zinc-600">
+                          {{ [lotNode.jenis, lotNode.kode, `${lotNode.thickness}MC`].filter(Boolean).join(' ') }} ×
+                        </span>
+
+                        <!-- Inline Edit Width Input / Badge -->
+                        <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'width'" class="inline-flex items-center gap-1">
+                          <input
+                            v-model="inlineParentWidthVal"
+                            type="number"
+                            step="any"
+                            min="100"
+                            max="5000"
+                            @keyup.enter="saveInlineParentWidth(lotNode)"
+                            @keyup.esc="cancelInlineParentEdit"
+                            @blur="saveInlineParentWidth(lotNode)"
+                            v-focus
+                            class="w-16 px-1.5 py-0.5 text-xs font-black font-mono border-2 border-indigo-600 rounded bg-white text-indigo-950 outline-none shadow-xs text-center"
+                            placeholder="Width"
+                          />
+                          <span class="text-[10px] font-bold text-indigo-600">MM</span>
+                        </div>
+                        <div
+                          v-else
+                          @click="startInlineEditWidth(lotNode)"
+                          :class="[
+                            'px-1.5 py-0.5 rounded text-[11px] font-mono cursor-pointer transition-all hover:scale-105 select-none relative group',
+                            getParentWidthStatus(lotNode).bgClass || 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200'
+                          ]"
+                          :title="getParentWidthStatus(lotNode).tooltip"
+                        >
+                          <span :class="getParentWidthStatus(lotNode).textClass">
+                            {{ lotNode.parentWidth || lotNode.width }} MM
+                          </span>
+                          <span class="text-[9px] opacity-60 ml-0.5">✏️</span>
+
+                          <!-- Floating Tooltip Box on Hover -->
+                          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-30 w-56 p-2 bg-zinc-950/95 text-white text-[10px] rounded-lg shadow-xl pointer-events-none text-left leading-relaxed">
+                            <div class="font-bold text-amber-300 pb-0.5 border-b border-zinc-700">📏 Evaluasi Lebar Parent</div>
+                            <div class="mt-1">{{ getParentWidthStatus(lotNode).tooltip }}</div>
+                            <div class="mt-1 text-[9px] text-zinc-400">Klik untuk langsung edit lebar parent.</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Subtitle Berat Teori / Input Manual Parent (Desktop only) -->
+                      <div class="hidden lg:flex items-center gap-1.5 text-[11px] font-mono" @click.stop>
+                        <span class="text-zinc-400 font-bold">•</span>
+                        <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'berat'" class="inline-flex items-center gap-1">
+                          <input
+                            v-model="inlineParentBeratVal"
+                            type="number"
+                            step="0.1"
+                            @keyup.enter="saveInlineParentBerat(lotNode)"
+                            @keyup.esc="cancelInlineParentEdit"
+                            @blur="saveInlineParentBerat(lotNode)"
+                            v-focus
+                            class="w-18 px-1.5 py-0.5 text-xs font-black font-mono border-2 border-indigo-600 rounded bg-white text-indigo-950 outline-none shadow-xs text-center"
+                            :placeholder="`Teori: ${lotNode.parentBeratTeori || 0}`"
+                          />
+                          <span class="text-[10px] font-bold text-indigo-600">kg</span>
+                        </div>
+                        <div
+                          v-else
+                          @click="startInlineEditBerat(lotNode)"
+                          :class="[
+                            'px-1.5 py-0.5 rounded text-[10.5px] font-mono cursor-pointer transition-all hover:scale-105 select-none relative group',
+                            getParentBeratStatus(lotNode).bgClass
+                          ]"
+                          :title="getParentBeratStatus(lotNode).tooltip"
+                        >
+                          <span :class="getParentBeratStatus(lotNode).textClass">
+                            {{ getParentBeratStatus(lotNode).weight }} kg
+                            <span class="text-[9px] font-sans opacity-70">({{ getParentBeratStatus(lotNode).isManual ? 'Aktual' : 'Teori' }})</span>
+                          </span>
+                          <span class="text-[9px] opacity-60 ml-0.5">✏️</span>
+
+                          <!-- Floating Tooltip Box on Hover for Weight -->
+                          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-30 w-60 p-2 bg-zinc-950/95 text-white text-[10px] rounded-lg shadow-xl pointer-events-none text-left leading-relaxed">
+                            <div class="font-bold text-emerald-300 pb-0.5 border-b border-zinc-700">⚖️ Evaluasi Berat Parent Roll</div>
+                            <div class="mt-1">{{ getParentBeratStatus(lotNode).tooltip }}</div>
+                            <div class="mt-1 text-[9px] text-zinc-400">Klik untuk input berat aktual (kosongkan untuk kembali ke teori rumus).</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <!-- Lot Right Badges & Edit Button -->
@@ -1065,11 +1145,66 @@
                   </div>
 
                   <!-- Sub-Row for Mobile: SPK, Dimensi, Sisa (Clean, uncrowded) -->
-                  <div class="sm:hidden flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 pt-1 border-t border-stone-200/60 text-[10px] text-zinc-500 font-mono">
+                  <div class="sm:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 pt-1 border-t border-stone-200/60 text-[10px] text-zinc-500 font-mono" @click.stop>
                     <span v-if="lotNode.spk">SPK: <strong class="text-zinc-700">{{ lotNode.spk }}</strong></span>
-                    <span v-if="lotNode.thickness || lotNode.parentWidth || lotNode.width">
-                      • {{ lotNode.thickness ? lotNode.thickness + 'µ' : '' }} {{ lotNode.parentWidth || lotNode.width ? (lotNode.parentWidth || lotNode.width) + 'mm' : '' }}
+                    <span v-if="lotNode.thickness">
+                      • {{ lotNode.thickness }}µ
                     </span>
+
+                    <!-- Mobile Inline Width -->
+                    <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'width'" class="inline-flex items-center gap-1">
+                      <input
+                        v-model="inlineParentWidthVal"
+                        type="number"
+                        step="any"
+                        @keyup.enter="saveInlineParentWidth(lotNode)"
+                        @keyup.esc="cancelInlineParentEdit"
+                        @blur="saveInlineParentWidth(lotNode)"
+                        v-focus
+                        class="w-14 px-1 py-0.2 text-[10px] font-black border border-indigo-600 rounded bg-white text-indigo-950 outline-none text-center"
+                      />
+                      <span class="text-[9px] font-bold text-indigo-600">mm</span>
+                    </div>
+                    <span
+                      v-else
+                      @click="startInlineEditWidth(lotNode)"
+                      :class="[
+                        'px-1 py-0.2 rounded cursor-pointer border inline-flex items-center gap-0.5',
+                        getParentWidthStatus(lotNode).bgClass || 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                      ]"
+                      :title="getParentWidthStatus(lotNode).tooltip"
+                    >
+                      <span :class="getParentWidthStatus(lotNode).textClass">{{ lotNode.parentWidth || lotNode.width }}mm</span>
+                      <span class="text-[8px] opacity-60">✏️</span>
+                    </span>
+
+                    <!-- Mobile Inline Weight -->
+                    <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'berat'" class="inline-flex items-center gap-1">
+                      <input
+                        v-model="inlineParentBeratVal"
+                        type="number"
+                        step="0.1"
+                        @keyup.enter="saveInlineParentBerat(lotNode)"
+                        @keyup.esc="cancelInlineParentEdit"
+                        @blur="saveInlineParentBerat(lotNode)"
+                        v-focus
+                        class="w-14 px-1 py-0.2 text-[10px] font-black border border-indigo-600 rounded bg-white text-indigo-950 outline-none text-center"
+                      />
+                      <span class="text-[9px] font-bold text-indigo-600">kg</span>
+                    </div>
+                    <span
+                      v-else
+                      @click="startInlineEditBerat(lotNode)"
+                      :class="[
+                        'px-1 py-0.2 rounded cursor-pointer border inline-flex items-center gap-0.5',
+                        getParentBeratStatus(lotNode).bgClass
+                      ]"
+                      :title="getParentBeratStatus(lotNode).tooltip"
+                    >
+                      <span :class="getParentBeratStatus(lotNode).textClass">{{ getParentBeratStatus(lotNode).weight }}kg ({{ getParentBeratStatus(lotNode).isManual ? 'Aktual' : 'Teori' }})</span>
+                      <span class="text-[8px] opacity-60">✏️</span>
+                    </span>
+
                     <span v-if="lotNode.parentSisaKg > 0" class="text-amber-700 font-bold">
                       • Sisa: {{ lotNode.parentSisaKg }}kg
                     </span>
@@ -3661,6 +3796,11 @@ const wipStore = useWipStore();
 const dataRollStore = useDataRollStore();
 const scheduleStore = useScheduleStore();
 
+// Custom directive untuk auto focus input inline
+const vFocus = {
+  mounted: (el) => el.focus?.()
+};
+
 // Mode Pencarian No Lot: 'WIP' (WIP Jumbo) vs 'DATA_ROLL' (Data Roll FG)
 const lotSearchSource = ref('WIP');
 const setLotSearchSource = async (source) => {
@@ -5844,6 +5984,238 @@ const saveParentLotData = async () => {
 
   await labelStore.loadLabels();
   showParentLotModal.value = false;
+};
+
+// ── INLINE PARENT LOT EDITING (HIERARCHY VIEW) ──
+const editingParentLotKey = ref(null); // uniqueKey of lot currently editing
+const editingParentField = ref(null); // 'width' | 'berat'
+const inlineParentWidthVal = ref('');
+const inlineParentBeratVal = ref('');
+
+// Helper: Evaluasi status lebar parent terhadap estimasi lebar (sumChildWidth)
+const getParentWidthStatus = (lotNode) => {
+  const currentW = parseFloat(lotNode.parentWidth) || 0;
+  const estimatedW = parseFloat(lotNode.sumChildWidth) || 0;
+  if (!currentW || !estimatedW) {
+    return {
+      status: 'normal',
+      diff: 0,
+      estimatedW,
+      currentW,
+      bgClass: '',
+      textClass: 'text-zinc-700 font-bold',
+      tooltip: `Lebar Parent: ${currentW} MM (Estimasi child: ${estimatedW} MM)`
+    };
+  }
+
+  const diff = currentW - estimatedW; // Positif jika parent lebih lebar, negatif jika kurang dari child
+
+  if (diff < 0) {
+    // Width kurang dari estimasi child -> Kuning tipis + info float
+    return {
+      status: 'under',
+      diff,
+      estimatedW,
+      currentW,
+      bgClass: 'bg-amber-100/90 text-amber-900 border border-amber-300 ring-1 ring-amber-300/60',
+      textClass: 'text-amber-900 font-black',
+      tooltip: `⚠️ PERINGATAN LEBAR: Lebar parent (${currentW} mm) KURANG dari estimasi akumulasi pisau potong/child (${estimatedW} mm)! Selisih: ${diff} mm.`
+    };
+  } else if (diff === 0) {
+    // Sama persis dengan estimasi
+    return {
+      status: 'exact',
+      diff: 0,
+      estimatedW,
+      currentW,
+      bgClass: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+      textClass: 'text-emerald-900 font-bold',
+      tooltip: `Lebar parent pas sesuai estimasi (${currentW} mm). Tidak ada sisa trim.`
+    };
+  } else if (diff >= 10 && diff <= 15) {
+    // Melebihi estimasi antara 10-15 mm -> Wajar dianggap trim
+    return {
+      status: 'trim_ok',
+      diff,
+      estimatedW,
+      currentW,
+      bgClass: 'bg-emerald-50/70 text-emerald-800 border border-emerald-300',
+      textClass: 'text-emerald-900 font-bold',
+      tooltip: `✓ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm - Wajar standar trim 10-15 mm).`
+    };
+  } else if (diff > 0 && diff < 10) {
+    // Melebihi estimasi tapi di bawah 10 mm (Trim sangat tipis)
+    return {
+      status: 'trim_small',
+      diff,
+      estimatedW,
+      currentW,
+      bgClass: 'bg-blue-50 text-blue-800 border border-blue-200',
+      textClass: 'text-blue-900 font-bold',
+      tooltip: `ℹ️ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm).`
+    };
+  } else {
+    // diff > 15 mm -> Warning peringatan melebihi trim standar, tapi tetap diperbolehkan
+    return {
+      status: 'trim_warning',
+      diff,
+      estimatedW,
+      currentW,
+      bgClass: 'bg-rose-100 text-rose-900 border border-rose-300 ring-1 ring-rose-400/50',
+      textClass: 'text-rose-900 font-black',
+      tooltip: `⚠️ PERINGATAN TRIM BESAR: Lebar parent (${currentW} mm) melebihi estimasi (${estimatedW} mm) sebesar +${diff} mm (>15 mm trim)! Tetap diperbolehkan namun periksa kembali.`
+    };
+  }
+};
+
+// Helper: Evaluasi status berat parent (Aktual vs Teori Rumus)
+const getParentBeratStatus = (lotNode) => {
+  const isManual = lotNode.parentBeratAktual !== null && lotNode.parentBeratAktual !== undefined && lotNode.parentBeratAktual > 0;
+  const currentWeight = isManual ? lotNode.parentBeratAktual : (lotNode.parentBeratTeori || 0);
+  const teoriWeight = lotNode.parentBeratTeori || 0;
+
+  if (!isManual) {
+    return {
+      isManual: false,
+      weight: currentWeight,
+      teoriWeight,
+      bgClass: 'bg-stone-100 text-stone-800 border border-stone-200',
+      textClass: 'text-stone-800 font-bold',
+      tooltip: `Berat Teori Rumus: ${currentWeight} kg (Dihitung dari Tebal × Lebar × Panjang × Density). Klik untuk input manual.`
+    };
+  }
+
+  // Jika input manual, hitung deviasi dari rumus teori
+  const diff = currentWeight - teoriWeight;
+  const pct = teoriWeight > 0 ? ((diff / teoriWeight) * 100) : 0;
+  const absPct = Math.abs(pct);
+
+  if (absPct <= 2.0) {
+    return {
+      isManual: true,
+      weight: currentWeight,
+      teoriWeight,
+      diff,
+      pct,
+      bgClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300',
+      textClass: 'text-emerald-950 font-bold',
+      tooltip: `Berat Aktual Manual: ${currentWeight} kg (Teori: ${teoriWeight} kg, Deviasi: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kg / ${pct.toFixed(1)}% - Sangat Sesuai).`
+    };
+  } else if (absPct <= 5.0) {
+    return {
+      isManual: true,
+      weight: currentWeight,
+      teoriWeight,
+      diff,
+      pct,
+      bgClass: 'bg-amber-100 text-amber-900 border border-amber-300 ring-1 ring-amber-300/60',
+      textClass: 'text-amber-950 font-black',
+      tooltip: `⚠️ PERHATIAN BERAT: Berat manual (${currentWeight} kg) selisih ${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kg (${pct.toFixed(1)}%) dari berat teori (${teoriWeight} kg).`
+    };
+  } else {
+    return {
+      isManual: true,
+      weight: currentWeight,
+      teoriWeight,
+      diff,
+      pct,
+      bgClass: 'bg-rose-100 text-rose-900 border border-rose-300 ring-1 ring-rose-400/60',
+      textClass: 'text-rose-950 font-black',
+      tooltip: `🚨 PERINGATAN DEVIASI BERAT TINGGI: Berat manual (${currentWeight} kg) berbeda ${diff >= 0 ? '+' : ''}${diff.toFixed(1)} kg (${pct.toFixed(1)}%) dari berat teori (${teoriWeight} kg)! Tetap tersimpan.`
+    };
+  }
+};
+
+// Mulai inline edit Width
+const startInlineEditWidth = (lotNode) => {
+  editingParentLotKey.value = lotNode.uniqueKey;
+  editingParentField.value = 'width';
+  inlineParentWidthVal.value = String(lotNode.parentWidth || '');
+};
+
+// Simpan inline edit Width
+const saveInlineParentWidth = async (lotNode) => {
+  if (editingParentLotKey.value !== lotNode.uniqueKey || editingParentField.value !== 'width') return;
+  const newW = parseFloat(inlineParentWidthVal.value);
+  editingParentLotKey.value = null;
+  editingParentField.value = null;
+
+  if (isNaN(newW) || newW <= 0) return;
+  if (newW === parseFloat(lotNode.parentWidth)) return;
+
+  const items = lotNode.items || [];
+  if (!items.length) return;
+
+  const estChildW = parseFloat(lotNode.sumChildWidth) || 0;
+  const newTrim = Math.max(0, newW - estChildW);
+
+  // Recalculate teori weight with new width
+  const thk = parseFloat(lotNode.thickness) || parseFloat(items[0]?.thickness) || 20;
+  const mtr = parseFloat(lotNode.parentMeter) || parseFloat(items[0]?.parentMeter) || parseFloat(items[0]?.length) || 0;
+  const den = parseFloat(lotNode.parentDensity) || 0.91;
+  const newTeori = calculateBeratTeori(thk, newW, mtr, den);
+
+  for (const item of items) {
+    const updated = { ...item };
+    updated.parentWidth = newW;
+    updated.parentTrim = newTrim;
+    updated.parentBeratTeori = parseFloat(newTeori.toFixed(2));
+    // Jika tidak ada berat aktual, sesuaikan berat masuk dengan teori baru
+    if (!updated.parentBeratAktual) {
+      updated.parentBeratMasuk = parseFloat(newTeori.toFixed(2));
+    }
+    await db.labels.put(updated);
+  }
+
+  await labelStore.loadLabels();
+};
+
+// Mulai inline edit Berat
+const startInlineEditBerat = (lotNode) => {
+  editingParentLotKey.value = lotNode.uniqueKey;
+  editingParentField.value = 'berat';
+  const currentAktual = lotNode.parentBeratAktual;
+  inlineParentBeratVal.value = currentAktual ? String(currentAktual) : '';
+};
+
+// Simpan inline edit Berat (Kosongkan input untuk kembali ke Teori)
+const saveInlineParentBerat = async (lotNode) => {
+  if (editingParentLotKey.value !== lotNode.uniqueKey || editingParentField.value !== 'berat') return;
+  const raw = inlineParentBeratVal.value.trim();
+  editingParentLotKey.value = null;
+  editingParentField.value = null;
+
+  const items = lotNode.items || [];
+  if (!items.length) return;
+
+  let bAktual = null;
+  if (raw !== '') {
+    const parsed = parseFloat(raw);
+    if (!isNaN(parsed) && parsed > 0) {
+      bAktual = parseFloat(parsed.toFixed(2));
+    }
+  }
+
+  const thk = parseFloat(lotNode.thickness) || parseFloat(items[0]?.thickness) || 20;
+  const w = parseFloat(lotNode.parentWidth) || parseFloat(items[0]?.parentWidth) || parseFloat(items[0]?.width) || 0;
+  const mtr = parseFloat(lotNode.parentMeter) || parseFloat(items[0]?.parentMeter) || parseFloat(items[0]?.length) || 0;
+  const den = parseFloat(lotNode.parentDensity) || 0.91;
+  const teori = calculateBeratTeori(thk, w, mtr, den);
+
+  for (const item of items) {
+    const updated = { ...item };
+    updated.parentBeratAktual = bAktual;
+    updated.parentBeratTeori = parseFloat(teori.toFixed(2));
+    updated.parentBeratMasuk = bAktual !== null ? bAktual : parseFloat(teori.toFixed(2));
+    await db.labels.put(updated);
+  }
+
+  await labelStore.loadLabels();
+};
+
+const cancelInlineParentEdit = () => {
+  editingParentLotKey.value = null;
+  editingParentField.value = null;
 };
 
 const form = reactive({
