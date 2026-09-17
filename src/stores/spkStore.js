@@ -52,6 +52,68 @@ import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase } from '@/services/syncService';
 import { extractCleanParentLot } from '@/services/dataRollParserService';
+export function getFilmDensity(jenis, kodeFormula, spkNo = '', filmConfigs = []) {
+  const cleanJenis = String(jenis || '').toUpperCase().trim();
+  const cleanKode = String(kodeFormula || '').toUpperCase().trim();
+  const cleanSpk = String(spkNo || '').toUpperCase().trim();
+
+  // 1. ConfigStore / DB lookup
+  if (Array.isArray(filmConfigs) && filmConfigs.length > 0) {
+    // Exact match jenis & kodeFormula
+    if (cleanJenis && cleanKode) {
+      const matched = filmConfigs.find(r => 
+        String(r.jenis || '').toUpperCase().trim() === cleanJenis && 
+        String(r.kodeFormula || '').toUpperCase().trim() === cleanKode
+      );
+      if (matched && matched.density && parseFloat(matched.density) > 0) {
+        return parseFloat(matched.density);
+      }
+    }
+
+    // Match by kodeFormula (e.g. M01 - M39, L01 - L05)
+    if (cleanKode) {
+      const byFormula = filmConfigs.find(r => 
+        String(r.kodeFormula || '').toUpperCase().trim() === cleanKode
+      );
+      if (byFormula && byFormula.density && parseFloat(byFormula.density) > 0) {
+        return parseFloat(byFormula.density);
+      }
+    }
+
+    // Match by jenis
+    if (cleanJenis) {
+      const byJenis = filmConfigs.find(r => 
+        String(r.jenis || '').toUpperCase().trim() === cleanJenis
+      );
+      if (byJenis && byJenis.density && parseFloat(byJenis.density) > 0) {
+        return parseFloat(byJenis.density);
+      }
+    }
+  }
+
+  // 2. Direct Polymer Density Heuristics based on jenis, formula, or spkNo
+  const combined = `${cleanJenis} ${cleanKode} ${cleanSpk}`;
+  if (combined.includes('PET') || combined.includes('VMPET') || combined.includes('POLYESTER')) return 1.40;
+  if (combined.includes('ALU') || combined.includes('FOIL')) return 2.70;
+  if (combined.includes('NYLON') || combined.includes('BOPA') || combined.includes('OPA')) return 1.15;
+  if (combined.includes('LLDPE') || combined.includes('LDPE') || combined.includes('HDPE') || combined.includes('PE')) return 0.92;
+  if (combined.includes('CPP') || combined.includes('VMCPP') || combined.includes('BOPP') || combined.includes('PP')) return 0.91;
+
+  // Default standard factory rotogravure film density
+  return 0.91;
+}
+
+export function calculateBeratTeori(thickness, width, length, density = 0.91) {
+  const t = parseFloat(thickness) || 0;
+  const w = parseFloat(width) || 0;
+  const m = parseFloat(length) || 0;
+  const d = parseFloat(density) || 0.91;
+
+  if (t <= 0 || w <= 0 || m <= 0 || d <= 0) return 0;
+  // Rumus: (Tebal * Lebar * Panjang * Density) / 1,000,000
+  return parseFloat(((t * w * m * d) / 1000000).toFixed(2));
+}
+
 export const evaluateTargetStatus = (actualRoll, planRoll, isSkipped = false) => {
   if (isSkipped) {
     return {
@@ -536,10 +598,17 @@ export const useSpkStore = defineStore('spk', () => {
           displayLot = l.barcode || l.uniqId || `ROLL_${l.id || i + 1}`;
         }
 
-        const w = parseFloat(l.width) || 0;
-        const m = parseFloat(l.length) || parseFloat(l.meter) || 0;
-        const kg = parseFloat(l.netto) || parseFloat(l.beratNetto) || 0;
+        const w = parseFloat(l.width || l.lebar) || 0;
+        const m = parseFloat(l.length || l.meter || l.panjang) || 0;
+        let kg = parseFloat(l.netto || l.beratNetto || l.beratTeori) || 0;
         const st = String(l.status || 'PASS').toUpperCase();
+        let thk = parseFloat(l.thickness || l.ketebalan) || (spkObj.plan ? parseFloat(spkObj.plan.thickness) : 0) || 0;
+        const formula = l.kodeFormula || l.formula || l.type || l.jenis || (spkObj.plan?.formula || '');
+        const density = getFilmDensity(l.jenis || spkObj.plan?.jenis, formula, s, configStore?.filmConfigs);
+        if (kg <= 0 && w > 0 && m > 0) {
+          if (thk <= 0) thk = 25;
+          kg = calculateBeratTeori(thk, w, m, density);
+        }
 
         spkObj.lots.set(rollKey, {
           id: l.id || rollKey,
@@ -552,8 +621,8 @@ export const useSpkStore = defineStore('spk', () => {
           status: st,
           source: l.isDataRoll ? 'DATA_ROLL' : 'LABEL',
           date: l.tanggal || l.createdAt,
-          formula: l.kodeFormula || l.formula || l.type || l.jenis || '',
-          thickness: parseFloat(l.thickness) || 0,
+          formula: formula,
+          thickness: thk,
           operator: l.operator || l.kodeOperator || '-',
           supplier: l.supplier || 'INHOUSE'
         });
@@ -622,8 +691,20 @@ export const useSpkStore = defineStore('spk', () => {
 
         const w = parseFloat(r.width) || 0;
         const m = parseFloat(r.length) || 0;
-        const kg = parseFloat(r.netto) || 0;
+        let kg = parseFloat(r.netto || r.berat || r.beratTeori) || 0;
         const st = String(r.qualityStatus || 'PASS').toUpperCase();
+        let thk = parseFloat(r.thickness) || (spkObj.plan ? parseFloat(spkObj.plan.thickness) : 0) || 0;
+        if (thk <= 0 && r.kodeFg) {
+          const mThk = String(r.kodeFg).match(/(\d+(?:\.\d+)?)\s*(?:MC|MIC|MICRON)/i);
+          if (mThk) thk = parseFloat(mThk[1]);
+        }
+        if (thk <= 0) thk = 25;
+
+        const formula = r.kodeFormula || r.jenis || (spkObj.plan?.formula || '');
+        const density = getFilmDensity(r.jenis || spkObj.plan?.jenis, formula, s, configStore?.filmConfigs);
+        if (kg <= 0 && w > 0 && m > 0 && thk > 0) {
+          kg = calculateBeratTeori(thk, w, m, density);
+        }
 
         spkObj.lots.set(rollKey, {
           id: r.id || rollKey,
@@ -637,7 +718,7 @@ export const useSpkStore = defineStore('spk', () => {
           source: 'DATA_ROLL',
           date: r.tanggal || r.tanggalFormatted || r.createdAt,
           formula: r.kodeFormula || r.jenis || '',
-          thickness: parseFloat(r.thickness) || 0,
+          thickness: thk,
           operator: r.machineName || '-',
           supplier: 'INHOUSE'
         });
@@ -927,11 +1008,24 @@ export const useSpkStore = defineStore('spk', () => {
       const entry = getOrInit(s);
       const w = parseFloat(r.width) || 0;
       const m = parseFloat(r.length) || 0;
-      const kg = parseFloat(r.netto) || 0;
+      let kg = parseFloat(r.netto || r.berat || r.beratTeori) || 0;
       const st = String(r.qualityStatus || 'PASS').toUpperCase();
       const mach = String(r.machineName || r.mesin || (r.slitting ? 'SLITTING' : (r.rewind ? 'REWIND' : ''))).toUpperCase();
       const formula = String(r.kodeFormula || r.jenis || '').toUpperCase();
-      const thk = parseFloat(r.thickness) || 0;
+      let thk = parseFloat(r.thickness) || (entry.plan ? parseFloat(entry.plan.thickness) : 0) || 0;
+      if (thk <= 0 && r.kodeFg) {
+        const mThk = String(r.kodeFg).match(/(\d+(?:\.\d+)?)\s*(?:MC|MIC|MICRON)/i);
+        if (mThk) thk = parseFloat(mThk[1]);
+      }
+      if (thk <= 0 && entry.thicknesses.size > 0) {
+        thk = Array.from(entry.thicknesses)[0];
+      }
+      if (thk <= 0) thk = 25;
+
+      const density = getFilmDensity(r.jenis || (entry.plan?.jenis || ''), formula || (entry.plan?.formula || ''), s, configStore?.filmConfigs);
+      if (kg <= 0 && w > 0 && m > 0 && thk > 0) {
+        kg = calculateBeratTeori(thk, w, m, density);
+      }
       const rawDate = r.tanggal || r.tanggalFormatted || r.createdAt;
 
       if (mach) entry.machines.add(mach);
@@ -999,13 +1093,22 @@ export const useSpkStore = defineStore('spk', () => {
       if (turunan) processedSignatures.add(sig);
 
       const entry = getOrInit(s);
-      const w = parseFloat(l.width) || 0;
-      const m = parseFloat(l.length || l.meter) || 0;
-      const kg = parseFloat(l.netto || l.beratNetto) || 0;
+      const w = parseFloat(l.width || l.lebar) || 0;
+      const m = parseFloat(l.length || l.meter || l.panjang) || 0;
+      let kg = parseFloat(l.netto || l.beratNetto || l.beratTeori) || 0;
       const st = String(l.status || 'PASS').toUpperCase();
       const mach = String(l.noMesin || 'SLITTING').toUpperCase();
       const formula = String(l.kodeFormula || l.formula || l.type || '').toUpperCase();
-      const thk = parseFloat(l.thickness || l.ketebalan) || 0;
+      let thk = parseFloat(l.thickness || l.ketebalan) || (entry.plan ? parseFloat(entry.plan.thickness) : 0) || 0;
+      if (thk <= 0 && entry.thicknesses.size > 0) {
+        thk = Array.from(entry.thicknesses)[0];
+      }
+      if (thk <= 0) thk = 25;
+
+      const density = getFilmDensity(l.jenis || (entry.plan?.jenis || ''), formula || (entry.plan?.formula || ''), s, configStore?.filmConfigs);
+      if (kg <= 0 && w > 0 && m > 0 && thk > 0) {
+        kg = calculateBeratTeori(thk, w, m, density);
+      }
       const rawDate = l.tanggal || l.createdAt;
 
       if (mach) entry.machines.add(mach);

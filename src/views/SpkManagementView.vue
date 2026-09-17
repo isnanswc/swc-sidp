@@ -1906,7 +1906,7 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted, watch } from 'vue';
-import { useSpkStore, evaluateTargetStatus } from '@/stores/spkStore';
+import { useSpkStore, evaluateTargetStatus, getFilmDensity, calculateBeratTeori } from '@/stores/spkStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
@@ -2844,28 +2844,48 @@ const openSpkDetailDrawer = (item) => {
   const speed = item.speed || spkStore.getSlittingSpeed(item.formula);
   const timeEst = spkStore.calculateEstimateMinutes(item.totalRealMeter || 0, item.totalJumbo || 1, speed);
 
-  // Fail-safe calculation of widthSummaries from realLots if missing
-  let widthSummaries = item.widthSummaries;
-  if (!widthSummaries || widthSummaries.length === 0) {
-    const wMap = new Map();
-    for (const lt of (item.realLots || [])) {
-      const w = Math.round(parseFloat(lt.width) || 0);
-      if (w > 0) {
-        if (!wMap.has(w)) {
-          wMap.set(w, { width: w, totalRoll: 0, totalMeter: 0, totalKg: 0 });
-        }
-        const wObj = wMap.get(w);
-        wObj.totalRoll++;
-        wObj.totalMeter += parseFloat(lt.length) || 0;
-        wObj.totalKg += parseFloat(lt.weight) || 0;
-      }
+  const density = getFilmDensity(item.material, item.formula, item.spkNo, configStore?.filmConfigs);
+  const defThk = parseFloat(item.thickness) || 25;
+
+  // Ensure realLots have valid theoretical weight if missing
+  const realLots = (item.realLots || []).map(lt => {
+    let wt = parseFloat(lt.weight) || 0;
+    if (wt <= 0) {
+      const thk = parseFloat(lt.thickness) || defThk;
+      const w = parseFloat(lt.width) || 0;
+      const m = parseFloat(lt.length) || 0;
+      wt = calculateBeratTeori(thk, w, m, density);
     }
-    widthSummaries = Array.from(wMap.values()).sort((a, b) => b.width - a.width);
+    return { ...lt, weight: wt };
+  });
+
+  // Calculate widthSummaries with accurate totalKg and totalMeter
+  const wMap = new Map();
+  for (const lt of realLots) {
+    const w = Math.round(parseFloat(lt.width) || 0);
+    if (w > 0) {
+      if (!wMap.has(w)) {
+        wMap.set(w, { width: w, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+      }
+      const wObj = wMap.get(w);
+      wObj.totalRoll++;
+      wObj.totalMeter += parseFloat(lt.length) || 0;
+      wObj.totalKg += parseFloat(lt.weight) || 0;
+    }
   }
+  const widthSummaries = Array.from(wMap.values()).sort((a, b) => b.width - a.width);
+  widthSummaries.forEach(w => {
+    w.totalKg = Math.round(w.totalKg * 10) / 10;
+  });
+
+  const computedTotalKg = Math.round(widthSummaries.reduce((sum, w) => sum + (w.totalKg || 0), 0) * 10) / 10;
+  const totalRealKg = (parseFloat(item.totalRealKg) > 0) ? parseFloat(item.totalRealKg) : computedTotalKg;
 
   selectedDetailSpk.value = {
     ...item,
+    realLots,
     widthSummaries,
+    totalRealKg,
     speed,
     totalMinutes: item.totalMinutes || timeEst.totalMinutes,
     cuttingMinutes: item.cuttingMinutes || timeEst.cuttingMinutes,
