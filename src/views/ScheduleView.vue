@@ -390,9 +390,9 @@
             <button
               @click="toggleManualShiftMode(activeDayDateStr)"
               class="ml-1 text-[10px] text-zinc-300 hover:text-white underline cursor-pointer"
-              title="Klik untuk ubah mode 8 jam / 12 jam pada hari ini"
+              title="Klik untuk ubah mode seluruh mesin (8 jam / 12 jam) pada hari ini"
             >
-              (Ubah)
+              (Ubah Semua)
             </button>
           </div>
 
@@ -521,7 +521,19 @@
                   </div>
                 </div>
 
-                <div class="text-right">
+                <div class="text-right flex items-center gap-1.5">
+                  <!-- Per-machine shift mode badge & toggle button -->
+                  <button
+                    @click="toggleMachineManualShiftMode(station.machine)"
+                    class="text-[9.5px] px-2 py-0.5 rounded-full font-bold cursor-pointer transition-all flex items-center gap-1 shadow-2xs border"
+                    :class="station.isLongShift 
+                      ? 'bg-purple-900/80 text-purple-200 border-purple-400/50 hover:bg-purple-800' 
+                      : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'"
+                    :title="`Klik untuk ubah mode shift mesin ${station.machine} (8 Jam vs 12 Jam)`"
+                  >
+                    <span>{{ station.isLongShift ? '⚡ 12 Jam' : '⏱️ 8 Jam' }}</span>
+                  </button>
+
                   <span 
                     v-if="station.hasData"
                     class="px-2 py-0.5 rounded-full text-[10px] font-black"
@@ -764,11 +776,23 @@ const activeDayWorkHistory = computed(() => {
   return scheduleStore.getActualWorkHistory(activeDayDateStr.value, rolls);
 });
 
-// Toggle Shift Mode (Normal 8 Jam vs Long Shift 12 Jam)
+// Toggle Shift Mode (Normal 8 Jam vs Long Shift 12 Jam) untuk SEMUA mesin
 const toggleManualShiftMode = async (dateStr) => {
   const currentIsLong = scheduleStore.isDateLongShift(dateStr);
   const newIsLong = !currentIsLong;
-  await scheduleStore.setShiftModeOverride(dateStr, newIsLong, null, 'Diubah manual di menu jadwal');
+  await scheduleStore.setShiftModeOverride(dateStr, newIsLong, null, 'Diubah manual (semua mesin) di menu jadwal');
+};
+
+// Toggle Shift Mode khusus per mesin (Normal 8 Jam vs Long Shift 12 Jam)
+const toggleMachineManualShiftMode = async (machineName) => {
+  const currentIsLong = scheduleStore.isDateLongShift(activeDayDateStr.value, machineName);
+  const newIsLong = !currentIsLong;
+  await scheduleStore.setMachineShiftModeOverride(
+    activeDayDateStr.value,
+    machineName,
+    newIsLong,
+    `Diubah manual mesin ${machineName} (${newIsLong ? '12 Jam' : '8 Jam'}) di menu jadwal`
+  );
 };
 
 // Period Label Header (Month/Year, Week of Month, or Specific Date)

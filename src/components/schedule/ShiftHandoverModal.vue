@@ -468,34 +468,45 @@
                   <span>Durasi & Mode Shift Kerja:</span>
                 </span>
                 <p class="text-[11px] text-zinc-500">
-                  Jika salah satu operator tidak masuk dan diberlakukan shift panjang (12 jam), aktifkan mode ini.
+                  Pilih durasi shift untuk seluruh mesin atau atur secara spesifik per stasiun mesin di bawah.
                 </p>
               </div>
 
-              <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-zinc-200 shadow-2xs">
-                <button
-                  type="button"
-                  @click="isHandoverLongShift = false"
-                  :class="['px-3 py-1 text-xs rounded-lg font-bold transition-all cursor-pointer', !isHandoverLongShift ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-zinc-200 shadow-2xs">
+                  <button
+                    type="button"
+                    @click="setAllMachinesDuration(false)"
+                    :class="['px-3 py-1 text-xs rounded-lg font-bold transition-all cursor-pointer', !isAnyMachineLongShift ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
+                  >
+                    ⏱️ Semua 8 Jam
+                  </button>
+                  <button
+                    type="button"
+                    @click="setAllMachinesDuration(true)"
+                    :class="['px-3 py-1 text-xs rounded-lg font-bold transition-all cursor-pointer', isAllMachinesLongShift ? 'bg-purple-600 text-white shadow-xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
+                  >
+                    ⚡ Semua 12 Jam
+                  </button>
+                </div>
+
+                <span 
+                  v-if="isPartialLongShift"
+                  class="px-2.5 py-1 text-xs font-bold rounded-xl bg-amber-100 text-amber-800 border border-amber-300"
                 >
-                  ⏱️ Shift Normal (8 Jam)
-                </button>
-                <button
-                  type="button"
-                  @click="isHandoverLongShift = true"
-                  :class="['px-3 py-1 text-xs rounded-lg font-bold transition-all cursor-pointer', isHandoverLongShift ? 'bg-purple-600 text-white shadow-xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
-                >
-                  ⚡ Shift Panjang (12 Jam)
-                </button>
+                  ⚡ Parsial: {{ longShiftMachineNames.join(', ') }} (12 Jam)
+                </span>
               </div>
             </div>
 
-            <div v-if="isHandoverLongShift" class="p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-900 flex items-start gap-2">
+            <div v-if="isAnyMachineLongShift" class="p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-900 flex items-start gap-2">
               <span class="text-purple-600 text-base">⚡</span>
               <div class="space-y-1 w-full">
-                <div class="font-bold">Mode Shift Panjang (12 Jam) Aktif</div>
+                <div class="font-bold">
+                  Mode Shift Panjang (12 Jam) Aktif {{ isPartialLongShift ? `(Hanya Mesin: ${longShiftMachineNames.join(', ')})` : '(Semua Mesin)' }}
+                </div>
                 <p class="text-[11px] text-purple-800 leading-relaxed">
-                  Jam kerja diset ke 12 jam (Siang: 07:00 - 19:00, Malam: 19:00 - 07:00). Popup pergantian shift berikutnya di navbar akan otomatis disinkronkan ke jam 19:00 (atau 07:00).
+                  Mesin bertanda ⚡ 12 Jam akan mencetak shift LS1/LS2 (07:00-19:00 / 19:00-07:00). Mesin lainnya tetap beroperasi shift normal 8 jam.
                 </p>
                 <input
                   v-model="handoverLongShiftNote"
@@ -524,24 +535,38 @@
                     <span class="text-xs">{{ station.icon }}</span>
                     <span class="font-black text-xs text-zinc-900 uppercase">Mesin {{ station.machine }}</span>
                   </div>
-                  <span 
-                    v-if="rosterForm[station.machine]?.isSubstituted"
-                    class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300"
-                  >
-                    ✏️ Digantikan
-                  </span>
-                  <span 
-                    v-else-if="rosterForm[station.machine]?.operator"
-                    class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300"
-                  >
-                    ✓ Terjadwal
-                  </span>
-                  <span 
-                    v-else
-                    class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500"
-                  >
-                    Belum Diatur
-                  </span>
+
+                  <div class="flex items-center gap-1.5">
+                    <!-- Per-machine shift duration toggle button -->
+                    <button
+                      type="button"
+                      @click="toggleStationShiftDuration(station.machine)"
+                      class="text-[10px] font-black px-2 py-0.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1"
+                      :class="rosterForm[station.machine]?.isLongShift ? 'bg-purple-100 text-purple-800 border-purple-300 shadow-2xs' : 'bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200'"
+                      :title="`Ubah mode shift mesin ${station.machine} (8 Jam vs 12 Jam)`"
+                    >
+                      <span>{{ rosterForm[station.machine]?.isLongShift ? '⚡ 12 Jam' : '⏱️ 8 Jam' }}</span>
+                    </button>
+
+                    <span 
+                      v-if="rosterForm[station.machine]?.isSubstituted"
+                      class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300"
+                    >
+                      ✏️ Digantikan
+                    </span>
+                    <span 
+                      v-else-if="rosterForm[station.machine]?.operator"
+                      class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    >
+                      ✓ Terjadwal
+                    </span>
+                    <span 
+                      v-else
+                      class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500"
+                    >
+                      Belum Diatur
+                    </span>
+                  </div>
                 </div>
 
                 <div>
@@ -1166,11 +1191,43 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
 };
 
 const rosterForm = reactive({
-  CASTING: { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, note: '' },
-  METALIZE: { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, note: '' },
-  SLITTING: { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, note: '' },
-  REWIND: { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, note: '' },
+  CASTING: { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, isLongShift: false, note: '' },
+  METALIZE: { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, isLongShift: false, note: '' },
+  SLITTING: { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, isLongShift: false, note: '' },
+  REWIND: { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, isLongShift: false, note: '' },
 });
+
+const isAnyMachineLongShift = computed(() => {
+  return stations.some(s => Boolean(rosterForm[s.machine]?.isLongShift));
+});
+
+const isAllMachinesLongShift = computed(() => {
+  return stations.length > 0 && stations.every(s => Boolean(rosterForm[s.machine]?.isLongShift));
+});
+
+const isPartialLongShift = computed(() => {
+  return isAnyMachineLongShift.value && !isAllMachinesLongShift.value;
+});
+
+const longShiftMachineNames = computed(() => {
+  return stations.filter(s => Boolean(rosterForm[s.machine]?.isLongShift)).map(s => s.machine);
+});
+
+const setAllMachinesDuration = (isLong) => {
+  for (const s of stations) {
+    if (rosterForm[s.machine]) {
+      rosterForm[s.machine].isLongShift = Boolean(isLong);
+    }
+  }
+  isHandoverLongShift.value = Boolean(isLong);
+};
+
+const toggleStationShiftDuration = (machineName) => {
+  if (rosterForm[machineName]) {
+    rosterForm[machineName].isLongShift = !rosterForm[machineName].isLongShift;
+    isHandoverLongShift.value = isAnyMachineLongShift.value;
+  }
+};
 
 const getOperatorsForMachine = (machineName) => {
   const list = (configStore.operatorList || []).filter(o => o.active !== false);
@@ -1194,6 +1251,7 @@ const initRosterFromSchedule = async () => {
   for (const station of stations) {
     const m = station.machine;
     const scheduledOp = scheduled.roster[m];
+    const isStationLong = scheduleStore.isDateLongShift(shift.date, m);
 
     // Cek apakah ada confirmedRoster yang VALID untuk shift dan tanggal ini
     const existing = (scheduleStore.confirmedRoster && scheduleStore.confirmedRoster[m]?.operatorId)
@@ -1205,7 +1263,7 @@ const initRosterFromSchedule = async () => {
       scheduleStore.confirmedRosterDate === shift.date;
 
     if (isConfirmedForCurrentShift) {
-      rosterForm[m] = { ...existing };
+      rosterForm[m] = { ...existing, isLongShift: existing.isLongShift ?? isStationLong };
     } else if (scheduledOp) {
       // Prioritas 1: Otomatis isi operator TERJADWAL dari jadwal shift
       rosterForm[m] = {
@@ -1214,6 +1272,7 @@ const initRosterFromSchedule = async () => {
         kodeOperator: scheduledOp.kodeOperator,
         group: scheduledOp.kodeGrup,
         isSubstituted: false,
+        isLongShift: isStationLong,
         note: ''
       };
     } else {
@@ -1233,6 +1292,7 @@ const initRosterFromSchedule = async () => {
           kodeOperator: ops[0].kodeOperator,
           group: ops[0].kodeGrup,
           isSubstituted: false,
+          isLongShift: isStationLong,
           note: ''
         };
       } else {
@@ -1245,10 +1305,11 @@ const initRosterFromSchedule = async () => {
             kodeOperator: machineOps[0].kodeOperator,
             group: machineOps[0].kodeGrup,
             isSubstituted: cleanGroup(machineOps[0].kodeGrup) !== targetGroup,
+            isLongShift: isStationLong,
             note: ''
           };
         } else {
-          rosterForm[m] = { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, note: '' };
+          rosterForm[m] = { operatorId: '', operator: '', kodeOperator: '', group: '', isSubstituted: false, isLongShift: isStationLong, note: '' };
         }
       }
     }
@@ -1300,9 +1361,19 @@ const onOperatorChange = (machineName) => {
 };
 
 const handleConfirmRoster = () => {
+  const machineShiftMap = {
+    CASTING: Boolean(rosterForm.CASTING?.isLongShift),
+    METALIZE: Boolean(rosterForm.METALIZE?.isLongShift),
+    SLITTING: Boolean(rosterForm.SLITTING?.isLongShift),
+    REWIND: Boolean(rosterForm.REWIND?.isLongShift),
+  };
+  const anyLong = Object.values(machineShiftMap).some(Boolean);
+  const activeLongNames = Object.keys(machineShiftMap).filter(k => machineShiftMap[k]);
+
   scheduleStore.confirmShiftHandover(rosterForm, {
-    isLongShift: isHandoverLongShift.value,
-    note: handoverLongShiftNote.value || (isHandoverLongShift.value ? 'Long Shift 12 Jam diaktifkan saat serah terima' : '')
+    isLongShift: anyLong,
+    machines: machineShiftMap,
+    note: handoverLongShiftNote.value || (anyLong ? `Shift 12 Jam (${activeLongNames.join(', ')}) diaktifkan saat serah terima` : '')
   });
 };
 

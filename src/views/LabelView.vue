@@ -2933,7 +2933,7 @@
                 <!-- Mesin -->
                 <div>
                   <label class="block font-bold text-indigo-950 mb-0.5 text-[11px]">Mesin Produksi <span class="text-red-500">*</span></label>
-                  <select v-model="form.mesin" @change="updateAutoFields" required class="w-full px-2 py-1 text-xs border border-indigo-300 rounded-lg outline-none bg-white font-bold text-indigo-900">
+                  <select v-model="form.mesin" @change="onMachineChange" required class="w-full px-2 py-1 text-xs border border-indigo-300 rounded-lg outline-none bg-white font-bold text-indigo-900">
                     <option v-for="m in mesinOptions" :key="m" :value="m">{{ m }}</option>
                   </select>
                 </div>
@@ -6219,10 +6219,24 @@ const updateAutoFields = () => {
   form.paperCore = calculatePaperCore(form.width, form.diameterCore || 6);
   form.netto = calculateNetto(form.thickness, form.width, form.length, form.jenis, form.kode);
   if (!form.shift) {
-    const shiftInfo = scheduleStore.getCurrentShiftInfo();
+    const shiftInfo = scheduleStore.getCurrentShiftInfo(null, form.mesin);
     form.shift = shiftInfo.shiftCode;
   }
   handleSubKode();
+};
+
+const onMachineChange = () => {
+  if (!isEditing.value) {
+    const shiftInfo = scheduleStore.getCurrentShiftInfo(null, form.mesin);
+    form.shift = shiftInfo.shiftCode;
+    const activeOp = getActiveShiftOperator(form.mesin);
+    if (activeOp) {
+      form.operator = activeOp.nama;
+      form.kodeOperator = activeOp.kodeOperator;
+      form.turunan = `${activeOp.kodeOperator}A01`;
+    }
+  }
+  updateAutoFields();
 };
 
 // ── TURUNAN & CHARTINGAN AUTO-COMPLETE (KHUSUS SLITTING) ─────────────────────
@@ -6522,7 +6536,7 @@ watch(() => form.turunan, () => {
 // Mendapatkan operator aktif untuk mesin tertentu dari jadwal shift / roster handover
 const getActiveShiftOperator = (machineName) => {
   const m = (machineName || form.mesin || 'SLITTING').toUpperCase();
-  const shift = scheduleStore.getCurrentShiftInfo();
+  const shift = scheduleStore.getCurrentShiftInfo(null, m);
   const currentGroup = cleanGroupStr(shift?.group);
 
   // 1. Roster konfirmasi handover (jika masih berlaku untuk shift & tanggal saat ini)
@@ -6664,7 +6678,7 @@ const openModal = (item = -1) => {
     form.id = item.id;
     form.tanggal = item.tanggalFormatted || item.tanggal || form.tanggal;
     form.tanggalShift = item.tanggalShift || form.tanggal;
-    form.shift = item.shift || scheduleStore.getCurrentShiftInfo().shiftCode;
+    form.shift = item.shift || scheduleStore.getCurrentShiftInfo(null, item.mesin || form.mesin).shiftCode;
     form.diameterCore = Number(item.diameterCore) || (parseFloat(item.paperCore) < 4.5 && parseFloat(item.paperCore) > 0 ? 3 : 6);
     form.treatment = item.treatment || 'INSIDE';
     form.operator = item.operator || getOperatorFromTurunan(item.turunan, item.mesin) || '';
@@ -6698,7 +6712,7 @@ const openModal = (item = -1) => {
       ? labelStore.filterMesin
       : (mesinOptions.value[0] || 'SLITTING');
     form.mesin = activeSheetMesin;
-    const currentShift = scheduleStore.getCurrentShiftInfo();
+    const currentShift = scheduleStore.getCurrentShiftInfo(null, form.mesin);
     form.shift = currentShift.shiftCode;
     form.tanggalShift = currentShift.date;
     form.tanggal = currentShift.date;
@@ -6790,7 +6804,7 @@ const duplicateData = (item) => {
   form.verified = 0;
   form.verifiedAt = null;
   form.verifiedBy = null;
-  form.shift = item.shift || scheduleStore.getCurrentShiftInfo().shiftCode;
+  form.shift = item.shift || scheduleStore.getCurrentShiftInfo(null, item.mesin || form.mesin).shiftCode;
 
   // Hitung tanggal shift & kode pack otomatis terlebih dahulu
   const tglShift = calculateShiftDate();

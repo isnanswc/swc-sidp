@@ -182,25 +182,66 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
   // Format: { [dateStr]: { isLongShift: true, machines: { SLITTING: true, ... }, note: 'Operator sakit' } }
   const dailyShiftOverrides = ref({});
 
-  const isDateLongShift = (dateStr) => {
+  const normalizeMachineKey = (name) => {
+    if (!name) return null;
+    const s = String(name).toUpperCase();
+    if (s.includes('CAST')) return 'CASTING';
+    if (s.includes('MET')) return 'METALIZE';
+    if (s.includes('REW')) return 'REWIND';
+    if (s.includes('SLIT')) return 'SLITTING';
+    return null;
+  };
+
+  const isDateLongShift = (dateStr, machineName = null) => {
     if (!dateStr) return false;
     const cleanD = String(dateStr).slice(0, 10);
     if (dailyShiftOverrides.value && dailyShiftOverrides.value[cleanD] !== undefined) {
-      return Boolean(dailyShiftOverrides.value[cleanD].isLongShift);
+      const entry = dailyShiftOverrides.value[cleanD];
+      if (machineName && entry.machines) {
+        const cleanM = normalizeMachineKey(machineName);
+        if (cleanM && entry.machines[cleanM] !== undefined) {
+          return Boolean(entry.machines[cleanM]);
+        }
+      }
+      return Boolean(entry.isLongShift);
     }
     const dayIdx = getDayIndex(cleanD);
     return dayIdx >= 4; // Jumat(4), Sabtu(5), Minggu(6)
   };
 
+  const getMachinesShiftMap = (dateStr) => {
+    const cleanD = String(dateStr || '').slice(0, 10);
+    const machines = ['CASTING', 'METALIZE', 'SLITTING', 'REWIND'];
+    const res = {};
+    for (const m of machines) {
+      res[m] = isDateLongShift(cleanD, m);
+    }
+    return res;
+  };
+
   const setShiftModeOverride = async (dateStr, isLongShift, machines = null, note = '') => {
     if (!dateStr) return;
     const cleanD = String(dateStr).slice(0, 10);
+    const existingEntry = dailyShiftOverrides.value[cleanD] || {};
+    const existingMachines = existingEntry.machines || {
+      CASTING: existingEntry.isLongShift ?? isLongShift,
+      METALIZE: existingEntry.isLongShift ?? isLongShift,
+      SLITTING: existingEntry.isLongShift ?? isLongShift,
+      REWIND: existingEntry.isLongShift ?? isLongShift
+    };
+
+    const finalMachines = machines 
+      ? { ...existingMachines, ...machines }
+      : { CASTING: isLongShift, METALIZE: isLongShift, SLITTING: isLongShift, REWIND: isLongShift };
+
+    const anyLong = Object.values(finalMachines).some(Boolean);
+
     dailyShiftOverrides.value = {
       ...dailyShiftOverrides.value,
       [cleanD]: {
-        isLongShift: Boolean(isLongShift),
-        machines: machines || { CASTING: isLongShift, METALIZE: isLongShift, SLITTING: isLongShift, REWIND: isLongShift },
-        note: note || '',
+        isLongShift: anyLong,
+        machines: finalMachines,
+        note: note || existingEntry.note || '',
         updatedAt: new Date().toISOString()
       }
     };
@@ -210,6 +251,19 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
       console.error('Failed to save shift override:', e);
     }
     tickLiveClock();
+  };
+
+  const setMachineShiftModeOverride = async (dateStr, machineName, isLongShift, note = '') => {
+    if (!dateStr || !machineName) return;
+    const cleanM = normalizeMachineKey(machineName);
+    if (!cleanM) return;
+    const currentMachines = getMachinesShiftMap(dateStr);
+    const updatedMachines = {
+      ...currentMachines,
+      [cleanM]: Boolean(isLongShift)
+    };
+    const anyLong = Object.values(updatedMachines).some(Boolean);
+    await setShiftModeOverride(dateStr, anyLong, updatedMachines, note || `Mode ${cleanM} diset ke ${isLongShift ? '12 Jam' : '8 Jam'}`);
   };
 
   // Helper to parse 'YYYY-MM-DD' safely without timezone offset issues
@@ -281,8 +335,9 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
   /**
    * Mendeteksi shift mana yang sedang berjalan saat ini (berdasarkan jam lokal sekarang).
    * Pergantian hari kerja di-reset setiap jam 07:00 pagi.
+   * Mendukung evaluasi spesifik per mesin (misal hanya 1 mesin yang shift panjang 12 jam).
    */
-  const getCurrentShiftInfo = (customDate = null) => {
+  const getCurrentShiftInfo = (customDate = null, machineName = null) => {
     const nowDate = customDate || currentNow.value;
 
     // 1. Tanggal Hari Kerja Produksi (reset setiap jam 07:00 pagi)
@@ -298,8 +353,8 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     const minutes = nowDate.getMinutes();
     const timeVal = hours + minutes / 60; // e.g. 17.5 = 17:30
 
-    // Evaluasi pola hari berdasarkan HARI KERJA (workDateStr) & status override
-    const isLongShiftDay = isDateLongShift(workDateStr);
+    // Evaluasi pola hari berdasarkan HARI KERJA (workDateStr), status override, dan spesifik mesin
+    const isLongShiftDay = isDateLongShift(workDateStr, machineName);
 
     let currentShiftCode = '1';
 
@@ -345,7 +400,8 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
       shiftCode: currentShiftCode,
       group: currentShiftGroup,
       definition,
-      isLongShift: definition.type === 'LONG'
+      isLongShift: definition.type === 'LONG',
+      machineName: normalizeMachineKey(machineName) || null
     };
   };
 
@@ -355,7 +411,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
    * 2. upcomingShift: Shift yang AKAN bekerja / bertugas berikutnya (atau shift yang sedang berjalan)
    * Mengikuti aturan pergantian hari kerja jam 07:00 pagi.
    */
-  const getHandoverShifts = (customDate = null) => {
+  const getHandoverShifts = (customDate = null, machineName = null) => {
     const nowDate = customDate || currentNow.value;
 
     // Tanggal aktual kalender
@@ -375,7 +431,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
     // Tentukan hari kerja saat ini (reset setiap jam 07:00 pagi)
     const workDateStr = getWorkDate(nowDate);
-    const isWorkLongShift = isDateLongShift(workDateStr); // Mendukung override manual 12 jam
+    const isWorkLongShift = isDateLongShift(workDateStr, machineName); // Mendukung override manual 12 jam per mesin
 
     let prevShiftCode = '1';
     let prevDate = workDateStr;
@@ -392,7 +448,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
         // Shift sebelumnya adalah shift malam yang baru selesai di jam 07:00 pagi (hari kerja kemarin)
         prevDate = yesterdayCalStr;
-        const prevIsLong = isDateLongShift(prevDate);
+        const prevIsLong = isDateLongShift(prevDate, machineName);
         prevShiftCode = prevIsLong ? 'LS2' : '3';
       } else {
         // Saat ini sedang berlangsung LS2 (19:00 - 07:00)
@@ -415,7 +471,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
         // Shift sebelumnya adalah Shift 3 / LS2 hari kemarin
         prevDate = yesterdayCalStr;
-        const prevIsLong = isDateLongShift(prevDate);
+        const prevIsLong = isDateLongShift(prevDate, machineName);
         prevShiftCode = prevIsLong ? 'LS2' : '3';
       } else if (timeVal >= 15.0 && timeVal < 23.0) {
         // Shift 2 (Sore)
@@ -813,8 +869,9 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
         return rawM.includes('SLIT') || r.slitting === 1 || r.slitting === '1' || (!rawM && mKey === 'SLITTING');
       });
 
-      // Scheduled operator (Rencana)
-      const scheduledShiftCode = shiftMode.isLongShift ? 'LS1' : '1';
+      // Scheduled operator (Rencana) spesifik per mesin
+      const isMachLong = isDateLongShift(cleanD, mKey);
+      const scheduledShiftCode = isMachLong ? 'LS1' : '1';
       const scheduled = getScheduledOperators(cleanD, scheduledShiftCode);
       const scheduledOp = scheduled.roster[mKey] || null;
 
@@ -902,6 +959,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
         scheduledOp,
         actualOps,
         isSubstituted,
+        isLongShift: isMachLong,
         spkList,
         analysis: shiftMode.machineAnalysis[mKey] || null
       };
@@ -947,7 +1005,10 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     getWeekOffset,
     getDayIndex,
     isDateLongShift,
+    normalizeMachineKey,
+    getMachinesShiftMap,
     setShiftModeOverride,
+    setMachineShiftModeOverride,
     getShiftForGroupAndDate,
     getCurrentShiftInfo,
     getHandoverShifts,
