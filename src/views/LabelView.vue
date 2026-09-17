@@ -71,6 +71,14 @@
           <div v-if="selectedIds.length > 0" class="flex items-center gap-1.5 bg-red-50 border border-red-200 px-2.5 py-1 rounded-xl animate-fade-in text-xs shrink-0">
             <span class="font-black text-red-900">{{ selectedIds.length }} dipilih:</span>
             <button
+              v-if="selectedIds.length < (labelStore.filteredLabels?.length || 0)"
+              @click="selectAllFiltered"
+              class="px-2 py-1 rounded-lg text-[11px] font-bold bg-red-100 hover:bg-red-200 text-red-800 transition-all"
+              title="Pilih seluruh data hasil filter"
+            >
+              Pilih Semua ({{ labelStore.filteredLabels?.length || 0 }})
+            </button>
+            <button
               @click="previewSelected"
               class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white transition-all flex items-center gap-1 shadow-xs"
               title="Cetak label yang dipilih"
@@ -4203,21 +4211,22 @@ const openRowActionModal = (item) => {
 };
 
 const handleRowAction = (action) => {
-  if (!selectedRowItem.value) return;
-  const item = selectedRowItem.value;
+  const actionType = (typeof action === 'object' && action !== null) ? action.type : action;
+  const item = (typeof action === 'object' && action !== null && action.item) ? action.item : selectedRowItem.value;
+  if (!item) return;
   showRowActionModal.value = false;
 
-  if (action === 'preview') {
+  if (actionType === 'preview') {
     previewSingle(item);
-  } else if (action === 'edit') {
+  } else if (actionType === 'edit') {
     if (isLockedForUser(item)) {
       alert('🔒 Perhatian: Data label ini telah diapprove oleh Admin di DE Report dan TERKUNCI untuk Operator.\n\nBeralih ke Role Admin di Navbar jika Anda memiliki wewenang untuk mengubah data ini.');
       return;
     }
     openModal(item);
-  } else if (action === 'duplicate') {
+  } else if (actionType === 'duplicate') {
     duplicateData(item);
-  } else if (action === 'delete') {
+  } else if (actionType === 'delete') {
     if (isLockedForUser(item)) {
       alert('🔒 Perhatian: Data label ini telah diapprove oleh Admin di DE Report dan TERKUNCI untuk Operator.\n\nBeralih ke Role Admin di Navbar jika Anda ingin menghapus data ini.');
       return;
@@ -5893,15 +5902,21 @@ const isAllSelected = computed(() => {
   return currentItems.length > 0 && currentItems.every(item => selectedIds.value.includes(item.id));
 });
 
-const toggleAll = (e) => {
-  const currentItems = labelStore.paginatedLabels;
-  if (e.target.checked) {
+const toggleAll = () => {
+  const currentItems = labelStore.paginatedLabels || [];
+  if (currentItems.length === 0) return;
+  if (!isAllSelected.value) {
     const idsToAdd = currentItems.map(i => i.id);
     selectedIds.value = Array.from(new Set([...selectedIds.value, ...idsToAdd]));
   } else {
     const currentIds = currentItems.map(i => i.id);
     selectedIds.value = selectedIds.value.filter(id => !currentIds.includes(id));
   }
+};
+
+const selectAllFiltered = () => {
+  const allFiltered = labelStore.filteredLabels || [];
+  selectedIds.value = allFiltered.map(i => i.id);
 };
 
 const currentDateTimeString = computed(() => {

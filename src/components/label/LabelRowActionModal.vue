@@ -151,7 +151,7 @@ const close = () => {
 };
 
 const handleAction = (type) => {
-  emit('action', { type, item: props.item });
+  emit('action', type);
   close();
 };
 </script>
