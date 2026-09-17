@@ -85,7 +85,23 @@ const DEFAULT_FILM_CONFIGS = [
   { jenis: 'LLDPE', kodeFormula: 'M01', alias: '', tipeBahan: 'PE', jenisBahan: 'Transparent', kategoriFilm: 'POLOS', density: 0.92, supplier: 'INHOUSE' },
 ];
 
-const DEFAULT_OPERATORS = [];
+export const DEFAULT_OPERATORS = [
+  // SLITTING (Grup A: SANAN [G], Grup B: UMAR [H], Grup C: HENDRI [I])
+  { nama: 'SANAN', kodeOperator: 'G', mesin: 'SLITTING', kodeGrup: 'A', active: true },
+  { nama: 'UMAR', kodeOperator: 'H', mesin: 'SLITTING', kodeGrup: 'B', active: true },
+  { nama: 'HENDRI', kodeOperator: 'I', mesin: 'SLITTING', kodeGrup: 'C', active: true },
+  // REWIND (Shift 1/Grup A: DZAKI [J], Shift 2/Grup B: DAVVA [K])
+  { nama: 'DZAKI', kodeOperator: 'J', mesin: 'REWIND', kodeGrup: 'A', active: true },
+  { nama: 'DAVVA', kodeOperator: 'K', mesin: 'REWIND', kodeGrup: 'B', active: true },
+  // CASTING (Grup A: SUDARMAJI [A], Grup B: SUHANDI [B], Grup C: HERU [C])
+  { nama: 'SUDARMAJI', kodeOperator: 'A', mesin: 'CASTING', kodeGrup: 'A', active: true },
+  { nama: 'SUHANDI', kodeOperator: 'B', mesin: 'CASTING', kodeGrup: 'B', active: true },
+  { nama: 'HERU', kodeOperator: 'C', mesin: 'CASTING', kodeGrup: 'C', active: true },
+  // METALIZE (Grup A: TUKIMIN [D], Grup B: FIRMAN [E], Grup C: ANWAR [F])
+  { nama: 'TUKIMIN', kodeOperator: 'D', mesin: 'METALIZE', kodeGrup: 'A', active: true },
+  { nama: 'FIRMAN', kodeOperator: 'E', mesin: 'METALIZE', kodeGrup: 'B', active: true },
+  { nama: 'ANWAR', kodeOperator: 'F', mesin: 'METALIZE', kodeGrup: 'C', active: true },
+];
 
 const DEFAULT_MESIN = [
   { nama: 'CASTING', praKodePack: '', active: true },
@@ -362,7 +378,11 @@ export const useConfigStore = defineStore('configStore', {
           }
         }
 
-        // ZERO-SEEDING POLICY: Tidak ada auto-seeding data dummy baru. Data yang diupload pengguna dijaga 100% utuh tanpa pemblokiran nama.
+        // Inisialisasi daftar operator standar jika belum ada di database
+        if (this.operatorList.length === 0 && DEFAULT_OPERATORS.length > 0) {
+          await db.operator_list.bulkAdd(DEFAULT_OPERATORS.map(r => ({ ...r, createdAt: now, updatedAt: now })));
+        }
+
         this.operatorList = (await db.operator_list.toArray())
           .sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
       } finally {

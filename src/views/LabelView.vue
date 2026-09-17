@@ -6463,6 +6463,13 @@ const detectedOperator = computed(() => {
     const opClean = form.operator.trim().toUpperCase();
     const byName = configStore.operatorList.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
     if (byName) return byName;
+    return {
+      id: `custom-${opClean}`,
+      nama: form.operator,
+      kodeOperator: form.kodeOperator || (detectedPrefix.value || 'H'),
+      mesin: form.mesin,
+      active: true
+    };
   }
   if (form.kodeOperator) {
     const codeClean = form.kodeOperator.trim().toUpperCase();
@@ -6488,26 +6495,45 @@ const detectedOperator = computed(() => {
 
 // Daftar operator khusus untuk mesin yang sedang dipilih di form
 const machineOperators = computed(() => {
-  const list = configStore.operatorList.filter(o => o.active !== false);
+  const list = (configStore.operatorList || []).filter(o => o.active !== false);
   let matched = list;
   if (form.mesin) {
     const filtered = list.filter(o => isMachineMatch(o.mesin, form.mesin));
     if (filtered.length > 0) matched = filtered;
   }
-  return [...matched].sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+  const result = [...matched];
+
+  // Pastikan operator yang sedang aktif di form.operator selalu ada dalam daftar pilihan dropdown
+  if (form.operator) {
+    const cleanOp = form.operator.trim().toUpperCase();
+    const exists = result.some(o => o.nama && o.nama.trim().toUpperCase() === cleanOp);
+    if (!exists) {
+      result.push({
+        id: `custom-${cleanOp}`,
+        nama: form.operator,
+        kodeOperator: form.kodeOperator || 'H',
+        mesin: form.mesin,
+        active: true
+      });
+    }
+  }
+
+  return result.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
 });
 
 const selectedOperatorId = computed(() => {
-  if (detectedOperator.value) return detectedOperator.value.id;
+  if (detectedOperator.value && detectedOperator.value.id) return detectedOperator.value.id;
   if (form.operator) {
-    const op = configStore.operatorList.find(o => o.nama && o.nama.toUpperCase() === form.operator.toUpperCase());
+    const opClean = form.operator.trim().toUpperCase();
+    const op = machineOperators.value.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
     if (op) return op.id;
   }
   return '';
 });
 
 const handleOperatorSelect = (opId) => {
-  const op = configStore.operatorList.find(o => String(o.id) === String(opId));
+  const op = machineOperators.value.find(o => String(o.id) === String(opId))
+    || configStore.operatorList.find(o => String(o.id) === String(opId));
   if (!op) return;
   form.operator = op.nama;
   form.kodeOperator = op.kodeOperator;
@@ -6587,7 +6613,11 @@ const getActiveShiftOperator = (machineName) => {
     if (matchedByGroup) return matchedByGroup;
   }
 
-  // 6. Fallback master: Operator aktif pertama
+  // 6. Fallback Pabrik Standar: Operator resmi PT SWC sesuai jadwal shift
+  const stdOp = scheduleStore.getStandardFallbackOperator(m, currentGroup, shift.shiftCode);
+  if (stdOp) return stdOp;
+
+  // 7. Fallback master: Operator aktif pertama
   return activeOps[0] || configStore.operatorList[0] || null;
 };
 
@@ -6655,7 +6685,7 @@ const resetFormToDefaults = () => {
   form.originalRollId = null;
 };
 
-const openModal = (item = -1) => {
+const openModal = async (item = -1) => {
   clearPreviousInfo();
   resetFormToDefaults();
   selectedWipRoll.value = null;
@@ -6664,6 +6694,14 @@ const openModal = (item = -1) => {
   wipSearchQuery.value = '';
   wipFilterJenis.value = '';
   wipFilterLokasi.value = '';
+
+  // Pastikan master data operator dan jadwal telah termuat sebelum mengisi form
+  if (!configStore.operatorList || configStore.operatorList.length === 0) {
+    await configStore.loadAll().catch(() => {});
+  }
+  if (!scheduleStore.confirmedRosterDate) {
+    await scheduleStore.loadConfirmedRoster().catch(() => {});
+  }
 
   if (item && (item.id || item.uniqId)) {
     // EDIT MODE: Deep copy clean object, pertahankan tanggal dan metadata historis!
@@ -6707,10 +6745,10 @@ const openModal = (item = -1) => {
   } else {
     // TAMBAH DATA (NEW RECORD): Clean standard state
     isEditing.value = false;
-    // Otomatis pilih mesin sesuai sheet mesin yang sedang aktif
+    // Otomatis pilih mesin sesuai sheet mesin yang sedang aktif (default: SLITTING jika ALL)
     const activeSheetMesin = (labelStore.filterMesin && labelStore.filterMesin !== 'ALL')
       ? labelStore.filterMesin
-      : (mesinOptions.value[0] || 'SLITTING');
+      : 'SLITTING';
     form.mesin = activeSheetMesin;
     const currentShift = scheduleStore.getCurrentShiftInfo(null, form.mesin);
     form.shift = currentShift.shiftCode;
@@ -6718,10 +6756,16 @@ const openModal = (item = -1) => {
     form.tanggal = currentShift.date;
     // Ambil default operator aktif shift untuk mesin ini
     const activeOp = getActiveShiftOperator(form.mesin);
-    const activeOpCode = activeOp ? activeOp.kodeOperator : 'H';
-    form.operator = activeOp ? activeOp.nama : '';
-    form.kodeOperator = activeOpCode;
-    form.turunan = `${activeOpCode}A01`;
+    if (activeOp) {
+      form.operator = activeOp.nama;
+      form.kodeOperator = activeOp.kodeOperator;
+      form.turunan = `${activeOp.kodeOperator}A01`;
+    } else {
+      const stdOp = scheduleStore.getStandardFallbackOperator(form.mesin, currentShift.group, currentShift.shiftCode);
+      form.operator = stdOp.nama;
+      form.kodeOperator = stdOp.kodeOperator;
+      form.turunan = `${stdOp.kodeOperator}A01`;
+    }
     if (form.mesin === 'REWIND') {
       lotSearchSource.value = 'DATA_ROLL';
     } else {
