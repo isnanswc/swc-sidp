@@ -448,6 +448,17 @@ export const useLabelStore = defineStore('labelStore', {
                 keterangan: r.reasonDefect || r.keterangan || (status === 'PASS' ? 'QC Pass' : (status === 'HOLD' ? 'Hold non-standard' : 'Reject defect')),
                 jenisPrint: 'FINISH GOODS',
                 verified: 1,
+                parentWidth: r.parentWidth !== undefined ? r.parentWidth : '',
+                parentTrim: r.parentTrim !== undefined ? r.parentTrim : '',
+                parentMeter: r.parentMeter !== undefined ? r.parentMeter : '',
+                parentSisaMeter: r.parentSisaMeter !== undefined ? r.parentSisaMeter : '',
+                parentSisaKg: r.parentSisaKg !== undefined ? r.parentSisaKg : '',
+                parentDensity: r.parentDensity || 0.91,
+                parentBeratTeori: r.parentBeratTeori !== undefined ? r.parentBeratTeori : null,
+                parentBeratAktual: r.parentBeratAktual !== undefined ? r.parentBeratAktual : null,
+                parentBeratMasuk: r.parentBeratMasuk !== undefined ? r.parentBeratMasuk : null,
+                parentRollsJoint: r.parentRollsJoint || null,
+                resinConsumptions: r.resinConsumptions || null,
                 synced: 0,
                 createdAt: r.createdAt || new Date().toISOString(),
                 updatedAt: r.updatedAt || new Date().toISOString()
@@ -554,6 +565,20 @@ export const useLabelStore = defineStore('labelStore', {
         if (updatedFields.od !== undefined) rollPayload.od = updatedFields.od;
         if (updatedFields.kode !== undefined) rollPayload.kodeFormula = updatedFields.kode;
         if (updatedFields.jenis !== undefined) rollPayload.jenis = updatedFields.jenis;
+        if (updatedFields.parentWidth !== undefined) rollPayload.parentWidth = updatedFields.parentWidth;
+        if (updatedFields.parentTrim !== undefined) rollPayload.parentTrim = updatedFields.parentTrim;
+        if (updatedFields.parentMeter !== undefined) rollPayload.parentMeter = updatedFields.parentMeter;
+        if (updatedFields.parentSisaMeter !== undefined) rollPayload.parentSisaMeter = updatedFields.parentSisaMeter;
+        if (updatedFields.parentSisaKg !== undefined) rollPayload.parentSisaKg = updatedFields.parentSisaKg;
+        if (updatedFields.parentDensity !== undefined) rollPayload.parentDensity = updatedFields.parentDensity;
+        if (updatedFields.parentBeratTeori !== undefined) rollPayload.parentBeratTeori = updatedFields.parentBeratTeori;
+        if (updatedFields.parentBeratAktual !== undefined) rollPayload.parentBeratAktual = updatedFields.parentBeratAktual;
+        if (updatedFields.parentBeratMasuk !== undefined) rollPayload.parentBeratMasuk = updatedFields.parentBeratMasuk;
+        if (updatedFields.parentRollsJoint !== undefined) rollPayload.parentRollsJoint = updatedFields.parentRollsJoint;
+        if (updatedFields.resinConsumptions !== undefined) rollPayload.resinConsumptions = updatedFields.resinConsumptions;
+        if (updatedFields.shiftWaste !== undefined) rollPayload.shiftWaste = updatedFields.shiftWaste;
+        if (updatedFields.shiftWasteNote !== undefined) rollPayload.shiftWasteNote = updatedFields.shiftWasteNote;
+        rollPayload.synced = 0;
         
         await db.data_rolls.update(rollId, rollPayload);
       } else {

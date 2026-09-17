@@ -25,13 +25,26 @@ window.addEventListener('offline', () => {
 
 // Helper to convert label from Dexie format to Supabase snake_case format
 function mapLabelToSupabase(l) {
-  // Simpan mesin, keterangan, shift, dan diameterCore ke dalam synced_by sebagai JSON metadata
+  // Simpan mesin, keterangan, shift, diameterCore, serta Parent Metadata ke dalam synced_by sebagai JSON metadata
   // Hal ini menjamin 100% data tersimpan di Supabase tanpa memicu schema error PostgREST (PGRST204)
   const meta = {
     mesin: l.mesin || '',
     keterangan: l.keterangan || '',
     shift: l.shift || '',
-    diameterCore: l.diameterCore || (parseFloat(l.paperCore) < 4.5 && parseFloat(l.paperCore) > 0 ? 3 : 6)
+    diameterCore: l.diameterCore || (parseFloat(l.paperCore) < 4.5 && parseFloat(l.paperCore) > 0 ? 3 : 6),
+    parentWidth: l.parentWidth !== undefined && l.parentWidth !== null ? l.parentWidth : '',
+    parentTrim: l.parentTrim !== undefined && l.parentTrim !== null ? l.parentTrim : 0,
+    parentMeter: l.parentMeter !== undefined && l.parentMeter !== null ? l.parentMeter : '',
+    parentSisaMeter: l.parentSisaMeter !== undefined && l.parentSisaMeter !== null ? l.parentSisaMeter : 0,
+    parentSisaKg: l.parentSisaKg !== undefined && l.parentSisaKg !== null ? l.parentSisaKg : 0,
+    parentDensity: l.parentDensity || 0.91,
+    parentBeratTeori: l.parentBeratTeori !== undefined && l.parentBeratTeori !== null ? l.parentBeratTeori : null,
+    parentBeratAktual: l.parentBeratAktual !== undefined && l.parentBeratAktual !== null ? l.parentBeratAktual : null,
+    parentBeratMasuk: l.parentBeratMasuk !== undefined && l.parentBeratMasuk !== null ? l.parentBeratMasuk : null,
+    parentRollsJoint: l.parentRollsJoint || null,
+    resinConsumptions: l.resinConsumptions || null,
+    shiftWaste: l.shiftWaste !== undefined && l.shiftWaste !== null ? l.shiftWaste : 0,
+    shiftWasteNote: l.shiftWasteNote || ''
   };
 
   return {
@@ -110,6 +123,19 @@ function mapLabelFromSupabase(s) {
     keterangan: s.keterangan || meta.keterangan || '',
     shift: s.shift || meta.shift || '',
     diameterCore: s.diameter_core || meta.diameterCore || (parseFloat(s.paper_core) < 4.5 && parseFloat(s.paper_core) > 0 ? 3 : 6),
+    parentWidth: s.parent_width || (meta.parentWidth !== undefined ? meta.parentWidth : ''),
+    parentTrim: s.parent_trim !== undefined ? s.parent_trim : (meta.parentTrim !== undefined ? meta.parentTrim : 0),
+    parentMeter: s.parent_meter || (meta.parentMeter !== undefined ? meta.parentMeter : ''),
+    parentSisaMeter: s.parent_sisa_meter !== undefined ? s.parent_sisa_meter : (meta.parentSisaMeter !== undefined ? meta.parentSisaMeter : 0),
+    parentSisaKg: s.parent_sisa_kg !== undefined ? s.parent_sisa_kg : (meta.parentSisaKg !== undefined ? meta.parentSisaKg : 0),
+    parentDensity: s.parent_density || meta.parentDensity || 0.91,
+    parentBeratTeori: s.parent_berat_teori !== undefined ? s.parent_berat_teori : (meta.parentBeratTeori !== undefined ? meta.parentBeratTeori : null),
+    parentBeratAktual: s.parent_berat_aktual !== undefined ? s.parent_berat_aktual : (meta.parentBeratAktual !== undefined ? meta.parentBeratAktual : null),
+    parentBeratMasuk: s.parent_berat_masuk !== undefined ? s.parent_berat_masuk : (meta.parentBeratMasuk !== undefined ? meta.parentBeratMasuk : null),
+    parentRollsJoint: meta.parentRollsJoint || null,
+    resinConsumptions: meta.resinConsumptions || null,
+    shiftWaste: meta.shiftWaste !== undefined ? meta.shiftWaste : 0,
+    shiftWasteNote: meta.shiftWasteNote || '',
     synced: 1,
     createdAt: s.created_at,
     updatedAt: s.updated_at

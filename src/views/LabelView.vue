@@ -1016,15 +1016,17 @@
                         </span>
 
                         <!-- Inline Edit Width Input / Badge -->
-                        <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'width'" class="inline-flex items-center gap-1">
+                        <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'width'" class="inline-flex items-center gap-1" @click.stop>
                           <input
                             v-model="inlineParentWidthVal"
                             type="number"
                             step="any"
                             min="100"
                             max="5000"
-                            @keyup.enter="saveInlineParentWidth(lotNode)"
-                            @keyup.esc="cancelInlineParentEdit"
+                            @click.stop
+                            @keydown.stop
+                            @keyup.enter.stop="saveInlineParentWidth(lotNode)"
+                            @keyup.esc.stop="cancelInlineParentEdit"
                             @blur="saveInlineParentWidth(lotNode)"
                             v-focus
                             class="w-16 px-1.5 py-0.5 text-xs font-black font-mono border-2 border-indigo-600 rounded bg-white text-indigo-950 outline-none shadow-xs text-center"
@@ -1034,7 +1036,7 @@
                         </div>
                         <div
                           v-else
-                          @click="startInlineEditWidth(lotNode)"
+                          @click.stop="startInlineEditWidth(lotNode)"
                           :class="[
                             'px-1.5 py-0.5 rounded text-[11px] font-mono cursor-pointer transition-all hover:scale-105 select-none relative group',
                             getParentWidthStatus(lotNode).bgClass || 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200'
@@ -1058,13 +1060,15 @@
                       <!-- Subtitle Berat Teori / Input Manual Parent (Desktop only) -->
                       <div class="hidden lg:flex items-center gap-1.5 text-[11px] font-mono" @click.stop>
                         <span class="text-zinc-400 font-bold">•</span>
-                        <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'berat'" class="inline-flex items-center gap-1">
+                        <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'berat'" class="inline-flex items-center gap-1" @click.stop>
                           <input
                             v-model="inlineParentBeratVal"
                             type="number"
                             step="0.1"
-                            @keyup.enter="saveInlineParentBerat(lotNode)"
-                            @keyup.esc="cancelInlineParentEdit"
+                            @click.stop
+                            @keydown.stop
+                            @keyup.enter.stop="saveInlineParentBerat(lotNode)"
+                            @keyup.esc.stop="cancelInlineParentEdit"
                             @blur="saveInlineParentBerat(lotNode)"
                             v-focus
                             class="w-18 px-1.5 py-0.5 text-xs font-black font-mono border-2 border-indigo-600 rounded bg-white text-indigo-950 outline-none shadow-xs text-center"
@@ -1074,7 +1078,7 @@
                         </div>
                         <div
                           v-else
-                          @click="startInlineEditBerat(lotNode)"
+                          @click.stop="startInlineEditBerat(lotNode)"
                           :class="[
                             'px-1.5 py-0.5 rounded text-[10.5px] font-mono cursor-pointer transition-all hover:scale-105 select-none relative group',
                             getParentBeratStatus(lotNode).bgClass
@@ -1152,13 +1156,15 @@
                     </span>
 
                     <!-- Mobile Inline Width -->
-                    <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'width'" class="inline-flex items-center gap-1">
+                    <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'width'" class="inline-flex items-center gap-1" @click.stop>
                       <input
                         v-model="inlineParentWidthVal"
                         type="number"
                         step="any"
-                        @keyup.enter="saveInlineParentWidth(lotNode)"
-                        @keyup.esc="cancelInlineParentEdit"
+                        @click.stop
+                        @keydown.stop
+                        @keyup.enter.stop="saveInlineParentWidth(lotNode)"
+                        @keyup.esc.stop="cancelInlineParentEdit"
                         @blur="saveInlineParentWidth(lotNode)"
                         v-focus
                         class="w-14 px-1 py-0.2 text-[10px] font-black border border-indigo-600 rounded bg-white text-indigo-950 outline-none text-center"
@@ -1167,7 +1173,7 @@
                     </div>
                     <span
                       v-else
-                      @click="startInlineEditWidth(lotNode)"
+                      @click.stop="startInlineEditWidth(lotNode)"
                       :class="[
                         'px-1 py-0.2 rounded cursor-pointer border inline-flex items-center gap-0.5',
                         getParentWidthStatus(lotNode).bgClass || 'bg-zinc-100 text-zinc-700 border-zinc-200'
@@ -1179,13 +1185,15 @@
                     </span>
 
                     <!-- Mobile Inline Weight -->
-                    <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'berat'" class="inline-flex items-center gap-1">
+                    <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'berat'" class="inline-flex items-center gap-1" @click.stop>
                       <input
                         v-model="inlineParentBeratVal"
                         type="number"
                         step="0.1"
-                        @keyup.enter="saveInlineParentBerat(lotNode)"
-                        @keyup.esc="cancelInlineParentEdit"
+                        @click.stop
+                        @keydown.stop
+                        @keyup.enter.stop="saveInlineParentBerat(lotNode)"
+                        @keyup.esc.stop="cancelInlineParentEdit"
                         @blur="saveInlineParentBerat(lotNode)"
                         v-focus
                         class="w-14 px-1 py-0.2 text-[10px] font-black border border-indigo-600 rounded bg-white text-indigo-950 outline-none text-center"
@@ -1194,7 +1202,7 @@
                     </div>
                     <span
                       v-else
-                      @click="startInlineEditBerat(lotNode)"
+                      @click.stop="startInlineEditBerat(lotNode)"
                       :class="[
                         'px-1 py-0.2 rounded cursor-pointer border inline-flex items-center gap-0.5',
                         getParentBeratStatus(lotNode).bgClass
@@ -3785,6 +3793,7 @@ import { saveSetting, getSetting } from '@/db';
 import { getActiveQuickTags, checkAndRunScheduledAutomation, DEFAULT_DEFECT_TAGS, formatLotVisual, formatInhouseLotInput } from '@/services/aiAutomationService';
 import { getAgingCountdownInfo } from '@/services/wipParserService';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
+import { pushLocalToSupabase } from '@/services/syncService';
 import LabelColumnModal from '@/components/label/LabelColumnModal.vue';
 import LabelRowActionModal from '@/components/label/LabelRowActionModal.vue';
 import LabelPrintModal from '@/components/label/LabelPrintModal.vue';
@@ -5276,15 +5285,27 @@ const saveShiftData = async () => {
   const wasteNote = (shiftForm.shiftWasteNote || '').trim();
 
   for (const item of items) {
-    const updated = { ...item };
-    if (newShift) updated.shift = newShift;
-    if (newOperator) updated.operator = newOperator;
-    updated.shiftWaste = wasteKg;
-    updated.shiftWasteNote = wasteNote;
-    await db.labels.put(updated);
+    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
+
+    const payload = {
+      ...(newShift ? { shift: newShift } : {}),
+      ...(newOperator ? { operator: newOperator } : {}),
+      shiftWaste: wasteKg,
+      shiftWasteNote: wasteNote,
+      synced: 0,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (isRoll && rollId && db.data_rolls) {
+      await db.data_rolls.update(rollId, payload);
+    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+      await db.labels.update(item.id, payload);
+    }
   }
 
-  await labelStore.loadLabels();
+  await labelStore.loadLabels(true);
+  pushLocalToSupabase().catch(() => {});
   showShiftModal.value = false;
 };
 
@@ -5942,47 +5963,41 @@ const saveParentLotData = async () => {
   const sisaKgVal = parseFloat(computedBeratSisaJumbo.value.toFixed(2));
 
   for (const item of items) {
-    const updated = { ...item };
-    
-    // Update Lot & Lot Akhir
-    updated.lot = newLot;
-    const turunan = (updated.turunan || '').trim().toUpperCase();
-    updated.lotAkhir = turunan ? `${newLot}/${turunan}` : newLot;
+    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
 
-    // Update SPK, Jenis, Kode, Thickness across children
-    if (parentLotForm.spk) updated.spk = parentLotForm.spk;
-    if (parentLotForm.jenis) updated.jenis = parentLotForm.jenis;
-    if (parentLotForm.kode !== undefined) updated.kode = parentLotForm.kode;
-    if (parentLotForm.thickness) updated.thickness = parentLotForm.thickness;
+    const payload = {
+      lot: newLot,
+      ...(parentLotForm.spk ? { spk: parentLotForm.spk } : {}),
+      ...(parentLotForm.jenis ? { jenis: parentLotForm.jenis } : {}),
+      ...(parentLotForm.kode !== undefined ? { kode: parentLotForm.kode } : {}),
+      ...(parentLotForm.thickness ? { thickness: parseFloat(parentLotForm.thickness) || 0 } : {}),
+      parentWidth: parseFloat(parentLotForm.parentWidth) || '',
+      parentTrim: parseFloat(parentLotForm.trim) || 0,
+      parentMeter: parseFloat(parentLotForm.parentMeter) || '',
+      parentSisaMeter: sisaMeterVal,
+      parentSisaKg: sisaKgVal,
+      parentDensity: parseFloat(parentLotForm.parentDensity) || 0.91,
+      parentBeratTeori: parseFloat(beratTeori.toFixed(2)),
+      parentBeratAktual: bAktualVal,
+      parentBeratMasuk: beratMasukVal,
+      parentRollsJoint: (parentLotForm.isMultiParent && parentLotForm.multiParents.length > 1) ? JSON.parse(JSON.stringify(parentLotForm.multiParents)) : null,
+      resinConsumptions: parentLotForm.isResinMode ? JSON.parse(JSON.stringify(parentLotForm.resinConsumptions)) : null,
+      synced: 0,
+      updatedAt: new Date().toISOString()
+    };
 
-    // Save Parent Metadata on Child Record
-    updated.parentWidth = parseFloat(parentLotForm.parentWidth) || '';
-    updated.parentTrim = parseFloat(parentLotForm.trim) || 0;
-    updated.parentMeter = parseFloat(parentLotForm.parentMeter) || '';
-    updated.parentSisaMeter = sisaMeterVal;
-    updated.parentSisaKg = sisaKgVal;
-    updated.parentDensity = parseFloat(parentLotForm.parentDensity) || 0.91;
-    updated.parentBeratTeori = parseFloat(beratTeori.toFixed(2));
-    updated.parentBeratAktual = bAktualVal;
-    updated.parentBeratMasuk = beratMasukVal;
-
-    // Save Multi-parent / Resin metadata (hanya jika ada sambungan tambahan > 1 roll)
-    if (parentLotForm.isMultiParent && parentLotForm.multiParents.length > 1) {
-      updated.parentRollsJoint = JSON.parse(JSON.stringify(parentLotForm.multiParents));
-    } else {
-      delete updated.parentRollsJoint;
+    if (isRoll && rollId && db.data_rolls) {
+      await db.data_rolls.update(rollId, payload);
+    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+      const turunan = (item.turunan || '').trim().toUpperCase();
+      payload.lotAkhir = turunan ? `${newLot}/${turunan}` : newLot;
+      await db.labels.update(item.id, payload);
     }
-
-    if (parentLotForm.isResinMode) {
-      updated.resinConsumptions = JSON.parse(JSON.stringify(parentLotForm.resinConsumptions));
-    } else {
-      delete updated.resinConsumptions;
-    }
-
-    await db.labels.put(updated);
   }
 
-  await labelStore.loadLabels();
+  await labelStore.loadLabels(true);
+  pushLocalToSupabase().catch(() => {});
   showParentLotModal.value = false;
 };
 
@@ -6156,18 +6171,27 @@ const saveInlineParentWidth = async (lotNode) => {
   const newTeori = calculateBeratTeori(thk, newW, mtr, den);
 
   for (const item of items) {
-    const updated = { ...item };
-    updated.parentWidth = newW;
-    updated.parentTrim = newTrim;
-    updated.parentBeratTeori = parseFloat(newTeori.toFixed(2));
-    // Jika tidak ada berat aktual, sesuaikan berat masuk dengan teori baru
-    if (!updated.parentBeratAktual) {
-      updated.parentBeratMasuk = parseFloat(newTeori.toFixed(2));
+    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
+
+    const payload = {
+      parentWidth: newW,
+      parentTrim: newTrim,
+      parentBeratTeori: parseFloat(newTeori.toFixed(2)),
+      ...(!item.parentBeratAktual ? { parentBeratMasuk: parseFloat(newTeori.toFixed(2)) } : {}),
+      synced: 0,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (isRoll && rollId && db.data_rolls) {
+      await db.data_rolls.update(rollId, payload);
+    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+      await db.labels.update(item.id, payload);
     }
-    await db.labels.put(updated);
   }
 
-  await labelStore.loadLabels();
+  await labelStore.loadLabels(true);
+  pushLocalToSupabase().catch(() => {});
 };
 
 // Mulai inline edit Berat
@@ -6203,14 +6227,26 @@ const saveInlineParentBerat = async (lotNode) => {
   const teori = calculateBeratTeori(thk, w, mtr, den);
 
   for (const item of items) {
-    const updated = { ...item };
-    updated.parentBeratAktual = bAktual;
-    updated.parentBeratTeori = parseFloat(teori.toFixed(2));
-    updated.parentBeratMasuk = bAktual !== null ? bAktual : parseFloat(teori.toFixed(2));
-    await db.labels.put(updated);
+    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
+
+    const payload = {
+      parentBeratAktual: bAktual,
+      parentBeratTeori: parseFloat(teori.toFixed(2)),
+      parentBeratMasuk: bAktual !== null ? bAktual : parseFloat(teori.toFixed(2)),
+      synced: 0,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (isRoll && rollId && db.data_rolls) {
+      await db.data_rolls.update(rollId, payload);
+    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+      await db.labels.update(item.id, payload);
+    }
   }
 
-  await labelStore.loadLabels();
+  await labelStore.loadLabels(true);
+  pushLocalToSupabase().catch(() => {});
 };
 
 const cancelInlineParentEdit = () => {
