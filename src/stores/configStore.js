@@ -363,6 +363,27 @@ export const useConfigStore = defineStore('configStore', {
         }
 
         // ZERO-SEEDING POLICY: Tidak ada auto-seeding data dummy baru. Data yang diupload pengguna dijaga 100% utuh tanpa pemblokiran nama.
+        // Jika IndexedDB lokal belum memiliki daftar operator, ambil data real yang tersimpan di Cloud Supabase
+        if (this.operatorList.length === 0) {
+          try {
+            const { supabase } = await import('@/services/supabaseClient');
+            const { data: cloudOps } = await supabase.from('operator_list').select('*');
+            if (cloudOps && cloudOps.length > 0) {
+              const recs = cloudOps.map(co => ({
+                nama: co.nama,
+                mesin: co.mesin,
+                kodeGrup: co.kode_grup,
+                kodeOperator: co.kode_operator,
+                active: co.active !== false,
+                createdAt: co.created_at || now,
+                updatedAt: co.updated_at || now
+              }));
+              await db.operator_list.bulkPut(recs);
+            }
+          } catch (eCloud) {
+            console.warn('[ConfigStore] Gagal sinkron operator dari Supabase:', eCloud);
+          }
+        }
 
         this.operatorList = (await db.operator_list.toArray())
           .sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));

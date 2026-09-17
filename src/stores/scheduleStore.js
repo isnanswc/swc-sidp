@@ -597,14 +597,21 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
   // Load persisted roster on startup
   const loadConfirmedRoster = async () => {
     try {
-      const savedRoster = await getSetting('confirmed_shift_roster', null);
-      if (savedRoster) confirmedRoster.value = savedRoster;
-
-      const savedShift = await getSetting('confirmed_shift_code', '');
-      if (savedShift) confirmedRosterShift.value = savedShift;
-
       const savedDate = await getSetting('confirmed_shift_date', '');
-      if (savedDate) confirmedRosterDate.value = savedDate;
+      const savedShift = await getSetting('confirmed_shift_code', '');
+      const currentShiftInfo = getCurrentShiftInfo();
+      // Hanya muat roster jika tanggal dan shift konfirmasi cocok persis dengan shift aktif saat ini
+      if (savedDate && savedShift && savedDate === currentShiftInfo.date && String(savedShift) === String(currentShiftInfo.shiftCode)) {
+        const savedRoster = await getSetting('confirmed_shift_roster', null);
+        if (savedRoster) confirmedRoster.value = savedRoster;
+        confirmedRosterDate.value = savedDate;
+        confirmedRosterShift.value = savedShift;
+      } else {
+        // Data konfirmasi dari shift/hari lain dianggap kadaluarsa dan tidak boleh dipakai
+        confirmedRoster.value = null;
+        confirmedRosterDate.value = '';
+        confirmedRosterShift.value = '';
+      }
 
       const savedTime = await getSetting('last_handover_time', null);
       if (savedTime) lastHandoverConfirmedAt.value = savedTime;

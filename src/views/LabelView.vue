@@ -6541,23 +6541,36 @@ const getActiveShiftOperator = (machineName) => {
   const shift = scheduleStore.getCurrentShiftInfo(null, m);
   const currentGroup = cleanGroupStr(shift?.group);
 
-  // 1. Roster konfirmasi handover (jika masih berlaku untuk shift & tanggal saat ini)
-  if (scheduleStore.confirmedRoster) {
-    const isCurrent = (!scheduleStore.confirmedRosterDate || scheduleStore.confirmedRosterDate === shift.date)
-      && (!scheduleStore.confirmedRosterShift || scheduleStore.confirmedRosterShift === shift.shiftCode);
+  const activeOps = (configStore.operatorList || []).filter(o => o.active !== false);
+
+  // 1. Roster konfirmasi handover (HANYA valid jika tanggal dan shift COCOK PERSIS dengan shift aktif saat ini)
+  if (scheduleStore.confirmedRoster && scheduleStore.confirmedRosterDate && scheduleStore.confirmedRosterShift) {
+    const isCurrent = scheduleStore.confirmedRosterDate === shift.date
+      && String(scheduleStore.confirmedRosterShift) === String(shift.shiftCode);
     if (isCurrent) {
       for (const [key, r] of Object.entries(scheduleStore.confirmedRoster)) {
         if (r && r.operator && isMachineMatch(key, m)) {
-          const op = configStore.operatorList.find(o => o.nama && o.nama.toUpperCase() === r.operator.toUpperCase());
+          const op = activeOps.find(o => o.nama && o.nama.toUpperCase() === r.operator.toUpperCase());
           if (op) return op;
-          return { id: r.operatorId || 'custom', nama: r.operator, kodeOperator: r.kodeOperator || 'H', mesin: m, kodeGrup: r.group || currentGroup };
         }
       }
     }
   }
 
-  // 2. Cari dari configStore.operatorList: operator aktif yang cocok MESIN dan cocok GRUP shift saat ini
-  const activeOps = (configStore.operatorList || []).filter(o => o.active !== false);
+  // 2. Kasus Khusus Mesin REWIND (Shift 1: Dzaki [J/Grup A], Shift 2: Davva [K/Grup B])
+  if (m === 'REWIND') {
+    const rewindOps = activeOps.filter(o => isMachineMatch(o.mesin, 'REWIND'));
+    if (String(shift.shiftCode) === '2') {
+      const opShift2 = rewindOps.find(o => cleanGroupStr(o.kodeGrup) === 'B' || o.kodeOperator === 'K' || (o.nama && o.nama.toUpperCase() === 'DAVVA'));
+      if (opShift2) return opShift2;
+    } else {
+      const opShift1 = rewindOps.find(o => cleanGroupStr(o.kodeGrup) === 'A' || o.kodeOperator === 'J' || (o.nama && o.nama.toUpperCase() === 'DZAKI'));
+      if (opShift1) return opShift1;
+    }
+    if (rewindOps.length > 0) return rewindOps[0];
+  }
+
+  // 3. Cari dari master operator di database: operator aktif yang cocok MESIN dan cocok GRUP shift saat ini
   if (currentGroup) {
     const matchedByGroupAndMachine = activeOps.find(o => 
       isMachineMatch(o.mesin, m) && cleanGroupStr(o.kodeGrup) === currentGroup
@@ -6565,7 +6578,7 @@ const getActiveShiftOperator = (machineName) => {
     if (matchedByGroupAndMachine) return matchedByGroupAndMachine;
   }
 
-  // 3. Roster terjadwal shift saat ini dari scheduleStore
+  // 4. Roster terjadwal shift saat ini dari scheduleStore
   try {
     const scheduled = scheduleStore.getScheduledOperators(shift.date, shift.shiftCode, shift.group);
     if (scheduled && scheduled.roster) {
@@ -6578,21 +6591,6 @@ const getActiveShiftOperator = (machineName) => {
   } catch (e) {
     console.warn('Error getScheduledOperators:', e);
   }
-
-  // 4. Riwayat real produksi: periksa operator yang membuat label/roll terakhir pada shift & mesin ini di database
-  try {
-    const recentLabel = (labelStore.labels || []).find(l => 
-      l.operator &&
-      isMachineMatch(l.mesin, m) &&
-      (!l.tanggal || l.tanggal === shift.date) &&
-      (!l.shift || String(l.shift) === String(shift.shiftCode))
-    );
-    if (recentLabel) {
-      const opInMaster = activeOps.find(o => o.nama && o.nama.toUpperCase() === recentLabel.operator.toUpperCase());
-      if (opInMaster) return opInMaster;
-      return { id: `real-${recentLabel.operator}`, nama: recentLabel.operator, kodeOperator: recentLabel.kodeOperator || '', mesin: m };
-    }
-  } catch (e) {}
 
   // 5. Fallback real database: Operator aktif yang cocok dengan mesin
   const matchedByMachine = activeOps.find(o => isMachineMatch(o.mesin, m));
