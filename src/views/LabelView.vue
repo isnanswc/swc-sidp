@@ -6429,20 +6429,41 @@ const detectedPrefix = computed(() => {
   return p.prefix || '';
 });
 
+// Helper normalisasi grup dan pencocokan mesin yang fleksibel
+const cleanGroupStr = (val) => String(val || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^GR(O)?UP/, '').trim();
+
+const isMachineMatch = (opMesin, targetMesin) => {
+  if (!opMesin || !targetMesin) return false;
+  const o = String(opMesin).trim().toUpperCase();
+  const t = String(targetMesin).trim().toUpperCase();
+  if (o === t) return true;
+  if (o.includes(t) || t.includes(o)) return true;
+  const normO = o.replace(/[^A-Z]/g, '');
+  const normT = t.replace(/[^A-Z]/g, '');
+  if (normO && normT && (normO.includes(normT) || normT.includes(normO))) return true;
+  return false;
+};
+
 const detectedOperator = computed(() => {
   if (form.operator) {
-    const byName = configStore.operatorList.find(o => o.nama && o.nama.toUpperCase() === form.operator.toUpperCase());
+    const opClean = form.operator.trim().toUpperCase();
+    const byName = configStore.operatorList.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
     if (byName) return byName;
   }
   if (form.kodeOperator) {
-    const byCode = configStore.operatorList.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === form.kodeOperator.toUpperCase());
+    const codeClean = form.kodeOperator.trim().toUpperCase();
+    const byCodeAndMachine = configStore.operatorList.find(
+      o => o.kodeOperator && o.kodeOperator.trim().toUpperCase() === codeClean && isMachineMatch(o.mesin, form.mesin)
+    );
+    if (byCodeAndMachine) return byCodeAndMachine;
+    const byCode = configStore.operatorList.find(o => o.kodeOperator && o.kodeOperator.trim().toUpperCase() === codeClean);
     if (byCode) return byCode;
   }
   if (!detectedPrefix.value) return null;
   // Cari di configStore.operatorList berdasarkan kodeOperator dan mesin aktif di form
   if (form.mesin) {
     const byCodeAndMachine = configStore.operatorList.find(
-      o => o.kodeOperator === detectedPrefix.value && o.mesin && o.mesin.toUpperCase() === form.mesin.toUpperCase() && o.active !== false
+      o => o.kodeOperator === detectedPrefix.value && isMachineMatch(o.mesin, form.mesin) && o.active !== false
     );
     if (byCodeAndMachine) return byCodeAndMachine;
   }
@@ -6456,7 +6477,7 @@ const machineOperators = computed(() => {
   const list = configStore.operatorList.filter(o => o.active !== false);
   let matched = list;
   if (form.mesin) {
-    const filtered = list.filter(o => o.mesin && o.mesin.toUpperCase() === form.mesin.toUpperCase());
+    const filtered = list.filter(o => isMachineMatch(o.mesin, form.mesin));
     if (filtered.length > 0) matched = filtered;
   }
   return [...matched].sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
@@ -6479,7 +6500,7 @@ const handleOperatorSelect = (opId) => {
   // Ganti kode operator pada prefix turunan
   if (form.turunan) {
     const parsed = parseTurunan(form.turunan);
-    const formattedNum = String(parsed.noUrut).padStart(parsed.numDigits || 2, '0');
+    const formattedNum = String(parsed.noUrut || 1).padStart(parsed.numDigits || 2, '0');
     form.turunan = `${op.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
   } else {
     form.turunan = `${op.kodeOperator}A01`;
@@ -6500,23 +6521,60 @@ watch(() => form.turunan, () => {
 
 // Mendapatkan operator aktif untuk mesin tertentu dari jadwal shift / roster handover
 const getActiveShiftOperator = (machineName) => {
-  const m = (machineName || 'SLITTING').toUpperCase();
-  // 1. Roster konfirmasi handover
-  if (scheduleStore.confirmedRoster && scheduleStore.confirmedRoster[m] && scheduleStore.confirmedRoster[m].operator) {
-    const r = scheduleStore.confirmedRoster[m];
-    const op = configStore.operatorList.find(o => o.nama && o.nama.toUpperCase() === r.operator.toUpperCase());
-    if (op) return op;
-    return { id: r.operatorId || 'custom', nama: r.operator, kodeOperator: r.kodeOperator || 'H', mesin: m, kodeGrup: r.group || 'A' };
-  }
-  // 2. Roster terjadwal shift saat ini
+  const m = (machineName || form.mesin || 'SLITTING').toUpperCase();
   const shift = scheduleStore.getCurrentShiftInfo();
-  const scheduled = scheduleStore.getScheduledOperators(shift.date, shift.shiftCode, shift.group);
-  if (scheduled.roster && scheduled.roster[m]) {
-    return scheduled.roster[m];
+  const currentGroup = cleanGroupStr(shift?.group);
+
+  // 1. Roster konfirmasi handover (jika masih berlaku untuk shift & tanggal saat ini)
+  if (scheduleStore.confirmedRoster) {
+    const isCurrent = (!scheduleStore.confirmedRosterDate || scheduleStore.confirmedRosterDate === shift.date)
+      && (!scheduleStore.confirmedRosterShift || scheduleStore.confirmedRosterShift === shift.shiftCode);
+    if (isCurrent) {
+      for (const [key, r] of Object.entries(scheduleStore.confirmedRoster)) {
+        if (r && r.operator && isMachineMatch(key, m)) {
+          const op = configStore.operatorList.find(o => o.nama && o.nama.toUpperCase() === r.operator.toUpperCase());
+          if (op) return op;
+          return { id: r.operatorId || 'custom', nama: r.operator, kodeOperator: r.kodeOperator || 'H', mesin: m, kodeGrup: r.group || currentGroup };
+        }
+      }
+    }
   }
-  // 3. Fallback ke daftar master
-  return configStore.operatorList.find(o => o.mesin && o.mesin.toUpperCase() === m && o.active !== false)
-    || configStore.operatorList[0] || null;
+
+  // 2. Cari dari configStore.operatorList: operator aktif yang cocok MESIN dan cocok GRUP shift saat ini
+  const activeOps = (configStore.operatorList || []).filter(o => o.active !== false);
+  if (currentGroup) {
+    const matchedByGroupAndMachine = activeOps.find(o => 
+      isMachineMatch(o.mesin, m) && cleanGroupStr(o.kodeGrup) === currentGroup
+    );
+    if (matchedByGroupAndMachine) return matchedByGroupAndMachine;
+  }
+
+  // 3. Roster terjadwal shift saat ini dari scheduleStore
+  try {
+    const scheduled = scheduleStore.getScheduledOperators(shift.date, shift.shiftCode, shift.group);
+    if (scheduled && scheduled.roster) {
+      for (const [key, rOp] of Object.entries(scheduled.roster)) {
+        if (rOp && isMachineMatch(key, m)) {
+          return rOp;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error getScheduledOperators:', e);
+  }
+
+  // 4. Fallback: Operator aktif yang cocok dengan mesin
+  const matchedByMachine = activeOps.find(o => isMachineMatch(o.mesin, m));
+  if (matchedByMachine) return matchedByMachine;
+
+  // 5. Fallback: Operator aktif dari grup shift saat ini
+  if (currentGroup) {
+    const matchedByGroup = activeOps.find(o => cleanGroupStr(o.kodeGrup) === currentGroup);
+    if (matchedByGroup) return matchedByGroup;
+  }
+
+  // 6. Fallback master: Operator aktif pertama
+  return activeOps[0] || configStore.operatorList[0] || null;
 };
 
 // Saat operator mengubah pilihan mesin di form modal, sesuaikan operator & turunan ke operator aktif shift mesin tersebut
@@ -6534,7 +6592,7 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
         form.operator = activeOp.nama;
         form.kodeOperator = activeOp.kodeOperator;
         const parsed = parseTurunan(form.turunan);
-        const formattedNum = String(parsed.noUrut).padStart(parsed.numDigits || 2, '0');
+        const formattedNum = String(parsed.noUrut || 1).padStart(parsed.numDigits || 2, '0');
         form.turunan = `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
       }
     }
@@ -6642,6 +6700,8 @@ const openModal = (item = -1) => {
     form.mesin = activeSheetMesin;
     const currentShift = scheduleStore.getCurrentShiftInfo();
     form.shift = currentShift.shiftCode;
+    form.tanggalShift = currentShift.date;
+    form.tanggal = currentShift.date;
     // Ambil default operator aktif shift untuk mesin ini
     const activeOp = getActiveShiftOperator(form.mesin);
     const activeOpCode = activeOp ? activeOp.kodeOperator : 'H';

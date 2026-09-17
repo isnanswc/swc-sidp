@@ -974,6 +974,7 @@ import { useInventoryStore } from '@/stores/inventoryStore';
 import { parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import DashboardSpkModal from '@/components/dashboard/DashboardSpkModal.vue';
 import DashboardStockDrilldownModal from '@/components/dashboard/DashboardStockDrilldownModal.vue';
+import Chart from 'chart.js/auto';
 
 const authStore = useAuthStore();
 const labelStore = useLabelStore();
@@ -1344,15 +1345,6 @@ const activePeriodSubtitle = computed(() => {
   return found ? found.label : 'Periode';
 });
 
-// Gabungan seluruh roll produksi (baik dari Data Roll Excel yang di-upload maupun dari DE Report & Label)
-const allProductionRolls = computed(() => {
-  // dataRollStore.rolls sudah menggabungkan explicitRolls (Excel) dan deRolls (DE Report / Label)
-  if (dataRollStore.rolls && dataRollStore.rolls.length > 0) {
-    return dataRollStore.rolls;
-  }
-  return labelStore.labels || [];
-});
-
 // Helper: Mengambil tanggal nyata barang diproduksi (BUKAN tanggal upload file / createdAt)
 const getRealProductionDate = (item) => {
   if (!item) return '';
@@ -1391,6 +1383,33 @@ const getRealProductionDate = (item) => {
 
   return '';
 };
+
+// Gabungan seluruh roll produksi (baik dari Data Roll Excel yang di-upload maupun dari Manajemen Label)
+const allProductionRolls = computed(() => {
+  const rolls = dataRollStore.rolls || [];
+  const labels = labelStore.labels || [];
+  if (rolls.length === 0) return labels;
+  if (labels.length === 0) return rolls;
+
+  const seen = new Set();
+  const merged = [];
+
+  for (const r of rolls) {
+    const key = r.barcode || r.uniqId || r.uuid || `${r.spk || ''}_${r.lot || ''}_${r.turunan || ''}_${getRealProductionDate(r)}`;
+    seen.add(key);
+    merged.push(r);
+  }
+
+  for (const l of labels) {
+    const key = l.barcode || l.uniqId || l.uuid || `${l.spk || ''}_${l.lot || ''}_${l.turunan || ''}_${getRealProductionDate(l)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(l);
+    }
+  }
+
+  return merged;
+});
 
 // Helper penentuan apakah rekaman berada dalam rentang frekuensi / tanggal target
 const isDateInFrequency = (prodDateStr) => {
@@ -1566,27 +1585,23 @@ const generateLineChartData = () => {
         const d = new Date(ts);
         if (!isNaN(d.getTime())) return d.getHours();
       }
-      return null;
+      const s = String(item.shift || '').trim().toUpperCase();
+      if (s === '1' || s === 'LS1') return 9;
+      if (s === '2') return 17;
+      if (s === '3' || s === 'LS2') return 1;
+      return 9;
     };
 
-    const validHours = list.map(extractHour).filter(h => h !== null);
-    const hourSet = new Set(validHours);
-    // Tampilkan intraday jika ada minimal 2 variasi jam dan mewakili data yang signifikan
-    const isHourlyViable = validHours.length > 0 && hourSet.size > 1 && (validHours.length >= Math.min(3, Math.ceil(list.length * 0.3)));
-
-    if (isHourlyViable) {
-      chartScopeLabel = `Hari Ini (${validHours.length} Roll Berjam)`;
+    if (list.length > 0) {
+      chartScopeLabel = `Hari Ini (${list.length} Roll Terdata)`;
       labels = ['07:00', '09:00', '11:00', '13:00', '15:00', '17:00', '19:00', '21:00', '23:00', '01:00', '03:00', '05:00'];
       const buckets = labels.map(() => ({ total: 0, pass: 0, hold: 0, reject: 0 }));
 
       for (const item of list) {
         const hr = extractHour(item);
-        if (hr !== null) {
-          let bucketIdx = Math.floor(((hr - 7 + 24) % 24) / 2);
-          if (bucketIdx >= 0 && bucketIdx < 12) {
-            accumulateQuality(buckets[bucketIdx], item);
-          }
-        }
+        let bucketIdx = Math.floor(((hr - 7 + 24) % 24) / 2);
+        if (bucketIdx < 0 || bucketIdx >= 12) bucketIdx = 0;
+        accumulateQuality(buckets[bucketIdx], item);
       }
       totalData = buckets.map(b => b.total);
       passData = buckets.map(b => b.pass);
@@ -1594,7 +1609,7 @@ const generateLineChartData = () => {
       rejectData = buckets.map(b => b.reject);
     } else {
       // Fallback tren 7 hari (H-6 s/d H) dari allProductionRolls agar garis tren tetap informatif
-      chartScopeLabel = 'Tren 7 Hari Terakhir';
+      chartScopeLabel = 'Tren 7 Hari Terakhir (H-6 s/d Hari Ini)';
       const endD = new Date(targetObj.getFullYear(), targetObj.getMonth(), targetObj.getDate());
       const startD = new Date(endD);
       startD.setDate(endD.getDate() - 6);
@@ -2013,100 +2028,118 @@ const generateLineChartData = () => {
   return { labels, totalData, passData, holdData, rejectData };
 };
 
-const initLineChart = async () => {
+const initLineChart = () => {
   if (!lineComparisonChartCanvas.value) return;
-  if (lineComparisonChartInstance) lineComparisonChartInstance.destroy();
 
-  const { default: Chart } = await import('chart.js/auto');
+  // Hancurkan chart yang mungkin masih terikat pada canvas element untuk mencegah error "Canvas is already in use"
+  try {
+    const existingChart = Chart.getChart(lineComparisonChartCanvas.value);
+    if (existingChart) {
+      existingChart.destroy();
+    }
+  } catch (_) {}
+
+  if (lineComparisonChartInstance) {
+    try {
+      lineComparisonChartInstance.destroy();
+    } catch (_) {}
+    lineComparisonChartInstance = null;
+  }
+
   const { labels, totalData, passData, holdData, rejectData } = generateLineChartData();
 
-  lineComparisonChartInstance = new Chart(lineComparisonChartCanvas.value, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Total Roll',
-          data: totalData,
-          hidden: !chartVisibility.value.total,
-          borderColor: '#0f172a',
-          backgroundColor: 'rgba(15, 23, 42, 0.04)',
-          fill: true,
-          tension: 0.35,
-          borderWidth: 2.5,
-          pointRadius: 3.5,
-          pointHoverRadius: 6
-        },
-        {
-          label: 'PASS',
-          data: passData,
-          hidden: !chartVisibility.value.pass,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16, 185, 129, 0.04)',
-          fill: false,
-          tension: 0.35,
-          borderWidth: 2.5,
-          pointRadius: 3.5,
-          pointHoverRadius: 6
-        },
-        {
-          label: 'HOLD',
-          data: holdData,
-          hidden: !chartVisibility.value.hold,
-          borderColor: '#f59e0b',
-          backgroundColor: 'transparent',
-          fill: false,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 5
-        },
-        {
-          label: 'REJECT',
-          data: rejectData,
-          hidden: !chartVisibility.value.reject,
-          borderColor: '#ef4444',
-          backgroundColor: 'transparent',
-          fill: false,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 5
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false
+  try {
+    lineComparisonChartInstance = new Chart(lineComparisonChartCanvas.value, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Total Roll',
+            data: totalData,
+            hidden: !chartVisibility.value.total,
+            borderColor: '#0f172a',
+            backgroundColor: 'rgba(15, 23, 42, 0.04)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2.5,
+            pointRadius: 3.5,
+            pointHoverRadius: 6
+          },
+          {
+            label: 'PASS',
+            data: passData,
+            hidden: !chartVisibility.value.pass,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.04)',
+            fill: false,
+            tension: 0.35,
+            borderWidth: 2.5,
+            pointRadius: 3.5,
+            pointHoverRadius: 6
+          },
+          {
+            label: 'HOLD',
+            data: holdData,
+            hidden: !chartVisibility.value.hold,
+            borderColor: '#f59e0b',
+            backgroundColor: 'transparent',
+            fill: false,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          },
+          {
+            label: 'REJECT',
+            data: rejectData,
+            hidden: !chartVisibility.value.reject,
+            borderColor: '#ef4444',
+            backgroundColor: 'transparent',
+            fill: false,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          }
+        ]
       },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          padding: 10,
-          cornerRadius: 10,
-          titleFont: { family: 'monospace', size: 11, weight: 'bold' },
-          bodyFont: { family: 'monospace', size: 10.5 }
-        }
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { font: { family: 'monospace', size: 9.5 } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
         },
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(24, 24, 27, 0.06)' },
-          ticks: { precision: 0, font: { family: 'monospace', size: 9.5 } }
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            padding: 10,
+            cornerRadius: 10,
+            titleFont: { family: 'monospace', size: 11, weight: 'bold' },
+            bodyFont: { family: 'monospace', size: 10.5 }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { family: 'monospace', size: 9.5 } }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(24, 24, 27, 0.06)' },
+            ticks: { precision: 0, font: { family: 'monospace', size: 9.5 } }
+          }
         }
       }
-    }
-  });
+    });
+  } catch (err) {
+    console.error('Error creating line comparison chart instance:', err);
+  }
 };
 
 const updateLineChart = () => {
+  if (!lineComparisonChartCanvas.value) return;
   if (!lineComparisonChartInstance) {
     initLineChart();
     return;
@@ -2125,7 +2158,7 @@ const updateLineChart = () => {
 };
 
 // Reaktif re-render diagram garis saat data roll / label selesai dimuat dari IndexedDB
-watch(filteredLabels, () => {
+watch([filteredLabels, allProductionRolls], () => {
   nextTick(() => {
     if (!lineComparisonChartInstance) {
       initLineChart();
