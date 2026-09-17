@@ -888,6 +888,7 @@ export const useSpkStore = defineStore('spk', () => {
           machines: new Set(),
           formulas: new Set(),
           thicknesses: new Set(),
+          widthMap: new Map(),
           dates: [],
           latestTimestamp: 0,
           plan: null
@@ -946,6 +947,17 @@ export const useSpkStore = defineStore('spk', () => {
       entry.totalRealRolls++;
       entry.totalRealMeter += m;
       entry.totalRealKg += kg;
+
+      const roundedW = Math.round(w);
+      if (roundedW > 0) {
+        if (!entry.widthMap.has(roundedW)) {
+          entry.widthMap.set(roundedW, { width: roundedW, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+        }
+        const wEntry = entry.widthMap.get(roundedW);
+        wEntry.totalRoll++;
+        wEntry.totalMeter += m;
+        wEntry.totalKg += kg;
+      }
 
       if (st === 'PASS' || st === 'OK') entry.passCount++;
       else if (st === 'HOLD') entry.holdCount++;
@@ -1010,6 +1022,17 @@ export const useSpkStore = defineStore('spk', () => {
       entry.totalRealMeter += m;
       entry.totalRealKg += kg;
 
+      const roundedW = Math.round(w);
+      if (roundedW > 0) {
+        if (!entry.widthMap.has(roundedW)) {
+          entry.widthMap.set(roundedW, { width: roundedW, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+        }
+        const wEntry = entry.widthMap.get(roundedW);
+        wEntry.totalRoll++;
+        wEntry.totalMeter += m;
+        wEntry.totalKg += kg;
+      }
+
       if (st === 'PASS' || st === 'OK') entry.passCount++;
       else if (st === 'HOLD') entry.holdCount++;
       else if (st === 'REJECT' || st === 'NG') entry.rejectCount++;
@@ -1050,6 +1073,7 @@ export const useSpkStore = defineStore('spk', () => {
       if (machinesArr.length === 0) machinesArr.push('SLITTING');
 
       const realLots = Array.from(item.lots.values());
+      const widthSummaries = Array.from(item.widthMap.values()).sort((a, b) => b.width - a.width);
       const totalJumbo = item.plan?.jumlahJumbo || Math.max(1, Math.ceil(item.totalRealRolls / 2));
       const plannedMeter = item.plan ? (item.plan.totalPlannedMeter || (item.plan.panjangParent * totalJumbo)) : item.totalRealMeter;
       const plannedRolls = item.plan?.totalPlannedRolls || item.totalRealRolls;
@@ -1083,6 +1107,7 @@ export const useSpkStore = defineStore('spk', () => {
         achievementPercent,
         latestTimestamp: item.latestTimestamp,
         realLots,
+        widthSummaries,
         plan: item.plan
       });
     }

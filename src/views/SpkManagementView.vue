@@ -2843,8 +2843,29 @@ const openSpkDetailDrawer = (item) => {
   if (!item) return;
   const speed = item.speed || spkStore.getSlittingSpeed(item.formula);
   const timeEst = spkStore.calculateEstimateMinutes(item.totalRealMeter || 0, item.totalJumbo || 1, speed);
+
+  // Fail-safe calculation of widthSummaries from realLots if missing
+  let widthSummaries = item.widthSummaries;
+  if (!widthSummaries || widthSummaries.length === 0) {
+    const wMap = new Map();
+    for (const lt of (item.realLots || [])) {
+      const w = Math.round(parseFloat(lt.width) || 0);
+      if (w > 0) {
+        if (!wMap.has(w)) {
+          wMap.set(w, { width: w, totalRoll: 0, totalMeter: 0, totalKg: 0 });
+        }
+        const wObj = wMap.get(w);
+        wObj.totalRoll++;
+        wObj.totalMeter += parseFloat(lt.length) || 0;
+        wObj.totalKg += parseFloat(lt.weight) || 0;
+      }
+    }
+    widthSummaries = Array.from(wMap.values()).sort((a, b) => b.width - a.width);
+  }
+
   selectedDetailSpk.value = {
     ...item,
+    widthSummaries,
     speed,
     totalMinutes: item.totalMinutes || timeEst.totalMinutes,
     cuttingMinutes: item.cuttingMinutes || timeEst.cuttingMinutes,
