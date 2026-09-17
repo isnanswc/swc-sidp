@@ -198,8 +198,22 @@
             </div>
           </div>
 
+          <!-- Production Data Roll Indicator Badge -->
+          <div 
+            v-if="cell.production" 
+            class="mt-0.5 flex items-center justify-between px-1 py-0.5 rounded text-[8px] sm:text-[8.5px] font-bold border"
+            :class="cell.production.isLongShift ? 'bg-purple-50 text-purple-800 border-purple-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'"
+            :title="`Realisasi: ${cell.production.totalRolls} Roll (${cell.production.modeLabel})`"
+          >
+            <span class="flex items-center gap-0.5 truncate font-black">
+              <span>{{ cell.production.isLongShift ? '⚡' : '⏱️' }}</span>
+              <span>{{ cell.production.totalRolls }}r</span>
+            </span>
+            <span class="font-mono text-[7.5px] sm:text-[8px] opacity-80">{{ cell.production.passPercent }}%</span>
+          </div>
+
           <!-- Hours Indicator Footer -->
-          <div class="text-[8px] sm:text-[8.5px] text-zinc-400 font-mono text-right w-full">
+          <div class="text-[8px] sm:text-[8.5px] text-zinc-400 font-mono text-right w-full mt-0.5">
             <span class="hidden sm:inline">{{ cell.isWeekend ? '12 Jam' : '8 Jam' }}</span>
             <span class="sm:hidden">{{ cell.isWeekend ? '12j' : '8j' }}</span>
           </div>
@@ -327,6 +341,19 @@
             </div>
           </div>
 
+          <!-- Production Data Roll Indicator Badge -->
+          <div 
+            v-if="day.production" 
+            class="flex items-center justify-between px-2 py-1 rounded-lg text-[10px] font-bold border"
+            :class="day.production.isLongShift ? 'bg-purple-50 text-purple-800 border-purple-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'"
+          >
+            <span class="flex items-center gap-1 font-black">
+              <span>{{ day.production.isLongShift ? '⚡' : '⏱️' }}</span>
+              <span>{{ day.production.totalRolls }} Roll</span>
+            </span>
+            <span class="font-mono text-[9px] opacity-80">{{ day.production.passPercent }}% OK</span>
+          </div>
+
           <button
             @click="selectDayFromMonth(day.dateStr)"
             class="w-full py-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
@@ -337,7 +364,7 @@
       </div>
     </div>
 
-    <!-- 3. TAMPILAN KALENDER HARI (DAY VIEW & OPERATOR ROSTER) -->
+    <!-- 3. TAMPILAN KALENDER HARI (DAY VIEW & OPERATOR ROSTER / ACTUAL WORK HISTORY) -->
     <div v-else-if="viewMode === 'day'" class="space-y-4">
       <!-- Day Summary Card -->
       <div class="bg-gradient-to-r from-zinc-900 to-zinc-800 text-white p-4 rounded-2xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -347,76 +374,335 @@
             <h2 class="text-base font-black">{{ dayViewFullDateString }}</h2>
           </div>
           <p class="text-xs text-zinc-400 mt-0.5">
-            Jadwal pembagian shift dan daftar penugasan operator per stasiun mesin.
+            Komparasi jadwal rencana vs realisasi aktual pengerjaan data roll per stasiun mesin.
           </p>
         </div>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-zinc-300 font-semibold">Tipe Hari:</span>
-          <span class="px-2.5 py-1 rounded-full text-xs font-black bg-white/20 text-white">
-            {{ isWeekendDay(activeDayDateStr) ? 'Weekend (Long Shift 12 Jam)' : 'Weekday (Shift Pendek 8 Jam)' }}
-          </span>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- Detected Shift Mode Badge with manual toggle button -->
+          <div class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/20">
+            <span class="text-xs">
+              {{ activeDayWorkHistory.shiftMode.isLongShift ? '⚡' : '⏱️' }}
+            </span>
+            <span class="text-xs font-black text-white">
+              {{ activeDayWorkHistory.shiftMode.modeLabel }}
+            </span>
+            <button
+              @click="toggleManualShiftMode(activeDayDateStr)"
+              class="ml-1 text-[10px] text-zinc-300 hover:text-white underline cursor-pointer"
+              title="Klik untuk ubah mode 8 jam / 12 jam pada hari ini"
+            >
+              (Ubah)
+            </button>
+          </div>
+
+          <!-- Day Subview Tab Switcher (Realisasi Data Roll vs Jadwal Rencana) -->
+          <div class="flex items-center bg-zinc-800 p-1 rounded-xl border border-zinc-700 text-xs font-bold">
+            <button
+              @click="daySubView = 'actual'"
+              :class="['px-3 py-1.5 rounded-lg transition-all cursor-pointer', daySubView === 'actual' ? 'bg-emerald-600 text-white shadow-xs font-black' : 'text-zinc-400 hover:text-white']"
+            >
+              🏭 Realisasi Data Roll
+            </button>
+            <button
+              @click="daySubView = 'planned'"
+              :class="['px-3 py-1.5 rounded-lg transition-all cursor-pointer', daySubView === 'planned' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-zinc-400 hover:text-white']"
+            >
+              📋 Jadwal Rencana
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Shift Breakdown Cards on Selected Day -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div
-          v-for="shift in activeDayShifts"
-          :key="shift.shiftCode"
-          class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden flex flex-col justify-between"
-        >
-          <!-- Card Header -->
-          <div
-            class="p-3.5 border-b text-white flex items-center justify-between"
-            :style="{ backgroundColor: shift.definition.color }"
+      <!-- TAB 1: REALISASI AKTUAL (DATA ROLL & OPERATOR RIIL) -->
+      <div v-if="daySubView === 'actual'" class="space-y-4">
+        <!-- Empty State if no rolls found on this date -->
+        <div v-if="!activeDayWorkHistory.hasData" class="bg-white rounded-2xl border border-zinc-200 p-8 text-center space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-400 flex items-center justify-center text-2xl mx-auto">
+            📭
+          </div>
+          <div>
+            <h3 class="font-black text-zinc-800 text-sm">Belum Ada Catatan Data Roll pada Tanggal Ini</h3>
+            <p class="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
+              Tidak ditemukan data roll atau label yang tercatat pada {{ dayViewFullDateString }}. Anda dapat melihat jadwal rotasi grup rencana atau membuka serah terima shift.
+            </p>
+          </div>
+          <div class="flex items-center justify-center gap-2 pt-2">
+            <button
+              @click="daySubView = 'planned'"
+              class="px-4 py-2 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              Lihat Jadwal Rencana →
+            </button>
+            <button
+              @click="scheduleStore.showShiftHandoverModal = true"
+              class="px-4 py-2 text-xs font-black bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl transition-colors cursor-pointer"
+            >
+              Buka Serah Terima Shift
+            </button>
+          </div>
+        </div>
+
+        <!-- Populated Actual Work History Content -->
+        <template v-else>
+          <!-- Shift Detection Analysis Banner -->
+          <div 
+            class="p-3.5 rounded-2xl border flex items-start gap-3 shadow-2xs"
+            :class="activeDayWorkHistory.shiftMode.isLongShift ? 'bg-purple-50/80 border-purple-200 text-purple-950' : 'bg-blue-50/80 border-blue-200 text-blue-950'"
           >
-            <div>
-              <span class="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-full">
-                GRUP {{ shift.group }}
-              </span>
-              <h3 class="font-black text-sm mt-1 text-white">{{ shift.definition.name }}</h3>
-            </div>
-            <div class="text-right">
-              <span class="text-xs font-mono font-bold">{{ shift.definition.startTime }} - {{ shift.definition.endTime }}</span>
-              <div class="text-[10px] text-white/80">{{ shift.definition.durationHours }} Jam Kerja</div>
+            <span class="text-lg shrink-0">{{ activeDayWorkHistory.shiftMode.isLongShift ? '⚡' : 'ℹ️' }}</span>
+            <div class="text-xs space-y-0.5">
+              <div class="font-black flex items-center gap-2">
+                <span>Analisis Jam Kerja Hari Ini: {{ activeDayWorkHistory.shiftMode.modeLabel }}</span>
+                <span v-if="activeDayWorkHistory.shiftMode.isOverridden" class="px-1.5 py-0.2 bg-purple-200 text-purple-900 rounded text-[9.5px]">Override Manual</span>
+              </div>
+              <p class="text-[11.5px] opacity-90 leading-relaxed">
+                {{ activeDayWorkHistory.shiftMode.reason }}
+              </p>
             </div>
           </div>
 
-          <!-- Operators for this shift -->
-          <div class="p-3.5 space-y-2.5 flex-1 bg-zinc-50/50">
-            <div class="text-[11px] font-black text-zinc-500 uppercase tracking-wider">
-              Operator per Stasiun Mesin:
+          <!-- Overall Production Metrics Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div class="p-3 bg-white rounded-2xl border border-zinc-200 shadow-2xs">
+              <div class="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Total Roll FG</div>
+              <div class="text-xl font-black text-zinc-900 font-mono mt-1">
+                {{ formatNum(activeDayWorkHistory.summary.totalChild) }} <span class="text-xs font-sans text-zinc-400 font-bold">Roll</span>
+              </div>
             </div>
 
-            <div class="space-y-1.5">
-              <div
-                v-for="station in ['CASTING', 'METALIZE', 'SLITTING', 'REWIND']"
-                :key="station"
-                class="flex items-center justify-between p-2 rounded-xl bg-white border border-zinc-200 text-xs shadow-2xs"
-              >
-                <div class="flex items-center gap-1.5">
-                  <span class="font-bold text-zinc-500 text-[10px] uppercase w-16">{{ station }}</span>
-                </div>
-                <div class="text-right">
-                  <span v-if="shift.roster[station]" class="font-black text-zinc-900">
-                    [{{ shift.roster[station].kodeOperator }}] {{ shift.roster[station].nama }}
-                  </span>
-                  <span v-else class="text-zinc-400 italic text-[11px]">
-                    Belum Terjadwal
-                  </span>
-                </div>
+            <div class="p-3 bg-white rounded-2xl border border-zinc-200 shadow-2xs">
+              <div class="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Total Parent</div>
+              <div class="text-xl font-black text-indigo-600 font-mono mt-1">
+                {{ formatNum(activeDayWorkHistory.summary.totalParent) }} <span class="text-xs font-sans text-zinc-400 font-bold">Jumbo</span>
+              </div>
+            </div>
+
+            <div class="p-3 bg-white rounded-2xl border border-zinc-200 shadow-2xs">
+              <div class="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Total Tonase (Netto)</div>
+              <div class="text-xl font-black text-emerald-600 font-mono mt-1">
+                {{ formatNum(activeDayWorkHistory.summary.totalNetto) }} <span class="text-xs font-sans text-zinc-400 font-bold">kg</span>
+              </div>
+            </div>
+
+            <div class="p-3 bg-white rounded-2xl border border-zinc-200 shadow-2xs">
+              <div class="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Total Panjang</div>
+              <div class="text-xl font-black text-blue-600 font-mono mt-1">
+                {{ formatNum(activeDayWorkHistory.summary.totalMeter) }} <span class="text-xs font-sans text-zinc-400 font-bold">m</span>
+              </div>
+            </div>
+
+            <div class="p-3 bg-white rounded-2xl border border-zinc-200 shadow-2xs col-span-2 sm:col-span-1">
+              <div class="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Rasio Kualitas (QC)</div>
+              <div class="text-xl font-black text-zinc-900 font-mono mt-1 flex items-baseline gap-1">
+                <span>{{ activeDayWorkHistory.summary.passPercent }}%</span>
+                <span class="text-[10px] font-sans font-bold text-emerald-600">PASS</span>
+              </div>
+              <div class="text-[9.5px] text-zinc-400 mt-0.5">
+                {{ activeDayWorkHistory.summary.passCount }} OK • {{ activeDayWorkHistory.summary.holdCount }} Hold • {{ activeDayWorkHistory.summary.rejectCount }} Rej
               </div>
             </div>
           </div>
 
-          <!-- Card Footer Action -->
-          <div class="p-3 bg-white border-t border-zinc-100 flex justify-end">
-            <button
-              @click="scheduleStore.showShiftHandoverModal = true"
-              class="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+          <!-- Station Performance Cards Grid (SLITTING, REWIND, CASTING, METALIZE) -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              v-for="station in activeDayWorkHistory.stations"
+              :key="station.machine"
+              class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden flex flex-col justify-between"
             >
-              Atur / Ganti Operator →
-            </button>
+              <!-- Card Header -->
+              <div class="p-3.5 bg-zinc-900 text-white flex items-center justify-between border-b border-zinc-800">
+                <div class="flex items-center gap-2">
+                  <span class="text-base">{{ station.icon }}</span>
+                  <div>
+                    <h3 class="font-black text-xs sm:text-sm text-white uppercase">{{ station.name }}</h3>
+                    <span class="text-[10px] text-zinc-400 font-medium">Stasiun Produksi {{ station.machine }}</span>
+                  </div>
+                </div>
+
+                <div class="text-right">
+                  <span 
+                    v-if="station.hasData"
+                    class="px-2 py-0.5 rounded-full text-[10px] font-black"
+                    :class="station.isSubstituted ? 'bg-amber-400 text-zinc-950' : 'bg-emerald-500 text-white'"
+                  >
+                    {{ station.isSubstituted ? '🔄 Substitusi Operator' : '✓ Sesuai Rencana' }}
+                  </span>
+                  <span v-else class="text-[10px] text-zinc-500 italic">
+                    Tidak Beroperasi
+                  </span>
+                </div>
+              </div>
+
+              <!-- Operator Planned vs Actual Row -->
+              <div class="p-3.5 bg-zinc-50 border-b border-zinc-200 grid grid-cols-2 gap-2 text-xs">
+                <div class="space-y-0.5">
+                  <div class="text-[9.5px] font-bold text-zinc-400 uppercase tracking-wider">Operator Rencana:</div>
+                  <div v-if="station.scheduledOp" class="font-black text-zinc-800 truncate">
+                    [{{ station.scheduledOp.kodeOperator }}] {{ station.scheduledOp.nama }}
+                  </div>
+                  <div v-else class="text-zinc-400 italic text-[11px]">Tidak terjadwal</div>
+                </div>
+
+                <div class="space-y-0.5">
+                  <div class="text-[9.5px] font-bold text-zinc-400 uppercase tracking-wider">Operator Aktual:</div>
+                  <div v-if="station.actualOps.length > 0" class="flex flex-wrap gap-1">
+                    <span 
+                      v-for="op in station.actualOps" 
+                      :key="op.kodeOperator"
+                      class="px-1.5 py-0.5 rounded text-[10px] font-black bg-white border border-zinc-300 text-zinc-900 shadow-2xs"
+                    >
+                      [{{ op.kodeOperator }}] {{ op.nama }} ({{ op.rollCount }}r)
+                    </span>
+                  </div>
+                  <div v-else class="text-zinc-400 italic text-[11px]">—</div>
+                </div>
+              </div>
+
+              <!-- Machine Metrics & SPKs -->
+              <div class="p-3.5 space-y-3 flex-1">
+                <div v-if="station.hasData" class="space-y-3">
+                  <!-- Numeric Mini Metrics -->
+                  <div class="grid grid-cols-4 gap-2 text-center">
+                    <div class="p-2 rounded-xl bg-zinc-50 border border-zinc-100">
+                      <div class="text-[9px] text-zinc-400 font-bold uppercase">Roll FG</div>
+                      <div class="text-sm font-black text-zinc-900 font-mono">{{ station.childCount }}</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-zinc-50 border border-zinc-100">
+                      <div class="text-[9px] text-zinc-400 font-bold uppercase">Jumbo</div>
+                      <div class="text-sm font-black text-indigo-600 font-mono">{{ station.parentCount }}</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-zinc-50 border border-zinc-100">
+                      <div class="text-[9px] text-zinc-400 font-bold uppercase">Netto kg</div>
+                      <div class="text-sm font-black text-emerald-600 font-mono">{{ formatNum(station.netto) }}</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-zinc-50 border border-zinc-100">
+                      <div class="text-[9px] text-zinc-400 font-bold uppercase">Panjang m</div>
+                      <div class="text-sm font-black text-blue-600 font-mono">{{ formatNum(station.meter) }}</div>
+                    </div>
+                  </div>
+
+                  <!-- Quality Progress Bar -->
+                  <div>
+                    <div class="flex items-center justify-between text-[11px] mb-1">
+                      <span class="font-bold text-zinc-600">Rasio Kualitas QC</span>
+                      <span class="font-mono font-black text-emerald-600">{{ station.passPercent }}% PASS</span>
+                    </div>
+                    <div class="h-2 rounded-full bg-zinc-100 flex overflow-hidden">
+                      <div :style="{ width: `${station.passPercent}%` }" class="bg-emerald-500 h-full" title="Pass"></div>
+                      <div :style="{ width: `${station.holdPercent}%` }" class="bg-amber-400 h-full" title="Hold"></div>
+                      <div :style="{ width: `${station.rejectPercent}%` }" class="bg-red-500 h-full" title="Reject"></div>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-zinc-400 mt-1">
+                      <span>Pass: {{ station.passCount }}</span>
+                      <span>Hold: {{ station.holdCount }}</span>
+                      <span>Reject: {{ station.rejectCount }}</span>
+                    </div>
+                  </div>
+
+                  <!-- SPKs Chips -->
+                  <div v-if="station.spkList && station.spkList.length > 0">
+                    <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">SPK Diproses:</div>
+                    <div class="flex flex-wrap gap-1">
+                      <span 
+                        v-for="s in station.spkList" 
+                        :key="s.spk" 
+                        class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200"
+                      >
+                        {{ s.spk }} ({{ s.count }} roll)
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Heuristic Analysis Pill -->
+                  <div v-if="station.analysis?.reason" class="text-[10.5px] text-zinc-500 italic bg-zinc-50 p-2 rounded-xl border border-zinc-200">
+                    💬 {{ station.analysis.reason }}
+                  </div>
+                </div>
+
+                <div v-else class="py-6 text-center text-xs text-zinc-400 italic">
+                  Tidak ada catatan pengerjaan roll untuk mesin {{ station.name }} pada hari ini.
+                </div>
+              </div>
+
+              <!-- Card Footer Action -->
+              <div class="p-3 bg-zinc-50/50 border-t border-zinc-100 flex items-center justify-between">
+                <span class="text-[10px] text-zinc-400 font-mono">Status: {{ station.hasData ? 'Aktif' : 'Off' }}</span>
+                <button
+                  @click="scheduleStore.showShiftHandoverModal = true"
+                  class="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+                >
+                  Serah Terima / Roster →
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- TAB 2: JADWAL RENCANA (PLANNED ROSTER & ROTATION) -->
+      <div v-else class="space-y-4">
+        <!-- Shift Breakdown Cards on Selected Day -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div
+            v-for="shift in activeDayShifts"
+            :key="shift.shiftCode"
+            class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden flex flex-col justify-between"
+          >
+            <!-- Card Header -->
+            <div
+              class="p-3.5 border-b text-white flex items-center justify-between"
+              :style="{ backgroundColor: shift.definition.color }"
+            >
+              <div>
+                <span class="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-full">
+                  GRUP {{ shift.group }}
+                </span>
+                <h3 class="font-black text-sm mt-1 text-white">{{ shift.definition.name }}</h3>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-mono font-bold">{{ shift.definition.startTime }} - {{ shift.definition.endTime }}</span>
+                <div class="text-[10px] text-white/80">{{ shift.definition.durationHours }} Jam Kerja</div>
+              </div>
+            </div>
+
+            <!-- Operators for this shift -->
+            <div class="p-3.5 space-y-2.5 flex-1 bg-zinc-50/50">
+              <div class="text-[11px] font-black text-zinc-500 uppercase tracking-wider">
+                Operator per Stasiun Mesin:
+              </div>
+
+              <div class="space-y-1.5">
+                <div
+                  v-for="station in ['CASTING', 'METALIZE', 'SLITTING', 'REWIND']"
+                  :key="station"
+                  class="flex items-center justify-between p-2 rounded-xl bg-white border border-zinc-200 text-xs shadow-2xs"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-bold text-zinc-500 text-[10px] uppercase w-16">{{ station }}</span>
+                  </div>
+                  <div class="text-right">
+                    <span v-if="shift.roster[station]" class="font-black text-zinc-900">
+                      [{{ shift.roster[station].kodeOperator }}] {{ shift.roster[station].nama }}
+                    </span>
+                    <span v-else class="text-zinc-400 italic text-[11px]">
+                      Belum Terjadwal
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Footer Action -->
+            <div class="p-3 bg-white border-t border-zinc-100 flex justify-end">
+              <button
+                @click="scheduleStore.showShiftHandoverModal = true"
+                class="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+              >
+                Atur / Ganti Operator →
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -431,12 +717,15 @@
 import { ref, computed, onMounted } from 'vue';
 import { useScheduleStore, SHIFT_DEFINITIONS } from '@/stores/scheduleStore';
 import { useConfigStore } from '@/stores/configStore';
+import { useDataRollStore } from '@/stores/dataRollStore';
 import ShiftHandoverModal from '@/components/schedule/ShiftHandoverModal.vue';
 
 const scheduleStore = useScheduleStore();
 const configStore = useConfigStore();
+const dataRollStore = useDataRollStore();
 
 const viewMode = ref('month'); // 'month' | 'week' | 'day'
+const daySubView = ref('actual'); // 'actual' | 'planned'
 const selectedGroupFilter = ref('ALL');
 const currentDate = ref(new Date());
 const activeDayDateStr = ref(scheduleStore.getWorkDate(new Date()));
@@ -444,11 +733,43 @@ const activeMonthSelectedDateStr = ref(scheduleStore.getWorkDate(new Date()));
 
 const currentShiftLive = computed(() => scheduleStore.getCurrentShiftInfo());
 
+const formatNum = (val) => {
+  if (!val) return '0';
+  const num = parseFloat(val);
+  if (isNaN(num)) return '0';
+  return num.toLocaleString('id-ID');
+};
+
 const displayGroups = computed(() => {
   if (selectedGroupFilter.value === 'ALL') return ['A', 'B', 'C'];
   if (selectedGroupFilter.value === 'NON-GRUP') return ['NON-GRUP'];
   return [selectedGroupFilter.value];
 });
+
+// Map rolls by date string (YYYY-MM-DD) for ultra fast O(1) cell lookups
+const rollsByDateMap = computed(() => {
+  const map = new Map();
+  for (const r of dataRollStore.rolls) {
+    const d = String(r.tanggalFormatted || r.tanggal || r.createdAt || '').slice(0, 10);
+    if (!d) continue;
+    if (!map.has(d)) map.set(d, []);
+    map.get(d).push(r);
+  }
+  return map;
+});
+
+// Actual Work History on the active Day
+const activeDayWorkHistory = computed(() => {
+  const rolls = rollsByDateMap.value.get(activeDayDateStr.value) || [];
+  return scheduleStore.getActualWorkHistory(activeDayDateStr.value, rolls);
+});
+
+// Toggle Shift Mode (Normal 8 Jam vs Long Shift 12 Jam)
+const toggleManualShiftMode = async (dateStr) => {
+  const currentIsLong = scheduleStore.isDateLongShift(dateStr);
+  const newIsLong = !currentIsLong;
+  await scheduleStore.setShiftModeOverride(dateStr, newIsLong, null, 'Diubah manual di menu jadwal');
+};
 
 // Period Label Header (Month/Year, Week of Month, or Specific Date)
 const periodLabel = computed(() => {
@@ -488,18 +809,16 @@ const dayViewFullDateString = computed(() => {
 });
 
 const isWeekendDay = (dateStr) => {
-  const d = new Date(dateStr);
-  const day = d.getDay();
-  return day === 5 || day === 6 || day === 0; // Fri, Sat, Sun
+  return scheduleStore.isDateLongShift(dateStr);
 };
 
 // Navigation (Prev / Next)
 const navigatePeriod = (direction) => {
   const d = new Date(currentDate.value);
-  if (viewMode.value === 'month') {
+  if (viewMode === 'month' || viewMode.value === 'month') {
     d.setMonth(d.getMonth() + direction);
     currentDate.value = d;
-  } else if (viewMode.value === 'week') {
+  } else if (viewMode === 'week' || viewMode.value === 'week') {
     d.setDate(d.getDate() + direction * 7);
     currentDate.value = d;
   } else {
@@ -562,7 +881,7 @@ const monthGridCells = computed(() => {
 
     const isCurrentMonth = cellDate.getMonth() === month;
     const isToday = dateStr === todayStr;
-    const isWeekend = cellDate.getDay() === 0 || cellDate.getDay() === 6;
+    const isWeekend = scheduleStore.isDateLongShift(dateStr);
 
     const shifts = {
       'A': scheduleStore.getShiftForGroupAndDate('A', dateStr),
@@ -571,13 +890,32 @@ const monthGridCells = computed(() => {
       'NON-GRUP': scheduleStore.getShiftForGroupAndDate('NON-GRUP', dateStr)
     };
 
+    // Actual production stats for this cell if data exists
+    const dayRolls = rollsByDateMap.value.get(dateStr) || [];
+    let production = null;
+    if (dayRolls.length > 0) {
+      const mode = scheduleStore.detectWorkDateShiftMode(dateStr, dayRolls);
+      let pass = 0;
+      for (const r of dayRolls) {
+        const st = String(r.qualityStatus || r.status || 'PASS').toUpperCase();
+        if (st === 'PASS' || st === 'OK') pass++;
+      }
+      production = {
+        totalRolls: dayRolls.length,
+        isLongShift: mode.isLongShift,
+        modeLabel: mode.modeLabel,
+        passPercent: Math.round((pass / dayRolls.length) * 100)
+      };
+    }
+
     cells.push({
       dayNum: cellDate.getDate(),
       dateStr,
       isCurrentMonth,
       isToday,
       isWeekend,
-      shifts
+      shifts,
+      production
     });
   }
 
@@ -607,7 +945,7 @@ const weekDaysList = computed(() => {
     const dateStr = `${cYear}-${cMonth}-${cDay}`;
 
     const isToday = dateStr === todayStr;
-    const isWeekend = i >= 4; // Fri, Sat, Sun are long shifts
+    const isWeekend = scheduleStore.isDateLongShift(dateStr);
 
     const shifts = {
       'A': scheduleStore.getShiftForGroupAndDate('A', dateStr),
@@ -616,23 +954,42 @@ const weekDaysList = computed(() => {
       'NON-GRUP': scheduleStore.getShiftForGroupAndDate('NON-GRUP', dateStr)
     };
 
+    // Actual production stats for this day if data exists
+    const dayRolls = rollsByDateMap.value.get(dateStr) || [];
+    let production = null;
+    if (dayRolls.length > 0) {
+      const mode = scheduleStore.detectWorkDateShiftMode(dateStr, dayRolls);
+      let pass = 0;
+      for (const r of dayRolls) {
+        const st = String(r.qualityStatus || r.status || 'PASS').toUpperCase();
+        if (st === 'PASS' || st === 'OK') pass++;
+      }
+      production = {
+        totalRolls: dayRolls.length,
+        isLongShift: mode.isLongShift,
+        modeLabel: mode.modeLabel,
+        passPercent: Math.round((pass / dayRolls.length) * 100)
+      };
+    }
+
     list.push({
       dayName: dayNames[i],
       formattedDate: `${cur.getDate()} ${monthNames[cur.getMonth()]}`,
       dateStr,
       isToday,
       isWeekend,
-      shifts
+      shifts,
+      production
     });
   }
 
   return list;
 });
 
-// Shifts on Active Day for Day View
+// Shifts on Active Day for Planned Day View
 const activeDayShifts = computed(() => {
   const dateStr = activeDayDateStr.value;
-  const isWeekend = isWeekendDay(dateStr);
+  const isWeekend = scheduleStore.isDateLongShift(dateStr);
 
   const shiftCodes = isWeekend ? ['LS1', 'LS2'] : ['1', '2', '3'];
   const results = [];
@@ -655,5 +1012,8 @@ const activeDayShifts = computed(() => {
 onMounted(async () => {
   await configStore.loadAll();
   await scheduleStore.loadConfirmedRoster();
+  if (!dataRollStore.rolls || dataRollStore.rolls.length === 0) {
+    dataRollStore.loadAllRolls().catch(() => {});
+  }
 });
 </script>

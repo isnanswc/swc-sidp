@@ -178,6 +178,40 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
   const confirmedRosterShift = ref('');
   const confirmedRosterDate = ref('');
 
+  // Daily Shift Overrides: menyimpan penyesuaian manual/darurat mode shift (e.g. 12 Jam Long Shift)
+  // Format: { [dateStr]: { isLongShift: true, machines: { SLITTING: true, ... }, note: 'Operator sakit' } }
+  const dailyShiftOverrides = ref({});
+
+  const isDateLongShift = (dateStr) => {
+    if (!dateStr) return false;
+    const cleanD = String(dateStr).slice(0, 10);
+    if (dailyShiftOverrides.value && dailyShiftOverrides.value[cleanD] !== undefined) {
+      return Boolean(dailyShiftOverrides.value[cleanD].isLongShift);
+    }
+    const dayIdx = getDayIndex(cleanD);
+    return dayIdx >= 4; // Jumat(4), Sabtu(5), Minggu(6)
+  };
+
+  const setShiftModeOverride = async (dateStr, isLongShift, machines = null, note = '') => {
+    if (!dateStr) return;
+    const cleanD = String(dateStr).slice(0, 10);
+    dailyShiftOverrides.value = {
+      ...dailyShiftOverrides.value,
+      [cleanD]: {
+        isLongShift: Boolean(isLongShift),
+        machines: machines || { CASTING: isLongShift, METALIZE: isLongShift, SLITTING: isLongShift, REWIND: isLongShift },
+        note: note || '',
+        updatedAt: new Date().toISOString()
+      }
+    };
+    try {
+      await saveSetting('confirmed_shift_overrides', dailyShiftOverrides.value);
+    } catch (e) {
+      console.error('Failed to save shift override:', e);
+    }
+    tickLiveClock();
+  };
+
   // Helper to parse 'YYYY-MM-DD' safely without timezone offset issues
   const parseDateOnly = (dateStr) => {
     if (!dateStr) return new Date();
@@ -264,14 +298,13 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     const minutes = nowDate.getMinutes();
     const timeVal = hours + minutes / 60; // e.g. 17.5 = 17:30
 
-    // Evaluasi pola hari berdasarkan HARI KERJA (workDateStr)
-    const workDayIdx = getDayIndex(workDateStr);
-    const isWeekendLongShiftDay = workDayIdx >= 4; // Jumat(4), Sabtu(5), Minggu(6)
+    // Evaluasi pola hari berdasarkan HARI KERJA (workDateStr) & status override
+    const isLongShiftDay = isDateLongShift(workDateStr);
 
     let currentShiftCode = '1';
 
-    if (isWeekendLongShiftDay) {
-      // Long shift days (Jumat, Sabtu, Minggu)
+    if (isLongShiftDay) {
+      // Long shift days (Jumat, Sabtu, Minggu, atau hari kerja yang di-override 12 Jam)
       // LS1: 07:00 - 19:00
       // LS2: 19:00 - 07:00 (mencakup 19:00-23:59 hari kerja dan 00:00-06:59 keesokan harinya)
       if (timeVal >= 7 && timeVal < 19) {
@@ -280,7 +313,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
         currentShiftCode = 'LS2';
       }
     } else {
-      // Weekdays (Senin-Kamis 8 jam)
+      // Weekdays (Senin-Kamis normal 8 jam)
       // Shift 1: 07:00 - 15:00
       // Shift 2: 15:00 - 23:00
       // Shift 3: 23:00 - 07:00 (mencakup 23:00-23:59 hari kerja dan 00:00-06:59 keesokan harinya)
@@ -342,8 +375,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
     // Tentukan hari kerja saat ini (reset setiap jam 07:00 pagi)
     const workDateStr = getWorkDate(nowDate);
-    const workDayIdx = getDayIndex(workDateStr); // 0=Senin, 1=Selasa, ..., 4=Jumat, 5=Sabtu, 6=Minggu
-    const isWorkWeekend = workDayIdx >= 4; // Jumat, Sabtu, Minggu menggunakan Long Shift (LS1 & LS2)
+    const isWorkLongShift = isDateLongShift(workDateStr); // Mendukung override manual 12 jam
 
     let prevShiftCode = '1';
     let prevDate = workDateStr;
@@ -351,7 +383,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     let upDate = workDateStr;
 
     // EVALUASI POLA HARI KERJA:
-    if (isWorkWeekend) {
+    if (isWorkLongShift) {
       // Hari Long Shift: LS1 (07:00 - 19:00), LS2 (19:00 - 07:00)
       if (timeVal >= 7.0 && timeVal < 19.0) {
         // Saat ini sedang berlangsung LS1 (atau handover masuk ke LS1)
@@ -360,10 +392,8 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
         // Shift sebelumnya adalah shift malam yang baru selesai di jam 07:00 pagi (hari kerja kemarin)
         prevDate = yesterdayCalStr;
-        const prevWorkDayIdx = getDayIndex(prevDate);
-        // Jika kemarin adalah Kamis (dayIdx = 3), shift malamnya adalah Shift 3!
-        // Jika kemarin adalah Jumat/Sabtu/Minggu, shift malamnya adalah LS2!
-        prevShiftCode = (prevWorkDayIdx >= 4) ? 'LS2' : '3';
+        const prevIsLong = isDateLongShift(prevDate);
+        prevShiftCode = prevIsLong ? 'LS2' : '3';
       } else {
         // Saat ini sedang berlangsung LS2 (19:00 - 07:00)
         upShiftCode = 'LS2';
@@ -374,7 +404,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
         prevDate = workDateStr;
       }
     } else {
-      // Hari Reguler 8 Jam (Senin - Kamis):
+      // Hari Reguler 8 Jam (Senin - Kamis normal):
       // Shift 1: 07:00 - 15:00
       // Shift 2: 15:00 - 23:00
       // Shift 3: 23:00 - 07:00 (reset jam 07:00 pagi)
@@ -383,10 +413,10 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
         upShiftCode = '1';
         upDate = workDateStr;
 
-        // Shift sebelumnya adalah Shift 3 hari kemarin
+        // Shift sebelumnya adalah Shift 3 / LS2 hari kemarin
         prevDate = yesterdayCalStr;
-        const prevWorkDayIdx = getDayIndex(prevDate);
-        prevShiftCode = (prevWorkDayIdx >= 4) ? 'LS2' : '3';
+        const prevIsLong = isDateLongShift(prevDate);
+        prevShiftCode = prevIsLong ? 'LS2' : '3';
       } else if (timeVal >= 15.0 && timeVal < 23.0) {
         // Shift 2 (Sore)
         upShiftCode = '2';
@@ -481,13 +511,17 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
   };
 
   // Confirm Handover Roster
-  const confirmShiftHandover = async (rosterData) => {
+  const confirmShiftHandover = async (rosterData, options = {}) => {
     const shift = currentHandoverShifts.value?.upcomingShift || currentShift.value;
     confirmedRoster.value = { ...rosterData };
     confirmedRosterShift.value = shift ? shift.shiftCode : '';
     confirmedRosterDate.value = shift ? shift.date : '';
     lastHandoverConfirmedAt.value = new Date().toISOString();
     showShiftHandoverModal.value = false;
+
+    if (options && options.isLongShift !== undefined && shift) {
+      await setShiftModeOverride(shift.date, options.isLongShift, options.machines, options.note);
+    }
 
     try {
       await saveSetting('confirmed_shift_roster', confirmedRoster.value);
@@ -516,9 +550,381 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
 
       const savedAnchor = await getSetting('schedule_anchor_date', null);
       if (savedAnchor) anchorMonday.value = savedAnchor;
+
+      const savedOverrides = await getSetting('confirmed_shift_overrides', null);
+      if (savedOverrides) dailyShiftOverrides.value = savedOverrides;
     } catch (e) {
       console.error('Failed to load schedule state:', e);
     }
+  };
+
+  /**
+   * Ekstraksi informasi operator dari catatan roll (turunan, kodeOperator, atau operator field).
+   */
+  const extractOperatorFromRoll = (roll, operatorList = null) => {
+    const ops = operatorList || configStore.operatorList || [];
+
+    // 1. Explicit operator name
+    const rawOpName = String(roll.operator || '').trim();
+    if (rawOpName) {
+      const matched = ops.find(o => o.nama && o.nama.toUpperCase() === rawOpName.toUpperCase());
+      if (matched) return { ...matched, source: 'operator' };
+    }
+
+    // 2. Explicit kodeOperator
+    const rawKode = String(roll.kodeOperator || '').trim().toUpperCase();
+    if (rawKode) {
+      const matched = ops.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawKode);
+      if (matched) return { ...matched, source: 'kodeOperator' };
+    }
+
+    // 3. Extract from turunan string
+    const t = String(roll.turunan || '').trim().toUpperCase();
+    if (t) {
+      // Mesin Rewind: [JK][12][0-9]+
+      const mRewind = t.match(/^([JK])(\d)/);
+      if (mRewind) {
+        const code = mRewind[1];
+        const matched = ops.find(o => o.kodeOperator === code);
+        if (matched) return { ...matched, detectedShift: mRewind[2], source: 'turunan' };
+        return { kodeOperator: code, nama: code === 'J' ? 'DZAKI' : 'DAVVA', mesin: 'REWIND', detectedShift: mRewind[2], source: 'turunan' };
+      }
+
+      // Mesin Slitting: [GHI][ACD][0-9]+
+      const mSlit = t.match(/^([GHI])([ACD])/);
+      if (mSlit) {
+        const code = mSlit[1];
+        const matched = ops.find(o => o.kodeOperator === code);
+        if (matched) return { ...matched, arm: mSlit[2], source: 'turunan' };
+        const fallbackNames = { 'G': 'SANAN', 'H': 'UMAR', 'I': 'HENDRI' };
+        return { kodeOperator: code, nama: fallbackNames[code] || code, mesin: 'SLITTING', arm: mSlit[2], source: 'turunan' };
+      }
+
+      // Generic first character match
+      const firstChar = t.charAt(0);
+      const matched = ops.find(o => o.kodeOperator === firstChar);
+      if (matched) return { ...matched, source: 'turunanPrefix' };
+    }
+
+    return null;
+  };
+
+  /**
+   * Deteksi Cerdas Mode Shift Hari Kerja (Normal 8 Jam vs Long Shift 12 Jam):
+   * - Mesin 24 Jam (Slitting, Casting, Metalize): jika hanya ada 2 operator aktif -> Long Shift (12 Jam)!
+   * - Mesin Rewind: jika kedua operator aktif, roll >= 8, dan pembagian shift seimbang -> Long Shift!
+   */
+  const detectWorkDateShiftMode = (dateStr, rollsData = []) => {
+    const cleanD = String(dateStr || '').slice(0, 10);
+    const opList = configStore.operatorList || [];
+
+    // Filter rolls for this date
+    const dayRolls = (rollsData || []).filter(r => {
+      const rd = String(r.tanggalFormatted || r.tanggal || r.createdAt || '').slice(0, 10);
+      return rd === cleanD;
+    });
+
+    const isOverridden = dailyShiftOverrides.value && dailyShiftOverrides.value[cleanD];
+    const defaultIsLong = isDateLongShift(cleanD);
+
+    if (dayRolls.length === 0) {
+      return {
+        date: cleanD,
+        hasData: false,
+        totalRolls: 0,
+        isLongShift: defaultIsLong,
+        isOverridden: Boolean(isOverridden),
+        overrideNote: isOverridden ? isOverridden.note : '',
+        detectedMode: defaultIsLong ? 'LONG' : 'SHORT',
+        modeLabel: defaultIsLong ? 'Long Shift (12 Jam)' : 'Shift Normal (8 Jam)',
+        reason: isOverridden ? 'Dikonfirmasi secara manual' : (defaultIsLong ? 'Jadwal Akhir Pekan (Jumat-Minggu)' : 'Jadwal Standar Hari Kerja'),
+        machineAnalysis: {}
+      };
+    }
+
+    // Group rolls by machine
+    const machGroups = { SLITTING: [], REWIND: [], CASTING: [], METALIZE: [] };
+    for (const r of dayRolls) {
+      let m = 'SLITTING';
+      const rawM = String(r.machineName || r.mesin || '').toUpperCase();
+      if (rawM.includes('REWIND') || r.rewind === 1 || r.rewind === '1') m = 'REWIND';
+      else if (rawM.includes('CAST') || r.casting === 1 || r.casting === '1') m = 'CASTING';
+      else if (rawM.includes('MET') || r.metalize === 1 || r.metalize === '1') m = 'METALIZE';
+      else m = 'SLITTING';
+
+      if (!machGroups[m]) machGroups[m] = [];
+      machGroups[m].push(r);
+    }
+
+    const machineAnalysis = {};
+    let slittingIsLong = null;
+    let longShiftMachineCount = 0;
+    let active24hMachineCount = 0;
+
+    // 1. Evaluasi Mesin 24 Jam (SLITTING, CASTING, METALIZE)
+    for (const mKey of ['SLITTING', 'CASTING', 'METALIZE']) {
+      const mRolls = machGroups[mKey] || [];
+      if (mRolls.length === 0) {
+        machineAnalysis[mKey] = { active: false, rollCount: 0, uniqueOps: [], isLongShift: false, reason: 'Tidak ada produksi' };
+        continue;
+      }
+      active24hMachineCount++;
+      const opMap = new Map();
+      for (const r of mRolls) {
+        const op = extractOperatorFromRoll(r, opList);
+        if (op && (op.kodeOperator || op.nama)) {
+          const key = (op.kodeOperator || op.nama).toUpperCase();
+          opMap.set(key, op.nama || key);
+        }
+      }
+      const uniqueOps = Array.from(opMap.values());
+      const opCount = uniqueOps.length;
+
+      // Rule: 2 operator unik dalam 24 jam = Long Shift 12 Jam!
+      const isLong = opCount === 2 && mRolls.length >= 2;
+      if (isLong) longShiftMachineCount++;
+      if (mKey === 'SLITTING') slittingIsLong = isLong;
+
+      machineAnalysis[mKey] = {
+        active: true,
+        rollCount: mRolls.length,
+        opCount,
+        uniqueOps,
+        isLongShift: isLong,
+        reason: isLong 
+          ? `Terdeteksi 2 operator dalam 24 jam (${uniqueOps.join(', ')}) → Long Shift (12 Jam)`
+          : (opCount >= 3 ? `Terdeteksi 3 operator (${uniqueOps.join(', ')}) → Shift Normal (8 Jam)` : `Hanya 1 operator aktif (${uniqueOps.join(', ') || 'Anonim'})`)
+      };
+    }
+
+    // 2. Evaluasi Mesin REWIND
+    const rewindRolls = machGroups['REWIND'] || [];
+    if (rewindRolls.length > 0) {
+      let s1 = 0;
+      let s2 = 0;
+      const opMap = new Map();
+      for (const r of rewindRolls) {
+        const op = extractOperatorFromRoll(r, opList);
+        if (op) {
+          const key = (op.kodeOperator || op.nama).toUpperCase();
+          opMap.set(key, op.nama || key);
+          if (op.detectedShift === '1' || r.shift === '1' || r.shift === 1) s1++;
+          else if (op.detectedShift === '2' || r.shift === '2' || r.shift === 2) s2++;
+        } else {
+          if (r.shift === '1' || r.shift === 1) s1++;
+          else if (r.shift === '2' || r.shift === 2) s2++;
+        }
+      }
+      const tot = rewindRolls.length;
+      const uniqueOps = Array.from(opMap.values());
+      const hasBothOps = (opMap.has('J') && opMap.has('K')) || (s1 > 0 && s2 > 0);
+      const isHighVolume = tot >= 8;
+      const balanceRatio = tot > 0 ? Math.min(s1, s2) / tot : 0;
+      const isBalanced = balanceRatio >= 0.35;
+
+      const isRewindLong = hasBothOps && isHighVolume && isBalanced;
+      machineAnalysis['REWIND'] = {
+        active: true,
+        rollCount: tot,
+        opCount: uniqueOps.length,
+        uniqueOps,
+        shift1Count: s1,
+        shift2Count: s2,
+        balancePercent: Math.round(balanceRatio * 100),
+        isLongShift: isRewindLong,
+        reason: isRewindLong
+          ? `Volume tinggi (${tot} roll) & seimbang (${s1} Shift 1 vs ${s2} Shift 2) → Long Shift (12 Jam)`
+          : (tot < 8 ? `Volume rendah (${tot} roll) → Pengerjaan parsial/normal` : `Distribusi tidak seimbang (${s1} vs ${s2})`)
+      };
+    } else {
+      machineAnalysis['REWIND'] = { active: false, rollCount: 0, uniqueOps: [], isLongShift: false, reason: 'Tidak ada produksi' };
+    }
+
+    // 3. Keputusan Keseluruhan Hari Kerja
+    let finalIsLong = false;
+    let finalReason = '';
+
+    if (isOverridden) {
+      finalIsLong = Boolean(isOverridden.isLongShift);
+      finalReason = `Dikonfirmasi manual: ${isOverridden.note || (finalIsLong ? 'Long Shift (12 Jam)' : 'Normal (8 Jam)')}`;
+    } else if (slittingIsLong !== null) {
+      finalIsLong = slittingIsLong;
+      finalReason = machineAnalysis['SLITTING'].reason;
+    } else if (active24hMachineCount > 0) {
+      finalIsLong = longShiftMachineCount >= Math.ceil(active24hMachineCount / 2);
+      finalReason = `${longShiftMachineCount} dari ${active24hMachineCount} mesin utama terdeteksi long shift`;
+    } else if (rewindRolls.length > 0) {
+      finalIsLong = machineAnalysis['REWIND'].isLongShift;
+      finalReason = machineAnalysis['REWIND'].reason;
+    } else {
+      finalIsLong = defaultIsLong;
+      finalReason = finalIsLong ? 'Jadwal Akhir Pekan (12 Jam)' : 'Jadwal Reguler (8 Jam)';
+    }
+
+    return {
+      date: cleanD,
+      hasData: true,
+      totalRolls: dayRolls.length,
+      isLongShift: finalIsLong,
+      isOverridden: Boolean(isOverridden),
+      detectedMode: finalIsLong ? 'LONG' : 'SHORT',
+      modeLabel: finalIsLong ? 'Long Shift (12 Jam)' : 'Shift Normal (8 Jam)',
+      reason: finalReason,
+      machineAnalysis
+    };
+  };
+
+  /**
+   * Rekap Komparasi Rencana vs Realisasi Aktual (Data Roll) per Hari Kerja:
+   */
+  const getActualWorkHistory = (dateStr, rollsData = [], labelsData = []) => {
+    const cleanD = String(dateStr || '').slice(0, 10);
+    const opList = configStore.operatorList || [];
+    const shiftMode = detectWorkDateShiftMode(cleanD, rollsData);
+
+    // Ambil data roll pada tanggal ini
+    const dayRolls = (rollsData || []).filter(r => {
+      const rd = String(r.tanggalFormatted || r.tanggal || r.createdAt || '').slice(0, 10);
+      return rd === cleanD;
+    });
+
+    const stations = [
+      { machine: 'SLITTING', icon: '✂️', name: 'Slitting Machine' },
+      { machine: 'REWIND', icon: '🔄', name: 'Rewind Machine' },
+      { machine: 'CASTING', icon: '🏭', name: 'Casting Station' },
+      { machine: 'METALIZE', icon: '✨', name: 'Metalize Chamber' },
+    ];
+
+    let grandChildCount = 0;
+    let grandParentCount = 0;
+    let grandNetto = 0;
+    let grandMeter = 0;
+    let grandPass = 0;
+    let grandHold = 0;
+    let grandReject = 0;
+
+    const stationRecords = stations.map(station => {
+      const mKey = station.machine;
+      const mRolls = dayRolls.filter(r => {
+        const rawM = String(r.machineName || r.mesin || '').toUpperCase();
+        if (mKey === 'REWIND') return rawM.includes('REWIND') || r.rewind === 1 || r.rewind === '1';
+        if (mKey === 'CASTING') return rawM.includes('CAST') || r.casting === 1 || r.casting === '1';
+        if (mKey === 'METALIZE') return rawM.includes('MET') || r.metalize === 1 || r.metalize === '1';
+        return rawM.includes('SLIT') || r.slitting === 1 || r.slitting === '1' || (!rawM && mKey === 'SLITTING');
+      });
+
+      // Scheduled operator (Rencana)
+      const scheduledShiftCode = shiftMode.isLongShift ? 'LS1' : '1';
+      const scheduled = getScheduledOperators(cleanD, scheduledShiftCode);
+      const scheduledOp = scheduled.roster[mKey] || null;
+
+      // Actual operators (Realisasi)
+      const opMap = new Map();
+      const parentSet = new Set();
+      const spkMap = {};
+      let netto = 0;
+      let meter = 0;
+      let pass = 0;
+      let hold = 0;
+      let reject = 0;
+
+      for (const r of mRolls) {
+        const op = extractOperatorFromRoll(r, opList);
+        if (op && (op.nama || op.kodeOperator)) {
+          const key = (op.kodeOperator || op.nama).toUpperCase();
+          if (!opMap.has(key)) {
+            opMap.set(key, { ...op, rollCount: 0 });
+          }
+          opMap.get(key).rollCount++;
+        }
+
+        const rawParent = (r.parentLot || r.lotInduk || r.lot || '').toString().trim();
+        const pClean = rawParent.split('/')[0].trim().toUpperCase();
+        if (pClean) parentSet.add(pClean);
+
+        netto += parseFloat(r.netto || r.berat || 0) || 0;
+        meter += parseFloat(r.length || r.meter || 0) || 0;
+
+        const st = String(r.qualityStatus || r.status || 'PASS').toUpperCase();
+        if (st === 'PASS' || st === 'OK') pass++;
+        else if (st === 'HOLD') hold++;
+        else if (st === 'REJECT') reject++;
+        else pass++;
+
+        const spk = (r.spk || 'Tanpa SPK').trim().toUpperCase();
+        if (!spkMap[spk]) spkMap[spk] = 0;
+        spkMap[spk]++;
+      }
+
+      const actualOps = Array.from(opMap.values());
+      const childCount = mRolls.length;
+      const parentCount = parentSet.size;
+
+      grandChildCount += childCount;
+      grandParentCount += parentCount;
+      grandNetto += netto;
+      grandMeter += meter;
+      grandPass += pass;
+      grandHold += hold;
+      grandReject += reject;
+
+      // Cek apakah ada substitusi
+      let isSubstituted = false;
+      if (scheduledOp && actualOps.length > 0) {
+        const schedNama = String(scheduledOp.nama || '').toUpperCase();
+        const schedKode = String(scheduledOp.kodeOperator || '').toUpperCase();
+        const found = actualOps.some(o => 
+          (o.nama && o.nama.toUpperCase() === schedNama) ||
+          (o.kodeOperator && o.kodeOperator.toUpperCase() === schedKode)
+        );
+        isSubstituted = !found;
+      }
+
+      const passPercent = childCount > 0 ? Math.round((pass / childCount) * 100) : 0;
+      const holdPercent = childCount > 0 ? Math.round((hold / childCount) * 100) : 0;
+      const rejectPercent = childCount > 0 ? Math.round((reject / childCount) * 100) : 0;
+
+      const spkList = Object.entries(spkMap).map(([spk, count]) => ({ spk, count }));
+
+      return {
+        ...station,
+        hasData: childCount > 0,
+        childCount,
+        parentCount,
+        netto: Math.round(netto * 100) / 100,
+        meter: Math.round(meter),
+        passCount: pass,
+        holdCount: hold,
+        rejectCount: reject,
+        passPercent,
+        holdPercent,
+        rejectPercent,
+        scheduledOp,
+        actualOps,
+        isSubstituted,
+        spkList,
+        analysis: shiftMode.machineAnalysis[mKey] || null
+      };
+    });
+
+    const grandPassPercent = grandChildCount > 0 ? Math.round((grandPass / grandChildCount) * 100) : 0;
+
+    return {
+      date: cleanD,
+      hasData: grandChildCount > 0,
+      shiftMode,
+      summary: {
+        totalChild: grandChildCount,
+        totalParent: grandParentCount,
+        totalNetto: Math.round(grandNetto * 100) / 100,
+        totalMeter: Math.round(grandMeter),
+        passCount: grandPass,
+        holdCount: grandHold,
+        rejectCount: grandReject,
+        passPercent: grandPassPercent,
+      },
+      stations: stationRecords
+    };
   };
 
   // Reactive Computed Shift Properties
@@ -532,6 +938,7 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     confirmedRoster,
     confirmedRosterShift,
     confirmedRosterDate,
+    dailyShiftOverrides,
     currentNow,
     tickLiveClock,
     currentShift,
@@ -539,11 +946,16 @@ export const useScheduleStore = defineStore('scheduleStore', () => {
     getWorkDate,
     getWeekOffset,
     getDayIndex,
+    isDateLongShift,
+    setShiftModeOverride,
     getShiftForGroupAndDate,
     getCurrentShiftInfo,
     getHandoverShifts,
     getScheduledOperators,
     confirmShiftHandover,
-    loadConfirmedRoster
+    loadConfirmedRoster,
+    extractOperatorFromRoll,
+    detectWorkDateShiftMode,
+    getActualWorkHistory
   };
 });

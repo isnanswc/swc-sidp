@@ -459,6 +459,53 @@
             </div>
           </div>
 
+          <!-- Shift Duration Mode Selector (8 Jam vs 12 Jam) -->
+          <div class="p-3.5 bg-gradient-to-r from-zinc-50 to-zinc-100 border border-zinc-200 rounded-xl space-y-2.5">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <span class="text-xs font-black text-zinc-900 flex items-center gap-1.5">
+                  <span>⏱️</span>
+                  <span>Durasi & Mode Shift Kerja:</span>
+                </span>
+                <p class="text-[11px] text-zinc-500">
+                  Jika salah satu operator tidak masuk dan diberlakukan shift panjang (12 jam), aktifkan mode ini.
+                </p>
+              </div>
+
+              <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-zinc-200 shadow-2xs">
+                <button
+                  type="button"
+                  @click="isHandoverLongShift = false"
+                  :class="['px-3 py-1 text-xs rounded-lg font-bold transition-all cursor-pointer', !isHandoverLongShift ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
+                >
+                  ⏱️ Shift Normal (8 Jam)
+                </button>
+                <button
+                  type="button"
+                  @click="isHandoverLongShift = true"
+                  :class="['px-3 py-1 text-xs rounded-lg font-bold transition-all cursor-pointer', isHandoverLongShift ? 'bg-purple-600 text-white shadow-xs font-black' : 'text-zinc-600 hover:text-zinc-900']"
+                >
+                  ⚡ Shift Panjang (12 Jam)
+                </button>
+              </div>
+            </div>
+
+            <div v-if="isHandoverLongShift" class="p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-900 flex items-start gap-2">
+              <span class="text-purple-600 text-base">⚡</span>
+              <div class="space-y-1 w-full">
+                <div class="font-bold">Mode Shift Panjang (12 Jam) Aktif</div>
+                <p class="text-[11px] text-purple-800 leading-relaxed">
+                  Jam kerja diset ke 12 jam (Siang: 07:00 - 19:00, Malam: 19:00 - 07:00). Popup pergantian shift berikutnya di navbar akan otomatis disinkronkan ke jam 19:00 (atau 07:00).
+                </p>
+                <input
+                  v-model="handoverLongShiftNote"
+                  placeholder="Keterangan shift panjang (misal: Operator Slitting sakit, cover 12 jam)..."
+                  class="w-full px-2.5 py-1 text-xs bg-white border border-purple-200 rounded-md text-zinc-800 outline-none focus:ring-1 focus:ring-purple-400"
+                />
+              </div>
+            </div>
+          </div>
+
           <!-- Machine Operator Assignment Cards -->
           <div class="space-y-2.5">
             <div class="text-xs font-black text-zinc-700 uppercase tracking-wider flex items-center justify-between">
@@ -586,6 +633,10 @@ const configStore = useConfigStore();
 
 // Step State: 1 = Laporan Shift Sebelumnya, 2 = Briefing Shift Selanjutnya
 const currentStep = ref(1);
+
+// Mode Shift Panjang (12 Jam) state
+const isHandoverLongShift = ref(false);
+const handoverLongShiftNote = ref('');
 
 // Urutan Sheet per Mesin sesuai instruksi: SLITTING, REWIND, CASTING, METALIZE
 const machineTabs = [
@@ -1212,6 +1263,11 @@ watch(() => scheduleStore.showShiftHandoverModal, async (newVal) => {
     await configStore.loadAll();
     loadShiftSummary();
     await initRosterFromSchedule();
+
+    const targetDate = upcomingShift.value?.date || scheduleStore.getWorkDate();
+    isHandoverLongShift.value = scheduleStore.isDateLongShift(targetDate);
+    const existingOverride = scheduleStore.dailyShiftOverrides && scheduleStore.dailyShiftOverrides[targetDate];
+    handoverLongShiftNote.value = existingOverride?.note || '';
   }
 });
 
@@ -1244,7 +1300,10 @@ const onOperatorChange = (machineName) => {
 };
 
 const handleConfirmRoster = () => {
-  scheduleStore.confirmShiftHandover(rosterForm);
+  scheduleStore.confirmShiftHandover(rosterForm, {
+    isLongShift: isHandoverLongShift.value,
+    note: handoverLongShiftNote.value || (isHandoverLongShift.value ? 'Long Shift 12 Jam diaktifkan saat serah terima' : '')
+  });
 };
 
 onMounted(async () => {
