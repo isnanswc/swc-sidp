@@ -1642,160 +1642,114 @@ const generateLineChartData = () => {
   // 2. GRANULARITAS HARIAN ('daily')
   // -------------------------------------------------------------------------
   } else if (effectiveGranularity === 'daily') {
+    let startD = null;
+    let endD = null;
+
     if (selectedFrequency.value === 'DAY') {
-      chartScopeLabel = 'Tren 7 Hari (H-6 s/d Hari Ini)';
-      const endD = new Date(targetObj.getFullYear(), targetObj.getMonth(), targetObj.getDate());
-      const startD = new Date(endD);
+      chartScopeLabel = 'Tren 7 Hari Terakhir (H-6 s/d Hari Ini)';
+      endD = new Date(targetObj.getFullYear(), targetObj.getMonth(), targetObj.getDate(), 12, 0, 0);
+      startD = new Date(endD);
       startD.setDate(endD.getDate() - 6);
-
-      const buckets = [];
-      const cur = new Date(startD);
-      const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-
-      while (cur <= endD) {
-        labels.push(`${dayNames[cur.getDay()]} (${String(cur.getDate()).padStart(2, '0')}/${String(cur.getMonth() + 1).padStart(2, '0')})`);
-        buckets.push({ iso: toYmd(cur), total: 0, pass: 0, hold: 0, reject: 0 });
-        cur.setDate(cur.getDate() + 1);
-      }
-
-      const bucketMap = new Map(buckets.map(b => [b.iso, b]));
-      for (const item of allProductionRolls.value) {
-        const prodDate = getRealProductionDate(item);
-        if (prodDate && bucketMap.has(prodDate)) {
-          accumulateQuality(bucketMap.get(prodDate), item);
-        }
-      }
-      totalData = buckets.map(b => b.total);
-      passData = buckets.map(b => b.pass);
-      holdData = buckets.map(b => b.hold);
-      rejectData = buckets.map(b => b.reject);
-
     } else if (selectedFrequency.value === 'WEEK') {
       chartScopeLabel = 'Minggu Ini (Senin s/d Minggu)';
-      const buckets = [];
-      const cur = new Date(range.startDate);
-      const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-
-      while (cur <= range.endDate) {
-        labels.push(`${dayNames[cur.getDay()]} (${String(cur.getDate()).padStart(2, '0')}/${String(cur.getMonth() + 1).padStart(2, '0')})`);
-        buckets.push({ iso: toYmd(cur), total: 0, pass: 0, hold: 0, reject: 0 });
-        cur.setDate(cur.getDate() + 1);
-      }
-
-      const bucketMap = new Map(buckets.map(b => [b.iso, b]));
-      for (const item of list) {
-        const prodDate = getRealProductionDate(item);
-        if (prodDate && bucketMap.has(prodDate)) {
-          accumulateQuality(bucketMap.get(prodDate), item);
-        }
-      }
-      totalData = buckets.map(b => b.total);
-      passData = buckets.map(b => b.pass);
-      holdData = buckets.map(b => b.hold);
-      rejectData = buckets.map(b => b.reject);
-
+      startD = new Date(range.startDate.getFullYear(), range.startDate.getMonth(), range.startDate.getDate(), 12, 0, 0);
+      endD = new Date(range.endDate.getFullYear(), range.endDate.getMonth(), range.endDate.getDate(), 12, 0, 0);
     } else if (selectedFrequency.value === 'MONTH') {
       chartScopeLabel = `Bulan ${monthNames[targetObj.getMonth()]} ${targetObj.getFullYear()}`;
-      const buckets = [];
-      const cur = new Date(range.startDate);
-
-      while (cur <= range.endDate) {
-        labels.push(String(cur.getDate())); // Tanggal 1, 2, 3...
-        buckets.push({ iso: toYmd(cur), total: 0, pass: 0, hold: 0, reject: 0 });
-        cur.setDate(cur.getDate() + 1);
-      }
-
-      const bucketMap = new Map(buckets.map(b => [b.iso, b]));
-      for (const item of list) {
-        const prodDate = getRealProductionDate(item);
-        if (prodDate && bucketMap.has(prodDate)) {
-          accumulateQuality(bucketMap.get(prodDate), item);
-        }
-      }
-      totalData = buckets.map(b => b.total);
-      passData = buckets.map(b => b.pass);
-      holdData = buckets.map(b => b.hold);
-      rejectData = buckets.map(b => b.reject);
-
-    } else if (selectedFrequency.value === 'CUSTOM' && range.startDate && range.endDate) {
-      const diffMs = range.endDate.getTime() - range.startDate.getTime();
-      const diffDays = Math.max(1, Math.round(diffMs / 86400000) + 1);
-
-      if (diffDays <= 31) {
-        chartScopeLabel = 'Rentang Harian Kustom';
-        const buckets = [];
-        const cur = new Date(range.startDate);
-        while (cur <= range.endDate) {
-          labels.push(`${cur.getDate()}/${cur.getMonth() + 1}`);
-          buckets.push({ iso: toYmd(cur), total: 0, pass: 0, hold: 0, reject: 0 });
-          cur.setDate(cur.getDate() + 1);
-        }
-        const bucketMap = new Map(buckets.map(b => [b.iso, b]));
-        for (const item of list) {
-          const prodDate = getRealProductionDate(item);
-          if (prodDate && bucketMap.has(prodDate)) {
-            accumulateQuality(bucketMap.get(prodDate), item);
-          }
-        }
-        totalData = buckets.map(b => b.total);
-        passData = buckets.map(b => b.pass);
-        holdData = buckets.map(b => b.hold);
-        rejectData = buckets.map(b => b.reject);
+      startD = new Date(range.startDate.getFullYear(), range.startDate.getMonth(), range.startDate.getDate(), 12, 0, 0);
+      endD = new Date(range.endDate.getFullYear(), range.endDate.getMonth(), range.endDate.getDate(), 12, 0, 0);
+    } else if (selectedFrequency.value === '3MONTH' || selectedFrequency.value === '6MONTH' || selectedFrequency.value === 'YEAR') {
+      chartScopeLabel = `Harian (${activePeriodSubtitle.value})`;
+      startD = new Date(range.startDate.getFullYear(), range.startDate.getMonth(), range.startDate.getDate(), 12, 0, 0);
+      endD = new Date(range.endDate.getFullYear(), range.endDate.getMonth(), range.endDate.getDate(), 12, 0, 0);
+    } else if (selectedFrequency.value === 'CUSTOM') {
+      if (range.startDate && range.endDate) {
+        startD = new Date(range.startDate.getFullYear(), range.startDate.getMonth(), range.startDate.getDate(), 12, 0, 0);
+        endD = new Date(range.endDate.getFullYear(), range.endDate.getMonth(), range.endDate.getDate(), 12, 0, 0);
+        chartScopeLabel = `Harian (${formatDateIndo(startD)} - ${formatDateIndo(endD)})`;
       } else {
-        // Rentang kustom panjang (> 31 hari): tampilkan 30 hari kalender kontinu terakhir
-        chartScopeLabel = 'Tren 30 Hari Terakhir';
-        const endD = new Date(range.endDate);
-        const startD = new Date(endD);
+        endD = new Date(targetObj.getFullYear(), targetObj.getMonth(), targetObj.getDate(), 12, 0, 0);
+        startD = new Date(endD);
         startD.setDate(endD.getDate() - 29);
-
-        const buckets = [];
-        const cur = new Date(startD);
-        while (cur <= endD) {
-          labels.push(`${cur.getDate()} ${monthNames[cur.getMonth()]}`);
-          buckets.push({ iso: toYmd(cur), total: 0, pass: 0, hold: 0, reject: 0 });
-          cur.setDate(cur.getDate() + 1);
-        }
-        const bucketMap = new Map(buckets.map(b => [b.iso, b]));
-        for (const item of allProductionRolls.value) {
-          const prodDate = getRealProductionDate(item);
-          if (prodDate && bucketMap.has(prodDate)) {
-            accumulateQuality(bucketMap.get(prodDate), item);
-          }
-        }
-        totalData = buckets.map(b => b.total);
-        passData = buckets.map(b => b.pass);
-        holdData = buckets.map(b => b.hold);
-        rejectData = buckets.map(b => b.reject);
+        chartScopeLabel = 'Tren 30 Hari Terakhir';
       }
-
-    // Rentang Panjang (3MONTH, 6MONTH, YEAR, ALL) saat user memilih tombol "Harian"
-    // Tampilkan 30 hari kalender kontinu terakhir (unbroken timeline tanpa tanggal melompat)
     } else {
-      chartScopeLabel = 'Tren 30 Hari Terakhir';
-      const endD = new Date(targetObj.getFullYear(), targetObj.getMonth(), targetObj.getDate());
-      const startD = new Date(endD);
-      startD.setDate(endD.getDate() - 29);
+      // 'ALL' (Semua Riwayat)
+      const dataDates = (list.length > 0 ? list : allProductionRolls.value)
+        .map(it => getRealProductionDate(it))
+        .filter(d => d && /^\d{4}-\d{2}-\d{2}/.test(d))
+        .sort();
 
-      const buckets = [];
-      const cur = new Date(startD);
-      while (cur <= endD) {
-        labels.push(`${cur.getDate()} ${monthNames[cur.getMonth()]}`);
-        buckets.push({ iso: toYmd(cur), total: 0, pass: 0, hold: 0, reject: 0 });
-        cur.setDate(cur.getDate() + 1);
-      }
-
-      const bucketMap = new Map(buckets.map(b => [b.iso, b]));
-      for (const item of allProductionRolls.value) {
-        const prodDate = getRealProductionDate(item);
-        if (prodDate && bucketMap.has(prodDate)) {
-          accumulateQuality(bucketMap.get(prodDate), item);
+      if (dataDates.length > 0) {
+        const minIso = dataDates[0];
+        const maxIso = dataDates[dataDates.length - 1];
+        const [minY, minM, minDay] = minIso.split('-').map(Number);
+        const [maxY, maxM, maxDay] = maxIso.split('-').map(Number);
+        startD = new Date(minY, minM - 1, minDay, 12, 0, 0);
+        endD = new Date(maxY, maxM - 1, maxDay, 12, 0, 0);
+        // Batasi rentang maksimal 366 hari jika data riwayat bertahun-tahun
+        const diffDays = Math.round((endD.getTime() - startD.getTime()) / 86400000);
+        if (diffDays > 366) {
+          startD = new Date(endD);
+          startD.setDate(endD.getDate() - 365);
         }
+        chartScopeLabel = `Harian (${formatDateIndo(startD)} - ${formatDateIndo(endD)})`;
+      } else {
+        endD = new Date(targetObj.getFullYear(), targetObj.getMonth(), targetObj.getDate(), 12, 0, 0);
+        startD = new Date(endD);
+        startD.setDate(endD.getDate() - 29);
+        chartScopeLabel = 'Tren 30 Hari Terakhir';
       }
-      totalData = buckets.map(b => b.total);
-      passData = buckets.map(b => b.pass);
-      holdData = buckets.map(b => b.hold);
-      rejectData = buckets.map(b => b.reject);
     }
+
+    if (startD > endD) {
+      const tmp = startD;
+      startD = endD;
+      endD = tmp;
+    }
+
+    const buckets = [];
+    const cur = new Date(startD);
+    let safety = 0;
+    const isMultiYear = startD.getFullYear() !== endD.getFullYear();
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+    while (cur <= endD && safety++ < 1000) {
+      const iso = toYmd(cur);
+      const dNum = cur.getDate();
+      const mIdx = cur.getMonth();
+      let lbl = '';
+      if (selectedFrequency.value === 'DAY' || selectedFrequency.value === 'WEEK') {
+        lbl = `${dayNames[cur.getDay()]} (${String(dNum).padStart(2, '0')}/${String(mIdx + 1).padStart(2, '0')})`;
+      } else if (selectedFrequency.value === 'MONTH') {
+        lbl = String(dNum);
+      } else if (isMultiYear) {
+        lbl = `${dNum} ${monthNames[mIdx]} '${String(cur.getFullYear()).slice(2)}`;
+      } else {
+        lbl = `${dNum} ${monthNames[mIdx]}`;
+      }
+
+      labels.push(lbl);
+      buckets.push({ iso, total: 0, pass: 0, hold: 0, reject: 0 });
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    const bucketMap = new Map(buckets.map(b => [b.iso, b]));
+    const sourceRolls = (selectedFrequency.value === 'DAY')
+      ? allProductionRolls.value
+      : (list.length > 0 ? list : allProductionRolls.value);
+
+    for (const item of sourceRolls) {
+      const prodDate = getRealProductionDate(item);
+      if (prodDate && bucketMap.has(prodDate)) {
+        accumulateQuality(bucketMap.get(prodDate), item);
+      }
+    }
+
+    totalData = buckets.map(b => b.total);
+    passData = buckets.map(b => b.pass);
+    holdData = buckets.map(b => b.hold);
+    rejectData = buckets.map(b => b.reject);
 
   // -------------------------------------------------------------------------
   // 3. GRANULARITAS MINGGUAN ('weekly')
@@ -2048,6 +2002,10 @@ const initLineChart = () => {
 
   const { labels, totalData, passData, holdData, rejectData } = generateLineChartData();
 
+  const isDense = totalData.length > 90;
+  const pRadius = isDense ? 0 : 3.5;
+  const bWidth = isDense ? 1.8 : 2.5;
+
   try {
     lineComparisonChartInstance = new Chart(lineComparisonChartCanvas.value, {
       type: 'line',
@@ -2062,9 +2020,10 @@ const initLineChart = () => {
             backgroundColor: 'rgba(15, 23, 42, 0.04)',
             fill: true,
             tension: 0.35,
-            borderWidth: 2.5,
-            pointRadius: 3.5,
-            pointHoverRadius: 6
+            borderWidth: bWidth,
+            pointRadius: pRadius,
+            pointHoverRadius: 6,
+            pointHitRadius: 10
           },
           {
             label: 'PASS',
@@ -2074,9 +2033,10 @@ const initLineChart = () => {
             backgroundColor: 'rgba(16, 185, 129, 0.04)',
             fill: false,
             tension: 0.35,
-            borderWidth: 2.5,
-            pointRadius: 3.5,
-            pointHoverRadius: 6
+            borderWidth: bWidth,
+            pointRadius: pRadius,
+            pointHoverRadius: 6,
+            pointHitRadius: 10
           },
           {
             label: 'HOLD',
@@ -2086,9 +2046,10 @@ const initLineChart = () => {
             backgroundColor: 'transparent',
             fill: false,
             tension: 0.35,
-            borderWidth: 2,
-            pointRadius: 3,
-            pointHoverRadius: 5
+            borderWidth: Math.max(1.5, bWidth - 0.5),
+            pointRadius: pRadius,
+            pointHoverRadius: 5,
+            pointHitRadius: 10
           },
           {
             label: 'REJECT',
@@ -2098,9 +2059,10 @@ const initLineChart = () => {
             backgroundColor: 'transparent',
             fill: false,
             tension: 0.35,
-            borderWidth: 2,
-            pointRadius: 3,
-            pointHoverRadius: 5
+            borderWidth: Math.max(1.5, bWidth - 0.5),
+            pointRadius: pRadius,
+            pointHoverRadius: 5,
+            pointHitRadius: 10
           }
         ]
       },
@@ -2123,7 +2085,12 @@ const initLineChart = () => {
         scales: {
           x: {
             grid: { display: false },
-            ticks: { font: { family: 'monospace', size: 9.5 } }
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: 14,
+              maxRotation: 0,
+              font: { family: 'monospace', size: 9.5 }
+            }
           },
           y: {
             beginAtZero: true,
@@ -2154,6 +2121,18 @@ const updateLineChart = () => {
   lineComparisonChartInstance.data.datasets[1].hidden = !chartVisibility.value.pass;
   lineComparisonChartInstance.data.datasets[2].hidden = !chartVisibility.value.hold;
   lineComparisonChartInstance.data.datasets[3].hidden = !chartVisibility.value.reject;
+
+  const isDense = totalData.length > 90;
+  const pRadius = isDense ? 0 : 3.5;
+  const bWidth = isDense ? 1.8 : 2.5;
+  lineComparisonChartInstance.data.datasets[0].borderWidth = bWidth;
+  lineComparisonChartInstance.data.datasets[1].borderWidth = bWidth;
+  lineComparisonChartInstance.data.datasets[2].borderWidth = Math.max(1.5, bWidth - 0.5);
+  lineComparisonChartInstance.data.datasets[3].borderWidth = Math.max(1.5, bWidth - 0.5);
+  for (let i = 0; i < 4; i++) {
+    lineComparisonChartInstance.data.datasets[i].pointRadius = pRadius;
+  }
+
   lineComparisonChartInstance.update();
 };
 
