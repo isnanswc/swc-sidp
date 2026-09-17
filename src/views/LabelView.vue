@@ -942,14 +942,36 @@
                   {{ shiftNode.totalNetto }} kg
                 </span>
 
+                <!-- Estimasi Trim Akumulasi Badge (if trim exists) -->
+                <span
+                  v-if="shiftNode.totalShiftTrimKg > 0"
+                  class="px-1.5 sm:px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300/80 font-mono font-bold text-[10px] hidden lg:inline"
+                  :title="`Estimasi Trim Akumulasi Seluruh Lot: ${shiftNode.totalShiftTrimKg} kg (${shiftNode.totalShiftTrimMm} mm)`"
+                >
+                  ✂️ Trim: {{ shiftNode.totalShiftTrimKg }} kg
+                </span>
+
                 <!-- Waste Shift Badge (if set) -->
                 <span
                   v-if="shiftNode.shiftWaste > 0"
                   class="px-1.5 sm:px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-mono font-bold text-[10px] hidden sm:inline"
-                  :title="`Waste Shift: ${shiftNode.shiftWaste} kg`"
+                  :title="shiftNode.shiftWasteNote || `Waste Shift: ${shiftNode.shiftWaste} kg`"
                 >
-                  🗑️ {{ shiftNode.shiftWaste }} kg
+                  🗑️ {{ shiftNode.shiftWaste }} kg<span v-if="shiftNode.shiftWasteDetails && shiftNode.shiftWasteDetails.length > 1" class="text-[9px] opacity-75 font-sans ml-0.5">({{ shiftNode.shiftWasteDetails.length }})</span>
                 </span>
+
+                <!-- QC Status Badges -->
+                <div class="hidden xl:flex items-center gap-1 text-[9.5px] font-mono shrink-0">
+                  <span v-if="shiftNode.passCount > 0" class="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold" title="Roll QC Pass">
+                    {{ shiftNode.passCount }}P
+                  </span>
+                  <span v-if="shiftNode.holdCount > 0" class="px-1 py-0.2 rounded bg-amber-100 text-amber-800 font-bold" title="Roll QC Hold">
+                    {{ shiftNode.holdCount }}H
+                  </span>
+                  <span v-if="shiftNode.rejectCount > 0" class="px-1 py-0.2 rounded bg-rose-100 text-rose-800 font-bold" title="Roll QC Reject">
+                    {{ shiftNode.rejectCount }}R
+                  </span>
+                </div>
 
                 <!-- Edit Shift Button (Ghost Style) -->
                 <button
@@ -1615,17 +1637,22 @@
       class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/60 backdrop-blur-xs animate-fade-in"
       @click.self="showShiftModal = false"
     >
-      <div class="bg-white rounded-2xl border border-zinc-200 shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto flex flex-col">
+      <div class="bg-white rounded-2xl border border-zinc-200 shadow-2xl w-full max-w-3xl xl:max-w-4xl max-h-[92vh] overflow-y-auto flex flex-col">
         <!-- Modal Header -->
         <div class="px-5 py-4 border-b border-zinc-200 flex items-center justify-between bg-slate-50/90 sticky top-0 z-10 backdrop-blur-md">
           <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow-sm text-sm">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow-sm text-sm">
               👤
             </div>
             <div>
-              <h3 class="text-sm font-black text-zinc-900 uppercase tracking-tight">Edit Shift & Input Waste Operator</h3>
+              <h3 class="text-sm font-black text-zinc-900 uppercase tracking-tight flex items-center gap-2">
+                <span>Informasi & Analisis Shift Operator</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200">
+                  {{ currentEditingShiftNode?.machine || 'SLITTING' }}
+                </span>
+              </h3>
               <p class="text-[11px] text-zinc-500 font-mono">
-                Shift: <strong class="text-blue-600">{{ shiftForm.oldShift }}</strong> • Operator: <strong class="text-zinc-800">{{ shiftForm.oldOperator }}</strong> • {{ currentEditingShiftNode?.items?.length || 0 }} Roll Terpotong
+                Shift: <strong class="text-blue-600">{{ shiftForm.oldShift }}</strong> • Operator: <strong class="text-zinc-800">{{ shiftForm.oldOperator }}</strong> • {{ currentEditingShiftNode?.items?.length || 0 }} Roll Terpotong ({{ currentEditingShiftNode?.totalLots || 0 }} Lot)
               </p>
             </div>
           </div>
@@ -1639,18 +1666,36 @@
 
         <!-- Modal Form Body -->
         <form @submit.prevent="saveShiftData" class="p-5 space-y-4 text-xs">
-          <!-- INFO ALERT: SHIFT & WASTE -->
-          <div class="p-3 bg-blue-50/80 border border-blue-200 rounded-xl space-y-1 text-zinc-700">
-            <div class="font-black text-blue-900 flex items-center gap-1.5">
-              <span>ℹ️ Tanggung Jawab Waste & Loss Material Shift:</span>
-            </div>
-            <p class="text-[11px] text-zinc-600">
-              Limbah operasional (*Shift Waste*) dan akumulasi defisit material dari seluruh lot induk dipertanggungjawabkan pada shift kerja operator terkait.
-            </p>
+          <!-- TAB NAVIGATOR -->
+          <div class="flex items-center gap-2 border-b border-zinc-200 pb-2">
+            <button
+              type="button"
+              @click="activeShiftModalTab = 'waste'"
+              :class="[
+                'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer',
+                activeShiftModalTab === 'waste' ? 'bg-zinc-900 text-white shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+              ]"
+            >
+              <span>🗑️ Input Multi-Waste & Operator</span>
+              <span v-if="shiftForm.wasteList.length > 0" class="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-mono font-bold">
+                {{ shiftForm.wasteList.length }}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              @click="activeShiftModalTab = 'analisis'"
+              :class="[
+                'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer',
+                activeShiftModalTab === 'analisis' ? 'bg-zinc-900 text-white shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+              ]"
+            >
+              <span>📊 Analisis Data & Neraca Bahan Child</span>
+            </button>
           </div>
 
-          <!-- GRID INPUT SHIFT & OPERATOR -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <!-- GRID INPUT SHIFT & OPERATOR (Selalu Tampil) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3 bg-slate-50 border border-slate-200 rounded-xl">
             <!-- PILIH SHIFT -->
             <div>
               <label class="block font-bold text-zinc-700 mb-1">
@@ -1659,7 +1704,7 @@
               <select
                 v-model="shiftForm.shift"
                 required
-                class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-black text-zinc-900 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full px-3 py-1.5 border border-zinc-300 rounded-lg font-black text-zinc-900 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
               >
                 <option value="1">Shift 1 (Pagi / 07:00 - 15:00)</option>
                 <option value="2">Shift 2 (Sore / 15:00 - 23:00)</option>
@@ -1677,7 +1722,7 @@
                 type="text"
                 list="operatorShiftSuggestions"
                 required
-                class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-bold text-zinc-900 uppercase bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full px-3 py-1.5 border border-zinc-300 rounded-lg font-bold text-zinc-900 uppercase bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 placeholder="Contoh: AGUS, HENDRA..."
               />
               <datalist id="operatorShiftSuggestions">
@@ -1688,131 +1733,321 @@
             </div>
           </div>
 
-          <!-- SECTION INPUT WASTE -->
-          <div class="p-3.5 bg-rose-50/70 border border-rose-200 rounded-xl space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-rose-950 text-xs flex items-center gap-1.5">
-                <span>🗑️ Input Waste Manual Shift (Timbangan Fisik):</span>
-              </span>
-              <span class="text-[10px] text-rose-800 font-mono font-bold">Satuan KG</span>
+          <!-- ══════ TAB 1: INPUT MULTI-WASTE SHIFT ══════ -->
+          <div v-show="activeShiftModalTab === 'waste'" class="space-y-3.5">
+            <!-- REKOMENDASI CERDAS WASTE TRIM DARI PARENT LOT -->
+            <div
+              v-if="currentEditingShiftNode?.totalShiftTrimKg > 0"
+              class="p-3 bg-emerald-50/90 border border-emerald-300 rounded-xl flex items-center justify-between gap-3 text-emerald-950 flex-wrap"
+            >
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">💡</span>
+                <div>
+                  <div class="font-black text-xs text-emerald-950 flex items-center gap-1.5">
+                    <span>Rekomendasi Waste Trim Terdeteksi:</span>
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-mono font-bold text-[11px]">
+                      {{ currentEditingShiftNode.totalShiftTrimKg }} kg
+                    </span>
+                  </div>
+                  <div class="text-[11px] text-emerald-800 mt-0.5">
+                    Dihitung otomatis dari akumulasi trim {{ currentEditingShiftNode.totalLots }} Lot Induk pada shift ini (Total {{ currentEditingShiftNode.totalShiftTrimMm }} mm).
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                @click="applyTrimRecommendation"
+                class="px-3 py-1.5 rounded-lg text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+              >
+                <span>✂️ Terapkan ke Daftar Waste</span>
+              </button>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <!-- BERAT WASTE (KG) -->
-              <div>
-                <label class="block font-bold text-rose-900 mb-1 flex items-center justify-between">
-                  <span>Berat Waste Fisik (kg)</span>
-                  <span class="text-[10px] text-rose-700 font-mono font-bold">Kilogram</span>
-                </label>
-                <div class="relative">
-                  <input
-                    v-model="shiftForm.shiftWaste"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    class="w-full px-3 py-1.5 border border-rose-300 rounded-lg font-mono font-black text-rose-950 bg-white focus:ring-1 focus:ring-rose-500 focus:border-rose-500 outline-none pr-10"
-                    placeholder="0.00"
-                  />
-                  <span class="absolute right-3 top-1.5 text-rose-600 font-bold font-mono">kg</span>
+            <!-- SECTION MULTI-WASTE TABLE -->
+            <div class="p-3.5 bg-rose-50/60 border border-rose-200 rounded-xl space-y-3">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <span class="font-black text-rose-950 text-xs flex items-center gap-1.5">
+                    <span>🗑️ Rincian Limbah / Waste Shift (Timbangan Fisik):</span>
+                  </span>
+                  <p class="text-[10.5px] text-rose-800 mt-0.5">
+                    {{ (currentEditingShiftNode?.machine || '').toUpperCase() === 'SLITTING' ? 'Pilihan kategori: TRIM, SESETAN, GULUNGAN (Standar Slitting).' : 'Keterangan dapat diisi manual sesuai jenis limbah mesin.' }}
+                  </p>
                 </div>
-                <p class="text-[10px] text-rose-800 mt-0.5">Total buangan fisik yang ditimbang manual.</p>
+                <button
+                  type="button"
+                  @click="addWasteItem()"
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>+ Tambah Baris Waste</span>
+                </button>
               </div>
 
-              <!-- KETERANGAN WASTE -->
-              <div>
-                <label class="block font-bold text-rose-900 mb-1">
-                  Keterangan / Rincian Waste
-                </label>
-                <input
-                  v-model="shiftForm.shiftWasteNote"
-                  type="text"
-                  list="wasteSuggestionsShift"
-                  class="w-full px-3 py-1.5 border border-rose-300 rounded-lg font-bold text-zinc-900 bg-white focus:ring-1 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                  placeholder="Contoh: Trim Sisi, Setting, Kerut, Core..."
-                />
-                <datalist id="wasteSuggestionsShift">
-                  <option value="Trim Pisau Sisi"></option>
-                  <option value="Setting / Start-up Mesin"></option>
-                  <option value="Kerut / Gelombang"></option>
-                  <option value="Core / Sisa Pipa Jumbo"></option>
-                  <option value="Sambungan Roll"></option>
-                  <option value="Terkontaminasi / Kotor"></option>
-                </datalist>
-                <p class="text-[10px] text-rose-800 mt-0.5">Alasan/rincian buangan selama shift.</p>
+              <!-- Waste Rows List -->
+              <div v-if="shiftForm.wasteList.length > 0" class="space-y-2">
+                <div
+                  v-for="(wItem, wIdx) in shiftForm.wasteList"
+                  :key="wItem.id"
+                  class="p-2.5 bg-white border border-rose-200 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center text-xs shadow-2xs"
+                >
+                  <!-- Kolom Jenis Waste (sm:col-span-4) -->
+                  <div class="sm:col-span-4">
+                    <label class="block font-bold text-[10px] text-zinc-600 mb-0.5">Kategori Waste #{{ wIdx + 1 }}</label>
+                    <!-- Dropdown jika SLITTING -->
+                    <div v-if="(currentEditingShiftNode?.machine || '').toUpperCase() === 'SLITTING'">
+                      <select
+                        v-model="wItem.jenis"
+                        class="w-full px-2 py-1.5 border border-zinc-300 rounded-lg font-bold text-zinc-900 bg-white outline-none focus:border-rose-500 text-xs"
+                      >
+                        <option value="TRIM">TRIM (Pisau Sisi)</option>
+                        <option value="SESETAN">SESETAN (Afval Awal/Setting)</option>
+                        <option value="GULUNGAN">GULUNGAN (Roll Cacat)</option>
+                        <option value="LAINNYA">LAINNYA (Input Bebas)</option>
+                      </select>
+                      <input
+                        v-if="wItem.jenis === 'LAINNYA'"
+                        v-model="wItem.customJenis"
+                        type="text"
+                        placeholder="Tulis jenis waste..."
+                        class="w-full mt-1 px-2 py-1 border border-rose-300 rounded text-xs font-bold text-zinc-900 outline-none"
+                      />
+                    </div>
+                    <!-- Input Text jika BUKAN SLITTING -->
+                    <div v-else>
+                      <input
+                        v-model="wItem.jenis"
+                        type="text"
+                        placeholder="Contoh: Setting, Kerut, Core..."
+                        list="nonSlitWasteSuggestions"
+                        class="w-full px-2 py-1.5 border border-zinc-300 rounded-lg font-bold text-zinc-900 bg-white outline-none focus:border-rose-500 text-xs"
+                      />
+                      <datalist id="nonSlitWasteSuggestions">
+                        <option value="Setting / Start-up Mesin"></option>
+                        <option value="Kerut / Gelombang Film"></option>
+                        <option value="Core / Sisa Pipa Jumbo"></option>
+                        <option value="Sambungan Roll"></option>
+                        <option value="Terkontaminasi / Kotor"></option>
+                        <option value="Regrind / Scrap"></option>
+                      </datalist>
+                    </div>
+                  </div>
+
+                  <!-- Kolom Berat kg (sm:col-span-3) -->
+                  <div class="sm:col-span-3">
+                    <label class="block font-bold text-[10px] text-zinc-600 mb-0.5">Berat Fisik (kg) <span class="text-rose-600">*</span></label>
+                    <div class="relative">
+                      <input
+                        v-model="wItem.berat"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        class="w-full px-2 py-1.5 border border-rose-300 rounded-lg font-mono font-black text-rose-950 bg-white outline-none focus:border-rose-500 text-xs pr-7 text-right"
+                      />
+                      <span class="absolute right-2 top-1.5 text-[10px] text-zinc-500 font-mono">kg</span>
+                    </div>
+                  </div>
+
+                  <!-- Kolom Catatan (sm:col-span-4) -->
+                  <div class="sm:col-span-4">
+                    <label class="block font-bold text-[10px] text-zinc-600 mb-0.5">Keterangan / Catatan</label>
+                    <input
+                      v-model="wItem.catatan"
+                      type="text"
+                      placeholder="Catatan penyebab/alasan..."
+                      class="w-full px-2 py-1.5 border border-zinc-200 rounded-lg text-zinc-700 bg-white outline-none focus:border-rose-500 text-xs"
+                    />
+                  </div>
+
+                  <!-- Kolom Hapus (sm:col-span-1) -->
+                  <div class="sm:col-span-1 flex justify-end sm:justify-center pt-2 sm:pt-4">
+                    <button
+                      type="button"
+                      @click="removeWasteItem(wIdx)"
+                      class="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="Hapus baris waste"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Empty State for Waste List -->
+              <div v-else class="p-5 bg-white/80 border border-dashed border-rose-200 rounded-xl text-center text-zinc-500 text-xs">
+                <span>Belum ada rincian waste fisik yang dimasukkan untuk shift ini.</span>
+                <div class="mt-2">
+                  <button
+                    type="button"
+                    @click="addWasteItem()"
+                    class="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
+                  >
+                    + Tambah baris waste sekarang
+                  </button>
+                </div>
+              </div>
+
+              <!-- Summary Total Box -->
+              <div class="flex items-center justify-between pt-2 text-xs font-bold text-rose-950 border-t border-rose-200/70">
+                <span>Total Akumulasi Limbah Shift:</span>
+                <span class="font-mono text-sm font-black text-rose-800">
+                  {{ computedMultiWasteTotal.toFixed(2) }} kg <span class="text-[10px] font-sans font-normal text-rose-600">({{ shiftForm.wasteList.length }} Item)</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- AKUMULASI DEFISIT LOT PADA SHIFT INI -->
+            <div v-if="currentEditingShiftNode?.shiftUnaccountedDeficit > 0" class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-amber-950">
+              <div class="flex items-center gap-2">
+                <span class="text-base">⚠️</span>
+                <div>
+                  <div class="font-black text-xs">Akumulasi Defisit Berat Lot Induk:</div>
+                  <div class="text-[11px] text-amber-800">Terdapat akumulasi selisih kurang material dari seluruh lot pada shift ini.</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="px-2 py-1 rounded bg-amber-200/80 font-mono font-black text-xs text-amber-900">
+                  +{{ currentEditingShiftNode.shiftUnaccountedDeficit }} kg Loss
+                </span>
               </div>
             </div>
           </div>
 
-          <!-- AKUMULASI DEFISIT LOT PADA SHIFT INI -->
-          <div v-if="currentEditingShiftNode?.shiftUnaccountedDeficit > 0" class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-amber-950">
-            <div class="flex items-center gap-2">
-              <span class="text-base">⚠️</span>
-              <div>
-                <div class="font-black text-xs">Akumulasi Defisit Berat Lot Induk:</div>
-                <div class="text-[11px] text-amber-800">Terdapat akumulasi selisih kurang material dari seluruh lot pada shift ini.</div>
+          <!-- ══════ TAB 2: ANALISIS DATA & NERACA MATERIAL CHILD ══════ -->
+          <div v-show="activeShiftModalTab === 'analisis'" class="space-y-3.5">
+            <!-- RINGKASAN EFISIENSI & OUTPUT SHIFT (NERACA BAHAN) -->
+            <div class="p-3.5 bg-zinc-900 text-white rounded-xl space-y-2.5 shadow-md">
+              <div class="flex items-center justify-between border-b border-zinc-800 pb-1.5 flex-wrap gap-1">
+                <span class="font-black text-xs uppercase tracking-wider text-blue-400">📊 Neraca Bahan & Efisiensi Shift</span>
+                <span class="text-[10px] font-mono text-zinc-400">Total Output = Netto FG + Sisa Jumbo + Waste</span>
+              </div>
+
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div class="bg-zinc-800/80 p-2 rounded-lg border border-zinc-700/80">
+                  <div class="text-[9.5px] text-zinc-400 uppercase font-bold">Bahan Masuk</div>
+                  <div class="text-sm font-black font-mono text-blue-400 mt-0.5">
+                    {{ (currentEditingShiftNode?.totalShiftInputKg || 0).toFixed(2) }} <span class="text-[10px]">kg</span>
+                  </div>
+                </div>
+
+                <div class="bg-zinc-800/80 p-2 rounded-lg border border-zinc-700/80">
+                  <div class="text-[9.5px] text-zinc-400 uppercase font-bold">Netto FG (Child)</div>
+                  <div class="text-sm font-black font-mono text-emerald-400 mt-0.5">
+                    {{ parseFloat(currentEditingShiftNode?.totalNetto || 0).toFixed(2) }} <span class="text-[10px]">kg</span>
+                  </div>
+                  <div class="text-[9px] text-emerald-300 font-bold">Yield: {{ currentEditingShiftNode?.shiftYieldPercent || 0 }}%</div>
+                </div>
+
+                <div class="bg-zinc-800/80 p-2 rounded-lg border border-zinc-700/80">
+                  <div class="text-[9.5px] text-zinc-400 uppercase font-bold">Sisa Jumbo</div>
+                  <div class="text-sm font-black font-mono text-cyan-400 mt-0.5">
+                    {{ (currentEditingShiftNode?.totalShiftSisaJumboKg || 0).toFixed(2) }} <span class="text-[10px]">kg</span>
+                  </div>
+                </div>
+
+                <div class="bg-zinc-800/80 p-2 rounded-lg border border-zinc-700/80">
+                  <div class="text-[9.5px] text-zinc-400 uppercase font-bold">Total Waste</div>
+                  <div class="text-sm font-black font-mono text-rose-400 mt-0.5">
+                    {{ computedMultiWasteTotal.toFixed(2) }} <span class="text-[10px]">kg</span>
+                  </div>
+                  <div class="text-[9px]" :class="computedShiftWasteRatio <= 5 ? 'text-emerald-400' : 'text-amber-400'">
+                    Rasio: {{ computedShiftWasteRatio.toFixed(1) }}%
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="text-right">
-              <span class="px-2 py-1 rounded bg-amber-200/80 font-mono font-black text-xs text-amber-900">
-                +{{ currentEditingShiftNode.shiftUnaccountedDeficit }} kg Loss
+
+            <!-- DISTRIBUSI PISAU POTONG (BLADE WIDTHS) -->
+            <div v-if="currentEditingShiftNode?.bladeWidthDistribution?.length > 0" class="p-3 bg-zinc-50 border border-zinc-200 rounded-xl space-y-2">
+              <span class="font-bold text-zinc-800 text-xs flex items-center gap-1.5">
+                <span>🔪 Distribusi Ukuran Pisau Potong (Child Roll):</span>
               </span>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="b in currentEditingShiftNode.bladeWidthDistribution"
+                  :key="b.width"
+                  class="px-2.5 py-1 rounded-lg bg-white border border-zinc-300 font-mono text-xs font-bold text-zinc-800 flex items-center gap-1.5 shadow-2xs"
+                >
+                  <span class="text-indigo-600">{{ b.width }} mm</span>
+                  <span class="text-zinc-400">•</span>
+                  <span>{{ b.count }} Roll</span>
+                  <span class="text-zinc-400">•</span>
+                  <span class="text-emerald-700">{{ b.netto }} kg</span>
+                </span>
+              </div>
             </div>
-          </div>
 
-          <!-- RINGKASAN EFISIENSI & OUTPUT SHIFT -->
-          <div class="p-3.5 bg-zinc-900 text-white rounded-xl space-y-2.5 shadow-md">
-            <div class="flex items-center justify-between border-b border-zinc-800 pb-1.5">
-              <span class="font-black text-xs uppercase tracking-wider text-blue-400">📊 Neraca Bahan & Akuntabilitas Shift</span>
-              <span class="text-[10px] font-mono text-zinc-400">Total Material = Netto + Sisa + Waste</span>
-            </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-              <div class="bg-zinc-800/80 p-2 rounded-lg border border-zinc-700/80">
-                <div class="text-[9.5px] text-zinc-400 uppercase font-bold">Netto Roll</div>
-                <div class="text-sm font-black font-mono text-emerald-400 mt-0.5">
-                  {{ parseFloat(currentEditingShiftNode?.totalNetto || 0).toFixed(2) }} <span class="text-[10px]">kg</span>
-                </div>
-              </div>
-
-              <div class="bg-zinc-800/80 p-2 rounded-lg border border-zinc-700/80">
-                <div class="text-[9.5px] text-zinc-400 uppercase font-bold">Sisa Jumbo</div>
-                <div class="text-sm font-black font-mono text-cyan-400 mt-0.5">
-                  {{ (currentEditingShiftNode?.totalShiftSisaJumboKg || 0).toFixed(2) }} <span class="text-[10px]">kg</span>
-                </div>
-              </div>
-
-              <div class="bg-zinc-800/80 p-2 rounded-lg border border-zinc-700/80">
-                <div class="text-[9.5px] text-zinc-400 uppercase font-bold">Total Waste</div>
-                <div class="text-sm font-black font-mono text-rose-400 mt-0.5">
-                  {{ ((parseFloat(shiftForm.shiftWaste) || 0) + (currentEditingShiftNode?.shiftUnaccountedDeficit || 0)).toFixed(2) }} <span class="text-[10px]">kg</span>
-                </div>
-              </div>
-
-              <div class="bg-zinc-800/80 p-2 rounded-lg border border-zinc-700/80">
-                <div class="text-[9.5px] text-zinc-400 uppercase font-bold">Rasio Waste</div>
-                <div class="text-sm font-black font-mono mt-0.5" :class="computedShiftWasteRatio <= 5 ? 'text-emerald-400' : 'text-amber-400'">
-                  {{ computedShiftWasteRatio.toFixed(2) }}%
-                </div>
+            <!-- TABEL RINCIAN LOT INDUK DI SHIFT INI -->
+            <div class="p-3 bg-white border border-zinc-200 rounded-xl space-y-2">
+              <span class="font-bold text-zinc-800 text-xs flex items-center gap-1.5">
+                <span>📦 Rincian Parent Lot di Shift Ini:</span>
+              </span>
+              <div class="overflow-x-auto border border-zinc-200 rounded-lg">
+                <table class="w-full text-left text-xs font-mono">
+                  <thead class="bg-zinc-100 text-zinc-700 font-bold border-b border-zinc-200 text-[11px]">
+                    <tr>
+                      <th class="p-2">No Lot</th>
+                      <th class="p-2">SPK</th>
+                      <th class="p-2">Dimensi Induk</th>
+                      <th class="p-2 text-right">Trim Induk</th>
+                      <th class="p-2 text-center">Roll</th>
+                      <th class="p-2 text-right">Netto FG</th>
+                      <th class="p-2 text-right">Status Loss</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-zinc-100">
+                    <tr v-for="l in currentEditingShiftNode?.lots || []" :key="l.uniqueKey" class="hover:bg-zinc-50">
+                      <td class="p-2 font-bold text-zinc-900">🏷️ {{ l.lot }}</td>
+                      <td class="p-2 text-zinc-600">{{ l.spk }}</td>
+                      <td class="p-2 text-zinc-700">{{ l.parentWidth }}mm × {{ l.parentMeter }}M</td>
+                      <td class="p-2 text-right font-bold" :class="l.lotTrimKg > 0 ? 'text-emerald-700' : 'text-zinc-400'">
+                        {{ l.lotTrimKg > 0 ? `${l.lotTrimKg} kg (${l.lotTrimMm}mm)` : '0 kg' }}
+                      </td>
+                      <td class="p-2 text-center font-bold text-zinc-700">{{ l.totalItems }}</td>
+                      <td class="p-2 text-right font-black text-emerald-800">{{ l.totalNetto }} kg</td>
+                      <td class="p-2 text-right">
+                        <span
+                          v-if="l.diffNetto !== null"
+                          :class="[
+                            'px-1.5 py-0.2 rounded text-[10px] font-bold',
+                            l.diffStatus === 'OK' ? 'bg-emerald-100 text-emerald-800' :
+                            l.diffStatus === 'WARNING' ? 'bg-amber-100 text-amber-800' :
+                            'bg-rose-100 text-rose-800'
+                          ]"
+                        >
+                          {{ l.diffNetto > 0 ? `-${l.diffNetto} kg` : `+${Math.abs(l.diffNetto)} kg` }}
+                        </span>
+                        <span v-else class="text-zinc-400">-</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
 
           <!-- Modal Footer Action Buttons -->
-          <div class="flex items-center justify-end gap-2 pt-3 border-t border-zinc-200">
-            <button
-              type="button"
-              @click="showShiftModal = false"
-              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              class="px-5 py-2 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-              <span>Simpan Data Shift & Waste</span>
-            </button>
+          <div class="flex items-center justify-between gap-2 pt-3 border-t border-zinc-200">
+            <div class="text-xs font-mono font-bold text-zinc-500">
+              Total Waste Terdata: <span class="text-rose-700 font-black">{{ computedMultiWasteTotal.toFixed(2) }} kg</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="showShiftModal = false"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                class="px-5 py-2 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                <span>Simpan Data Shift & Waste</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -5371,6 +5606,50 @@ const hierarchyTree = computed(() => {
       const shiftUniqueKey = `${dateKey}_${shiftData.machine}_${shiftData.shiftNum}_${shiftData.opName}`;
       dateTotalWaste += shiftWaste;
 
+      // Hitung estimasi berat trim & bahan masuk dari seluruh parent lot di shift ini
+      lots.forEach(l => {
+        const lotTrimMm = l.parentTrim !== undefined ? l.parentTrim : Math.max(0, (parseFloat(l.parentWidth) || 0) - (parseFloat(l.sumChildWidth) || 0));
+        let lotTrimKg = 0;
+        if (lotTrimMm > 0 && l.thickness && l.parentMeter && l.parentDensity) {
+          lotTrimKg = calculateBeratTeori(l.thickness, lotTrimMm, l.parentMeter, l.parentDensity);
+        }
+        l.lotTrimMm = lotTrimMm;
+        l.lotTrimKg = parseFloat(lotTrimKg.toFixed(2));
+      });
+
+      const totalShiftTrimKg = parseFloat(lots.reduce((acc, l) => acc + (l.lotTrimKg || 0), 0).toFixed(2));
+      const totalShiftTrimMm = lots.reduce((acc, l) => acc + (l.lotTrimMm || 0), 0);
+      const totalShiftInputKg = parseFloat(lots.reduce((acc, l) => acc + (parseFloat(l.parentBeratMasuk) || parseFloat(l.parentBeratTeori) || 0), 0).toFixed(2));
+      const shiftYieldPercent = totalShiftInputKg > 0 ? parseFloat(((shiftTotalNetto / totalShiftInputKg) * 100).toFixed(1)) : 0;
+
+      // Distribusi Ukuran Pisau Potong (Blade Widths)
+      const bladeWidthMap = new Map();
+      shiftItems.forEach(item => {
+        const w = parseFloat(item.width) || parseFloat(item.lebar) || 0;
+        if (w > 0) {
+          const existing = bladeWidthMap.get(w) || { width: w, count: 0, netto: 0 };
+          existing.count += 1;
+          existing.netto += parseFloat(item.netto || item.berat) || 0;
+          bladeWidthMap.set(w, existing);
+        }
+      });
+      const bladeWidthDistribution = Array.from(bladeWidthMap.values()).sort((a, b) => b.width - a.width).map(b => ({
+        ...b,
+        netto: parseFloat(b.netto.toFixed(2))
+      }));
+
+      // Parse Multi-Waste Details jika tersimpan
+      let parsedWasteDetails = null;
+      if (firstShiftItem.shiftWasteDetails) {
+        try {
+          parsedWasteDetails = Array.isArray(firstShiftItem.shiftWasteDetails)
+            ? firstShiftItem.shiftWasteDetails
+            : JSON.parse(firstShiftItem.shiftWasteDetails);
+        } catch (e) {
+          parsedWasteDetails = null;
+        }
+      }
+
       // Akumulasi defisit/loss material unrecorded dari seluruh lot di shift ini
       const shiftUnaccountedDeficit = lots.reduce((acc, l) => acc + (l.diffNetto && l.diffNetto > 0 ? l.diffNetto : 0), 0);
       const totalShiftSisaJumboKg = lots.reduce((acc, l) => acc + (l.parentSisaKg || 0), 0);
@@ -5386,6 +5665,12 @@ const hierarchyTree = computed(() => {
         totalNetto: shiftTotalNetto.toFixed(2),
         shiftWaste,
         shiftWasteNote,
+        shiftWasteDetails: parsedWasteDetails,
+        totalShiftTrimKg,
+        totalShiftTrimMm,
+        totalShiftInputKg,
+        shiftYieldPercent,
+        bladeWidthDistribution,
         shiftUnaccountedDeficit: parseFloat(shiftUnaccountedDeficit.toFixed(2)),
         totalShiftSisaJumboKg: parseFloat(totalShiftSisaJumboKg.toFixed(2)),
         passCount: shiftPassCount,
@@ -5426,18 +5711,74 @@ const hierarchyTree = computed(() => {
 
 // ── SHIFT & WASTE EDIT MODAL STATE & HANDLERS ────────────────────────────────
 const showShiftModal = ref(false);
+const activeShiftModalTab = ref('waste'); // 'waste' | 'analisis'
 const currentEditingShiftNode = ref(null);
 const shiftForm = reactive({
   oldShift: '1',
   oldOperator: '',
   shift: '1',
   operator: '',
-  shiftWaste: '',
-  shiftWasteNote: ''
+  wasteList: []
+});
+
+const addWasteItem = (initial = {}) => {
+  const isSlitting = (currentEditingShiftNode.value?.machine || '').toUpperCase() === 'SLITTING';
+  shiftForm.wasteList.push({
+    id: `w_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    jenis: initial.jenis || (isSlitting ? 'TRIM' : 'Setting / Start-up'),
+    customJenis: initial.customJenis || '',
+    berat: initial.berat !== undefined ? initial.berat : '',
+    catatan: initial.catatan || ''
+  });
+};
+
+const removeWasteItem = (index) => {
+  shiftForm.wasteList.splice(index, 1);
+};
+
+// Satu klik menerapkan estimasi berat trim rekomendasi ke daftar waste
+const applyTrimRecommendation = () => {
+  if (!currentEditingShiftNode.value) return;
+  const trimKg = currentEditingShiftNode.value.totalShiftTrimKg || 0;
+  if (trimKg <= 0) return;
+
+  const existingTrim = shiftForm.wasteList.find(w => w.jenis === 'TRIM');
+  if (existingTrim) {
+    existingTrim.berat = trimKg;
+    if (!existingTrim.catatan) {
+      existingTrim.catatan = `Rekomendasi akumulasi trim ${currentEditingShiftNode.value.totalLots} lot (${currentEditingShiftNode.value.totalShiftTrimMm} mm)`;
+    }
+  } else {
+    addWasteItem({
+      jenis: 'TRIM',
+      berat: trimKg,
+      catatan: `Rekomendasi akumulasi trim ${currentEditingShiftNode.value.totalLots} lot (${currentEditingShiftNode.value.totalShiftTrimMm} mm)`
+    });
+  }
+};
+
+const computedMultiWasteTotal = computed(() => {
+  if (!shiftForm.wasteList || !shiftForm.wasteList.length) return 0;
+  return shiftForm.wasteList.reduce((acc, w) => acc + (parseFloat(w.berat) || 0), 0);
+});
+
+const computedShiftTotalOutput = computed(() => {
+  if (!currentEditingShiftNode.value) return 0;
+  const netto = parseFloat(currentEditingShiftNode.value.totalNetto) || 0;
+  const waste = computedMultiWasteTotal.value;
+  return netto + waste;
+});
+
+const computedShiftWasteRatio = computed(() => {
+  const total = computedShiftTotalOutput.value;
+  if (total === 0) return 0;
+  const waste = computedMultiWasteTotal.value;
+  return (waste / total) * 100;
 });
 
 const openShiftModal = (shiftNode) => {
   currentEditingShiftNode.value = shiftNode;
+  activeShiftModalTab.value = 'waste';
   const items = shiftNode.items || [];
   const first = items[0] || {};
 
@@ -5445,25 +5786,60 @@ const openShiftModal = (shiftNode) => {
   shiftForm.oldOperator = shiftNode.operator || first.operator || '';
   shiftForm.shift = String(shiftNode.shiftNum || first.shift || '1');
   shiftForm.operator = shiftNode.operator || first.operator || '';
-  shiftForm.shiftWaste = shiftNode.shiftWaste !== undefined && shiftNode.shiftWaste > 0 ? shiftNode.shiftWaste : (first.shiftWaste || first.parentWaste || '');
-  shiftForm.shiftWasteNote = shiftNode.shiftWasteNote || first.shiftWasteNote || first.parentWasteNote || '';
+
+  // Load existing multi-waste list
+  let loadedList = [];
+  if (shiftNode.shiftWasteDetails && Array.isArray(shiftNode.shiftWasteDetails) && shiftNode.shiftWasteDetails.length > 0) {
+    loadedList = JSON.parse(JSON.stringify(shiftNode.shiftWasteDetails));
+  } else if (first.shiftWasteDetails) {
+    try {
+      const parsed = Array.isArray(first.shiftWasteDetails) ? first.shiftWasteDetails : JSON.parse(first.shiftWasteDetails);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        loadedList = parsed;
+      }
+    } catch (e) {}
+  }
+
+  if (loadedList.length > 0) {
+    shiftForm.wasteList = loadedList.map(item => ({
+      id: item.id || `w_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      jenis: item.jenis || ((shiftNode.machine || '').toUpperCase() === 'SLITTING' ? 'TRIM' : 'Setting / Start-up'),
+      customJenis: item.customJenis || '',
+      berat: item.berat !== undefined ? item.berat : '',
+      catatan: item.catatan || ''
+    }));
+  } else if (shiftNode.shiftWaste > 0 || (first.shiftWaste && parseFloat(first.shiftWaste) > 0)) {
+    const oldWasteVal = parseFloat(shiftNode.shiftWaste || first.shiftWaste) || 0;
+    const oldNote = shiftNode.shiftWasteNote || first.shiftWasteNote || '';
+    const isSlit = (shiftNode.machine || '').toUpperCase() === 'SLITTING';
+    let detectedJenis = isSlit ? 'TRIM' : (oldNote || 'General Waste');
+    if (isSlit) {
+      if (oldNote.toUpperCase().includes('TRIM')) detectedJenis = 'TRIM';
+      else if (oldNote.toUpperCase().includes('SESET')) detectedJenis = 'SESETAN';
+      else if (oldNote.toUpperCase().includes('GULUNG')) detectedJenis = 'GULUNGAN';
+    }
+    shiftForm.wasteList = [{
+      id: `w_1`,
+      jenis: detectedJenis,
+      customJenis: '',
+      berat: oldWasteVal,
+      catatan: oldNote
+    }];
+  } else {
+    shiftForm.wasteList = [];
+    if ((shiftNode.machine || '').toUpperCase() === 'SLITTING') {
+      shiftForm.wasteList.push({
+        id: `w_1`,
+        jenis: 'TRIM',
+        customJenis: '',
+        berat: shiftNode.totalShiftTrimKg > 0 ? shiftNode.totalShiftTrimKg : '',
+        catatan: shiftNode.totalShiftTrimKg > 0 ? `Rekomendasi trim ${shiftNode.totalLots} lot` : ''
+      });
+    }
+  }
 
   showShiftModal.value = true;
 };
-
-const computedShiftTotalOutput = computed(() => {
-  if (!currentEditingShiftNode.value) return 0;
-  const netto = parseFloat(currentEditingShiftNode.value.totalNetto) || 0;
-  const waste = parseFloat(shiftForm.shiftWaste) || 0;
-  return netto + waste;
-});
-
-const computedShiftWasteRatio = computed(() => {
-  const total = computedShiftTotalOutput.value;
-  if (total === 0) return 0;
-  const waste = parseFloat(shiftForm.shiftWaste) || 0;
-  return (waste / total) * 100;
-});
 
 const saveShiftData = async () => {
   if (!currentEditingShiftNode.value || !currentEditingShiftNode.value.items) return;
@@ -5471,8 +5847,20 @@ const saveShiftData = async () => {
   const items = currentEditingShiftNode.value.items;
   const newShift = String(shiftForm.shift || '1').trim();
   const newOperator = (shiftForm.operator || '').trim().toUpperCase();
-  const wasteKg = parseFloat(shiftForm.shiftWaste) || 0;
-  const wasteNote = (shiftForm.shiftWasteNote || '').trim();
+
+  // Filter dan normalisasi multi-waste list
+  const validWasteList = (shiftForm.wasteList || []).filter(w => (parseFloat(w.berat) > 0 || (w.catatan || '').trim() !== '')).map(w => {
+    const finalJenis = (w.jenis === 'LAINNYA' && w.customJenis) ? w.customJenis.trim().toUpperCase() : (w.jenis || 'TRIM').trim().toUpperCase();
+    return {
+      id: w.id,
+      jenis: finalJenis,
+      berat: parseFloat(parseFloat(w.berat || 0).toFixed(2)),
+      catatan: (w.catatan || '').trim()
+    };
+  });
+
+  const totalWasteKg = parseFloat(validWasteList.reduce((acc, w) => acc + (w.berat || 0), 0).toFixed(2));
+  const summaryNotes = validWasteList.map(w => `${w.jenis}: ${w.berat} kg${w.catatan ? ` (${w.catatan})` : ''}`).join(', ');
 
   for (const item of items) {
     const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
@@ -5481,8 +5869,9 @@ const saveShiftData = async () => {
     const payload = {
       ...(newShift ? { shift: newShift } : {}),
       ...(newOperator ? { operator: newOperator } : {}),
-      shiftWaste: wasteKg,
-      shiftWasteNote: wasteNote,
+      shiftWaste: totalWasteKg,
+      shiftWasteNote: summaryNotes,
+      shiftWasteDetails: validWasteList,
       synced: 0,
       updatedAt: new Date().toISOString()
     };

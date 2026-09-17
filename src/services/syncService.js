@@ -44,7 +44,8 @@ function mapLabelToSupabase(l) {
     parentRollsJoint: l.parentRollsJoint || null,
     resinConsumptions: l.resinConsumptions || null,
     shiftWaste: l.shiftWaste !== undefined && l.shiftWaste !== null ? l.shiftWaste : 0,
-    shiftWasteNote: l.shiftWasteNote || ''
+    shiftWasteNote: l.shiftWasteNote || '',
+    shiftWasteDetails: l.shiftWasteDetails || null
   };
 
   return {
@@ -136,6 +137,7 @@ function mapLabelFromSupabase(s) {
     resinConsumptions: meta.resinConsumptions || null,
     shiftWaste: meta.shiftWaste !== undefined ? meta.shiftWaste : 0,
     shiftWasteNote: meta.shiftWasteNote || '',
+    shiftWasteDetails: meta.shiftWasteDetails || null,
     synced: 1,
     createdAt: s.created_at,
     updatedAt: s.updated_at

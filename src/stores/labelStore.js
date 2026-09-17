@@ -459,6 +459,9 @@ export const useLabelStore = defineStore('labelStore', {
                 parentBeratMasuk: r.parentBeratMasuk !== undefined ? r.parentBeratMasuk : null,
                 parentRollsJoint: r.parentRollsJoint || null,
                 resinConsumptions: r.resinConsumptions || null,
+                shiftWaste: r.shiftWaste !== undefined ? r.shiftWaste : 0,
+                shiftWasteNote: r.shiftWasteNote || '',
+                shiftWasteDetails: r.shiftWasteDetails || null,
                 synced: 0,
                 createdAt: r.createdAt || new Date().toISOString(),
                 updatedAt: r.updatedAt || new Date().toISOString()
@@ -578,6 +581,7 @@ export const useLabelStore = defineStore('labelStore', {
         if (updatedFields.resinConsumptions !== undefined) rollPayload.resinConsumptions = updatedFields.resinConsumptions;
         if (updatedFields.shiftWaste !== undefined) rollPayload.shiftWaste = updatedFields.shiftWaste;
         if (updatedFields.shiftWasteNote !== undefined) rollPayload.shiftWasteNote = updatedFields.shiftWasteNote;
+        if (updatedFields.shiftWasteDetails !== undefined) rollPayload.shiftWasteDetails = updatedFields.shiftWasteDetails;
         rollPayload.synced = 0;
         
         await db.data_rolls.update(rollId, rollPayload);
