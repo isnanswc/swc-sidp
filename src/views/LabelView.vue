@@ -1008,7 +1008,7 @@
                         SPK: <strong class="text-zinc-800">{{ lotNode.spk }}</strong>
                       </span>
 
-                      <!-- Subtitle Dimensi Induk & Inline Edit Width (Desktop & Tablet) -->
+                      <!-- Subtitle Dimensi Induk & Inline Edit Width & Length (Desktop & Tablet) -->
                       <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono" @click.stop>
                         <span class="text-zinc-400 font-bold">•</span>
                         <span class="font-bold text-zinc-600">
@@ -1048,11 +1048,55 @@
                           </span>
                           <span class="text-[9px] opacity-60 ml-0.5">✏️</span>
 
-                          <!-- Floating Tooltip Box on Hover -->
+                          <!-- Floating Tooltip Box on Hover for Width -->
                           <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-30 w-56 p-2 bg-zinc-950/95 text-white text-[10px] rounded-lg shadow-xl pointer-events-none text-left leading-relaxed">
                             <div class="font-bold text-amber-300 pb-0.5 border-b border-zinc-700">📏 Evaluasi Lebar Parent</div>
                             <div class="mt-1">{{ getParentWidthStatus(lotNode).tooltip }}</div>
                             <div class="mt-1 text-[9px] text-zinc-400">Klik untuk langsung edit lebar parent.</div>
+                          </div>
+                        </div>
+
+                        <!-- Equal separator for Length -->
+                        <span class="font-bold text-zinc-600">=</span>
+
+                        <!-- Inline Edit Length Input / Badge -->
+                        <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'length'" class="inline-flex items-center gap-1" @click.stop>
+                          <input
+                            v-model="inlineParentLengthVal"
+                            type="number"
+                            step="any"
+                            min="10"
+                            max="100000"
+                            @click.stop
+                            @keydown.stop
+                            @keyup.enter.stop="saveInlineParentLength(lotNode)"
+                            @keyup.esc.stop="cancelInlineParentEdit"
+                            @blur="saveInlineParentLength(lotNode)"
+                            v-focus
+                            class="w-20 px-1.5 py-0.5 text-xs font-black font-mono border-2 border-indigo-600 rounded bg-white text-indigo-950 outline-none shadow-xs text-center"
+                            placeholder="Length"
+                          />
+                          <span class="text-[10px] font-bold text-indigo-600">M</span>
+                        </div>
+                        <div
+                          v-else
+                          @click.stop="startInlineEditLength(lotNode)"
+                          :class="[
+                            'px-1.5 py-0.5 rounded text-[11px] font-mono cursor-pointer transition-all hover:scale-105 select-none relative group',
+                            getParentLengthStatus(lotNode).bgClass || 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200'
+                          ]"
+                          :title="getParentLengthStatus(lotNode).tooltip"
+                        >
+                          <span :class="getParentLengthStatus(lotNode).textClass">
+                            {{ lotNode.parentMeter }} M
+                          </span>
+                          <span class="text-[9px] opacity-60 ml-0.5">✏️</span>
+
+                          <!-- Floating Tooltip Box on Hover for Length -->
+                          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-30 w-56 p-2 bg-zinc-950/95 text-white text-[10px] rounded-lg shadow-xl pointer-events-none text-left leading-relaxed">
+                            <div class="font-bold text-cyan-300 pb-0.5 border-b border-zinc-700">📏 Evaluasi Panjang Parent</div>
+                            <div class="mt-1">{{ getParentLengthStatus(lotNode).tooltip }}</div>
+                            <div class="mt-1 text-[9px] text-zinc-400">Klik untuk langsung edit panjang parent.</div>
                           </div>
                         </div>
                       </div>
@@ -1181,6 +1225,37 @@
                       :title="getParentWidthStatus(lotNode).tooltip"
                     >
                       <span :class="getParentWidthStatus(lotNode).textClass">{{ lotNode.parentWidth }}mm</span>
+                      <span class="text-[8px] opacity-60">✏️</span>
+                    </span>
+
+                    <span>=</span>
+
+                    <!-- Mobile Inline Length -->
+                    <div v-if="editingParentLotKey === lotNode.uniqueKey && editingParentField === 'length'" class="inline-flex items-center gap-1" @click.stop>
+                      <input
+                        v-model="inlineParentLengthVal"
+                        type="number"
+                        step="any"
+                        @click.stop
+                        @keydown.stop
+                        @keyup.enter.stop="saveInlineParentLength(lotNode)"
+                        @keyup.esc.stop="cancelInlineParentEdit"
+                        @blur="saveInlineParentLength(lotNode)"
+                        v-focus
+                        class="w-16 px-1 py-0.2 text-[10px] font-black border border-indigo-600 rounded bg-white text-indigo-950 outline-none text-center"
+                      />
+                      <span class="text-[9px] font-bold text-indigo-600">M</span>
+                    </div>
+                    <span
+                      v-else
+                      @click.stop="startInlineEditLength(lotNode)"
+                      :class="[
+                        'px-1 py-0.2 rounded cursor-pointer border inline-flex items-center gap-0.5',
+                        getParentLengthStatus(lotNode).bgClass || 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                      ]"
+                      :title="getParentLengthStatus(lotNode).tooltip"
+                    >
+                      <span :class="getParentLengthStatus(lotNode).textClass">{{ lotNode.parentMeter }}M</span>
                       <span class="text-[8px] opacity-60">✏️</span>
                     </span>
 
@@ -5186,35 +5261,35 @@ const hierarchyTree = computed(() => {
         const sumChildWidth = getSumChildWidthForLot(sortedTurunan, spkPlan);
 
         // 1. Tentukan Lebar Teori Parent (Parent Width)
-        // JANGAN PERNAH mengambil lebar child tunggal!
+        // Default murni estimasi akumulasi pisau child (sumChildWidth) tanpa trim otomatis
         let parentWidth = 0;
         if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) > 0) {
           parentWidth = parseFloat(firstItem.parentWidth);
+        } else if (sumChildWidth > 0) {
+          parentWidth = sumChildWidth;
         } else if (spkPlan && parseFloat(spkPlan.lebarParent) > 0) {
           parentWidth = parseFloat(spkPlan.lebarParent);
         } else if (wipRoll && parseFloat(wipRoll.width) > 0) {
           parentWidth = parseFloat(wipRoll.width);
-        } else if (sumChildWidth >= 1800) {
-          parentWidth = sumChildWidth <= 2305 ? 2320 : (sumChildWidth + 15);
         } else {
           parentWidth = 2320;
         }
+        const parentTrim = (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '')
+          ? parseFloat(firstItem.parentTrim)
+          : Math.max(0, parentWidth - sumChildWidth);
 
-        // 2. Tentukan Panjang Teori Parent (Parent Meter) - Jangan pernah 0
+        // 2. Tentukan Panjang Teori Parent (Parent Meter) - Mengikuti estimasi berdasarkan child, tapi bisa di-input manual
         const seqSummary = calculateSequenceLengthSummary(sortedTurunan);
+        const sumChildLength = seqSummary.totalParentLength > 0 ? seqSummary.totalParentLength : (parseFloat(firstItem.length || firstItem.meter) || 0);
         let parentMeter = 0;
         if (firstItem.parentMeter && parseFloat(firstItem.parentMeter) > 0) {
           parentMeter = parseFloat(firstItem.parentMeter);
+        } else if (sumChildLength > 0) {
+          parentMeter = sumChildLength;
         } else if (spkPlan && parseFloat(spkPlan.panjangParent) > 0) {
           parentMeter = parseFloat(spkPlan.panjangParent);
         } else if (wipRoll && parseFloat(wipRoll.length) > 0) {
           parentMeter = parseFloat(wipRoll.length);
-        } else if (parseFloat(firstItem.length) > 0) {
-          parentMeter = parseFloat(firstItem.length);
-        } else if (parseFloat(firstItem.meter) > 0) {
-          parentMeter = parseFloat(firstItem.meter);
-        } else if (seqSummary.totalParentLength > 0) {
-          parentMeter = seqSummary.totalParentLength;
         } else {
           parentMeter = 12000;
         }
@@ -5260,7 +5335,9 @@ const hierarchyTree = computed(() => {
           width: firstItem.width || '',
           length: firstItem.length || '',
           parentWidth,
+          parentTrim,
           parentMeter,
+          sumChildLength,
           parentSisaMeter,
           parentSisaKg: parentSisaKg > 0 ? parseFloat(parentSisaKg.toFixed(2)) : 0,
           parentDensity,
@@ -6121,8 +6198,9 @@ const saveParentLotData = async () => {
 
 // ── INLINE PARENT LOT EDITING (HIERARCHY VIEW) ──
 const editingParentLotKey = ref(null); // uniqueKey of lot currently editing
-const editingParentField = ref(null); // 'width' | 'berat'
+const editingParentField = ref(null); // 'width' | 'length' | 'berat'
 const inlineParentWidthVal = ref('');
+const inlineParentLengthVal = ref('');
 const inlineParentBeratVal = ref('');
 
 // Helper: Evaluasi status lebar parent terhadap estimasi lebar (sumChildWidth)
@@ -6161,9 +6239,9 @@ const getParentWidthStatus = (lotNode) => {
       diff: 0,
       estimatedW,
       currentW,
-      bgClass: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
-      textClass: 'text-emerald-900 font-bold',
-      tooltip: `Lebar parent pas sesuai estimasi (${currentW} mm). Tidak ada sisa trim.`
+      bgClass: 'bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-200',
+      textClass: 'text-stone-800 font-bold',
+      tooltip: `Lebar parent pas sesuai estimasi (${currentW} mm). Tanpa trim.`
     };
   } else if (diff >= 10 && diff <= 15) {
     // Melebihi estimasi antara 10-15 mm -> Wajar dianggap trim
@@ -6172,7 +6250,7 @@ const getParentWidthStatus = (lotNode) => {
       diff,
       estimatedW,
       currentW,
-      bgClass: 'bg-emerald-50/70 text-emerald-800 border border-emerald-300',
+      bgClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300',
       textClass: 'text-emerald-900 font-bold',
       tooltip: `✓ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm - Wajar standar trim 10-15 mm).`
     };
@@ -6197,6 +6275,57 @@ const getParentWidthStatus = (lotNode) => {
       bgClass: 'bg-rose-100 text-rose-900 border border-rose-300 ring-1 ring-rose-400/50',
       textClass: 'text-rose-900 font-black',
       tooltip: `⚠️ PERINGATAN TRIM BESAR: Lebar parent (${currentW} mm) melebihi estimasi (${estimatedW} mm) sebesar +${diff} mm (>15 mm trim)! Tetap diperbolehkan namun periksa kembali.`
+    };
+  }
+};
+
+// Helper: Evaluasi status panjang parent terhadap estimasi child (sumChildLength)
+const getParentLengthStatus = (lotNode) => {
+  const currentL = parseFloat(lotNode.parentMeter) || 0;
+  const estimatedL = parseFloat(lotNode.sumChildLength) || 0;
+  if (!currentL || !estimatedL) {
+    return {
+      status: 'normal',
+      diff: 0,
+      estimatedL,
+      currentL,
+      bgClass: 'bg-stone-100 text-stone-800 border border-stone-200',
+      textClass: 'text-stone-800 font-bold',
+      tooltip: `Panjang Parent: ${currentL} M (Estimasi child: ${estimatedL} M)`
+    };
+  }
+
+  const diff = currentL - estimatedL;
+
+  if (diff < 0) {
+    return {
+      status: 'under',
+      diff,
+      estimatedL,
+      currentL,
+      bgClass: 'bg-amber-100/90 text-amber-900 border border-amber-300 ring-1 ring-amber-300/60',
+      textClass: 'text-amber-900 font-black',
+      tooltip: `⚠️ PERINGATAN PANJANG: Panjang parent (${currentL} M) KURANG dari estimasi akumulasi child (${estimatedL} M)! Selisih: ${diff} M.`
+    };
+  } else if (diff === 0) {
+    return {
+      status: 'exact',
+      diff: 0,
+      estimatedL,
+      currentL,
+      bgClass: 'bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-200',
+      textClass: 'text-stone-800 font-bold',
+      tooltip: `Panjang parent pas sesuai estimasi tarikan child (${currentL} M). Klik untuk edit.`
+    };
+  } else {
+    return {
+      status: 'over',
+      diff,
+      estimatedL,
+      currentL,
+      bgClass: 'bg-blue-50 text-blue-800 border border-blue-200',
+      textClass: 'text-blue-900 font-bold',
+      tooltip: `Panjang Parent: ${currentL} M (Estimasi tarikan child: ${estimatedL} M, Selisih sisa jumbo/tarikan: +${diff} M). Klik untuk edit.`
     };
   }
 };
@@ -6282,7 +6411,7 @@ const saveInlineParentWidth = async (lotNode) => {
   const estChildW = parseFloat(lotNode.sumChildWidth) || 0;
   const newTrim = Math.max(0, newW - estChildW);
 
-  // Recalculate teori weight with new width
+  // Recalculate teori weight with new width and existing length
   const thk = parseFloat(lotNode.thickness) || parseFloat(items[0]?.thickness) || 20;
   const mtr = parseFloat(lotNode.parentMeter) || parseFloat(items[0]?.parentMeter) || parseFloat(items[0]?.length) || 0;
   const den = parseFloat(lotNode.parentDensity) || 0.91;
@@ -6295,6 +6424,56 @@ const saveInlineParentWidth = async (lotNode) => {
     const payload = {
       parentWidth: newW,
       parentTrim: newTrim,
+      parentBeratTeori: parseFloat(newTeori.toFixed(2)),
+      ...(!item.parentBeratAktual ? { parentBeratMasuk: parseFloat(newTeori.toFixed(2)) } : {}),
+      synced: 0,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (isRoll && rollId && db.data_rolls) {
+      await db.data_rolls.update(rollId, payload);
+    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+      await db.labels.update(item.id, payload);
+    }
+  }
+
+  await labelStore.loadLabels(true);
+  pushLocalToSupabase().catch(() => {});
+};
+
+// Mulai inline edit Length
+const startInlineEditLength = (lotNode) => {
+  editingParentLotKey.value = lotNode.uniqueKey;
+  editingParentField.value = 'length';
+  inlineParentLengthVal.value = String(lotNode.parentMeter || '');
+};
+
+// Simpan inline edit Length
+const saveInlineParentLength = async (lotNode) => {
+  if (editingParentLotKey.value !== lotNode.uniqueKey || editingParentField.value !== 'length') return;
+  const newL = parseFloat(inlineParentLengthVal.value);
+  editingParentLotKey.value = null;
+  editingParentField.value = null;
+
+  if (isNaN(newL) || newL <= 0) return;
+  if (newL === parseFloat(lotNode.parentMeter)) return;
+
+  const items = lotNode.items || [];
+  if (!items.length) return;
+
+  // Recalculate teori weight with new length and existing width
+  const thk = parseFloat(lotNode.thickness) || parseFloat(items[0]?.thickness) || 20;
+  const w = parseFloat(lotNode.parentWidth) || parseFloat(items[0]?.parentWidth) || parseFloat(items[0]?.width) || 0;
+  const den = parseFloat(lotNode.parentDensity) || 0.91;
+  const newTeori = calculateBeratTeori(thk, w, newL, den);
+
+  for (const item of items) {
+    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
+
+    const payload = {
+      parentMeter: newL,
+      parentLength: newL,
       parentBeratTeori: parseFloat(newTeori.toFixed(2)),
       ...(!item.parentBeratAktual ? { parentBeratMasuk: parseFloat(newTeori.toFixed(2)) } : {}),
       synced: 0,
