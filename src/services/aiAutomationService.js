@@ -1,5 +1,6 @@
 import { getSetting, saveSetting, db } from '@/db';
 import { getAiModelCandidates } from '@/services/geminiService';
+import { detectSupplier } from '@/services/dataRollParserService';
 
 export const DEFAULT_DEFECT_TAGS = [
   'Kerut',
@@ -44,59 +45,84 @@ export function formatLotVisual(lotStr, supplier = '') {
     return parts.join(' / ');
   }
 }
+
 /**
- * Auto-formatting input No. Lot khusus Inhouse:
- * - Menangani input yang salah seperti spasi, strip (-), titik, garis bawah
- * - Otomatis memberikan tanda '/' setelah terdeteksi segmen mesin
- * - Mendeteksi kode mesin 4 atau 5 karakter (diakhiri kode varian A, B, atau C)
- * Contoh:
- * - "m01260726c102 d101b ga01" -> "M01260726C102/D101B/GA01"
- * - "M01260726C102D101BGA01"   -> "M01260726C102/D101B/GA01"
- * - "M07250626C102F103"         -> "M07250626C102/F103"
- * - "M07250626C102-F103"        -> "M07250626C102/F103"
- * - "M07250626C102A F103B GC01A"-> "M07250626C102A/F103B/GC01A"
+ * Helper untuk menentukan apakah roll terindikasi sebagai supplier INHOUSE
  */
-export function formatInhouseLotInput(input) {
+export function isSupplierInhouse(supplier = '', lot = '', spk = '') {
+  const cleanSupplier = String(supplier || '').trim().toUpperCase();
+  if (cleanSupplier !== '' && cleanSupplier !== 'INHOUSE') {
+    return false;
+  }
+  if (spk && detectSupplier('', spk) !== 'INHOUSE') {
+    return false;
+  }
+  if (lot && detectSupplier(lot, spk) !== 'INHOUSE') {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Auto-formatting input No. Lot:
+ * - Khusus Roll yang TERINDIKASI INHOUSE:
+ *   - Mengubah tanda titik (.), strip (-), dan spasi menjadi hilang atau garis miring (/)
+ *   - Menghilangkan tanda antara formula dan tanggal (misal M07-250626 -> M07250626)
+ *   - Mengubah tanda pemisah antar proses mesin menjadi '/' (misal M07250626C102-F103 -> M07250626C102/F103)
+ * - Roll SELAIN INHOUSE (Supplier Luar):
+ *   - Diperbolehkan menggunakan tanda lain (-, ., /, _, #, dll.)
+ *   - KECUALI SPASI (spasi otomatis dihilangkan)
+ */
+export function formatInhouseLotInput(input, supplier = 'INHOUSE', spk = '') {
   if (!input) return '';
-  let str = String(input).toUpperCase().trim();
-  
-  // Replace multiple slashes, dashes, spaces, commas, underscores, and dots with '/'
-  str = str.replace(/[\s\-_,\.]+/g, '/');
+  let str = String(input).toUpperCase();
 
-  // Strip all non-alphanumeric except '/'
-  str = str.replace(/[^A-Z0-9\/]/g, '');
-
-  // If user pasted/typed with spaces/dashes that turned into '/', e.g. "M01/260726/C102/D101B/GA01"
-  // Re-join formula + date if they were split by '/'
-  const splitSlashes = str.split('/').filter(Boolean);
-  if (splitSlashes.length >= 2 && splitSlashes[0].length === 3 && /^\d{6}$/.test(splitSlashes[1])) {
-    str = splitSlashes[0] + splitSlashes[1] + (splitSlashes.slice(2).length > 0 ? '/' + splitSlashes.slice(2).join('/') : '');
+  // 1. Cek apakah roll terindikasi sebagai supplier INHOUSE
+  if (!isSupplierInhouse(supplier, str, spk)) {
+    // Selain INHOUSE: diperbolehkan menggunakan tanda lain (-, ., /, _, #, dll.),
+    // KECUALI SPASI (spasi otomatis dihilangkan)
+    return str.replace(/\s+/g, '');
   }
 
-  // Check if string matches inhouse pattern (e.g. starts with 3-char formula + 6 digit date)
-  const inhouseHeaderMatch = str.match(/^([A-Z][0-9A-Z]{2})(\d{6})(.*)$/);
+  // 2. Khusus roll yang terindikasi supplier INHOUSE:
+  // Ubah tanda . - spasi menjadi hilang atau garis miring (/)
+  let inhouseStr = str.trim();
+
+  // Jika ada pemisah (spasi, strip, titik, koma) tepat setelah formula 3 karakter (misal M07- atau M07.),
+  // ubah pemisah tersebut menjadi HILANG agar formula dan tanggal langsung menyatu (M07250626)
+  inhouseStr = inhouseStr.replace(/^([A-Z][0-9A-Z]{2})[\s\-_,\.]+(\d*)/i, '$1$2');
+
+  // Ganti sisa spasi, strip, titik, koma, underscore antar proses mesin menjadi '/'
+  inhouseStr = inhouseStr.replace(/[\s\-_,\.]+/g, '/');
+
+  // Bersihkan karakter selain alfanumerik dan '/'
+  inhouseStr = inhouseStr.replace(/[^A-Z0-9\/]/g, '');
+
+  // Jika formula dan tanggal sempat terpisah oleh '/', gabungkan kembali (tanda menjadi hilang)
+  const splitSlashes = inhouseStr.split('/').filter(Boolean);
+  if (splitSlashes.length >= 2 && splitSlashes[0].length === 3 && /^\d{6}$/.test(splitSlashes[1])) {
+    inhouseStr = splitSlashes[0] + splitSlashes[1] + (splitSlashes.slice(2).length > 0 ? '/' + splitSlashes.slice(2).join('/') : '');
+  }
+
+  // Cek kecocokan header inhouse (formula 3 karakter + tanggal 6 digit)
+  const inhouseHeaderMatch = inhouseStr.match(/^([A-Z][0-9A-Z]{2})(\d{6})(.*)$/);
   if (!inhouseHeaderMatch) {
-    return str.replace(/\/+/g, '/');
+    return inhouseStr.replace(/\/+/g, '/');
   }
 
   const formula = inhouseHeaderMatch[1];
   const dateStr = inhouseHeaderMatch[2];
-  let remainder = inhouseHeaderMatch[3];
-
-  // Clean initial slashes
-  remainder = remainder.replace(/^\/+/, '');
+  let remainder = inhouseHeaderMatch[3].replace(/^\/+/, '');
 
   if (!remainder) {
     return `${formula}${dateStr}`;
   }
 
-  // Suffix is strictly [A-C] (hanya A, B, C saja)
-  // Machine codes: 1-2 letters + 2-3 digits + optional single letter [A-C] (e.g. C102, C102A, D101B, F103B, GA01, GC01A)
+  // Segmentasi kode mesin proses lanjutan (contoh: C102, F103, GC01, J101)
   const segments = remainder.split('/').filter(Boolean);
   const parsedCodes = [];
 
   for (const seg of segments) {
-    // Match machine codes in continuous string like "C102D101BGA01" or "C102AF103B"
     const matches = seg.match(/([A-Z]{1,2}\d{2,3}[A-C]?(?=[A-Z]|$)|[A-Z]{1,2}\d{1,3}|[A-Z0-9]+)/g);
     if (matches && matches.length > 0) {
       parsedCodes.push(...matches);
@@ -109,13 +135,16 @@ export function formatInhouseLotInput(input) {
     return `${formula}${dateStr}`;
   }
 
-  // First machine code belongs to the base casting lot (e.g. M01260726C102 or M01260726C102A)
   const baseMachine = parsedCodes[0];
   const subProcesses = parsedCodes.slice(1);
 
   let result = `${formula}${dateStr}${baseMachine}`;
   if (subProcesses.length > 0) {
     result += '/' + subProcesses.join('/');
+  }
+
+  if (/[\/\s\-_,\.]$/.test(input) && !result.endsWith('/')) {
+    result += '/';
   }
 
   return result;

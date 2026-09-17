@@ -2888,7 +2888,7 @@
                   <label class="block font-bold text-sky-950 mb-0.5 text-[11px]">Supplier <span class="text-slate-400 font-normal">(Tanpa Spasi)</span></label>
                   <input
                     v-model="form.supplier"
-                    @input="form.supplier = (form.supplier || '').replace(/\s+/g, '').toUpperCase(); syncFormulaConfigs()"
+                    @input="form.supplier = (form.supplier || '').replace(/\s+/g, '').toUpperCase(); syncFormulaConfigs(); handleLotInput()"
                     placeholder="INHOUSE / Vendor..."
                     class="w-full px-2 py-1 text-xs border border-sky-300 rounded-lg outline-none bg-white font-medium focus:ring-1 focus:ring-sky-500 font-mono uppercase"
                   />
@@ -4043,7 +4043,7 @@ const closeWipModal = () => {
 };
 
 const handleLotInput = () => {
-  form.lot = formatInhouseLotInput(form.lot);
+  form.lot = formatInhouseLotInput(form.lot, form.supplier, form.spk);
   if (selectedWipRoll.value && selectedWipRoll.value.lot !== form.lot) {
     selectedWipRoll.value = null;
   }
