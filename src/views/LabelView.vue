@@ -3865,7 +3865,7 @@ import { useWipStore } from '@/stores/wipStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useSpkStore, getFilmDensity } from '@/stores/spkStore';
-import { saveSetting, getSetting } from '@/db';
+import { db, saveSetting, getSetting } from '@/db';
 import { getActiveQuickTags, checkAndRunScheduledAutomation, DEFAULT_DEFECT_TAGS, formatLotVisual, formatInhouseLotInput } from '@/services/aiAutomationService';
 import { getAgingCountdownInfo } from '@/services/wipParserService';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
