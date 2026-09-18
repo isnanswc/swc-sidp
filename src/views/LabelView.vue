@@ -3715,8 +3715,21 @@
               <button type="button" @click="closeModal" class="px-4 py-1 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors cursor-pointer">
                 Batal
               </button>
-              <button type="submit" class="px-6 py-1 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-600/20 transition-all cursor-pointer">
-                Simpan
+              <button
+                type="submit"
+                :disabled="isSubmittingLabel"
+                :class="[
+                  'px-6 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5',
+                  isSubmittingLabel
+                    ? 'bg-zinc-400 text-white cursor-not-allowed opacity-75'
+                    : 'bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-600/20 cursor-pointer'
+                ]"
+              >
+                <svg v-if="isSubmittingLabel" class="w-3.5 h-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>{{ isSubmittingLabel ? 'Menyimpan...' : 'Simpan' }}</span>
               </button>
             </div>
           </form>
@@ -4700,6 +4713,7 @@ const selectedIds = ref([]);
 const showModal = ref(false);
 const showPreviewModal = ref(false);
 const isEditing = ref(false);
+const isSubmittingLabel = ref(false);
 const previewItems = ref([]);
 
 const toggleSortOrder = () => {
@@ -7885,6 +7899,8 @@ const closeModal = () => {
 };
 
 const handleFormSubmit = async () => {
+  if (isSubmittingLabel.value) return;
+
   // 1. Bersihkan spasi dari Lot dan Supplier (aktual tersimpan tanpa spasi)
   form.lot = (form.lot || '').replace(/\s+/g, '').toUpperCase();
   form.supplier = (form.supplier || '').replace(/\s+/g, '').toUpperCase();
@@ -7909,22 +7925,33 @@ const handleFormSubmit = async () => {
     }
   }
 
+  isSubmittingLabel.value = true;
   const payload = { ...form };
   if (!payload.shift) {
     payload.shift = scheduleStore.getCurrentShiftInfo().shiftCode;
   }
-  if (isEditing.value && payload.id) {
-    await labelStore.updateLabel(payload.id, payload);
-  } else {
-    delete payload.id;
-    delete payload.isDataRoll;
-    delete payload.originalRollId;
-    payload.isDataRoll = false;
-    payload.originalRollId = null;
-    await labelStore.addLabel(payload);
-    scrollToLatestEntry(300);
-  }
+
+  // Tutup modal langsung agar user tidak menunggu response async dan mencegah klik berulang
   closeModal();
+
+  try {
+    if (isEditing.value && payload.id) {
+      await labelStore.updateLabel(payload.id, payload);
+    } else {
+      delete payload.id;
+      delete payload.isDataRoll;
+      delete payload.originalRollId;
+      payload.isDataRoll = false;
+      payload.originalRollId = null;
+      await labelStore.addLabel(payload);
+      scrollToLatestEntry(300);
+    }
+  } catch (err) {
+    console.error('Gagal menyimpan label:', err);
+    alert('Terjadi kesalahan saat menyimpan data label: ' + (err?.message || err));
+  } finally {
+    isSubmittingLabel.value = false;
+  }
 };
 
 const duplicateData = (item) => {

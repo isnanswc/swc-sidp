@@ -29,6 +29,19 @@ export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
   const validSubNum = (!isNaN(subNum) && subNum > 0) ? subNum : 999999;
   const packKey = `${item.kodePack || ''}${item.subKode || ''}`.toUpperCase();
 
+  let createdTime = 0;
+  const rawCreated = item.createdAt || item.created_at;
+  if (rawCreated) {
+    const dt = new Date(rawCreated);
+    if (!isNaN(dt.getTime())) {
+      createdTime = dt.getTime();
+    }
+  }
+
+  const numId = typeof item.id === 'number'
+    ? item.id
+    : (item.originalRollId || parseInt(String(item.id || '').replace('roll_', ''), 10) || 0);
+
   return {
     _dateStr: dateStr,
     _mesin: mesin,
@@ -39,7 +52,9 @@ export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
     _turunanExtra: turunanExtra,
     _packPrefix: packPrefix,
     _subNum: validSubNum,
-    _packKey: packKey
+    _packKey: packKey,
+    _createdTime: createdTime,
+    _numericId: numId
   };
 }
 
@@ -47,54 +62,85 @@ export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
   // 1. Tanggal Produksi (Date)
   const dateA = a._dateStr !== undefined ? a._dateStr : String(a.tanggalFormatted || a.tanggal || '');
   const dateB = b._dateStr !== undefined ? b._dateStr : String(b.tanggalFormatted || b.tanggal || '');
-  const dateComp = sortOrder === 'desc' ? dateB.localeCompare(dateA) : dateA.localeCompare(dateB);
-  if (dateComp !== 0) return dateComp;
+  const dateComp = dateA.localeCompare(dateB);
+  if (dateComp !== 0) {
+    return sortOrder === 'desc' ? -dateComp : dateComp;
+  }
 
-  // 2. Mesin (Machine)
-  const machA = a._mesin !== undefined ? a._mesin : String(a.mesin || a.machineName || 'SLITTING').toUpperCase();
-  const machB = b._mesin !== undefined ? b._mesin : String(b.mesin || b.machineName || 'SLITTING').toUpperCase();
-  const machComp = machA.localeCompare(machB);
-  if (machComp !== 0) return machComp;
+  // 2. Timeline Waktu Pembuatan Fisik (createdAt)
+  // Waktu pembuatan label mencerminkan alur pengerjaan roll yang sebenarnya di mesin
+  const timeA = a._createdTime !== undefined ? a._createdTime : (new Date(a.createdAt || a.created_at || 0).getTime() || 0);
+  const timeB = b._createdTime !== undefined ? b._createdTime : (new Date(b.createdAt || b.created_at || 0).getTime() || 0);
+  const timeDiff = timeA - timeB;
 
-  // 3. No. SPK (Surat Perintah Kerja)
-  const spkA = a._spk !== undefined ? a._spk : String(a.spk || '').toUpperCase();
-  const spkB = b._spk !== undefined ? b._spk : String(b.spk || '').toUpperCase();
-  const spkComp = spkA.localeCompare(spkB, undefined, { numeric: true, sensitivity: 'base' });
-  if (spkComp !== 0) return spkComp;
+  // Jika selisih waktu > 2 menit, roll dikerjakan pada sesi waktu terpisah (ikuti timeline kronologis pengerjaan)
+  const isSameSetTarikan = Math.abs(timeDiff) < 120000;
 
-  // 4. Nomor Urut Turunan (Set Potong: Tarikan 01, 02, 03... menjaga roll HOLD/REJECT 0000 di posisinya)
-  const tNumA = a._turunanNum !== undefined ? a._turunanNum : 999999;
-  const tNumB = b._turunanNum !== undefined ? b._turunanNum : 999999;
-  if (tNumA !== tNumB) return tNumA - tNumB;
+  let cmp = 0;
+  if (!isSameSetTarikan && timeA > 0 && timeB > 0) {
+    cmp = timeDiff;
+  } else {
+    // 3. Dalam set tarikan yang sama (< 2 menit) atau jika timestamp tidak tersedia:
+    // Mesin
+    const machA = a._mesin !== undefined ? a._mesin : String(a.mesin || a.machineName || 'SLITTING').toUpperCase();
+    const machB = b._mesin !== undefined ? b._mesin : String(b.mesin || b.machineName || 'SLITTING').toUpperCase();
+    const machComp = machA.localeCompare(machB);
+    if (machComp !== 0) {
+      cmp = machComp;
+    } else {
+      // SPK
+      const spkA = a._spk !== undefined ? a._spk : String(a.spk || '').toUpperCase();
+      const spkB = b._spk !== undefined ? b._spk : String(b.spk || '').toUpperCase();
+      const spkComp = spkA.localeCompare(spkB, undefined, { numeric: true, sensitivity: 'base' });
+      if (spkComp !== 0) {
+        cmp = spkComp;
+      } else {
+        // Base Lot (Kelompok Lot Induk)
+        const baseLotA = a._baseLot !== undefined ? a._baseLot : String(a.lot || '').toUpperCase();
+        const baseLotB = b._baseLot !== undefined ? b._baseLot : String(b.lot || '').toUpperCase();
+        const lotComp = baseLotA.localeCompare(baseLotB, undefined, { numeric: true, sensitivity: 'base' });
+        if (lotComp !== 0) {
+          cmp = lotComp;
+        } else {
+          // Nomor Urut Turunan (Set Potong: Tarikan 01, 02, 03...)
+          const tNumA = a._turunanNum !== undefined ? a._turunanNum : 999999;
+          const tNumB = b._turunanNum !== undefined ? b._turunanNum : 999999;
+          if (tNumA !== tNumB) {
+            cmp = tNumA - tNumB;
+          } else {
+            // Posisi Arm / Chartingan (HA sebelum HC, Arm A sebelum Arm C)
+            const tPrefA = a._turunanPrefix !== undefined ? a._turunanPrefix : '';
+            const tPrefB = b._turunanPrefix !== undefined ? b._turunanPrefix : '';
+            if (tPrefA !== tPrefB) {
+              cmp = tPrefA.localeCompare(tPrefB);
+            } else {
+              const tExtA = a._turunanExtra !== undefined ? a._turunanExtra : '';
+              const tExtB = b._turunanExtra !== undefined ? b._turunanExtra : '';
+              if (tExtA !== tExtB) {
+                cmp = tExtA.localeCompare(tExtB);
+              } else {
+                // Sub Kode Resmi Numerik (>0) berurutan (PASS sebelum HOLD/REJECT 0000 jika turunan sama)
+                const subA = a._subNum !== undefined ? a._subNum : 999999;
+                const subB = b._subNum !== undefined ? b._subNum : 999999;
+                if (subA !== subB) {
+                  cmp = subA - subB;
+                } else if (timeDiff !== 0) {
+                  cmp = timeDiff;
+                } else {
+                  // Timeline Fisik / ID Record Fallback
+                  const idA = a._numericId !== undefined ? a._numericId : (Number(a.id) || 0);
+                  const idB = b._numericId !== undefined ? b._numericId : (Number(b.id) || 0);
+                  cmp = idA - idB;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
-  // 5. Posisi Arm / Chartingan (Arm A vs Arm C, Operator Prefix)
-  const tPrefA = a._turunanPrefix !== undefined ? a._turunanPrefix : '';
-  const tPrefB = b._turunanPrefix !== undefined ? b._turunanPrefix : '';
-  if (tPrefA !== tPrefB) return tPrefA.localeCompare(tPrefB);
-
-  const tExtA = a._turunanExtra !== undefined ? a._turunanExtra : '';
-  const tExtB = b._turunanExtra !== undefined ? b._turunanExtra : '';
-  if (tExtA !== tExtB) return tExtA.localeCompare(tExtB);
-
-  // 6. Base Lot (Kelompok Lot Induk jika nomor turunan sama)
-  const baseLotA = a._baseLot !== undefined ? a._baseLot : String(a.lot || '').toUpperCase();
-  const baseLotB = b._baseLot !== undefined ? b._baseLot : String(b.lot || '').toUpperCase();
-  const lotComp = baseLotA.localeCompare(baseLotB, undefined, { numeric: true, sensitivity: 'base' });
-  if (lotComp !== 0) return lotComp;
-
-  // 7. Sub Kode Resmi Numerik (>0) berurutan (PASS didahulukan sebelum HOLD/REJECT 0000 jika turunan sama)
-  const subA = a._subNum !== undefined ? a._subNum : 999999;
-  const subB = b._subNum !== undefined ? b._subNum : 999999;
-  if (subA !== subB) return subA - subB;
-
-  // 8. Kode Pack string fallback
-  const packA = a._packKey !== undefined ? a._packKey : `${a.kodePack || ''}${a.subKode || ''}`;
-  const packB = b._packKey !== undefined ? b._packKey : `${b.kodePack || ''}${b.subKode || ''}`;
-  const packComp = packA.localeCompare(packB, undefined, { numeric: true, sensitivity: 'base' });
-  if (packComp !== 0) return packComp;
-
-  // 9. Timeline Fisik Asli (Waktu Input / ID Record)
-  return (Number(a.id) || 0) - (Number(b.id) || 0);
+  return sortOrder === 'desc' ? -cmp : cmp;
 }
 
 export const useLabelStore = defineStore('labelStore', {
@@ -194,10 +240,12 @@ export const useLabelStore = defineStore('labelStore', {
 
         let cmp = 0;
         if (state.sortBy === 'id') {
-          cmp = (Number(a.id) || 0) - (Number(b.id) || 0);
+          const idA = a._numericId !== undefined ? a._numericId : (typeof a.id === 'number' ? a.id : (a.originalRollId || parseInt(String(a.id || '').replace('roll_', ''), 10) || 0));
+          const idB = b._numericId !== undefined ? b._numericId : (typeof b.id === 'number' ? b.id : (b.originalRollId || parseInt(String(b.id || '').replace('roll_', ''), 10) || 0));
+          cmp = idA - idB;
         } else if (state.sortBy === 'tanggal') {
-          const timeA = new Date(a.tanggal || 0).getTime();
-          const timeB = new Date(b.tanggal || 0).getTime();
+          const timeA = new Date(a.tanggalFormatted || a.tanggal || 0).getTime();
+          const timeB = new Date(b.tanggalFormatted || b.tanggal || 0).getTime();
           cmp = timeA - timeB;
         } else if (state.sortBy === 'netto') {
           cmp = (parseFloat(a.netto || a.berat) || 0) - (parseFloat(b.netto || b.berat) || 0);
@@ -227,7 +275,7 @@ export const useLabelStore = defineStore('labelStore', {
 
         // Secondary tie-breaker with natural slitting hierarchy
         if (cmp === 0) {
-          cmp = compareHierarki(a, b);
+          cmp = compareHierarkiLabel(a, b, 'asc');
         }
 
         return state.sortOrder === 'asc' ? cmp : -cmp;
