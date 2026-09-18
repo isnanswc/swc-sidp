@@ -6,14 +6,14 @@ export const DEFAULT_AI_MODELS = [
   { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', description: 'Model penalaran tinggi untuk analisis dokumen kompleks.' },
   { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', description: 'Generasi 2.0 Flash berkecepatan tinggi.' },
   { id: 'gemini-1.5-flash', displayName: 'Gemini 1.5 Flash', description: 'Model cepat hemat kuota generasi 1.5.' },
-  { id: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', description: 'Model presisi tinggi generasi 1.5.' },
-  { id: 'gemini-3.5-flash', displayName: 'Gemini 3.5 Flash', description: 'Model generasi 3.5 eksperimental.' }
+  { id: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', description: 'Model presisi tinggi generasi 1.5.' }
 ];
 
 export const DEFAULT_FALLBACK_MODELS = [
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.1-flash-lite'
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+  'gemini-2.5-pro'
 ];
 
 export const HEALTH_REGISTRY_KEY = 'google_ai_health_registry';
@@ -276,9 +276,10 @@ export async function getAiModelCandidates() {
   const baseCandidates = [
     config.selectedModel,
     ...(config.fallbackModels || []),
-    'gemini-3.6-flash',
-    'gemini-3.5-flash',
-    'gemini-3.1-flash-lite'
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro'
   ];
   const configuredCandidates = baseCandidates
     .filter((m, idx, arr) => m && m !== '__custom__' && arr.indexOf(m) === idx);

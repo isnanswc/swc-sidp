@@ -43,7 +43,7 @@
       <!-- Banner Dynamic Color per Active Step -->
       <div 
         class="px-6 py-3.5 border-b flex items-center justify-between text-white transition-colors shadow-xs"
-        :style="{ backgroundColor: currentStep === 1 ? (previousShift.definition.color || '#4f46e5') : (upcomingShift.definition.color || '#059669') }"
+        :style="{ backgroundColor: currentStep === 1 ? (previousShift?.definition?.color || '#4f46e5') : (upcomingShift?.definition?.color || '#059669') }"
       >
         <div class="flex items-center gap-3">
           <div class="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl shadow-inner">
@@ -55,15 +55,15 @@
                 {{ currentStep === 1 ? 'HASIL KERJA SHIFT SEBELUMNYA' : 'PENUGASAN SHIFT BERIKUTNYA' }}
               </span>
               <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-zinc-900 shadow-2xs">
-                GRUP {{ currentStep === 1 ? previousShift.group : upcomingShift.group }}
+                GRUP {{ currentStep === 1 ? (previousShift?.group || '-') : (upcomingShift?.group || '-') }}
               </span>
             </div>
             <h3 class="font-black text-lg text-white leading-tight mt-0.5">
-              {{ currentStep === 1 ? previousShift.definition.name : upcomingShift.definition.name }}
-              <span class="text-sm font-semibold opacity-90">({{ currentStep === 1 ? previousShift.definition.startTime : upcomingShift.definition.startTime }} - {{ currentStep === 1 ? previousShift.definition.endTime : upcomingShift.definition.endTime }})</span>
+              {{ currentStep === 1 ? (previousShift?.definition?.name || 'Shift Sebelumnya') : (upcomingShift?.definition?.name || 'Shift Berikutnya') }}
+              <span class="text-sm font-semibold opacity-90">({{ currentStep === 1 ? previousShift?.definition?.startTime : upcomingShift?.definition?.startTime }} - {{ currentStep === 1 ? previousShift?.definition?.endTime : upcomingShift?.definition?.endTime }})</span>
             </h3>
             <div class="text-[11px] text-white/80 font-mono mt-0.5 flex items-center gap-2">
-              <span>📅 Tanggal Kerja: <strong>{{ currentStep === 1 ? previousShift.date : upcomingShift.date }}</strong></span>
+              <span>📅 Tanggal Kerja: <strong>{{ currentStep === 1 ? (previousShift?.date || '-') : (upcomingShift?.date || '-') }}</strong></span>
             </div>
           </div>
         </div>
@@ -94,7 +94,7 @@
                 class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
                 :class="activeMachineTab === tab.id ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-600'"
               >
-                {{ currentMachineSummary.totalChild }} FG
+                {{ machineSummaries[tab.id]?.totalChild || 0 }} FG
               </span>
             </button>
           </div>
@@ -105,7 +105,7 @@
             <div class="text-xs text-blue-950 leading-relaxed">
               <p class="font-bold">Laporan Serah Terima Mesin {{ activeMachineTab }}</p>
               <p class="text-blue-800 text-[11px] mt-0.5">
-                Rekapitulasi pengerjaan roll oleh <strong>Shift {{ previousShift.definition.shortName }} (Grup {{ previousShift.group }})</strong> pada mesin <strong>{{ activeMachineTab }}</strong>. Periksa rasio kualitas, rincian SPK, serta catatan reject/hold sebelum melanjutkan.
+                Rekapitulasi pengerjaan roll oleh <strong>Shift {{ previousShift?.definition?.shortName || '-' }} (Grup {{ previousShift?.group || '-' }})</strong> pada mesin <strong>{{ activeMachineTab }}</strong>. Periksa rasio kualitas, rincian SPK, serta catatan reject/hold sebelum melanjutkan.
               </p>
             </div>
           </div>
@@ -373,7 +373,7 @@
             </div>
           </div>
 
-          <!-- 5. AI Handover Intelligence (Real Google Gemini AI) -->
+          <!-- 5. AI Handover Intelligence (Google Gemini AI & AI Fallback) -->
           <div class="p-4 bg-gradient-to-br from-indigo-950 via-zinc-900 to-slate-900 rounded-2xl text-white shadow-md border border-indigo-500/20 space-y-3">
             <div class="flex items-center justify-between flex-wrap gap-2 border-b border-white/10 pb-2.5">
               <div class="flex items-center gap-2">
@@ -381,7 +381,10 @@
                 <div>
                   <div class="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
                     <span>AI Handover Intelligence</span>
-                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-indigo-500/30 text-indigo-300 border border-indigo-400/30">
+                    <span 
+                      class="px-1.5 py-0.2 rounded text-[9px] font-mono"
+                      :class="currentAiData?.isFallback ? 'bg-amber-500/30 text-amber-300 border border-amber-400/30' : 'bg-indigo-500/30 text-indigo-300 border border-indigo-400/30'"
+                    >
                       {{ currentAiData?.model || 'Gemini' }}
                     </span>
                   </div>
@@ -402,10 +405,19 @@
               </button>
             </div>
 
+            <!-- Fallback Alert Banner jika mode fallback aktif -->
+            <div v-if="currentAiData?.isFallback && !aiLoading[activeMachineTab]" class="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] text-amber-200 flex items-start gap-2">
+              <span class="text-sm">💡</span>
+              <div class="flex-1 leading-relaxed">
+                <span class="font-bold">Mode AI Fallback Aktif (Analisis Cerdas Lokal):</span> 
+                Sistem menghasilkan laporan operasional presisi tinggi berbasis data aktual pabrik PT SWC. Klik tombol <strong>Generate Ulang AI</strong> jika ingin mencoba menghubungkan ulang ke Gemini cloud.
+              </div>
+            </div>
+
             <!-- Loading State -->
             <div v-if="aiLoading[activeMachineTab]" class="py-6 flex flex-col items-center justify-center gap-2 text-indigo-200 text-xs">
               <div class="w-7 h-7 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-              <p class="font-medium animate-pulse">Gemini AI sedang menganalisis data shift mesin {{ activeMachineTab }}...</p>
+              <p class="font-medium animate-pulse">Sedang menganalisis data shift mesin {{ activeMachineTab }}...</p>
             </div>
 
             <!-- Error State -->
@@ -432,7 +444,7 @@
               
               <div class="text-[10px] text-zinc-400/70 pt-2 border-t border-white/10 flex items-center justify-between">
                 <span>Dianalisis pada: {{ currentAiData.generatedAt }}</span>
-                <span>Status: Tersimpan Lokal (IndexedDB)</span>
+                <span>{{ currentAiData.isFallback ? 'Metode: AI Fallback Lokal' : 'Metode: Google Gemini Cloud AI' }} (Tersimpan IndexedDB)</span>
               </div>
             </div>
 
@@ -521,7 +533,7 @@
           <div class="space-y-2.5">
             <div class="text-xs font-black text-zinc-700 uppercase tracking-wider flex items-center justify-between">
               <span>Daftar Penugasan Operator per Mesin</span>
-              <span class="text-[10px] text-zinc-400 font-semibold">Shift: {{ upcomingShift.definition.shortName }} (Grup {{ upcomingShift.group }})</span>
+              <span class="text-[10px] text-zinc-400 font-semibold">Shift: {{ upcomingShift?.definition?.shortName || '-' }} (Grup {{ upcomingShift?.group || '-' }})</span>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -751,20 +763,74 @@ const switchMachineTab = (tabId) => {
   loadOrGenerateAiSummary(tabId);
 };
 
-// Helper matching mesin
+// Helper normalisasi tanggal & shift
+const normalizeDateStr = (raw) => {
+  if (!raw) return '';
+  const s = String(raw).trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const parts = s.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    } else if (parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  return s;
+};
+
+const resolveItemShift = (item) => {
+  const rawShift = String(item.shift || item.shiftCode || '').toUpperCase().trim();
+  if (rawShift) {
+    if (rawShift.includes('LS1') || rawShift.includes('LONG SHIFT 1') || rawShift.includes('LONGSHIFT 1')) return 'LS1';
+    if (rawShift.includes('LS2') || rawShift.includes('LONG SHIFT 2') || rawShift.includes('LONGSHIFT 2')) return 'LS2';
+    if (rawShift.includes('1')) return '1';
+    if (rawShift.includes('2')) return '2';
+    if (rawShift.includes('3')) return '3';
+  }
+  
+  // Fallback ke jam pembuatan jika field shift kosong
+  const timeStr = item.createdAt || item.verifiedAt || item.updatedAt || '';
+  if (timeStr && timeStr.includes('T')) {
+    try {
+      const hour = new Date(timeStr).getHours();
+      if (hour >= 7 && hour < 15) return '1';
+      if (hour >= 15 && hour < 23) return '2';
+      return '3';
+    } catch (e) {}
+  }
+  return '1';
+};
+
+const isItemInTargetShift = (item, targetDate, targetCode) => {
+  const rawD = item.tanggalFormatted || item.tanggal || (item.verifiedAt ? item.verifiedAt.slice(0, 10) : (item.createdAt ? item.createdAt.slice(0, 10) : ''));
+  const d = normalizeDateStr(rawD);
+  const targetNorm = normalizeDateStr(targetDate);
+  if (d !== targetNorm) return false;
+
+  const itemShift = resolveItemShift(item);
+  if (targetCode === 'LS1') return itemShift === '1' || itemShift === 'LS1';
+  if (targetCode === 'LS2') return itemShift === '2' || itemShift === '3' || itemShift === 'LS2';
+  if (targetCode === '1') return itemShift === '1' || itemShift === 'LS1';
+  if (targetCode === '2') return itemShift === '2' || itemShift === 'LS2';
+  if (targetCode === '3') return itemShift === '3' || itemShift === 'LS2';
+  return itemShift === targetCode;
+};
+
+// Helper matching mesin yang lengkap (mencakup SLT, SML, REW, CST, MET, dll)
 const isMatchingMachine = (item, machineKey) => {
-  const m = String(item.mesin || item.machineName || item.station || '').toUpperCase().trim();
+  const m = String(item.mesin || item.machineName || item.station || item.slitting || item.rewind || '').toUpperCase().trim();
   if (machineKey === 'SLITTING') {
-    return m.includes('SLIT') || m.includes('SML') || (!m && true); // default ke SLITTING jika tidak tercatat
+    return m.includes('SLIT') || m.includes('SLT') || m.includes('SML') || (!m && true); // default ke SLITTING jika tidak tercatat
   }
   if (machineKey === 'REWIND') {
-    return m.includes('REWIND') || m.includes('RWD');
+    return m.includes('REWIND') || m.includes('REW') || m.includes('RWD');
   }
   if (machineKey === 'CASTING') {
-    return m.includes('CASTING') || m.includes('CST');
+    return m.includes('CASTING') || m.includes('CAST') || m.includes('CST') || m.includes('CPP');
   }
   if (machineKey === 'METALIZE') {
-    return m.includes('METALIZE') || m.includes('MET');
+    return m.includes('METALIZE') || m.includes('MET') || m.includes('MTL');
   }
   return false;
 };
@@ -782,31 +848,22 @@ const loadShiftSummary = async () => {
     // 1. Ambil dari db.labels
     if (db.labels) {
       const allLabels = await db.labels.toArray();
-      const matched = allLabels.filter(l => {
-        const d = l.tanggal || (l.verifiedAt ? l.verifiedAt.slice(0, 10) : (l.createdAt ? l.createdAt.slice(0, 10) : ''));
-        if (d !== targetDate) return false;
-        const s = String(l.shift || '1').toUpperCase();
-        if (targetCode === 'LS1') return s === '1' || s === 'LS1';
-        if (targetCode === 'LS2') return s === '2' || s === '3' || s === 'LS2';
-        return s === targetCode;
-      });
+      const matched = allLabels.filter(l => isItemInTargetShift(l, targetDate, targetCode));
       items.push(...matched);
     }
 
     // 2. Ambil dari db.data_rolls jika ada
     if (db.data_rolls) {
       const allRolls = await db.data_rolls.toArray();
-      const matchedRolls = allRolls.filter(r => {
-        const d = r.tanggalFormatted || r.tanggal;
-        if (d !== targetDate) return false;
-        const s = String(r.shift || '1').toUpperCase();
-        if (targetCode === 'LS1') return s === '1' || s === 'LS1';
-        if (targetCode === 'LS2') return s === '2' || s === '3' || s === 'LS2';
-        return s === targetCode;
-      });
+      const matchedRolls = allRolls.filter(r => isItemInTargetShift(r, targetDate, targetCode));
 
       for (const r of matchedRolls) {
-        if (!items.some(it => it.lot === r.lot && it.turunan === r.turunan)) {
+        const isDuplicate = items.some(it => {
+          if (it.uuid && r.uuid && it.uuid === r.uuid) return true;
+          if (it.id && r.id && it.id === r.id) return true;
+          return it.lot && r.lot && it.lot === r.lot && String(it.turunan || '') === String(r.turunan || '');
+        });
+        if (!isDuplicate) {
           items.push(r);
         }
       }
@@ -1001,6 +1058,108 @@ const loadOrGenerateAiSummary = async (machineKey) => {
   generateAiHandover(machineKey, false);
 };
 
+// AI Fallback Engine: Ringkasan Analisis Operasional Cerdas Berbasis Data Aktual Pabrik PT SWC
+const generateLocalHandoverSummary = (machineKey, summary, pShift, uShift) => {
+  const pName = pShift?.definition?.name || 'Shift Sebelumnya';
+  const pGroup = pShift?.group ? `Grup ${pShift.group}` : '';
+  const uName = uShift?.definition?.name || 'Shift Berikutnya';
+  const uGroup = uShift?.group ? `Grup ${uShift.group}` : 'berikutnya';
+  const workDate = pShift?.date || new Date().toISOString().slice(0, 10);
+
+  const totalChild = summary.totalChild || 0;
+  const totalParent = summary.totalParent || 0;
+  const totalNetto = summary.totalNetto || 0;
+  const totalMeter = summary.totalMeter || 0;
+  const passCount = summary.passCount || 0;
+  const holdCount = summary.holdCount || 0;
+  const rejectCount = summary.rejectCount || 0;
+  const passPercent = summary.passPercent || (totalChild > 0 ? Math.round((passCount / totalChild) * 100) : 100);
+  const holdPercent = summary.holdPercent || 0;
+  const rejectPercent = summary.rejectPercent || 0;
+
+  let outText = `### 📋 LAPORAN OPERASIONAL SERAH TERIMA MESIN ${machineKey}\n`;
+  outText += `**PT SAPTAWARNA CEMERLANG (PT SWC)**\n\n`;
+  outText += `* **Shift Selesai:** ${pName} (${pGroup}), Tanggal Kerja: \`${workDate}\`\n`;
+  outText += `* **Shift Bertugas:** ${uName} (${uGroup})\n\n`;
+
+  // 1. Ringkasan Output & Pencapaian
+  outText += `#### 1. Ringkasan Output & Pencapaian\n`;
+  if (totalChild === 0) {
+    outText += `* **Status Produksi:** Belum ada rekaman roll FG yang selesai/terverifikasi di mesin ${machineKey} pada shift ini (kemungkinan mesin dalam proses setup roll jumbo, pemanasan, atau maintenance).\n`;
+  } else {
+    outText += `* **Volume Hasil:** Memproses **${totalParent} Jumbo (Parent)** menjadi **${totalChild} Roll FG** dengan total berat bersih **${formatNumber(totalNetto)} kg** dan akumulasi panjang **${formatNumber(totalMeter)} M**.\n`;
+    outText += `* **Distribusi Kualitas Output:**\n`;
+    outText += `  - ✅ **PASS:** ${passCount} roll (${passPercent}%)\n`;
+    outText += `  - ⚠️ **HOLD:** ${holdCount} roll (${holdPercent}%)\n`;
+    outText += `  - 🛑 **REJECT:** ${rejectCount} roll (${rejectPercent}%)\n`;
+
+    if (passPercent >= 98 && rejectCount === 0) {
+      outText += `* **Yield & Efisiensi:** Kualitas prima mencapai target standar pabrik (PASS ${passPercent}% tanpa cacat reject).\n`;
+    } else if (rejectCount > 0) {
+      outText += `* **Tingkat Cacat:** Terdata reject sebesar **${rejectPercent}% (${rejectCount} roll)**. Perhatikan pencegahan akar masalah pada shift berikutnya.\n`;
+    }
+  }
+
+  // Rincian SPK
+  if (summary.spkList && summary.spkList.length > 0) {
+    outText += `\n**Rincian SPK Yang Dikerjakan:**\n`;
+    summary.spkList.forEach(s => {
+      outText += `* **SPK ${s.spk}** ${s.jenis ? `(${s.jenis} ${s.thickness ? s.thickness + 'MC' : ''})` : ''}: ${s.childCount} roll FG (${formatNumber(s.netto)} kg / ${formatNumber(s.meter)} M) — PASS: ${s.passPercent}%, HOLD: ${s.hold}, REJECT: ${s.reject}\n`;
+    });
+  }
+
+  // 2. Sorotan Masalah & Defect
+  outText += `\n#### 2. Sorotan Masalah & Defect\n`;
+  const hasRejects = summary.rejectBreakdown && summary.rejectBreakdown.length > 0;
+  const hasHolds = summary.holdBreakdown && summary.holdBreakdown.length > 0;
+
+  if (!hasRejects && !hasHolds) {
+    outText += `* **Zero Defect:** Tidak tercatat adanya roll REJECT maupun HOLD pada mesin ${machineKey} selama shift berlangsung. Parameter mesin berjalan prima dan stabil.\n`;
+  } else {
+    if (hasRejects) {
+      outText += `* **Roll Cacat REJECT (${rejectCount} roll):**\n`;
+      summary.rejectBreakdown.forEach(r => {
+        outText += `  - 🛑 **${r.reason}** sejumlah ${r.count} roll (SPK: ${r.spks.join(', ') || '-'})\n`;
+      });
+    }
+    if (hasHolds) {
+      outText += `* **Roll Tertahan HOLD QC (${holdCount} roll):**\n`;
+      summary.holdBreakdown.forEach(h => {
+        outText += `  - ⚠️ **${h.reason}** sejumlah ${h.count} roll (SPK: ${h.spks.join(', ') || '-'}). Menunggu rilis atau rekomendasi disposisi dari tim QC.\n`;
+      });
+    }
+  }
+
+  // 3. Instruksi Prioritas Shift Baru
+  outText += `\n#### 3. Instruksi Prioritas Shift Baru (${uGroup})\n`;
+  if (machineKey === 'SLITTING') {
+    outText += `1. **Cek Pisau Potong & Lebar Trim:** Periksa ketajaman slitter blades. Pastikan sisa trim kedua sisi simetris dan tidak melebihi batas toleransi standar pabrik (maksimal 30 mm) agar berat waste terkendali.\n`;
+    outText += `2. **Tension Gulungan & Edge Guiding:** Lakukan fine-tuning sensor web guide pada awal running jumbo untuk mencegah resiko telescoping atau pinggiran roll bergelombang.\n`;
+    outText += `3. **Pembersihan Poros & Core:** Bersihkan debu film dan residu perekat pada area shaft/core chuck sebelum memasang core baru.\n`;
+  } else if (machineKey === 'REWIND') {
+    outText += `1. **Web Guiding & Alignment:** Pastikan posisi roll yang di-rewind sejajar presisi dengan sumbu core untuk menghindari offset tepi.\n`;
+    outText += `2. **Inspeksi Sambungan (Splice):** Pastikan penandaan bendera cacat (flagging) terpasang jelas untuk memudahkan inspeksi saat proses pengemasan.\n`;
+    outText += `3. **Kontrol Tekanan Lay-on Roller:** Sesuaikan tekanan lay-on roll agar kekencangan gulungan padat merata tanpa gelembung udara.\n`;
+  } else if (machineKey === 'CASTING') {
+    outText += `1. **Pemeriksaan Die Lip & Suhu Zona:** Pastikan tidak ada partikel terdegradasi pada celah bibir cetakan (die line). Pantau kestabilan temperatur barrel tiap zona.\n`;
+    outText += `2. **Chill Roll & Ketebalan Film:** Amati keseragaman pendinginan chill roll dan verifikasi profil ketebalan (thickness profile) melintang.\n`;
+    outText += `3. **Corona Treater:** Uji dyne level permukaan film secara berkala sesuai ketentuan SPK untuk menjaga daya rekat permukaan.\n`;
+  } else if (machineKey === 'METALIZE') {
+    outText += `1. **Vakum Chamber & Wire Feeding:** Monitor derajat kevakuman ruang metalizing dan laju pengumpanan kawat aluminium.\n`;
+    outText += `2. **Optical Density (OD):** Pastikan pembacaan sensor densitas optik lapisan aluminium stabil di sepanjang lintasan web.\n`;
+    outText += `3. **Inspeksi Pinhole:** Pantau ada tidaknya pinhole atau goresan garis pada roll hasil pelapisan metalik.\n`;
+  } else {
+    outText += `1. **Inspeksi Awal:** Lakukan briefing 5S dan pemeriksaan parameter mesin sebelum memulai produksi.\n`;
+    outText += `2. **Verifikasi SPK:** Pastikan spesifikasi bahan dan ukuran sesuai kartu instruksi kerja.\n`;
+  }
+
+  if (hasHolds) {
+    outText += `4. **Koordinasi Kualitas:** Segera tindak lanjuti ${holdCount} roll berstatus HOLD dengan Quality Control shift berikutnya.\n`;
+  }
+
+  return outText;
+};
+
 const generateAiHandover = async (machineKey, forceRegenerate = false) => {
   const pShift = previousShift.value;
   const uShift = upcomingShift.value;
@@ -1017,17 +1176,31 @@ const generateAiHandover = async (machineKey, forceRegenerate = false) => {
     } catch (e) {}
   }
 
-  const aiCfg = await getAiConfig();
-  const apiKey = aiCfg.apiKey || (await getResolvedGeminiApiKey());
-  if (!apiKey) {
-    aiError[machineKey] = 'API Key Google AI / Gemini belum dikonfigurasi di Pengaturan.';
-    return;
-  }
-
   aiLoading[machineKey] = true;
   aiError[machineKey] = '';
 
   const summary = machineSummaries[machineKey] || emptyMachineSummary();
+
+  const aiCfg = await getAiConfig();
+  const apiKey = aiCfg.apiKey || (await getResolvedGeminiApiKey());
+  
+  // Jika API Key tidak ada, otomatis aktifkan AI Fallback lokal
+  if (!apiKey) {
+    const fallbackText = generateLocalHandoverSummary(machineKey, summary, pShift, uShift);
+    const resultObj = {
+      content: fallbackText,
+      model: 'AI Fallback (Analisis Cerdas Lokal)',
+      isFallback: true,
+      generatedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
+    aiSummaries[machineKey] = resultObj;
+    aiLoading[machineKey] = false;
+    aiError[machineKey] = '';
+    if (cacheKey) {
+      await saveSetting(cacheKey, resultObj).catch(() => {});
+    }
+    return;
+  }
 
   const spkLines = summary.spkList.map(s => 
     `- SPK: ${s.spk} | Parent: ${s.parentCount} jumbo | FG: ${s.childCount} roll | Netto: ${s.netto} kg | Meter: ${s.meter} m | Pass: ${s.passPercent}% | Hold: ${s.hold} roll | Reject: ${s.reject} roll`
@@ -1053,8 +1226,8 @@ PEDOMAN ANTI-HALUSINASI MUTLAK:
 
 Buat ringkasan serah terima (shift handover summary) yang tajam, profesional, dan actionable untuk:
 - MESIN: ${machineKey}
-- Shift Selesai: ${pShift.definition.name} (Grup ${pShift.group}), Tanggal Kerja: ${pShift.date}
-- Shift Baru Masuk: ${uShift?.definition.name || 'Shift Berikutnya'} (Grup ${uShift?.group || '-'}), Tanggal: ${uShift?.date || pShift.date}
+- Shift Selesai: ${pShift.definition?.name || 'Shift Sebelumnya'} (Grup ${pShift.group}), Tanggal Kerja: ${pShift.date}
+- Shift Baru Masuk: ${uShift?.definition?.name || 'Shift Berikutnya'} (Grup ${uShift?.group || '-'}), Tanggal: ${uShift?.date || pShift.date}
 
 DATA AKTUAL PRODUKSI MESIN ${machineKey}:
 - Total Parent (Jumbo): ${summary.totalParent} roll
@@ -1079,8 +1252,10 @@ Gunakan format Markdown terstruktur, profesional, dan lengkap tanpa terpotong:
 3. **Instruksi Prioritas Shift Baru**: Instruksi operasional konkret untuk Grup ${uShift?.group || 'berikutnya'} saat mengoperasikan mesin ${machineKey} (misal: kalibrasi pisau, cek tension roll, penanganan roll hold/reject).
 Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Berikan analisis menyeluruh tanpa memotong teks di tengah jalan.`;
 
-  let modelCandidates = await getAiModelCandidates();
-  if (!modelCandidates || modelCandidates.length === 0) {
+  let rawCandidates = await getAiModelCandidates();
+  const validKnownModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  let modelCandidates = (rawCandidates || []).filter(m => validKnownModels.includes(m));
+  if (modelCandidates.length === 0) {
     modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   }
 
@@ -1089,15 +1264,13 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
 
   for (const model of modelCandidates) {
     const abortCtrl = new AbortController();
-    const timeoutId = setTimeout(() => abortCtrl.abort(), 7500);
+    const timeoutId = setTimeout(() => abortCtrl.abort(), 15000);
 
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       
-      // Request payload dengan tools Google Search Grounding jika didukung model
       const basePayload = {
         contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }],
         generationConfig: {
           temperature: 0.25,
           maxOutputTokens: 8192
@@ -1114,20 +1287,6 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
         body: JSON.stringify(basePayload)
       });
 
-      // Fallback jika model atau kuota menolak parameter tools (misal HTTP 400, 403, 429)
-      if (!res.ok && basePayload.tools) {
-        delete basePayload.tools;
-        res = await fetch(url, {
-          method: 'POST',
-          signal: abortCtrl.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey.trim()
-          },
-          body: JSON.stringify(basePayload)
-        });
-      }
-
       clearTimeout(timeoutId);
 
       if (!res.ok) {
@@ -1141,30 +1300,12 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
       let generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (generatedText) {
-        // Ekstrak referensi web jika model melakukan browsing via Google Search Grounding
-        const meta = data?.candidates?.[0]?.groundingMetadata || data?.candidates?.[0]?.grounding_metadata;
-        const webChunks = meta?.groundingChunks || meta?.grounding_chunks;
-        if (Array.isArray(webChunks) && webChunks.length > 0) {
-          const uniqueSources = [];
-          for (const c of webChunks) {
-            const uri = c.web?.uri || c.web?.url;
-            const title = c.web?.title || uri;
-            if (uri && !uniqueSources.some(s => s.url === uri)) {
-              uniqueSources.push({ title, url: uri });
-            }
-          }
-          if (uniqueSources.length > 0) {
-            generatedText = generatedText.trim() + '\n\n---\n🌐 *Referensi Web Terverifikasi (Google Search):*\n' +
-              uniqueSources.slice(0, 3).map(s => `• [${s.title}](${s.url})`).join('\n');
-          }
-        }
-
-        // Rekam model sukses ke Cloud Database sebagai Sticky Winner
         recordModelSuccess(model).catch(() => {});
 
         const resultObj = {
           content: generatedText,
           model,
+          isFallback: false,
           generatedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         };
         aiSummaries[machineKey] = resultObj;
@@ -1178,16 +1319,30 @@ Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Ber
       clearTimeout(timeoutId);
       lastErrMsg = err.message;
       const isTimeout = err.name === 'AbortError';
-      const reason = isTimeout ? 'Timeout (>7.5s)' : (err.message || 'Error');
+      const reason = isTimeout ? 'Timeout (>15s)' : (err.message || 'Error');
       recordModelFailure(model, reason, isTimeout ? 408 : null).catch(() => {});
-      console.warn(`[Handover AI] Model ${model} gagal (${reason}). Beralih ke model fallback...`);
+      console.warn(`[Handover AI] Model ${model} gagal (${reason}). Beralih ke model berikutnya...`);
+    }
+  }
+
+  // JIKA SEMUA MODEL GEMINI GAGAL / LIMIT / OFFLINE -> OTOMATIS AKTIFKAN AI FALLBACK LOKAL!
+  if (!success) {
+    console.warn(`[Handover AI] Semua model Gemini gagal (${lastErrMsg}). Mengaktifkan AI Fallback lokal...`);
+    const fallbackText = generateLocalHandoverSummary(machineKey, summary, pShift, uShift);
+    const resultObj = {
+      content: fallbackText,
+      model: 'AI Fallback (Analisis Cerdas Lokal)',
+      isFallback: true,
+      generatedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
+    aiSummaries[machineKey] = resultObj;
+    aiError[machineKey] = '';
+    if (cacheKey) {
+      await saveSetting(cacheKey, resultObj).catch(() => {});
     }
   }
 
   aiLoading[machineKey] = false;
-  if (!success) {
-    aiError[machineKey] = lastErrMsg || 'Gagal menghubungi layanan Google Gemini AI.';
-  }
 };
 
 const rosterForm = reactive({
