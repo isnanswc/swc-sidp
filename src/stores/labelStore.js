@@ -4,7 +4,7 @@ import { db, generateUniqID, getSetting, saveSetting } from '@/db';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
 import { useGlobalLoading } from '@/services/loadingService';
-import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones } from '@/services/syncService';
+import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones, recordLabelsWipedCloud } from '@/services/syncService';
 
 export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
   const lot = String(item.lot || '').toUpperCase();
@@ -544,6 +544,7 @@ export const useLabelStore = defineStore('labelStore', {
         }
         await db.labels.clear();
         await saveSetting('labels_initialized_flag_v1', true);
+        await recordLabelsWipedCloud();
         this.labels = [];
         this.selectedIds.clear();
         this.currentPage = 1;

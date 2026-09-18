@@ -3,7 +3,7 @@ import { ref, computed, markRaw } from 'vue';
 import { db } from '@/db';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot, parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
 import { useGlobalLoading } from '@/services/loadingService';
-import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones, broadcastClearAllRolls } from '@/services/syncService';
+import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones, broadcastClearAllRolls, recordDataRollsWipedCloud } from '@/services/syncService';
 
 export function computeDataRollSortKeys(item) {
   const rawDate = item.tanggalFormatted || item.tanggal || '';
@@ -468,6 +468,13 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     try {
       if (mode === 'replace') {
         await db.data_rolls.clear();
+        await db.data_roll_uploads.clear();
+        await recordDataRollsWipedCloud();
+        try {
+          await supabase.from('data_rolls').delete().neq('uuid', 'keep_all');
+        } catch (errCloud) {
+          console.warn('Supabase clear data_rolls warning:', errCloud);
+        }
       }
       const now = new Date().toISOString();
       const uploadUuid = 'upload_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
@@ -812,7 +819,10 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
         console.warn('Supabase clear data_rolls warning:', errCloud);
       }
 
-      // 8. Broadcast clear ke semua perangkat lain yang sedang online
+      // 8. Catat wipe persisten ke Cloud Supabase agar perangkat lain otomatis bersih
+      await recordDataRollsWipedCloud();
+
+      // 9. Broadcast clear ke semua perangkat lain yang sedang online
       await broadcastClearAllRolls();
     } catch (e) {
       console.error('Failed to clear data_rolls:', e);

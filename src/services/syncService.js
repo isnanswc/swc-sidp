@@ -425,6 +425,37 @@ export async function deleteMultipleFromSupabase(table, column, values) {
   }
 }
 
+// ── GLOBAL WIPE TRACKER: Tandai di Cloud saat database di-reset agar device lain ikut bersih ──
+export async function recordDataRollsWipedCloud() {
+  const nowIso = new Date().toISOString();
+  localStorage.setItem('mlabel_local_data_rolls_wiped_at', String(new Date(nowIso).getTime()));
+  clearTombstones('data_rolls');
+  if (!navigator.onLine) return;
+  try {
+    await supabase.from('settings').upsert([
+      { key: 'data_rolls_wiped_at', value: nowIso, updated_at: nowIso }
+    ], { onConflict: 'key' });
+    console.log('[SyncWipe] Berhasil mencatat data_rolls_wiped_at di cloud');
+  } catch (e) {
+    console.warn('[SyncWipe] Gagal mencatat data_rolls_wiped_at di cloud:', e);
+  }
+}
+
+export async function recordLabelsWipedCloud() {
+  const nowIso = new Date().toISOString();
+  localStorage.setItem('mlabel_local_labels_wiped_at', String(new Date(nowIso).getTime()));
+  clearTombstones('labels');
+  if (!navigator.onLine) return;
+  try {
+    await supabase.from('settings').upsert([
+      { key: 'labels_wiped_at', value: nowIso, updated_at: nowIso }
+    ], { onConflict: 'key' });
+    console.log('[SyncWipe] Berhasil mencatat labels_wiped_at di cloud');
+  } catch (e) {
+    console.warn('[SyncWipe] Gagal mencatat labels_wiped_at di cloud:', e);
+  }
+}
+
 // 1. PUSH: Kirim data lokal yang belum tersinkron ke Supabase (PARALLEL & BULK)
 export async function pushLocalToSupabase() {
   if (!navigator.onLine) return;
@@ -920,8 +951,69 @@ export async function pullFromSupabase(forceFull = false) {
   syncState.isSyncing = true;
   syncState.lastError = null;
 
+  let effectiveForceFull = Boolean(forceFull);
+
+  // 0. Deteksi apakah Data Rolls, Labels, atau Master Config telah di-wipe / reset di Cloud Supabase
+  try {
+    const { data: wipeSettings } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['data_rolls_wiped_at', 'labels_wiped_at', 'master_config_wiped_at']);
+
+    if (wipeSettings && wipeSettings.length > 0) {
+      for (const ws of wipeSettings) {
+        if (ws.key === 'data_rolls_wiped_at' && ws.value) {
+          const cloudWiped = new Date(ws.value).getTime();
+          const localWiped = parseInt(localStorage.getItem('mlabel_local_data_rolls_wiped_at') || '0', 10);
+          if (cloudWiped > localWiped) {
+            console.log('[SyncPull] Mendeteksi Reset Data Rolls di Cloud. Membersihkan data rolls lokal...');
+            localStorage.setItem('mlabel_local_data_rolls_wiped_at', String(cloudWiped));
+            clearTombstones('data_rolls');
+            if (db.data_rolls) await db.data_rolls.clear();
+            if (db.data_roll_uploads) await db.data_roll_uploads.clear();
+            localStorage.removeItem('mlabel_last_sync_iso');
+            effectiveForceFull = true;
+          }
+        }
+        if (ws.key === 'labels_wiped_at' && ws.value) {
+          const cloudWiped = new Date(ws.value).getTime();
+          const localWiped = parseInt(localStorage.getItem('mlabel_local_labels_wiped_at') || '0', 10);
+          if (cloudWiped > localWiped) {
+            console.log('[SyncPull] Mendeteksi Reset Labels di Cloud. Membersihkan labels lokal...');
+            localStorage.setItem('mlabel_local_labels_wiped_at', String(cloudWiped));
+            clearTombstones('labels');
+            if (db.labels) await db.labels.clear();
+            localStorage.removeItem('mlabel_last_sync_iso');
+            effectiveForceFull = true;
+          }
+        }
+        if (ws.key === 'master_config_wiped_at' && ws.value) {
+          const cloudWipedTime = new Date(ws.value).getTime();
+          const localWipedTime = parseInt(localStorage.getItem('mlabel_local_config_wiped_at') || '0', 10);
+          if (cloudWipedTime > localWipedTime) {
+            localStorage.setItem('mlabel_local_config_wiped_at', String(cloudWipedTime));
+            await Promise.allSettled([
+              db.film_configs?.clear(),
+              db.bom_formulas?.clear(),
+              db.resin_items?.clear(),
+              db.mesin_list?.clear(),
+              db.operator_list?.clear(),
+              db.location_list?.clear(),
+              db.standard_lengths?.clear(),
+            ]);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('sync:config-updated'));
+            }
+          }
+        }
+      }
+    }
+  } catch (wipeErr) {
+    console.warn('[SyncPull] Pengecekan cloud wipe settings warning:', wipeErr);
+  }
+
   const lastSyncIso = localStorage.getItem('mlabel_last_sync_iso');
-  const isDelta = !forceFull && Boolean(lastSyncIso);
+  const isDelta = !effectiveForceFull && Boolean(lastSyncIso);
   const syncStartTime = new Date().toISOString();
   let syncHasErrors = false;
 

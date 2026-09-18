@@ -153,6 +153,105 @@
 
   <!-- Global Shift Handover Modal Teleport -->
   <ShiftHandoverModal />
+
+  <!-- Global Cloud Sync Control Modal -->
+  <div v-if="showSyncModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-200">
+      <div class="px-5 py-3.5 bg-zinc-950 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">☁️</span>
+          <div>
+            <h3 class="font-black text-sm text-white">Pusat Sinkronisasi Cloud</h3>
+            <p class="text-[10px] text-zinc-400">Sinkronisasi Multi-Device (Kantor ⇄ Rumah)</p>
+          </div>
+        </div>
+        <button @click="showSyncModal = false" class="text-zinc-400 hover:text-white cursor-pointer font-bold">✕</button>
+      </div>
+
+      <div class="p-4 sm:p-5 space-y-4 text-xs">
+        <!-- Status Cards -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Koneksi Cloud</span>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="w-2 h-2 rounded-full" :class="syncState.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></span>
+              <span class="font-black text-zinc-800">{{ syncState.isOnline ? 'Terhubung (Online)' : 'Terputus (Offline)' }}</span>
+            </div>
+          </div>
+
+          <div class="p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Sync Terakhir</span>
+            <span class="font-mono font-bold text-zinc-800 block mt-1">
+              {{ syncState.lastSyncTime || 'Belum tersinkron' }}
+            </span>
+          </div>
+        </div>
+
+        <div v-if="syncState.unsyncedCount > 0" class="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] flex items-center gap-2">
+          <span>⚠️</span>
+          <span>Terdapat <strong>{{ syncState.unsyncedCount }}</strong> data lokal yang belum diunggah ke cloud.</span>
+        </div>
+
+        <!-- Sync Action Options -->
+        <div class="space-y-2.5 pt-1">
+          <p class="font-black text-[11px] text-zinc-500 uppercase tracking-wider">Pilihan Metode Sinkronisasi:</p>
+
+          <!-- Option 1: Full Sync (Disarankan) -->
+          <button
+            type="button"
+            @click="triggerFullSync"
+            :disabled="syncState.isSyncing"
+            class="w-full text-left p-3 rounded-xl border border-emerald-300 bg-emerald-50/50 hover:bg-emerald-100/70 transition-all cursor-pointer disabled:opacity-50 group"
+          >
+            <div class="flex items-center justify-between">
+              <div class="font-black text-emerald-950 flex items-center gap-1.5">
+                <span>🔄</span>
+                <span>Tarik Ulang Penuh dari Cloud (Force Full Sync)</span>
+              </div>
+              <span class="text-[9.5px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-600 text-white shadow-2xs">Rekomendasi</span>
+            </div>
+            <p class="text-[11px] text-emerald-800 mt-1 leading-relaxed">
+              Mengosongkan cache lama dan mengunduh 100% data segar dari Cloud Supabase. <strong>Gunakan ini jika di PC kantor baru saja melakukan reset/import ulang data.</strong>
+            </p>
+          </button>
+
+          <!-- Option 2: Delta Sync (Cepat) -->
+          <button
+            type="button"
+            @click="triggerDeltaSync"
+            :disabled="syncState.isSyncing"
+            class="w-full text-left p-3 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-all cursor-pointer disabled:opacity-50 group"
+          >
+            <div class="font-black text-zinc-900 flex items-center gap-1.5">
+              <span>⚡</span>
+              <span>Sinkronisasi Cepat (Delta Sync)</span>
+            </div>
+            <p class="text-[11px] text-zinc-500 mt-0.5 leading-relaxed">
+              Hanya menarik data yang baru ditambahkan atau diubah sejak sinkronisasi terakhir (hemat kuota).
+            </p>
+          </button>
+        </div>
+
+        <div v-if="syncState.isSyncing" class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-center space-y-1 animate-fade-in">
+          <div class="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p class="text-[11px] font-bold text-blue-900">Sedang menyinkronkan data dengan Supabase Cloud...</p>
+        </div>
+
+        <div v-else-if="syncMessage" class="p-2.5 bg-zinc-900 text-white rounded-xl text-center text-xs font-bold animate-fade-in">
+          {{ syncMessage }}
+        </div>
+      </div>
+
+      <div class="px-5 py-3 border-t border-zinc-200 bg-zinc-50 flex items-center justify-end">
+        <button
+          @click="showSyncModal = false"
+          class="px-4 py-1.5 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer transition-colors"
+        >
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -172,6 +271,9 @@ const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const configStore = useConfigStore();
 
+const showSyncModal = ref(false);
+const syncMessage = ref('');
+
 const handleLogout = async () => {
   if (confirm('Apakah Anda yakin ingin keluar dari sistem?')) {
     await authStore.logout();
@@ -179,13 +281,35 @@ const handleLogout = async () => {
 };
 
 const handleManualSync = async (event) => {
-  const forceFull = Boolean(event && (event.shiftKey || event.altKey));
-  if (forceFull) {
-    await forceFullSync();
+  if (event && (event.shiftKey || event.altKey)) {
+    await triggerFullSync();
   } else {
-    await syncAll(false);
+    showSyncModal.value = true;
   }
-  await configStore.loadAll();
+};
+
+const triggerFullSync = async () => {
+  syncMessage.value = '';
+  try {
+    await forceFullSync();
+    await configStore.loadAll();
+    syncMessage.value = '✅ Sinkronisasi Penuh Berhasil! Data lokal telah diperbarui 100% dari Cloud.';
+    setTimeout(() => { syncMessage.value = ''; }, 4000);
+  } catch (err) {
+    syncMessage.value = '❌ Gagal sinkronisasi: ' + (err.message || err);
+  }
+};
+
+const triggerDeltaSync = async () => {
+  syncMessage.value = '';
+  try {
+    await syncAll(false);
+    await configStore.loadAll();
+    syncMessage.value = '✅ Sinkronisasi Cepat Selesai.';
+    setTimeout(() => { syncMessage.value = ''; }, 3000);
+  } catch (err) {
+    syncMessage.value = '❌ Gagal sinkronisasi: ' + (err.message || err);
+  }
 };
 
 const currentShift = computed(() => scheduleStore.currentShift);
