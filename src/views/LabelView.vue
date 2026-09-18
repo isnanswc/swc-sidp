@@ -1076,12 +1076,16 @@
                             <polyline points="9 18 15 12 9 6"></polyline>
                           </svg>
                         </span>
-                      <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate">
-                        🏷️ {{ lotNode.lot }}
-                      </span>
-                      <span class="text-[11px] font-mono text-zinc-500 font-bold hidden md:inline">
-                        SPK: <strong class="text-zinc-800">{{ lotNode.spk }}</strong>
-                      </span>
+
+                        <!-- Stacked No Lot & SPK (Menghemat tempat horizontal) -->
+                        <div class="flex flex-col min-w-0 justify-center">
+                        <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate" :title="`No. Lot Induk: ${lotNode.lot}`">
+                          🏷️ {{ lotNode.lot }}
+                        </span>
+                        <span class="text-[10px] font-mono text-zinc-500 font-semibold tracking-tight leading-none mt-0.5" :title="`SPK: ${lotNode.spk}`">
+                          SPK: <strong class="text-zinc-700 font-bold">{{ lotNode.spk }}</strong>
+                        </span>
+                      </div>
 
                       <!-- Subtitle Dimensi Induk & Inline Edit Width & Length (Desktop & Tablet) -->
                       <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono" @click.stop>
@@ -5557,20 +5561,26 @@ const hierarchyTree = computed(() => {
       const shiftData = shiftMap.get(shiftKey);
       const shiftItems = shiftData.items;
 
-      // Group Level 3: No Lot Induk Murni (Bukan Lot Akhir)
+      // Group Level 3: No Lot Induk Lengkap Sesuai Input User (Semua Mesin)
       const lotMap = new Map();
       shiftItems.forEach(item => {
         let parentLot = (item.lot || 'TANPA-LOT').trim().toUpperCase();
+        const turunan = (item.turunan || '').trim().toUpperCase();
+
         if (parentLot.includes('/')) {
-          const parts = parentLot.split('/').filter(Boolean);
-          if (parts.length >= 3) {
-            parentLot = parts.slice(0, -1).join('/');
-          } else if (parts.length === 2 && !parts[1].match(/^[A-Za-z]{2}\d{2}/)) {
-            parentLot = parts[0];
+          // Jika item.lot mengandung slash '/', periksa apakah segmen terakhir adalah turunan (misal /A01 atau /01)
+          if (turunan && parentLot.endsWith('/' + turunan)) {
+            parentLot = parentLot.slice(0, -(turunan.length + 1)).trim();
+          } else if (turunan) {
+            const parts = parentLot.split('/').filter(Boolean);
+            if (parts.length > 1 && parts[parts.length - 1] === turunan) {
+              parentLot = parts.slice(0, -1).join('/');
+            }
           }
         } else {
+          // Lot continuous tanpa slash (misal Casting L01050125C2A12)
           const parsed = parseContinuousLot(parentLot, item.mesin || 'SLITTING', item.supplier || 'INHOUSE');
-          if (parsed && parsed.baseLot) {
+          if (parsed && parsed.baseLot && parsed.turunan && parsed.baseLot !== parsed.turunan) {
             parentLot = parsed.baseLot;
           }
         }

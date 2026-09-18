@@ -243,17 +243,25 @@
                       </svg>
                     </span>
 
-                    <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase">
-                      {{ lotNode.lot }}
-                    </span>
-                    <span class="px-1.5 py-0.2 rounded text-[9.5px] font-black border uppercase shadow-2xs" :class="[
-                      lotNode.mesin === 'REWIND' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                      lotNode.mesin === 'CASTING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                      lotNode.mesin === 'METALIZE' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                      'bg-red-50 text-red-700 border-red-200'
-                    ]">
-                      {{ lotNode.mesin }}
-                    </span>
+                    <!-- Stacked No Lot & SPK (Menghemat tempat horizontal) -->
+                    <div class="flex flex-col min-w-0 justify-center">
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate" :title="`No. Lot Induk: ${lotNode.lot}`">
+                          {{ lotNode.lot }}
+                        </span>
+                        <span class="px-1.5 py-0.2 rounded text-[9.5px] font-black border uppercase shadow-2xs shrink-0" :class="[
+                          lotNode.mesin === 'REWIND' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                          lotNode.mesin === 'CASTING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          lotNode.mesin === 'METALIZE' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                          'bg-red-50 text-red-700 border-red-200'
+                        ]">
+                          {{ lotNode.mesin }}
+                        </span>
+                      </div>
+                      <span class="text-[10px] font-mono text-zinc-500 font-semibold tracking-tight leading-none mt-0.5" :title="`SPK: ${lotNode.spk}`">
+                        SPK: <strong class="text-zinc-700 font-bold">{{ lotNode.spk }}</strong>
+                      </span>
+                    </div>
 
                     <span class="text-[11px] font-bold text-zinc-600 truncate hidden md:inline font-mono">
                       {{ [lotNode.jenis, lotNode.kode, `${lotNode.thickness} MC X ${lotNode.parentWidth || lotNode.width} MM`].filter(Boolean).join(' ') }}
@@ -262,7 +270,6 @@
 
                   <!-- Lot Right Badges -->
                   <div class="flex items-center gap-1.5 text-[11px] whitespace-nowrap">
-                    <span class="text-zinc-400 font-mono hidden sm:inline">SPK: <strong class="text-zinc-700">{{ lotNode.spk }}</strong></span>
                     
                     <span v-if="lotNode.parentBeratTeori" class="px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 font-mono font-bold text-[10.5px] shadow-2xs">
                       Teori: {{ lotNode.parentBeratTeori }} kg
