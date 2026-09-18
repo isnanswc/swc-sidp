@@ -6646,8 +6646,8 @@ const getParentWidthStatus = (lotNode) => {
       textClass: 'text-stone-800 font-bold',
       tooltip: `Lebar parent pas sesuai estimasi (${currentW} mm). Tanpa trim.`
     };
-  } else if (diff >= 10 && diff <= 15) {
-    // Melebihi estimasi antara 10-15 mm -> Wajar dianggap trim
+  } else if (diff >= 10 && diff <= 30) {
+    // Melebihi estimasi antara 10-30 mm -> Wajar standar trim (standar maksimal 30 mm)
     return {
       status: 'trim_ok',
       diff,
@@ -6655,10 +6655,10 @@ const getParentWidthStatus = (lotNode) => {
       currentW,
       bgClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300',
       textClass: 'text-emerald-900 font-bold',
-      tooltip: `✓ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm - Wajar standar trim 10-15 mm).`
+      tooltip: `✓ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm - Standar wajar trim 10-30 mm).`
     };
   } else if (diff > 0 && diff < 10) {
-    // Melebihi estimasi tapi di bawah 10 mm (Trim sangat tipis)
+    // Melebihi estimasi tapi di bawah 10 mm (Trim tipis)
     return {
       status: 'trim_small',
       diff,
@@ -6666,10 +6666,10 @@ const getParentWidthStatus = (lotNode) => {
       currentW,
       bgClass: 'bg-blue-50 text-blue-800 border border-blue-200',
       textClass: 'text-blue-900 font-bold',
-      tooltip: `ℹ️ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm).`
+      tooltip: `ℹ️ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm - Trim tipis <10 mm).`
     };
   } else {
-    // diff > 15 mm -> Warning peringatan melebihi trim standar, tapi tetap diperbolehkan
+    // diff > 30 mm -> Warning peringatan melebihi batas maksimal standar trim (30 mm), tapi tetap diperbolehkan
     return {
       status: 'trim_warning',
       diff,
@@ -6677,7 +6677,7 @@ const getParentWidthStatus = (lotNode) => {
       currentW,
       bgClass: 'bg-rose-100 text-rose-900 border border-rose-300 ring-1 ring-rose-400/50',
       textClass: 'text-rose-900 font-black',
-      tooltip: `⚠️ PERINGATAN TRIM BESAR: Lebar parent (${currentW} mm) melebihi estimasi (${estimatedW} mm) sebesar +${diff} mm (>15 mm trim)! Tetap diperbolehkan namun periksa kembali.`
+      tooltip: `⚠️ PERINGATAN TRIM BESAR: Lebar parent (${currentW} mm) melebihi estimasi (${estimatedW} mm) sebesar +${diff} mm (>30 mm batas standar trim)! Tetap diperbolehkan namun periksa kembali.`
     };
   }
 };
