@@ -392,13 +392,20 @@
               :key="item.id"
               @contextmenu.prevent="openRowActionModal(item)"
               :class="[
-                'hover:bg-red-50/30 transition-colors cursor-pointer select-none',
-                selectedIds.includes(item.id) ? 'bg-red-50/50' : ''
+                'transition-all duration-150 cursor-pointer select-none group/row border-b border-zinc-100/70',
+                selectedIds.includes(item.id)
+                  ? '!bg-red-50/80 ring-1 ring-inset ring-red-200/70 shadow-2xs font-semibold'
+                  : idx % 2 === 0
+                    ? 'bg-white hover:bg-red-50/30'
+                    : 'bg-slate-50/60 hover:bg-red-50/40'
               ]"
               title="Klik kanan pada baris ini untuk membuka Menu Aksi"
             >
               <!-- Checkbox Row -->
-              <td class="py-2.5 px-3 text-center whitespace-nowrap" @click.stop>
+              <td class="py-2.5 px-3 text-center whitespace-nowrap relative" @click.stop>
+                <!-- Left Accent Bar on Hover -->
+                <div class="absolute left-0 inset-y-0 w-1 bg-red-600 opacity-0 group-hover/row:opacity-100 transition-opacity duration-150 rounded-r"></div>
+
                 <button
                   type="button"
                   @click="toggleSelectItem(item.id)"
@@ -812,19 +819,22 @@
         </div>
       </div>
 
-      <!-- LEVEL 1: TANGGAL NODES (Monochromatic: Subtle Light Zinc) -->
+      <!-- LEVEL 1: TANGGAL NODES (Executive Dark Minimalist) -->
       <div
         v-for="dateNode in hierarchyTree"
         :key="dateNode.date"
-        class="bg-white rounded-2xl border border-zinc-200/90 shadow-2xs overflow-hidden transition-all mb-3.5"
+        class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden transition-all mb-3.5"
       >
-        <!-- Tanggal Header (Level 1 Master Parent) -->
+        <!-- Tanggal Header (Level 1 Master Parent: Executive Deep Dark) -->
         <div
           @click="toggleDateExpand(dateNode.date)"
-          class="px-3 sm:px-4 py-2 sm:py-2.5 bg-zinc-100/90 hover:bg-zinc-200/70 cursor-pointer flex items-center justify-between text-zinc-900 select-none transition-colors border-b border-zinc-200 gap-2"
+          class="relative px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-900 hover:from-zinc-900 hover:to-zinc-850 cursor-pointer flex items-center justify-between text-white select-none transition-all duration-150 border-b border-zinc-800 gap-2 shadow-xs group/date"
           title="Klik untuk buka/tutup seluruh shift pada tanggal ini"
         >
-          <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+          <!-- Level 1 Left Accent Indicator (Red) -->
+          <div class="absolute left-0 inset-y-0 w-1.25 bg-red-600 rounded-r shadow-xs"></div>
+
+          <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0 pl-1.5">
             <!-- Circular Checkbox Level 1 (Tanggal) -->
             <button
               type="button"
@@ -833,7 +843,7 @@
               :class="[
                 isDateAllSelected(dateNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
                 isDateSomeSelected(dateNode) ? 'bg-red-500 border-red-400 text-white' :
-                'border-zinc-400 bg-white hover:border-red-500'
+                'border-zinc-500 bg-zinc-800 hover:border-red-400'
               ]"
               :title="isDateAllSelected(dateNode) ? 'Batalkan pilihan tanggal ini' : 'Pilih seluruh label tanggal ini'"
             >
@@ -843,94 +853,119 @@
               <span v-else-if="isDateSomeSelected(dateNode)" class="w-1.5 h-1.5 rounded-full bg-white"></span>
             </button>
 
-            <span class="w-5 h-5 rounded bg-white text-zinc-700 flex items-center justify-center text-[10px] font-black shrink-0 border border-zinc-300 shadow-2xs">
-              {{ isDateExpanded(dateNode.date) ? '▾' : '▸' }}
+            <!-- Animated Chevron Button Level 1 -->
+            <span class="w-5 h-5 rounded-md bg-zinc-800/90 text-white flex items-center justify-center shrink-0 border border-zinc-700/80 shadow-2xs group-hover/date:border-zinc-500 transition-colors">
+              <svg
+                class="w-2.5 h-2.5 transition-transform duration-200 transform"
+                :class="isDateExpanded(dateNode.date) ? 'rotate-90 text-red-400' : 'rotate-0 text-zinc-300'"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"
+              >
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
             </span>
-            <span class="text-xs sm:text-sm font-black tracking-tight text-zinc-900 truncate">
+            <span class="text-xs sm:text-sm font-black tracking-tight text-white truncate">
               📅 {{ dateNode.displayDate }}
             </span>
-            <span class="text-[10px] sm:text-[11px] font-mono text-zinc-500 hidden sm:inline">({{ dateNode.date }})</span>
+            <span class="text-[10px] sm:text-[11px] font-mono text-zinc-400 hidden sm:inline">({{ dateNode.date }})</span>
           </div>
 
           <!-- Badges Summary per Tanggal (Minimalis & Ringkas) -->
           <div class="flex items-center gap-1.5 sm:gap-2 text-xs whitespace-nowrap shrink-0">
-            <span class="text-[11px] text-zinc-500 font-semibold hidden md:inline">
+            <span class="text-[11px] text-zinc-400 font-semibold hidden md:inline">
               {{ dateNode.totalShifts }} Shift • {{ dateNode.totalLots }} Lot
             </span>
-            <span class="px-1.5 sm:px-2 py-0.5 rounded text-[10.5px] sm:text-[11px] font-bold bg-white text-zinc-800 border border-zinc-200 font-mono shadow-2xs" title="Total Roll Terpotong">
+            <span class="px-1.5 sm:px-2 py-0.5 rounded text-[10.5px] sm:text-[11px] font-bold bg-zinc-800 text-zinc-200 border border-zinc-700 font-mono shadow-2xs" title="Total Roll Terpotong">
               {{ dateNode.totalRolls }} <span class="hidden sm:inline">Roll</span><span class="sm:hidden">R</span>
             </span>
-            <span class="px-2 sm:px-2.5 py-0.5 rounded text-[10.5px] sm:text-[11px] font-black bg-zinc-900 text-white font-mono shadow-2xs" title="Total Netto Bersih">
+            <span class="px-2 sm:px-2.5 py-0.5 rounded text-[10.5px] sm:text-[11px] font-black bg-red-600 text-white font-mono shadow-2xs" title="Total Netto Bersih">
               {{ dateNode.totalNetto }} kg
             </span>
-            <span v-if="dateNode.totalWaste > 0" class="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[10.5px] font-bold bg-rose-50 text-rose-700 border border-rose-200 font-mono hidden sm:inline" title="Total Waste">
+            <span v-if="dateNode.totalWaste > 0" class="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[10.5px] font-bold bg-rose-900/80 text-rose-200 border border-rose-700 font-mono hidden sm:inline" title="Total Waste">
               Waste: {{ dateNode.totalWaste }} kg
             </span>
             <div v-if="dateNode.passCount || dateNode.holdCount || dateNode.rejectCount" class="hidden md:flex items-center gap-1 text-[10px] font-bold ml-1">
-              <span v-if="dateNode.passCount" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200" title="Roll PASS"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{{ dateNode.passCount }}</span>
-              <span v-if="dateNode.holdCount" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200" title="Roll HOLD"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>{{ dateNode.holdCount }}</span>
-              <span v-if="dateNode.rejectCount" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200" title="Roll REJECT"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>{{ dateNode.rejectCount }}</span>
+              <span v-if="dateNode.passCount" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-900/80 text-emerald-200 border border-emerald-700" title="Roll PASS"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>{{ dateNode.passCount }}</span>
+              <span v-if="dateNode.holdCount" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-900/80 text-amber-200 border border-amber-700" title="Roll HOLD"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{{ dateNode.holdCount }}</span>
+              <span v-if="dateNode.rejectCount" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-900/80 text-rose-200 border border-rose-700" title="Roll REJECT"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>{{ dateNode.rejectCount }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Tanggal Content (LEVEL 2: OPERATOR / SHIFT LIST) -->
-        <div v-if="isDateExpanded(dateNode.date)" class="p-1.5 sm:p-3 space-y-2 sm:space-y-2.5 bg-white">
-          <div
-            v-for="shiftNode in dateNode.shifts"
-            :key="shiftNode.uniqueKey"
-            class="ml-1 sm:ml-4 pl-1.5 sm:pl-3 border-l sm:border-l-2 border-slate-300"
-          >
-            <!-- Shift Header (Level 2 Sub-Parent - Monochromatic: Cool Slate Tint) -->
+        <!-- Tanggal Content (LEVEL 2: OPERATOR / SHIFT LIST) with Smooth Transition -->
+        <Transition
+          @before-enter="onBeforeEnter"
+          @enter="onEnter"
+          @after-enter="onAfterEnter"
+          @before-leave="onBeforeLeave"
+          @leave="onLeave"
+          @after-leave="onAfterLeave"
+        >
+          <div v-if="isDateExpanded(dateNode.date)" class="p-1.5 sm:p-3 space-y-2 sm:space-y-2.5 bg-white">
             <div
-              @click="toggleShiftExpand(shiftNode.uniqueKey)"
-              @contextmenu.prevent="openShiftModal(shiftNode)"
-              class="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-50/80 hover:bg-slate-100/90 border border-slate-200/80 rounded-xl cursor-pointer flex items-center justify-between select-none transition-colors shadow-2xs gap-2"
-              title="Klik untuk buka/tutup lot di shift ini, atau Klik Kanan untuk Edit Shift & Waste"
+              v-for="shiftNode in dateNode.shifts"
+              :key="shiftNode.uniqueKey"
+              class="ml-1 sm:ml-4 pl-1.5 sm:pl-3 border-l sm:border-l-2 border-slate-300"
             >
-              <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                <!-- Circular Checkbox Level 2 (Shift) -->
-                <button
-                  type="button"
-                  @click.stop="toggleSelectShift(shiftNode)"
-                  class="w-3.5 h-3.5 rounded-full border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer select-none"
-                  :class="[
-                    isShiftAllSelected(shiftNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
-                    isShiftSomeSelected(shiftNode) ? 'bg-red-50 border-red-500 text-red-600' :
-                    'border-zinc-300 bg-white hover:border-red-500'
-                  ]"
-                  :title="isShiftAllSelected(shiftNode) ? 'Batalkan pilihan shift ini' : 'Pilih seluruh roll di shift ini'"
-                >
-                  <svg v-if="isShiftAllSelected(shiftNode)" class="w-2 h-2 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                  <span v-else-if="isShiftSomeSelected(shiftNode)" class="w-1 h-1 rounded-full bg-red-600"></span>
-                </button>
+              <!-- Shift Header (Level 2 Sub-Parent - Cool Slate / Indigo Minimalist) -->
+              <div
+                @click="toggleShiftExpand(shiftNode.uniqueKey)"
+                @contextmenu.prevent="openShiftModal(shiftNode)"
+                class="relative px-2.5 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r from-slate-100/95 via-slate-50 to-slate-100/60 hover:from-slate-200/80 hover:to-slate-100/90 border border-slate-200/80 rounded-xl cursor-pointer flex items-center justify-between select-none transition-all duration-150 shadow-2xs gap-2 group/shift"
+                title="Klik untuk buka/tutup lot di shift ini, atau Klik Kanan untuk Edit Shift & Waste"
+              >
+                <!-- Level 2 Left Accent Indicator (Blue) -->
+                <div class="absolute left-0 inset-y-0 w-1 bg-blue-600 rounded-r shadow-2xs"></div>
 
-                <span class="w-4 h-4 rounded bg-slate-200 text-slate-700 flex items-center justify-center text-[9px] font-black shrink-0 border border-slate-300">
-                  {{ isShiftExpanded(shiftNode.uniqueKey) ? '▾' : '▸' }}
-                </span>
+                <div class="flex items-center gap-1.5 sm:gap-2 min-w-0 pl-1">
+                  <!-- Circular Checkbox Level 2 (Shift) -->
+                  <button
+                    type="button"
+                    @click.stop="toggleSelectShift(shiftNode)"
+                    class="w-3.5 h-3.5 rounded-full border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer select-none"
+                    :class="[
+                      isShiftAllSelected(shiftNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
+                      isShiftSomeSelected(shiftNode) ? 'bg-red-50 border-red-500 text-red-600' :
+                      'border-zinc-300 bg-white hover:border-red-500'
+                    ]"
+                    :title="isShiftAllSelected(shiftNode) ? 'Batalkan pilihan shift ini' : 'Pilih seluruh roll di shift ini'"
+                  >
+                    <svg v-if="isShiftAllSelected(shiftNode)" class="w-2 h-2 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span v-else-if="isShiftSomeSelected(shiftNode)" class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                  </button>
 
-                <!-- Machine & Shift Badge & Operator -->
-                <span
-                  v-if="shiftNode.machine"
-                  class="px-1.5 sm:px-2 py-0.5 rounded text-[9.5px] sm:text-[10px] font-black tracking-wide uppercase border shrink-0"
-                  :class="[
-                    shiftNode.machine === 'REWIND' ? 'bg-purple-100 text-purple-800 border-purple-300' :
-                    shiftNode.machine === 'CASTING' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                    shiftNode.machine === 'METALIZE' ? 'bg-sky-100 text-sky-800 border-sky-300' :
-                    'bg-zinc-200/80 text-zinc-800 border-zinc-300'
-                  ]"
-                >
-                  {{ shiftNode.machine }}
-                </span>
-                <span class="px-1.5 sm:px-2 py-0.5 rounded text-[9.5px] sm:text-[10px] font-black bg-slate-200/80 text-slate-800 tracking-wide uppercase border border-slate-300/80 shrink-0">
-                  Shift {{ shiftNode.shiftNum }}
-                </span>
-                <span class="text-xs font-bold sm:font-black text-zinc-900 tracking-tight flex items-center gap-1 truncate">
-                  <span class="text-slate-500 hidden sm:inline">👤</span> <span class="truncate">{{ shiftNode.operator }}</span>
-                </span>
-              </div>
+                  <!-- Animated Chevron Button Level 2 -->
+                  <span class="w-4 h-4 rounded bg-slate-700 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover/shift:bg-slate-800 transition-colors">
+                    <svg
+                      class="w-2 h-2 transition-transform duration-200 transform"
+                      :class="isShiftExpanded(shiftNode.uniqueKey) ? 'rotate-90 text-blue-300' : 'rotate-0 text-slate-300'"
+                      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"
+                    >
+                      <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                  </span>
+
+                  <!-- Machine & Shift Badge & Operator -->
+                  <span
+                    v-if="shiftNode.machine"
+                    class="px-1.5 sm:px-2 py-0.5 rounded text-[9.5px] sm:text-[10px] font-black tracking-wide uppercase border shrink-0 shadow-2xs"
+                    :class="[
+                      shiftNode.machine === 'REWIND' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                      shiftNode.machine === 'CASTING' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                      shiftNode.machine === 'METALIZE' ? 'bg-sky-100 text-sky-800 border-sky-300' :
+                      'bg-zinc-200/80 text-zinc-800 border-zinc-300'
+                    ]"
+                  >
+                    {{ shiftNode.machine }}
+                  </span>
+                  <span class="px-1.5 sm:px-2 py-0.5 rounded text-[9.5px] sm:text-[10px] font-black bg-blue-600 text-white tracking-wide uppercase border border-blue-600 shrink-0 shadow-2xs">
+                    Shift {{ shiftNode.shiftNum }}
+                  </span>
+                  <span class="text-xs font-bold sm:font-black text-zinc-900 tracking-tight flex items-center gap-1 truncate">
+                    <span class="text-slate-500 hidden sm:inline">👤</span> <span class="truncate">{{ shiftNode.operator }}</span>
+                  </span>
+                </div>
 
               <!-- Shift Right Badges & Edit Button -->
               <div class="flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11px] whitespace-nowrap shrink-0">
@@ -985,44 +1020,62 @@
               </div>
             </div>
 
-            <!-- Shift Content (LEVEL 3: NO LOT INDUK LIST) -->
-            <div v-if="isShiftExpanded(shiftNode.uniqueKey)" class="mt-2 space-y-2">
-              <div
-                v-for="lotNode in shiftNode.lots"
-                :key="lotNode.uniqueKey"
-                class="ml-1 sm:ml-5 pl-1.5 sm:pl-3 border-l sm:border-l-2 border-zinc-300"
-              >
-                <!-- Lot Header (Level 3 Sub-Parent - Monochromatic: Warm Stone Tint) -->
+            <!-- Shift Content (LEVEL 3: NO LOT INDUK LIST) with Smooth Transition -->
+            <Transition
+              @before-enter="onBeforeEnter"
+              @enter="onEnter"
+              @after-enter="onAfterEnter"
+              @before-leave="onBeforeLeave"
+              @leave="onLeave"
+              @after-leave="onAfterLeave"
+            >
+              <div v-if="isShiftExpanded(shiftNode.uniqueKey)" class="mt-2 space-y-2">
                 <div
-                  @click="toggleLotExpand(lotNode.uniqueKey)"
-                  @contextmenu.prevent="openParentLotModal(lotNode)"
-                  class="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-stone-50/90 hover:bg-stone-100/90 border border-stone-200/80 rounded-xl cursor-pointer select-none transition-colors shadow-2xs"
-                  title="Klik untuk buka/tutup roll, atau Klik Kanan untuk Edit Data Parent Lot"
+                  v-for="lotNode in shiftNode.lots"
+                  :key="lotNode.uniqueKey"
+                  class="ml-1 sm:ml-5 pl-1.5 sm:pl-3 border-l sm:border-l-2 border-zinc-300"
                 >
-                  <!-- Main Header Row -->
-                  <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                      <!-- Circular Checkbox Level 3 (Lot) -->
-                      <button
-                        type="button"
-                        @click.stop="toggleSelectLot(lotNode)"
-                        class="w-3.5 h-3.5 rounded-full border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer select-none"
-                        :class="[
-                          isLotAllSelected(lotNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
-                          isLotSomeSelected(lotNode) ? 'bg-red-50 border-red-500 text-red-600' :
-                          'border-zinc-300 bg-white hover:border-red-500'
-                        ]"
-                        :title="isLotAllSelected(lotNode) ? 'Batalkan pilihan lot ini' : 'Pilih seluruh roll di lot ini'"
-                      >
-                        <svg v-if="isLotAllSelected(lotNode)" class="w-2 h-2 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span v-else-if="isLotSomeSelected(lotNode)" class="w-1 h-1 rounded-full bg-red-600"></span>
-                      </button>
+                  <!-- Lot Header (Level 3 Sub-Parent - Warm Amber / Stone Minimalist) -->
+                  <div
+                    @click="toggleLotExpand(lotNode.uniqueKey)"
+                    @contextmenu.prevent="openParentLotModal(lotNode)"
+                    class="relative px-2.5 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r from-amber-50/50 via-stone-50/60 to-white hover:from-amber-100/50 hover:to-amber-50/40 border border-amber-200/70 rounded-xl cursor-pointer select-none transition-all duration-150 shadow-2xs group/lot"
+                    title="Klik untuk buka/tutup roll, atau Klik Kanan untuk Edit Data Parent Lot"
+                  >
+                    <!-- Level 3 Left Accent Indicator (Amber) -->
+                    <div class="absolute left-0 inset-y-0 w-0.75 bg-amber-500 rounded-r shadow-2xs"></div>
 
-                      <span class="w-4 h-4 rounded bg-stone-200 text-stone-700 flex items-center justify-center text-[9px] font-black shrink-0 border border-stone-300">
-                        {{ isLotExpanded(lotNode.uniqueKey) ? '▾' : '▸' }}
-                      </span>
+                    <!-- Main Header Row -->
+                    <div class="flex items-center justify-between gap-2 pl-1">
+                      <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                        <!-- Circular Checkbox Level 3 (Lot) -->
+                        <button
+                          type="button"
+                          @click.stop="toggleSelectLot(lotNode)"
+                          class="w-3.5 h-3.5 rounded-full border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer select-none"
+                          :class="[
+                            isLotAllSelected(lotNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
+                            isLotSomeSelected(lotNode) ? 'bg-red-50 border-red-500 text-red-600' :
+                            'border-zinc-300 bg-white hover:border-red-500'
+                          ]"
+                          :title="isLotAllSelected(lotNode) ? 'Batalkan pilihan lot ini' : 'Pilih seluruh roll di lot ini'"
+                        >
+                          <svg v-if="isLotAllSelected(lotNode)" class="w-2 h-2 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                          <span v-else-if="isLotSomeSelected(lotNode)" class="w-1 h-1 rounded-full bg-red-600"></span>
+                        </button>
+
+                        <!-- Animated Chevron Button Level 3 -->
+                        <span class="w-4 h-4 rounded bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover/lot:bg-amber-700 transition-colors">
+                          <svg
+                            class="w-2 h-2 transition-transform duration-200 transform"
+                            :class="isLotExpanded(lotNode.uniqueKey) ? 'rotate-90 text-white' : 'rotate-0 text-amber-100'"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"
+                          >
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                          </svg>
+                        </span>
                       <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate">
                         🏷️ {{ lotNode.lot }}
                       </span>
@@ -1316,43 +1369,59 @@
                   </div>
                 </div>
 
-                <!-- LEVEL 4: DAFTAR TURUNAN -->
-                <div v-if="isLotExpanded(lotNode.uniqueKey)" class="my-1.5 sm:my-2 ml-1 sm:ml-5 pl-1.5 sm:pl-3 border-l sm:border-l-2 border-emerald-400/60">
-                  <div class="rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-2xs">
-                    
-                    <!-- ── MOBILE VIEW (< sm): Clean, Minimalist Roll List (No horizontal squeeze) ── -->
-                    <div class="block sm:hidden divide-y divide-zinc-100">
-                      <!-- Mobile Header Bar with Select All -->
-                      <div class="px-2.5 py-1.5 bg-zinc-50/90 flex items-center justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                        <div class="flex items-center gap-2">
-                          <button
-                            type="button"
-                            @click.stop="toggleSelectLot(lotNode)"
-                            class="w-3.5 h-3.5 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer select-none"
-                            :class="[
-                              isLotAllSelected(lotNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
-                              isLotSomeSelected(lotNode) ? 'bg-red-50 border-red-500 text-red-600' :
-                              'border-zinc-300 bg-white hover:border-red-500'
-                            ]"
-                          >
-                            <svg v-if="isLotAllSelected(lotNode)" class="w-2 h-2 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span v-else-if="isLotSomeSelected(lotNode)" class="w-1 h-1 rounded-full bg-red-600"></span>
-                          </button>
-                          <span>PILIH SEMUA ({{ lotNode.items.length }} ROLL)</span>
+                <!-- LEVEL 4: DAFTAR TURUNAN with Smooth Transition -->
+                <Transition
+                  @before-enter="onBeforeEnter"
+                  @enter="onEnter"
+                  @after-enter="onAfterEnter"
+                  @before-leave="onBeforeLeave"
+                  @leave="onLeave"
+                  @after-leave="onAfterLeave"
+                >
+                  <div v-if="isLotExpanded(lotNode.uniqueKey)" class="my-1.5 sm:my-2 ml-1 sm:ml-5 pl-1.5 sm:pl-3 border-l sm:border-l-2 border-emerald-400/60">
+                    <div class="rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-2xs">
+                      
+                      <!-- ── MOBILE VIEW (< sm): Clean, Minimalist Roll List (No horizontal squeeze) ── -->
+                      <div class="block sm:hidden divide-y divide-zinc-100">
+                        <!-- Mobile Header Bar with Select All -->
+                        <div class="px-2.5 py-1.5 bg-zinc-50/90 flex items-center justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                          <div class="flex items-center gap-2">
+                            <button
+                              type="button"
+                              @click.stop="toggleSelectLot(lotNode)"
+                              class="w-3.5 h-3.5 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer select-none"
+                              :class="[
+                                isLotAllSelected(lotNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
+                                isLotSomeSelected(lotNode) ? 'bg-red-50 border-red-500 text-red-600' :
+                                'border-zinc-300 bg-white hover:border-red-500'
+                              ]"
+                            >
+                              <svg v-if="isLotAllSelected(lotNode)" class="w-2 h-2 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                              <span v-else-if="isLotSomeSelected(lotNode)" class="w-1 h-1 rounded-full bg-red-600"></span>
+                            </button>
+                            <span>PILIH SEMUA ({{ lotNode.items.length }} ROLL)</span>
+                          </div>
+                          <span class="text-zinc-400 font-mono lowercase text-[9px]">turunan • roll</span>
                         </div>
-                        <span class="text-zinc-400 font-mono lowercase text-[9px]">turunan • roll</span>
-                      </div>
 
-                      <!-- Individual Child Cards for Mobile -->
-                      <div
-                        v-for="item in lotNode.items"
-                        :key="item.id"
-                        @contextmenu.prevent="openRowActionModal(item)"
-                        class="p-2 transition-colors flex items-start gap-2"
-                        :class="selectedIds.includes(item.id) ? 'bg-red-50/50' : 'hover:bg-zinc-50/70'"
-                      >
+                        <!-- Individual Child Cards for Mobile (Zebra Striped & Hover Indicator) -->
+                        <div
+                          v-for="(item, itemIdx) in lotNode.items"
+                          :key="item.id"
+                          @contextmenu.prevent="openRowActionModal(item)"
+                          class="p-2 transition-all flex items-start gap-2 relative group/mchild"
+                          :class="[
+                            selectedIds.includes(item.id)
+                              ? '!bg-red-50/80'
+                              : itemIdx % 2 === 0
+                                ? 'bg-white hover:bg-red-50/30'
+                                : 'bg-slate-50/60 hover:bg-red-50/40'
+                          ]"
+                        >
+                          <!-- Left Accent Indicator on Hover -->
+                          <div class="absolute left-0 inset-y-0 w-1 bg-red-600 opacity-0 group-hover/mchild:opacity-100 transition-opacity duration-150 rounded-r"></div>
                         <!-- Circular Checkbox -->
                         <button
                           type="button"
@@ -1482,16 +1551,23 @@
                         </thead>
                         <tbody class="divide-y divide-zinc-100 text-zinc-700 font-medium text-xs">
                           <tr
-                            v-for="item in lotNode.items"
+                            v-for="(item, itemIdx) in lotNode.items"
                             :key="item.id"
                             @contextmenu.prevent="openRowActionModal(item)"
                             :class="[
-                              'transition-colors',
-                              selectedIds.includes(item.id) ? 'bg-red-50/60' : 'hover:bg-zinc-50/70'
+                              'transition-all duration-150 cursor-pointer select-none group/child border-b border-zinc-100/70',
+                              selectedIds.includes(item.id)
+                                ? '!bg-red-50/80 ring-1 ring-inset ring-red-200/70 font-semibold'
+                                : itemIdx % 2 === 0
+                                  ? 'bg-white hover:bg-red-50/30'
+                                  : 'bg-zinc-50/60 hover:bg-red-50/40'
                             ]"
                           >
-                            <!-- Circular Checkbox Cell -->
-                            <td class="py-2 px-3 text-center whitespace-nowrap" @click.stop>
+                            <!-- Circular Checkbox Cell with Left Hover Accent Bar -->
+                            <td class="py-2 px-3 text-center whitespace-nowrap relative" @click.stop>
+                              <!-- Left Accent Bar on Hover -->
+                              <div class="absolute left-0 inset-y-0 w-0.75 bg-red-500 opacity-0 group-hover/child:opacity-100 transition-opacity duration-150 rounded-r"></div>
+
                               <button
                                 type="button"
                                 @click="toggleSelectItem(item.id)"
@@ -1595,11 +1671,14 @@
                     </div>
                   </div>
                 </div>
-              </div>
+              </Transition>
             </div>
           </div>
-        </div>
+        </Transition>
       </div>
+    </div>
+  </Transition>
+</div>
 
       <!-- Hierarchy Date Pagination Bar (Bottom) -->
       <div v-if="allHierarchyDates.length > hierarchyDatesPerPage" class="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 bg-white p-2.5 sm:p-3 rounded-2xl border border-zinc-200 shadow-2xs mt-4">
@@ -4128,6 +4207,49 @@ const authStore = useAuthStore();
 const wipStore = useWipStore();
 const dataRollStore = useDataRollStore();
 const scheduleStore = useScheduleStore();
+
+// =========================================================================
+// SMOOTH EXPAND / COLLAPSE ANIMATION HOOKS (ZERO-OVERHEAD HARDWARE ACCELERATED)
+// =========================================================================
+function onBeforeEnter(el) {
+  el.style.height = '0px';
+  el.style.opacity = '0';
+}
+
+function onEnter(el, done) {
+  el.style.transition = 'height 0.22s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s ease';
+  el.style.height = el.scrollHeight + 'px';
+  el.style.opacity = '1';
+  el.style.overflow = 'hidden';
+  el.addEventListener('transitionend', done, { once: true });
+}
+
+function onAfterEnter(el) {
+  el.style.height = '';
+  el.style.opacity = '';
+  el.style.overflow = '';
+  el.style.transition = '';
+}
+
+function onBeforeLeave(el) {
+  el.style.height = el.scrollHeight + 'px';
+  el.style.overflow = 'hidden';
+}
+
+function onLeave(el, done) {
+  el.style.transition = 'height 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.18s ease';
+  void el.offsetHeight; // Force reflow
+  el.style.height = '0px';
+  el.style.opacity = '0';
+  el.addEventListener('transitionend', done, { once: true });
+}
+
+function onAfterLeave(el) {
+  el.style.height = '';
+  el.style.opacity = '';
+  el.style.overflow = '';
+  el.style.transition = '';
+}
 const spkStore = useSpkStore();
 
 // Custom directive untuk auto focus input inline

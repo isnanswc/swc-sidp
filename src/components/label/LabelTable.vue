@@ -115,17 +115,24 @@
         </thead>
         <tbody class="divide-y divide-zinc-100 text-zinc-700">
           <tr
-            v-for="(item) in items"
+            v-for="(item, idx) in items"
             :key="item.id"
             @contextmenu.prevent="$emit('open-row-action-modal', item)"
             :class="[
-              'hover:bg-red-50/30 transition-colors cursor-pointer select-none',
-              selectedIds.includes(item.id) ? 'bg-red-50/50' : ''
+              'transition-all duration-150 cursor-pointer select-none group/row border-b border-zinc-100/70',
+              selectedIds.includes(item.id)
+                ? '!bg-red-50/80 ring-1 ring-inset ring-red-200/70 shadow-2xs font-semibold'
+                : idx % 2 === 0
+                  ? 'bg-white hover:bg-red-50/30'
+                  : 'bg-slate-50/60 hover:bg-red-50/40'
             ]"
             title="Klik kanan pada baris ini untuk membuka Menu Aksi"
           >
             <!-- Checkbox Row -->
-            <td class="py-2.5 px-3 text-center whitespace-nowrap" @click.stop>
+            <td class="py-2.5 px-3 text-center whitespace-nowrap relative" @click.stop>
+              <!-- Left Accent Bar on Hover -->
+              <div class="absolute left-0 inset-y-0 w-1 bg-red-600 opacity-0 group-hover/row:opacity-100 transition-opacity duration-150 rounded-r"></div>
+
               <button
                 type="button"
                 @click="$emit('toggle-select-item', item.id)"

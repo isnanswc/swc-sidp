@@ -19,15 +19,18 @@
     <div
       v-for="dateNode in hierarchyTree"
       :key="dateNode.date"
-      class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden"
+      class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden transition-all duration-200"
     >
-      <!-- Tanggal Header -->
+      <!-- Tanggal Header (Level 1: Root Executive Dark) -->
       <div
         @click="toggleDateExpand(dateNode.date)"
-        class="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 cursor-pointer flex items-center justify-between text-white select-none transition-colors border-b border-zinc-800 shadow-xs"
+        class="relative px-4 py-2.5 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-900 hover:from-zinc-900 hover:to-zinc-850 cursor-pointer flex items-center justify-between text-white select-none transition-all duration-150 border-b border-zinc-800 shadow-xs group/date"
         title="Klik untuk buka/tutup seluruh shift pada tanggal ini"
       >
-        <div class="flex items-center gap-2.5 min-w-0">
+        <!-- Level 1 Left Accent Indicator (Red) -->
+        <div class="absolute left-0 inset-y-0 w-1.25 bg-red-600 rounded-r shadow-xs"></div>
+
+        <div class="flex items-center gap-2.5 min-w-0 pl-1.5">
           <!-- Checkbox Level 1 -->
           <button
             type="button"
@@ -46,8 +49,15 @@
             <span v-else-if="isDateSomeSelected(dateNode)" class="w-1.5 h-1.5 rounded-full bg-white"></span>
           </button>
 
-          <span class="w-5 h-5 rounded bg-zinc-950 text-white flex items-center justify-center text-[10px] font-black shrink-0 border border-zinc-700">
-            {{ isDateExpanded(dateNode.date) ? '▾' : '▸' }}
+          <!-- Animated Chevron Button Level 1 -->
+          <span class="w-5 h-5 rounded-md bg-zinc-800/90 text-white flex items-center justify-center shrink-0 border border-zinc-700/80 shadow-2xs group-hover/date:border-zinc-500 transition-colors">
+            <svg
+              class="w-2.5 h-2.5 transition-transform duration-200 transform"
+              :class="isDateExpanded(dateNode.date) ? 'rotate-90 text-red-400' : 'rotate-0 text-zinc-300'"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
           </span>
           <span class="text-xs font-black tracking-tight text-white flex items-center gap-1.5">
             <span>📅</span> {{ dateNode.displayDate }}
@@ -66,7 +76,7 @@
           <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-900/80 text-blue-200 border border-blue-700" title="Total Roll">
             {{ dateNode.totalRolls }} Roll
           </span>
-          <span class="px-2 py-0.5 rounded text-[11px] font-black bg-red-600 text-white font-mono" title="Total Netto">
+          <span class="px-2 py-0.5 rounded text-[11px] font-black bg-red-600 text-white font-mono shadow-2xs" title="Total Netto">
             {{ dateNode.totalNetto }} kg
           </span>
           <span v-if="dateNode.totalWaste > 0" class="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-900/80 text-rose-200 border border-rose-700 font-mono" title="Total Waste">
@@ -80,52 +90,70 @@
         </div>
       </div>
 
-      <!-- Tanggal Content (LEVEL 2: OPERATOR / SHIFT LIST) -->
-      <div v-if="isDateExpanded(dateNode.date)" class="divide-y divide-zinc-200 bg-white">
-        <div
-          v-for="shiftNode in dateNode.shifts"
-          :key="shiftNode.uniqueKey"
-          class="divide-y divide-zinc-200/60"
-        >
-          <!-- Shift Header -->
+      <!-- Tanggal Content (LEVEL 2: OPERATOR / SHIFT LIST) with Smooth Animation -->
+      <Transition
+        @before-enter="onBeforeEnter"
+        @enter="onEnter"
+        @after-enter="onAfterEnter"
+        @before-leave="onBeforeLeave"
+        @leave="onLeave"
+        @after-leave="onAfterLeave"
+      >
+        <div v-if="isDateExpanded(dateNode.date)" class="divide-y divide-zinc-200/70 bg-white">
           <div
-            @click="toggleShiftExpand(shiftNode.uniqueKey)"
-            @contextmenu.prevent="$emit('open-shift-modal', shiftNode)"
-            class="pl-6 sm:pl-8 pr-4 py-2 bg-slate-100/90 hover:bg-slate-200/80 cursor-pointer flex items-center justify-between select-none transition-colors border-b border-slate-200"
-            title="Klik untuk buka/tutup lot di shift ini"
+            v-for="shiftNode in dateNode.shifts"
+            :key="shiftNode.uniqueKey"
+            class="divide-y divide-zinc-200/60"
           >
-            <div class="flex items-center gap-2 min-w-0">
-              <span class="text-slate-400 font-mono text-xs select-none">├──</span>
+            <!-- Shift Header (Level 2: Cool Slate / Indigo Theme) -->
+            <div
+              @click="toggleShiftExpand(shiftNode.uniqueKey)"
+              @contextmenu.prevent="$emit('open-shift-modal', shiftNode)"
+              class="relative pl-6 sm:pl-8 pr-4 py-2 bg-gradient-to-r from-slate-100/95 via-slate-50 to-slate-100/60 hover:from-slate-200/80 hover:to-slate-100/90 cursor-pointer flex items-center justify-between select-none transition-all duration-150 border-b border-slate-200/80 group/shift"
+              title="Klik untuk buka/tutup lot di shift ini"
+            >
+              <!-- Level 2 Left Accent Indicator (Blue) -->
+              <div class="absolute left-0 inset-y-0 w-1 bg-blue-600 rounded-r shadow-2xs"></div>
 
-              <!-- Checkbox Level 2 -->
-              <button
-                type="button"
-                @click.stop="$emit('toggle-select-shift', shiftNode)"
-                class="w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer select-none"
-                :class="[
-                  isShiftAllSelected(shiftNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
-                  isShiftSomeSelected(shiftNode) ? 'bg-red-50 border-red-500 text-red-600' :
-                  'border-zinc-300 bg-white hover:border-red-500'
-                ]"
-                :title="isShiftAllSelected(shiftNode) ? 'Batalkan pilihan shift ini' : 'Pilih seluruh roll di shift ini'"
-              >
-                <svg v-if="isShiftAllSelected(shiftNode)" class="w-2.5 h-2.5 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span v-else-if="isShiftSomeSelected(shiftNode)" class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-              </button>
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="text-slate-400 font-mono text-xs select-none">├──</span>
 
-              <span class="w-4 h-4 rounded bg-slate-700 text-white flex items-center justify-center text-[9px] font-black shrink-0">
-                {{ isShiftExpanded(shiftNode.uniqueKey) ? '▾' : '▸' }}
-              </span>
+                <!-- Checkbox Level 2 -->
+                <button
+                  type="button"
+                  @click.stop="$emit('toggle-select-shift', shiftNode)"
+                  class="w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer select-none"
+                  :class="[
+                    isShiftAllSelected(shiftNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
+                    isShiftSomeSelected(shiftNode) ? 'bg-red-50 border-red-500 text-red-600' :
+                    'border-zinc-300 bg-white hover:border-red-500'
+                  ]"
+                  :title="isShiftAllSelected(shiftNode) ? 'Batalkan pilihan shift ini' : 'Pilih seluruh roll di shift ini'"
+                >
+                  <svg v-if="isShiftAllSelected(shiftNode)" class="w-2.5 h-2.5 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span v-else-if="isShiftSomeSelected(shiftNode)" class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                </button>
 
-              <span class="px-2 py-0.5 rounded text-[10.5px] font-black bg-blue-600 text-white tracking-wide uppercase shadow-2xs">
-                Shift {{ shiftNode.shiftNum }}
-              </span>
-              <span class="text-xs font-black text-zinc-900 tracking-tight flex items-center gap-1">
-                <span>👤</span> {{ shiftNode.operator }}
-              </span>
-            </div>
+                <!-- Animated Chevron Button Level 2 -->
+                <span class="w-4 h-4 rounded bg-slate-700 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover/shift:bg-slate-800 transition-colors">
+                  <svg
+                    class="w-2 h-2 transition-transform duration-200 transform"
+                    :class="isShiftExpanded(shiftNode.uniqueKey) ? 'rotate-90 text-blue-300' : 'rotate-0 text-slate-300'"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"
+                  >
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </span>
+
+                <span class="px-2 py-0.5 rounded text-[10.5px] font-black bg-blue-600 text-white tracking-wide uppercase shadow-2xs">
+                  Shift {{ shiftNode.shiftNum }}
+                </span>
+                <span class="text-xs font-black text-zinc-900 tracking-tight flex items-center gap-1">
+                  <span>👤</span> {{ shiftNode.operator }}
+                </span>
+              </div>
 
             <!-- Shift Right Badges -->
             <div class="flex items-center gap-1.5 text-[11px] whitespace-nowrap">
@@ -158,248 +186,284 @@
             </div>
           </div>
 
-          <!-- Shift Content (LEVEL 3: NO LOT INDUK LIST) -->
-          <div v-if="isShiftExpanded(shiftNode.uniqueKey)" class="divide-y divide-zinc-200/50 bg-white">
-            <div
-              v-for="lotNode in shiftNode.lots"
-              :key="lotNode.uniqueKey"
-              class="divide-y divide-zinc-100"
-            >
-              <!-- Lot Header -->
+          <!-- Shift Content (LEVEL 3: NO LOT INDUK LIST) with Smooth Animation -->
+          <Transition
+            @before-enter="onBeforeEnter"
+            @enter="onEnter"
+            @after-enter="onAfterEnter"
+            @before-leave="onBeforeLeave"
+            @leave="onLeave"
+            @after-leave="onAfterLeave"
+          >
+            <div v-if="isShiftExpanded(shiftNode.uniqueKey)" class="divide-y divide-zinc-200/50 bg-white">
               <div
-                @click="toggleLotExpand(lotNode.uniqueKey)"
-                @contextmenu.prevent="$emit('open-parent-lot-modal', lotNode)"
-                class="pl-10 sm:pl-14 pr-4 py-2 bg-zinc-50 hover:bg-zinc-100/90 cursor-pointer flex items-center justify-between border-b border-zinc-200/80 select-none transition-colors"
-                title="Klik untuk buka/tutup roll"
+                v-for="lotNode in shiftNode.lots"
+                :key="lotNode.uniqueKey"
+                class="divide-y divide-zinc-100"
               >
-                <div class="flex items-center gap-2 min-w-0">
-                  <span class="text-zinc-400 font-mono text-xs select-none">│ ├──</span>
+                <!-- Lot Header (Level 3: Warm Minimalist Amber/Zinc Theme) -->
+                <div
+                  @click="toggleLotExpand(lotNode.uniqueKey)"
+                  @contextmenu.prevent="$emit('open-parent-lot-modal', lotNode)"
+                  class="relative pl-10 sm:pl-14 pr-4 py-2 bg-gradient-to-r from-amber-50/50 via-zinc-50/60 to-white hover:from-amber-100/50 hover:to-amber-50/40 cursor-pointer flex items-center justify-between border-b border-zinc-200/80 select-none transition-all duration-150 group/lot"
+                  title="Klik untuk buka/tutup roll"
+                >
+                  <!-- Level 3 Left Accent Indicator (Amber) -->
+                  <div class="absolute left-0 inset-y-0 w-0.75 bg-amber-500 rounded-r shadow-2xs"></div>
 
-                  <!-- Checkbox Level 3 -->
-                  <button
-                    type="button"
-                    @click.stop="$emit('toggle-select-lot', lotNode)"
-                    class="w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer select-none"
-                    :class="[
-                      isLotAllSelected(lotNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
-                      isLotSomeSelected(lotNode) ? 'bg-red-50 border-red-500 text-red-600' :
-                      'border-zinc-300 bg-white hover:border-red-500'
-                    ]"
-                    :title="isLotAllSelected(lotNode) ? 'Batalkan pilihan lot ini' : 'Pilih seluruh roll di lot ini'"
-                  >
-                    <svg v-if="isLotAllSelected(lotNode)" class="w-2.5 h-2.5 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    <span v-else-if="isLotSomeSelected(lotNode)" class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                  </button>
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-zinc-400 font-mono text-xs select-none">│ ├──</span>
 
-                  <span class="w-4 h-4 rounded bg-red-600 text-white flex items-center justify-center text-[9px] font-black shrink-0">
-                    {{ isLotExpanded(lotNode.uniqueKey) ? '▾' : '▸' }}
-                  </span>
-                  <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase">
-                    {{ lotNode.lot }}
-                  </span>
-                  <span class="px-1.5 py-0.2 rounded text-[9.5px] font-black border uppercase" :class="[
-                    lotNode.mesin === 'REWIND' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                    lotNode.mesin === 'CASTING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                    lotNode.mesin === 'METALIZE' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                    'bg-red-50 text-red-700 border-red-200'
-                  ]">
-                    {{ lotNode.mesin }}
-                  </span>
-
-                  <span class="text-[11px] font-bold text-zinc-600 truncate hidden md:inline font-mono">
-                    {{ [lotNode.jenis, lotNode.kode, `${lotNode.thickness} MC X ${lotNode.parentWidth || lotNode.width} MM`].filter(Boolean).join(' ') }}
-                  </span>
-                </div>
-
-                <!-- Lot Right Badges -->
-                <div class="flex items-center gap-1.5 text-[11px] whitespace-nowrap">
-                  <span class="text-zinc-400 font-mono hidden sm:inline">SPK: <strong class="text-zinc-700">{{ lotNode.spk }}</strong></span>
-                  
-                  <span v-if="lotNode.parentBeratTeori" class="px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 font-mono font-bold text-[10.5px]">
-                    Teori: {{ lotNode.parentBeratTeori }} kg
-                  </span>
-
-                  <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-white font-mono font-bold text-[10.5px]">
-                    Child: {{ lotNode.totalNetto }} kg
-                  </span>
-
-                  <span
-                    v-if="lotNode.parentSisaKg > 0"
-                    class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 font-mono font-bold text-[10.5px]"
-                  >
-                    Sisa: {{ lotNode.parentSisaMeter }}M ({{ lotNode.parentSisaKg }} kg)
-                  </span>
-
-                  <span
-                    v-if="lotNode.diffNetto !== null"
-                    :class="[
-                      'px-1.5 py-0.5 rounded text-[10px] font-mono font-black border',
-                      lotNode.diffStatus === 'OK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                      lotNode.diffStatus === 'WARNING' ? 'bg-amber-50 text-amber-700 border-amber-300' :
-                      'bg-red-50 text-red-700 border-red-300 animate-pulse'
-                    ]"
-                  >
-                    Selisih: {{ lotNode.diffNetto >= 0 ? '+' : '' }}{{ lotNode.diffNetto }} kg
-                    <span class="opacity-75">({{ lotNode.diffPercent }}%)</span>
-                  </span>
-
-                  <span class="px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 font-bold text-[10.5px]">
-                    {{ lotNode.totalItems }} Roll
-                  </span>
-
-                  <button
-                    @click.stop="$emit('open-parent-lot-modal', lotNode)"
-                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-white hover:bg-red-600 hover:text-white hover:border-red-600 border border-zinc-300 text-zinc-700 transition-all flex items-center gap-1 shrink-0 ml-0.5 shadow-2xs cursor-pointer"
-                    title="Edit Data Parent Lot"
-                  >
-                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                    <span>Edit Lot</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- LEVEL 4: DAFTAR TURUNAN (MICRO-TABLE) -->
-              <div v-if="isLotExpanded(lotNode.uniqueKey)" class="overflow-x-auto bg-zinc-50/20 border-b border-zinc-100">
-                <table class="w-full text-left text-xs border-collapse">
-                  <thead class="bg-zinc-50/90 text-zinc-500 text-[10px] font-bold uppercase tracking-wider border-b border-zinc-200 select-none">
-                    <tr>
-                      <th class="py-1.5 px-2.5 w-12 text-center pl-10 sm:pl-14">
-                        <button
-                          type="button"
-                          @click.stop="$emit('toggle-select-lot', lotNode)"
-                          class="w-3.5 h-3.5 mx-auto rounded-full border-2 transition-all flex items-center justify-center cursor-pointer select-none"
-                          :class="[
-                            isLotAllSelected(lotNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
-                            isLotSomeSelected(lotNode) ? 'bg-red-50 border-red-500 text-red-600' :
-                            'border-zinc-300 bg-white hover:border-red-500'
-                          ]"
-                          :title="isLotAllSelected(lotNode) ? 'Batalkan pilihan semua' : 'Pilih semua roll di tabel ini'"
-                        >
-                          <svg v-if="isLotAllSelected(lotNode)" class="w-2 h-2 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                          <span v-else-if="isLotSomeSelected(lotNode)" class="w-1 h-1 rounded-full bg-red-600"></span>
-                        </button>
-                      </th>
-                      <th class="py-1.5 px-2.5 font-mono">Turunan</th>
-                      <th class="py-1.5 px-2.5 font-mono">Kode Pack</th>
-                      <th class="py-1.5 px-2.5">Dimensi & Meter</th>
-                      <th class="py-1.5 px-2.5 text-right">Netto</th>
-                      <th class="py-1.5 px-2.5 text-center">Status</th>
-                      <th class="py-1.5 px-2.5">Operator</th>
-                      <th class="py-1.5 px-2.5 text-center w-24">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-zinc-100 text-zinc-700 font-medium text-xs">
-                    <tr
-                      v-for="(item) in lotNode.items"
-                      :key="item.id"
-                      @contextmenu.prevent="$emit('open-row-action-modal', item)"
+                    <!-- Checkbox Level 3 -->
+                    <button
+                      type="button"
+                      @click.stop="$emit('toggle-select-lot', lotNode)"
+                      class="w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer select-none"
                       :class="[
-                        'transition-colors cursor-pointer',
-                        selectedIds.includes(item.id) ? 'bg-red-50/60' : 'hover:bg-red-50/20'
+                        isLotAllSelected(lotNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
+                        isLotSomeSelected(lotNode) ? 'bg-red-50 border-red-500 text-red-600' :
+                        'border-zinc-300 bg-white hover:border-red-500'
+                      ]"
+                      :title="isLotAllSelected(lotNode) ? 'Batalkan pilihan lot ini' : 'Pilih seluruh roll di lot ini'"
+                    >
+                      <svg v-if="isLotAllSelected(lotNode)" class="w-2.5 h-2.5 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                      <span v-else-if="isLotSomeSelected(lotNode)" class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                    </button>
+
+                    <!-- Animated Chevron Button Level 3 -->
+                    <span class="w-4 h-4 rounded bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover/lot:bg-amber-700 transition-colors">
+                      <svg
+                        class="w-2 h-2 transition-transform duration-200 transform"
+                        :class="isLotExpanded(lotNode.uniqueKey) ? 'rotate-90 text-white' : 'rotate-0 text-amber-100'"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"
+                      >
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                      </svg>
+                    </span>
+
+                    <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase">
+                      {{ lotNode.lot }}
+                    </span>
+                    <span class="px-1.5 py-0.2 rounded text-[9.5px] font-black border uppercase shadow-2xs" :class="[
+                      lotNode.mesin === 'REWIND' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                      lotNode.mesin === 'CASTING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      lotNode.mesin === 'METALIZE' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      'bg-red-50 text-red-700 border-red-200'
+                    ]">
+                      {{ lotNode.mesin }}
+                    </span>
+
+                    <span class="text-[11px] font-bold text-zinc-600 truncate hidden md:inline font-mono">
+                      {{ [lotNode.jenis, lotNode.kode, `${lotNode.thickness} MC X ${lotNode.parentWidth || lotNode.width} MM`].filter(Boolean).join(' ') }}
+                    </span>
+                  </div>
+
+                  <!-- Lot Right Badges -->
+                  <div class="flex items-center gap-1.5 text-[11px] whitespace-nowrap">
+                    <span class="text-zinc-400 font-mono hidden sm:inline">SPK: <strong class="text-zinc-700">{{ lotNode.spk }}</strong></span>
+                    
+                    <span v-if="lotNode.parentBeratTeori" class="px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 font-mono font-bold text-[10.5px] shadow-2xs">
+                      Teori: {{ lotNode.parentBeratTeori }} kg
+                    </span>
+
+                    <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-white font-mono font-bold text-[10.5px] shadow-2xs">
+                      Child: {{ lotNode.totalNetto }} kg
+                    </span>
+
+                    <span
+                      v-if="lotNode.parentSisaKg > 0"
+                      class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 font-mono font-bold text-[10.5px] shadow-2xs"
+                    >
+                      Sisa: {{ lotNode.parentSisaMeter }}M ({{ lotNode.parentSisaKg }} kg)
+                    </span>
+
+                    <span
+                      v-if="lotNode.diffNetto !== null"
+                      :class="[
+                        'px-1.5 py-0.5 rounded text-[10px] font-mono font-black border shadow-2xs',
+                        lotNode.diffStatus === 'OK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        lotNode.diffStatus === 'WARNING' ? 'bg-amber-50 text-amber-700 border-amber-300' :
+                        'bg-red-50 text-red-700 border-red-300 animate-pulse'
                       ]"
                     >
-                      <!-- Checkbox Cell -->
-                      <td class="py-1.5 px-2.5 text-center whitespace-nowrap pl-10 sm:pl-14" @click.stop>
-                        <button
-                          type="button"
-                          @click="$emit('toggle-select-item', item.id)"
-                          class="w-4 h-4 mx-auto rounded-full border-2 transition-all flex items-center justify-center cursor-pointer select-none"
-                          :class="selectedIds.includes(item.id) ? 'bg-red-600 border-red-600 text-white shadow-2xs' : 'border-zinc-300 bg-white hover:border-red-500'"
-                          :title="selectedIds.includes(item.id) ? 'Batalkan pilihan' : 'Pilih roll ini untuk cetak'"
+                      Selisih: {{ lotNode.diffNetto >= 0 ? '+' : '' }}{{ lotNode.diffNetto }} kg
+                      <span class="opacity-75">({{ lotNode.diffPercent }}%)</span>
+                    </span>
+
+                    <span class="px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 font-bold text-[10.5px]">
+                      {{ lotNode.totalItems }} Roll
+                    </span>
+
+                    <button
+                      @click.stop="$emit('open-parent-lot-modal', lotNode)"
+                      class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-white hover:bg-red-600 hover:text-white hover:border-red-600 border border-zinc-300 text-zinc-700 transition-all flex items-center gap-1 shrink-0 ml-0.5 shadow-2xs cursor-pointer"
+                      title="Edit Data Parent Lot"
+                    >
+                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      <span>Edit Lot</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- LEVEL 4: DAFTAR TURUNAN (MICRO-TABLE) with Smooth Animation -->
+                <Transition
+                  @before-enter="onBeforeEnter"
+                  @enter="onEnter"
+                  @after-enter="onAfterEnter"
+                  @before-leave="onBeforeLeave"
+                  @leave="onLeave"
+                  @after-leave="onAfterLeave"
+                >
+                  <div v-if="isLotExpanded(lotNode.uniqueKey)" class="overflow-x-auto bg-zinc-50/20 border-b border-zinc-100">
+                    <table class="w-full text-left text-xs border-collapse">
+                      <thead class="bg-zinc-100/90 text-zinc-500 text-[10px] font-bold uppercase tracking-wider border-b border-zinc-200 select-none">
+                        <tr>
+                          <th class="py-1.5 px-2.5 w-12 text-center pl-10 sm:pl-14">
+                            <button
+                              type="button"
+                              @click.stop="$emit('toggle-select-lot', lotNode)"
+                              class="w-3.5 h-3.5 mx-auto rounded-full border-2 transition-all flex items-center justify-center cursor-pointer select-none"
+                              :class="[
+                                isLotAllSelected(lotNode) ? 'bg-red-600 border-red-600 text-white shadow-2xs' :
+                                isLotSomeSelected(lotNode) ? 'bg-red-50 border-red-500 text-red-600' :
+                                'border-zinc-300 bg-white hover:border-red-500'
+                              ]"
+                              :title="isLotAllSelected(lotNode) ? 'Batalkan pilihan semua' : 'Pilih semua roll di tabel ini'"
+                            >
+                              <svg v-if="isLotAllSelected(lotNode)" class="w-2 h-2 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                              <span v-else-if="isLotSomeSelected(lotNode)" class="w-1 h-1 rounded-full bg-red-600"></span>
+                            </button>
+                          </th>
+                          <th class="py-1.5 px-2.5 font-mono">Turunan</th>
+                          <th class="py-1.5 px-2.5 font-mono">Kode Pack</th>
+                          <th class="py-1.5 px-2.5">Dimensi & Meter</th>
+                          <th class="py-1.5 px-2.5 text-right">Netto</th>
+                          <th class="py-1.5 px-2.5 text-center">Status</th>
+                          <th class="py-1.5 px-2.5">Operator</th>
+                          <th class="py-1.5 px-2.5 text-center w-24">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-zinc-100 text-zinc-700 font-medium text-xs">
+                        <tr
+                          v-for="(item, itemIdx) in lotNode.items"
+                          :key="item.id"
+                          @contextmenu.prevent="$emit('open-row-action-modal', item)"
+                          :class="[
+                            'transition-all duration-150 cursor-pointer select-none group/child border-b border-zinc-100/70',
+                            selectedIds.includes(item.id)
+                              ? '!bg-red-50/80 ring-1 ring-inset ring-red-200/70 font-semibold'
+                              : itemIdx % 2 === 0
+                                ? 'bg-white hover:bg-red-50/30'
+                                : 'bg-zinc-50/60 hover:bg-red-50/40'
+                          ]"
                         >
-                          <svg v-if="selectedIds.includes(item.id)" class="w-2.5 h-2.5 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                        </button>
-                      </td>
+                          <!-- Checkbox Cell with Left Hover Accent Bar -->
+                          <td class="py-1.5 px-2.5 text-center whitespace-nowrap pl-10 sm:pl-14 relative" @click.stop>
+                            <!-- Left Accent Bar on Hover -->
+                            <div class="absolute left-0 inset-y-0 w-0.75 bg-red-500 opacity-0 group-hover/child:opacity-100 transition-opacity duration-150 rounded-r"></div>
 
-                      <td class="py-1.5 px-2.5 font-mono font-bold text-red-600 whitespace-nowrap">
-                        {{ item.turunan }}
-                      </td>
+                            <button
+                              type="button"
+                              @click="$emit('toggle-select-item', item.id)"
+                              class="w-4 h-4 mx-auto rounded-full border-2 transition-all flex items-center justify-center cursor-pointer select-none"
+                              :class="selectedIds.includes(item.id) ? 'bg-red-600 border-red-600 text-white shadow-2xs' : 'border-zinc-300 bg-white hover:border-red-500'"
+                              :title="selectedIds.includes(item.id) ? 'Batalkan pilihan' : 'Pilih roll ini untuk cetak'"
+                            >
+                              <svg v-if="selectedIds.includes(item.id)" class="w-2.5 h-2.5 stroke-[3.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                            </button>
+                          </td>
 
-                      <td class="py-1.5 px-2.5 whitespace-nowrap">
-                        <span v-if="isDuplicateKodePack(item)" class="px-1.5 py-0.2 rounded bg-red-600 text-yellow-300 font-bold font-mono text-[10px]">
-                          {{ item.kodePack }}{{ item.subKode }}
-                        </span>
-                        <span v-else class="font-mono text-zinc-700">
-                          {{ item.kodePack }}<span class="text-red-600 font-bold">{{ item.subKode }}</span>
-                        </span>
-                      </td>
+                          <td class="py-1.5 px-2.5 font-mono font-bold text-red-600 whitespace-nowrap">
+                            {{ item.turunan }}
+                          </td>
 
-                      <td class="py-1.5 px-2.5 whitespace-nowrap text-zinc-600">
-                        {{ item.width }}mm × {{ item.length }}m
-                      </td>
+                          <td class="py-1.5 px-2.5 whitespace-nowrap">
+                            <span v-if="isDuplicateKodePack(item)" class="px-1.5 py-0.2 rounded bg-red-600 text-yellow-300 font-bold font-mono text-[10px]">
+                              {{ item.kodePack }}{{ item.subKode }}
+                            </span>
+                            <span v-else class="font-mono text-zinc-700">
+                              {{ item.kodePack }}<span class="text-red-600 font-bold">{{ item.subKode }}</span>
+                            </span>
+                          </td>
 
-                      <td class="py-1.5 px-2.5 text-right font-mono font-bold text-zinc-900 whitespace-nowrap">
-                        {{ item.netto }} kg
-                      </td>
+                          <td class="py-1.5 px-2.5 whitespace-nowrap text-zinc-600">
+                            {{ item.width }}mm × {{ item.length }}m
+                          </td>
 
-                      <td class="py-1.5 px-2.5 text-center whitespace-nowrap">
-                        <span :class="[
-                          'px-2 py-0.2 rounded text-[9.5px] font-bold border',
-                          item.status === 'PASS' || item.status === 'OK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          item.status === 'HOLD' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'
-                        ]">
-                          {{ item.status }}
-                        </span>
-                      </td>
+                          <td class="py-1.5 px-2.5 text-right font-mono font-bold text-zinc-900 whitespace-nowrap">
+                            {{ item.netto }} kg
+                          </td>
 
-                      <!-- Operator (Database Resolved) -->
-                      <td class="py-1.5 px-2.5 whitespace-nowrap text-zinc-800 font-bold">
-                        <div class="flex items-center gap-1.5">
-                          <span class="w-5 h-5 rounded-full bg-zinc-900 text-white flex items-center justify-center text-[9px] font-black shrink-0">
-                            {{ getOperatorInitial(item) }}
-                          </span>
-                          <span class="font-bold text-zinc-900 text-xs">{{ getOperatorDisplayName(item) }}</span>
-                          <span v-if="getOperatorCode(item)" class="px-1 py-0.2 rounded bg-zinc-100 text-zinc-700 font-mono text-[9px] font-black border border-zinc-300">
-                            {{ getOperatorCode(item) }}
-                          </span>
-                        </div>
-                      </td>
+                          <td class="py-1.5 px-2.5 text-center whitespace-nowrap">
+                            <span :class="[
+                              'px-2 py-0.2 rounded text-[9.5px] font-bold border shadow-2xs',
+                              item.status === 'PASS' || item.status === 'OK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              item.status === 'HOLD' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'
+                            ]">
+                              {{ item.status }}
+                            </span>
+                          </td>
 
-                      <!-- Aksi -->
-                      <td class="py-1.5 px-2.5 text-center whitespace-nowrap" @click.stop>
-                        <div class="flex items-center justify-center gap-1">
-                          <button
-                            @click="$emit('preview-single', item)"
-                            class="p-1 rounded hover:bg-zinc-200 text-indigo-600 transition-colors cursor-pointer"
-                            title="Pratinjau"
-                          >
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                          </button>
-                          <button
-                            @click="$emit('open-modal', item)"
-                            class="p-1 rounded hover:bg-zinc-200 text-blue-600 transition-colors cursor-pointer"
-                            title="Edit"
-                          >
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                          </button>
-                          <button
-                            @click="$emit('duplicate-data', item)"
-                            class="p-1 rounded hover:bg-zinc-200 text-zinc-600 transition-colors cursor-pointer"
-                            title="Duplikat"
-                          >
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                          </button>
-                          <button
-                            @click="$emit('delete-data', item)"
-                            class="p-1 rounded hover:bg-red-100 text-red-600 transition-colors cursor-pointer"
-                            title="Hapus"
-                          >
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                          <!-- Operator (Database Resolved) -->
+                          <td class="py-1.5 px-2.5 whitespace-nowrap text-zinc-800 font-bold">
+                            <div class="flex items-center gap-1.5">
+                              <span class="w-5 h-5 rounded-full bg-zinc-900 text-white flex items-center justify-center text-[9px] font-black shrink-0 shadow-2xs">
+                                {{ getOperatorInitial(item) }}
+                              </span>
+                              <span class="font-bold text-zinc-900 text-xs">{{ getOperatorDisplayName(item) }}</span>
+                              <span v-if="getOperatorCode(item)" class="px-1 py-0.2 rounded bg-zinc-100 text-zinc-700 font-mono text-[9px] font-black border border-zinc-300">
+                                {{ getOperatorCode(item) }}
+                              </span>
+                            </div>
+                          </td>
+
+                          <!-- Aksi -->
+                          <td class="py-1.5 px-2.5 text-center whitespace-nowrap" @click.stop>
+                            <div class="flex items-center justify-center gap-1">
+                              <button
+                                @click="$emit('preview-single', item)"
+                                class="p-1 rounded hover:bg-zinc-200 text-indigo-600 transition-colors cursor-pointer"
+                                title="Pratinjau"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              </button>
+                              <button
+                                @click="$emit('open-modal', item)"
+                                class="p-1 rounded hover:bg-zinc-200 text-blue-600 transition-colors cursor-pointer"
+                                title="Edit"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              </button>
+                              <button
+                                @click="$emit('duplicate-data', item)"
+                                class="p-1 rounded hover:bg-zinc-200 text-zinc-600 transition-colors cursor-pointer"
+                                title="Duplikat"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                              </button>
+                              <button
+                                @click="$emit('delete-data', item)"
+                                class="p-1 rounded hover:bg-red-100 text-red-600 transition-colors cursor-pointer"
+                                title="Hapus"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </Transition>
               </div>
             </div>
-          </div>
+          </Transition>
         </div>
       </div>
     </div>
@@ -501,6 +565,49 @@ function getOperatorInitial(item) {
   const code = getOperatorCode(item);
   if (code) return code.charAt(0).toUpperCase();
   return 'O';
+}
+
+// =========================================================================
+// SMOOTH EXPAND / COLLAPSE ANIMATION HOOKS (ZERO-OVERHEAD HARDWARE ACCELERATED)
+// =========================================================================
+function onBeforeEnter(el) {
+  el.style.height = '0px';
+  el.style.opacity = '0';
+}
+
+function onEnter(el, done) {
+  el.style.transition = 'height 0.22s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s ease';
+  el.style.height = el.scrollHeight + 'px';
+  el.style.opacity = '1';
+  el.style.overflow = 'hidden';
+  el.addEventListener('transitionend', done, { once: true });
+}
+
+function onAfterEnter(el) {
+  el.style.height = '';
+  el.style.opacity = '';
+  el.style.overflow = '';
+  el.style.transition = '';
+}
+
+function onBeforeLeave(el) {
+  el.style.height = el.scrollHeight + 'px';
+  el.style.overflow = 'hidden';
+}
+
+function onLeave(el, done) {
+  el.style.transition = 'height 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.18s ease';
+  void el.offsetHeight; // Force reflow
+  el.style.height = '0px';
+  el.style.opacity = '0';
+  el.addEventListener('transitionend', done, { once: true });
+}
+
+function onAfterLeave(el) {
+  el.style.height = '';
+  el.style.opacity = '';
+  el.style.overflow = '';
+  el.style.transition = '';
 }
 
 defineProps({
