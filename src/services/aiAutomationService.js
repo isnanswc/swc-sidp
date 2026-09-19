@@ -1,5 +1,5 @@
 import { getSetting, saveSetting, db } from '@/db';
-import { getAiModelCandidates } from '@/services/geminiService';
+import { getAiModelCandidates, recordModelSuccess, recordModelFailure } from '@/services/geminiService';
 import { detectSupplier } from '@/services/dataRollParserService';
 
 export const DEFAULT_DEFECT_TAGS = [
@@ -334,10 +334,14 @@ Aturan:
 - Kembalikan HANYA format JSON Array murni: ["Tag 1", "Tag 2", ...] tanpa markdown atau penjelasan tambahan.`;
 
       for (const modelToTry of candidates) {
+        const abortCtrl = new AbortController();
+        const timeoutId = setTimeout(() => abortCtrl.abort(), 12000);
+
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent`;
           const response = await fetch(url, {
             method: 'POST',
+            signal: abortCtrl.signal,
             headers: {
               'Content-Type': 'application/json',
               'x-goog-api-key': apiKey.trim()
@@ -348,6 +352,8 @@ Aturan:
             })
           });
 
+          clearTimeout(timeoutId);
+
           if (response.ok) {
             const resData = await response.json();
             const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -357,13 +363,20 @@ Aturan:
               if (Array.isArray(parsed) && parsed.length > 0) {
                 extractedTags = parsed.map(t => String(t).trim()).filter(Boolean);
                 methodUsed = `Google Gemini (${modelToTry})`;
+                recordModelSuccess(modelToTry).catch(() => {});
                 break;
               }
             } catch (parseErr) {
               console.warn('Gagal mem-parse tag JSON dari Gemini:', parseErr);
+              recordModelFailure(modelToTry, 'Format JSON tag rusak', null).catch(() => {});
             }
+          } else {
+            recordModelFailure(modelToTry, `HTTP ${response.status}`, response.status).catch(() => {});
           }
         } catch (geminiErr) {
+          clearTimeout(timeoutId);
+          const isTimeout = geminiErr.name === 'AbortError';
+          recordModelFailure(modelToTry, isTimeout ? 'Timeout (>12s)' : (geminiErr.message || 'Error'), isTimeout ? 408 : null).catch(() => {});
           console.warn(`Gemini AI (${modelToTry}) execution error, trying next fallback:`, geminiErr);
         }
       }

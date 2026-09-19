@@ -1,6 +1,6 @@
 import { getSetting, db } from '@/db';
 import { DEFAULT_RESIN_ITEMS, normalizeResinName } from '@/stores/configStore';
-import { getAiConfig, getAiModelCandidates } from '@/services/geminiService';
+import { getAiConfig, getAiModelCandidates, recordModelSuccess, recordModelFailure } from '@/services/geminiService';
 
 /**
  * Service untuk memproses ekstraksi gambar lembar laporan fisik menggunakan Google Gemini AI Vision
@@ -603,6 +603,9 @@ async function executeGeminiWithFallback({
     const MAX_RETRIES = 2;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const abortCtrl = new AbortController();
+      const timeoutId = setTimeout(() => abortCtrl.abort(), 35000); // 35s timeout per vision call
+
       try {
         if (attempt > 1 && typeof notify === 'function') {
           notify(
@@ -615,6 +618,7 @@ async function executeGeminiWithFallback({
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent`;
         const response = await fetch(url, {
           method: 'POST',
+          signal: abortCtrl.signal,
           headers: {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey.trim()
@@ -629,18 +633,24 @@ async function executeGeminiWithFallback({
           })
         });
 
+        clearTimeout(timeoutId);
+
         if (response.ok) {
           const result = await response.json();
           const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) {
+            // Berhasil! Rekam model sukses ke Cloud Database sebagai Sticky Winner
+            recordModelSuccess(currentModel).catch(() => {});
             return { text, modelUsed: currentModel };
           }
+          recordModelFailure(currentModel, 'Respon output kosong', 204).catch(() => {});
           throw new Error(`Respon dari ${currentModel} kosong.`);
         }
 
         const errorBody = await response.json().catch(() => ({}));
         const errorMsg = errorBody.error?.message || response.statusText || 'Unknown error';
         lastError = new Error(`Google AI API Error (${response.status} pada ${currentModel}): ${errorMsg}`);
+        recordModelFailure(currentModel, errorMsg, response.status).catch(() => {});
 
         // Jika 503 / 429 dan masih ada percobaan ulang untuk model ini
         if ((response.status === 503 || response.status === 429) && attempt < MAX_RETRIES) {
@@ -652,6 +662,10 @@ async function executeGeminiWithFallback({
         // Jika bukan 503/429 atau percobaan habis untuk model ini, keluar loop retry agar beralih ke model berikutnya
         break;
       } catch (err) {
+        clearTimeout(timeoutId);
+        const isTimeout = err.name === 'AbortError';
+        const reason = isTimeout ? 'Timeout (>35s)' : (err.message || 'Error');
+        recordModelFailure(currentModel, reason, isTimeout ? 408 : null).catch(() => {});
         lastError = err;
         if (attempt < MAX_RETRIES) {
           await new Promise(r => setTimeout(r, 800));

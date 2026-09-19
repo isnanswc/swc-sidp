@@ -3568,6 +3568,18 @@
                 <span class="text-[9.5px] text-emerald-700 font-medium">Panjang & Sambungan (Tab Keyboard)</span>
               </div>
 
+              <!-- Info Acuan Jumbo Induk dari Rekomendasi WIP / Data Roll -->
+              <div v-if="form.parentWidth || form.parentMeter" class="p-2 bg-sky-50/90 border border-sky-300/80 rounded-lg flex items-center justify-between text-xs animate-fade-in gap-2 shadow-2xs">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="text-sm shrink-0">🎯</span>
+                  <span class="text-sky-950 font-bold text-[10.5px] truncate">
+                    Acuan Jumbo Induk: <strong>{{ form.parentWidth || '-' }} mm</strong> × <strong>{{ form.parentMeter || '-' }} M</strong>
+                    <span v-if="form.parentBeratAktual" class="text-sky-800 font-normal"> ({{ form.parentBeratAktual }} kg)</span>
+                  </span>
+                </div>
+                <span class="text-[9.5px] text-sky-700 font-semibold shrink-0">Masukkan ukuran potong anak di bawah:</span>
+              </div>
+
               <!-- Baris 1: Dimensi & Panjang + Join Terpadu -->
               <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
                 <div>
@@ -4665,9 +4677,18 @@ const selectWipRoll = (roll) => {
   if (roll.kodeFormula) form.kode = roll.kodeFormula;
   if (roll.jenis) form.jenis = roll.jenis;
   if (roll.thickness) form.thickness = String(roll.thickness);
-  if (roll.width) form.width = String(roll.width);
-  if (roll.length || roll.meter) form.length = String(roll.length || roll.meter);
-  if (roll.berat || roll.netto) form.netto = String(roll.berat || roll.netto);
+
+  // Alirkan dimensi jumbo WIP ke Parent Lot (Induk)
+  form.parentWidth = roll.width ? parseFloat(roll.width) : '';
+  form.parentMeter = (roll.length || roll.meter) ? parseFloat(roll.length || roll.meter) : '';
+  form.parentBeratAktual = (roll.berat || roll.netto) ? parseFloat(roll.berat || roll.netto) : '';
+
+  // Kosongkan width, length, meter, dan netto child agar diisi manual oleh operator
+  form.width = '';
+  form.length = '';
+  form.meter = '';
+  form.netto = '';
+
   form.supplier = (roll.supplier || '').replace(/\s+/g, '').toUpperCase() || 'INHOUSE';
   
   syncFormulaConfigs();
@@ -4692,12 +4713,21 @@ const selectDataRoll = (roll) => {
   if (roll.kodeFormula || roll.kodeFg) form.kode = roll.kodeFormula || roll.kodeFg;
   if (roll.jenis) form.jenis = roll.jenis;
   if (roll.thickness) form.thickness = String(roll.thickness);
-  if (roll.width) form.width = String(roll.width);
-  if (roll.length || roll.meter) form.length = String(roll.length || roll.meter);
+
+  // Alirkan dimensi jumbo Data Roll ke Parent Lot (Induk)
+  form.parentWidth = roll.width ? parseFloat(roll.width) : '';
+  form.parentMeter = (roll.length || roll.meter) ? parseFloat(roll.length || roll.meter) : '';
+  form.parentBeratAktual = (roll.netto || roll.berat) ? parseFloat(roll.netto || roll.berat) : '';
+
+  // Kosongkan width, length, meter, dan netto child agar diisi manual oleh operator
+  form.width = '';
+  form.length = '';
+  form.meter = '';
+  form.netto = '';
+
   form.supplier = (roll.supplier || '').replace(/\s+/g, '').toUpperCase() || 'INHOUSE';
   if (roll.qualityStatus || roll.status) form.status = String(roll.qualityStatus || roll.status).toUpperCase();
   if (roll.turunan) form.turunan = roll.turunan;
-  if (roll.netto || roll.berat) form.netto = String(roll.netto || roll.berat);
   if (roll.operator || roll.kodeOperator) {
     form.operator = roll.operator || form.operator;
     form.kodeOperator = roll.kodeOperator || form.kodeOperator;
@@ -5642,20 +5672,28 @@ const hierarchyTree = computed(() => {
         const sumChildWidth = getSumChildWidthForLot(sortedTurunan, spkPlan);
 
         // 1. Tentukan Lebar Teori Parent (Parent Width)
-        // Default murni estimasi akumulasi pisau child (sumChildWidth) tanpa trim otomatis
+        // Default akumulasi pisau child (sumChildWidth) ditambah standar trimming 30mm (misal 1160+1160=2320 + 30 = 2350mm)
         let parentWidth = 0;
         if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) > 0) {
-          parentWidth = parseFloat(firstItem.parentWidth);
+          const pW = parseFloat(firstItem.parentWidth);
+          // Jika tersimpan sama persis dengan lebar child tanpa trim (bug data lama), sesuaikan dengan standar +30mm
+          if (sumChildWidth > 0 && pW === sumChildWidth && (!firstItem.parentTrim || parseFloat(firstItem.parentTrim) === 0)) {
+            parentWidth = sumChildWidth + 30;
+          } else {
+            parentWidth = pW;
+          }
         } else if (sumChildWidth > 0) {
-          parentWidth = sumChildWidth;
+          parentWidth = (spkPlan && parseFloat(spkPlan.lebarParent) >= sumChildWidth + 10)
+            ? parseFloat(spkPlan.lebarParent)
+            : (sumChildWidth + 30);
         } else if (spkPlan && parseFloat(spkPlan.lebarParent) > 0) {
           parentWidth = parseFloat(spkPlan.lebarParent);
         } else if (wipRoll && parseFloat(wipRoll.width) > 0) {
           parentWidth = parseFloat(wipRoll.width);
         } else {
-          parentWidth = 2320;
+          parentWidth = 2350;
         }
-        const parentTrim = (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '')
+        const parentTrim = (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '' && parseFloat(firstItem.parentTrim) > 0)
           ? parseFloat(firstItem.parentTrim)
           : Math.max(0, parentWidth - sumChildWidth);
 
@@ -5754,7 +5792,9 @@ const hierarchyTree = computed(() => {
 
       // Hitung estimasi berat trim & bahan masuk dari seluruh parent lot di shift ini
       lots.forEach(l => {
-        const lotTrimMm = l.parentTrim !== undefined ? l.parentTrim : Math.max(0, (parseFloat(l.parentWidth) || 0) - (parseFloat(l.sumChildWidth) || 0));
+        const lotTrimMm = (l.parentTrim !== undefined && l.parentTrim !== null && l.parentTrim !== '' && parseFloat(l.parentTrim) > 0)
+          ? parseFloat(l.parentTrim)
+          : Math.max(0, (parseFloat(l.parentWidth) || 0) - (parseFloat(l.sumChildWidth) || 0));
         let lotTrimKg = 0;
         if (lotTrimMm > 0 && l.thickness && l.parentMeter && l.parentDensity) {
           lotTrimKg = calculateBeratTeori(l.thickness, lotTrimMm, l.parentMeter, l.parentDensity);
@@ -6257,13 +6297,13 @@ const selectJointRollRecommendation = (rec) => {
 const onTrimChange = () => {
   const base = parseFloat(parentLotForm.chartinganBaseWidth) || 0;
   const trimVal = parseFloat(parentLotForm.trim) || 0;
-  parentLotForm.parentWidth = (base + trimVal).toFixed(0);
+  parentLotForm.parentWidth = Math.round(base + trimVal);
 };
 
 const onParentWidthChange = () => {
   const base = parseFloat(parentLotForm.chartinganBaseWidth) || 0;
   const pWidth = parseFloat(parentLotForm.parentWidth) || 0;
-  parentLotForm.trim = Math.max(0, pWidth - base);
+  parentLotForm.trim = Math.max(0, Math.round(pWidth - base));
 };
 
 const onSelectActiveParentLot = (idx) => {
@@ -6553,14 +6593,13 @@ const openParentLotModal = (lotNode) => {
 
   const chartSummary = calculateChartinganWidthSummary(items);
   parentLotForm.uniqueChartList = chartSummary.uniquePositions;
-  parentLotForm.chartinganBaseWidth = chartSummary.baseChartWidth;
+  parentLotForm.chartinganBaseWidth = (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1)
+    ? chartSummary.baseChartWidth
+    : (parseFloat(lotNode.sumChildWidth) || chartSummary.baseChartWidth || parseFloat(first.width) || 0);
 
   const seqSummary = calculateSequenceLengthSummary(items);
   parentLotForm.uniqueSeqList = seqSummary.uniqueSequences;
   parentLotForm.sequenceLengthBase = seqSummary.totalParentLength;
-
-  const existingTrim = first.parentTrim !== undefined ? parseFloat(first.parentTrim) : 0;
-  parentLotForm.trim = existingTrim;
 
   parentLotForm.oldLot = lotNode.lot || '';
   parentLotForm.newLot = lotNode.lot || '';
@@ -6571,13 +6610,27 @@ const openParentLotModal = (lotNode) => {
   parentLotForm.thickness = lotNode.thickness || first.thickness || '';
   
   if (first.parentWidth && parseFloat(first.parentWidth) > 0) {
-    parentLotForm.parentWidth = parseFloat(first.parentWidth);
+    const pW = parseFloat(first.parentWidth);
+    if (parentLotForm.chartinganBaseWidth > 0 && pW === parentLotForm.chartinganBaseWidth && (!first.parentTrim || parseFloat(first.parentTrim) === 0)) {
+      parentLotForm.parentWidth = parentLotForm.chartinganBaseWidth + 30;
+      parentLotForm.trim = 30;
+    } else {
+      parentLotForm.parentWidth = pW;
+      if (first.parentTrim !== undefined && first.parentTrim !== null && first.parentTrim !== '' && parseFloat(first.parentTrim) > 0) {
+        parentLotForm.trim = parseFloat(first.parentTrim);
+      } else {
+        onParentWidthChange();
+      }
+    }
   } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) > 0) {
     parentLotForm.parentWidth = parseFloat(lotNode.parentWidth);
+    parentLotForm.trim = (lotNode.parentTrim !== undefined && lotNode.parentTrim !== null && lotNode.parentTrim !== '' && parseFloat(lotNode.parentTrim) > 0)
+      ? parseFloat(lotNode.parentTrim)
+      : Math.max(0, parentLotForm.parentWidth - parentLotForm.chartinganBaseWidth);
   } else {
-    parentLotForm.parentWidth = 2320;
+    parentLotForm.parentWidth = parentLotForm.chartinganBaseWidth > 0 ? parentLotForm.chartinganBaseWidth + 30 : 2350;
+    parentLotForm.trim = 30;
   }
-  onParentWidthChange();
 
   if (first.parentMeter && parseFloat(first.parentMeter) > 0) {
     parentLotForm.parentMeter = parseFloat(first.parentMeter);
@@ -6778,8 +6831,8 @@ const getParentWidthStatus = (lotNode) => {
       textClass: 'text-stone-800 font-bold',
       tooltip: `Lebar parent pas sesuai estimasi (${currentW} mm). Tanpa trim.`
     };
-  } else if (diff >= 10 && diff <= 30) {
-    // Melebihi estimasi antara 10-30 mm -> Wajar standar trim (standar maksimal 30 mm)
+  } else if (diff >= 10 && diff <= 40) {
+    // Melebihi estimasi antara 10-40 mm -> Wajar standar trim (standar 30 mm)
     return {
       status: 'trim_ok',
       diff,
@@ -6787,7 +6840,7 @@ const getParentWidthStatus = (lotNode) => {
       currentW,
       bgClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300',
       textClass: 'text-emerald-900 font-bold',
-      tooltip: `✓ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm - Standar wajar trim 10-30 mm).`
+      tooltip: `✓ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm - Standar wajar trim 10-40 mm).`
     };
   } else if (diff > 0 && diff < 10) {
     // Melebihi estimasi tapi di bawah 10 mm (Trim tipis)
@@ -6801,7 +6854,7 @@ const getParentWidthStatus = (lotNode) => {
       tooltip: `ℹ️ Lebar Parent: ${currentW} mm (Estimasi Child: ${estimatedW} mm, Trim: +${diff} mm - Trim tipis <10 mm).`
     };
   } else {
-    // diff > 30 mm -> Warning peringatan melebihi batas maksimal standar trim (30 mm), tapi tetap diperbolehkan
+    // diff > 40 mm -> Warning peringatan melebihi batas wajar standar trim (>40 mm), tapi tetap diperbolehkan
     return {
       status: 'trim_warning',
       diff,
@@ -6809,7 +6862,7 @@ const getParentWidthStatus = (lotNode) => {
       currentW,
       bgClass: 'bg-rose-100 text-rose-900 border border-rose-300 ring-1 ring-rose-400/50',
       textClass: 'text-rose-900 font-black',
-      tooltip: `⚠️ PERINGATAN TRIM BESAR: Lebar parent (${currentW} mm) melebihi estimasi (${estimatedW} mm) sebesar +${diff} mm (>30 mm batas standar trim)! Tetap diperbolehkan namun periksa kembali.`
+      tooltip: `⚠️ PERINGATAN TRIM BESAR: Lebar parent (${currentW} mm) melebihi estimasi (${estimatedW} mm) sebesar +${diff} mm (>40 mm batas wajar trim)! Tetap diperbolehkan namun periksa kembali.`
     };
   }
 };
@@ -7121,7 +7174,11 @@ const form = reactive({
   kodeOperator: '',
   kode: '',
   keterangan: '',
-  jenisPrint: 'FINISH GOODS'
+  jenisPrint: 'FINISH GOODS',
+  parentWidth: '',
+  parentMeter: '',
+  parentTrim: '',
+  parentBeratAktual: ''
 });
 
 const lotMismatch = computed(() => {
@@ -7919,6 +7976,10 @@ const resetFormToDefaults = () => {
   form.kode = '';
   form.keterangan = '';
   form.jenisPrint = 'FINISH GOODS';
+  form.parentWidth = '';
+  form.parentMeter = '';
+  form.parentTrim = '';
+  form.parentBeratAktual = '';
   delete form.isDataRoll;
   delete form.originalRollId;
   form.isDataRoll = false;
@@ -8061,6 +8122,15 @@ const handleFormSubmit = async () => {
   const payload = { ...form };
   if (!payload.shift) {
     payload.shift = scheduleStore.getCurrentShiftInfo().shiftCode;
+  }
+  if (payload.parentWidth !== undefined && payload.parentWidth !== '') {
+    payload.parentWidth = parseFloat(payload.parentWidth) || '';
+  }
+  if (payload.parentMeter !== undefined && payload.parentMeter !== '') {
+    payload.parentMeter = parseFloat(payload.parentMeter) || '';
+  }
+  if (payload.parentBeratAktual !== undefined && payload.parentBeratAktual !== '' && payload.parentBeratAktual !== null) {
+    payload.parentBeratAktual = parseFloat(payload.parentBeratAktual) || null;
   }
 
   // Tutup modal langsung agar user tidak menunggu response async dan mencegah klik berulang

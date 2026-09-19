@@ -1,5 +1,5 @@
 import { getSetting } from '@/db';
-import { getAiModelCandidates } from '@/services/geminiService';
+import { getAiModelCandidates, recordModelSuccess, recordModelFailure } from '@/services/geminiService';
 
 /**
  * Service Pemindaian & Ekstraksi AI Dokumen JADWAL SLITTING (3B-PROD)
@@ -222,9 +222,13 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
     const modelTarget = modelCandidates[i];
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelTarget}:generateContent`;
 
+    const abortCtrl = new AbortController();
+    const timeoutId = setTimeout(() => abortCtrl.abort(), 25000); // 25s timeout per candidate
+
     try {
       const response = await fetch(url, {
         method: 'POST',
+        signal: abortCtrl.signal,
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': apiKey.trim()
@@ -243,6 +247,8 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
         })
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         let errText = '';
         try {
@@ -252,6 +258,7 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
           errText = await response.text();
         }
         console.warn(`[SPK Vision] Model ${modelTarget} returned HTTP ${response.status}: ${errText}. Mencoba model fallback...`);
+        recordModelFailure(modelTarget, errText, response.status).catch(() => {});
         lastError = new Error(`Model ${modelTarget} (${response.status}): ${errText}`);
         continue;
       }
@@ -260,6 +267,7 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
       const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       if (!text.trim()) {
         console.warn(`[SPK Vision] Model ${modelTarget} mengembalikan output kosong. Mencoba fallback...`);
+        recordModelFailure(modelTarget, 'Output respon kosong', 204).catch(() => {});
         continue;
       }
 
@@ -270,12 +278,19 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
       } catch (parseErr) {
         console.warn(`[SPK Vision] JSON Parse error on ${modelTarget}:`, text);
         lastError = parseErr;
+        recordModelFailure(modelTarget, 'Format JSON rusak', null).catch(() => {});
         continue;
       }
 
+      // Berhasil! Rekam sebagai Sticky Winner di Cloud Database
+      recordModelSuccess(modelTarget).catch(() => {});
       return postProcessExtractedRows(Array.isArray(parsed) ? parsed : [parsed], filmConfigs, scheduleDate);
     } catch (netErr) {
-      console.warn(`[SPK Vision] Network error on model ${modelTarget}:`, netErr);
+      clearTimeout(timeoutId);
+      const isTimeout = netErr.name === 'AbortError';
+      const reason = isTimeout ? 'Timeout (>25s)' : (netErr.message || 'Error');
+      console.warn(`[SPK Vision] Network error on model ${modelTarget} (${reason}):`, netErr);
+      recordModelFailure(modelTarget, reason, isTimeout ? 408 : null).catch(() => {});
       lastError = netErr;
     }
   }
