@@ -1809,7 +1809,7 @@
                 placeholder="Contoh: AGUS, HENDRA..."
               />
               <datalist id="operatorShiftSuggestions">
-                <option v-for="op in configStore.operatorList" :key="op.kodeOperator" :value="op.nama">
+                <option v-for="op in (configStore.activeOperators || [])" :key="op.kodeOperator" :value="op.nama">
                   {{ op.nama }} ({{ op.kodeOperator }}) - {{ op.mesin }}
                 </option>
               </datalist>
@@ -3554,7 +3554,7 @@
                       :key="op.id"
                       :value="op.id"
                     >
-                      [{{ op.kodeOperator }}] {{ op.nama }} {{ op.active === false ? '(Non-aktif)' : '' }}
+                      [{{ op.kodeOperator }}] {{ op.nama }}
                     </option>
                   </select>
                 </div>
@@ -8050,53 +8050,57 @@ const isMachineMatch = (opMesin, targetMesin) => {
 
 const detectedOperator = computed(() => {
   const targetDate = form.tanggalShift || form.tanggal || new Date().toISOString().slice(0, 10);
+  const isHistorical = isEditing.value;
+  // Jika tambah baru atau duplikasi, hanya gunakan operator yang aktif!
+  const candidateList = isHistorical 
+    ? (configStore.operatorList || [])
+    : (configStore.activeOperators || []).filter(o => o.active !== false);
+
   if (form.operator) {
     const opClean = form.operator.trim().toUpperCase();
-    const byName = (configStore.activeOperators || configStore.operatorList).find(o => o.nama && o.nama.trim().toUpperCase() === opClean)
-      || configStore.operatorList.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
+    const byName = candidateList.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
     if (byName) return byName;
   }
   if (form.kodeOperator) {
     const codeClean = form.kodeOperator.trim().toUpperCase();
     if (typeof configStore.getOperatorByDate === 'function') {
       const byDate = configStore.getOperatorByDate(codeClean, form.mesin, targetDate);
-      if (byDate) return byDate;
+      if (byDate && (isHistorical || byDate.active !== false)) return byDate;
     }
-    const byCodeAndMachine = configStore.operatorList.find(
+    const byCodeAndMachine = candidateList.find(
       o => o.kodeOperator && o.kodeOperator.trim().toUpperCase() === codeClean && isMachineMatch(o.mesin, form.mesin)
     );
     if (byCodeAndMachine) return byCodeAndMachine;
-    const byCode = configStore.operatorList.find(o => o.kodeOperator && o.kodeOperator.trim().toUpperCase() === codeClean);
+    const byCode = candidateList.find(o => o.kodeOperator && o.kodeOperator.trim().toUpperCase() === codeClean);
     if (byCode) return byCode;
   }
   if (!detectedPrefix.value) return null;
   if (typeof configStore.getOperatorByDate === 'function') {
     const byDate = configStore.getOperatorByDate(detectedPrefix.value, form.mesin, targetDate);
-    if (byDate) return byDate;
+    if (byDate && (isHistorical || byDate.active !== false)) return byDate;
   }
-  // Cari di configStore.operatorList berdasarkan kodeOperator dan mesin aktif di form
+  // Cari di candidateList berdasarkan kodeOperator dan mesin aktif di form
   if (form.mesin) {
-    const byCodeAndMachine = configStore.operatorList.find(
-      o => o.kodeOperator === detectedPrefix.value && isMachineMatch(o.mesin, form.mesin) && o.active !== false
+    const byCodeAndMachine = candidateList.find(
+      o => o.kodeOperator === detectedPrefix.value && isMachineMatch(o.mesin, form.mesin)
     );
     if (byCodeAndMachine) return byCodeAndMachine;
   }
-  return (configStore.activeOperators || configStore.operatorList).find(o => o.kodeOperator === detectedPrefix.value && o.active !== false)
-    || configStore.operatorList.find(o => o.kodeOperator === detectedPrefix.value && o.active !== false)
-    || configStore.operatorList.find(o => o.kodeOperator === detectedPrefix.value)
-    || null;
+  return candidateList.find(o => o.kodeOperator === detectedPrefix.value) || null;
 });
 
-// Daftar operator khusus untuk mesin yang sedang dipilih di form (hanya operator yang aktif menjabat)
+// Daftar operator khusus untuk mesin yang sedang dipilih di form (HANYA OPERATOR YANG AKTIF MENJABAT)
 const machineOperators = computed(() => {
-  const source = configStore.activeOperators && configStore.activeOperators.length > 0
-    ? configStore.activeOperators
-    : (configStore.operatorList || []);
-  const list = source.filter(o => o.active !== false);
+  const list = (configStore.activeOperators || []).filter(o => o.active !== false);
   let matched = list;
   if (form.mesin) {
     const filtered = list.filter(o => isMachineMatch(o.mesin, form.mesin));
     if (filtered.length > 0) matched = filtered;
+  }
+  // Khusus jika sedang edit record lama dan operator pada label lama sudah non-aktif/demisioner,
+  // sertakan operator tersebut agar tidak hilang saat meninjau/mengedit atribut lain pada record lama
+  if (isEditing.value && detectedOperator.value && !matched.some(o => o.id === detectedOperator.value.id)) {
+    matched = [...matched, detectedOperator.value];
   }
   return [...matched].sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
 });
@@ -8113,7 +8117,7 @@ const selectedOperatorId = computed(() => {
 
 const handleOperatorSelect = (opId) => {
   const op = machineOperators.value.find(o => String(o.id) === String(opId))
-    || configStore.operatorList.find(o => String(o.id) === String(opId));
+    || (configStore.activeOperators || []).find(o => String(o.id) === String(opId));
   if (!op) return;
   form.operator = op.nama;
   form.kodeOperator = op.kodeOperator;
@@ -8144,13 +8148,14 @@ watch(() => form.turunan, () => {
   }
 });
 
-// Mendapatkan operator aktif untuk mesin tertentu dari jadwal shift / roster handover
+// Mendapatkan operator aktif untuk mesin tertentu dari jadwal shift / roster handover (100% OPERATOR AKTIF)
 const getActiveShiftOperator = (machineName) => {
   const m = (machineName || form.mesin || 'SLITTING').toUpperCase();
   const shift = scheduleStore.getCurrentShiftInfo(null, m);
   const currentGroup = cleanGroupStr(shift?.group);
 
-  const activeOps = (configStore.operatorList || []).filter(o => o.active !== false);
+  // Wajib HANYA operator yang aktif menjabat hari ini
+  const activeOps = (configStore.activeOperators || []).filter(o => o.active !== false);
 
   // 1. Roster konfirmasi handover (HANYA valid jika tanggal dan shift COCOK PERSIS dengan shift aktif saat ini)
   if (scheduleStore.confirmedRoster && scheduleStore.confirmedRosterDate && scheduleStore.confirmedRosterShift) {
@@ -8193,7 +8198,8 @@ const getActiveShiftOperator = (machineName) => {
     if (scheduled && scheduled.roster) {
       for (const [key, rOp] of Object.entries(scheduled.roster)) {
         if (rOp && isMachineMatch(key, m)) {
-          return rOp;
+          const validActive = activeOps.find(o => o.nama && rOp.nama && o.nama.toUpperCase() === rOp.nama.toUpperCase());
+          if (validActive) return validActive;
         }
       }
     }
@@ -8212,7 +8218,7 @@ const getActiveShiftOperator = (machineName) => {
   }
 
   // 7. Fallback real database: Operator aktif pertama yang terdaftar di master
-  return activeOps[0] || configStore.operatorList[0] || null;
+  return activeOps[0] || null;
 };
 
 // Saat operator mengubah pilihan mesin di form modal, sesuaikan operator & turunan ke operator aktif shift mesin tersebut
@@ -8481,10 +8487,16 @@ const duplicateData = (item) => {
   const currentShiftInfo = scheduleStore.getCurrentShiftInfo(null, form.mesin || item.mesin);
   form.shift = currentShiftInfo?.shiftCode || item.shift || '1';
 
-  // Ambil operator shift aktif saat ini untuk mesin terkait
+  // Ambil operator shift aktif saat ini untuk mesin terkait (100% Operator Aktif)
   const activeOp = getActiveShiftOperator(form.mesin || item.mesin);
-  const targetOpCode = activeOp?.kodeOperator || item.kodeOperator || 'H';
-  const targetOpName = activeOp?.nama || item.operator || '';
+  const targetOpCode = activeOp?.kodeOperator 
+    || ((configStore.activeOperators || []).find(o => o.kodeOperator === item.kodeOperator)?.kodeOperator)
+    || (configStore.activeOperators?.[0]?.kodeOperator) 
+    || 'H';
+  const targetOpName = activeOp?.nama 
+    || ((configStore.activeOperators || []).find(o => o.kodeOperator === targetOpCode)?.nama)
+    || (configStore.activeOperators?.[0]?.nama) 
+    || '';
 
   // Hitung tanggal shift & kode pack otomatis terlebih dahulu
   const tglShift = calculateShiftDate();
