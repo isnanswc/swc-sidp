@@ -1515,7 +1515,7 @@ export async function pullFromSupabase(forceFull = false) {
         if (cloudOps && cloudOps.length > 0) {
           const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
           const existing = await db.operator_list.toArray();
-          const localMap = new Map(existing.map(o => [(o.nama || '').toUpperCase(), o]));
+          const localMap = new Map(existing.map(o => [(o.nama || '').trim().toUpperCase(), o]));
           const toUpdate = [];
           const toAdd = [];
           const cloudDeadNames = [];
@@ -1541,8 +1541,12 @@ export async function pullFromSupabase(forceFull = false) {
               kodeGrup: co.kode_grup || localOp?.kodeGrup || '',
               kodeOperator: co.kode_operator || localOp?.kodeOperator || '',
               // Pertahankan masa jabatan lokal jika cloud belum ada kolom atau lokal lebih baru
-              berlakuMulai: (isLocalFresher && localOp?.berlakuMulai) ? localOp.berlakuMulai : (co.berlaku_mulai || localOp?.berlakuMulai || '2020-01-01'),
-              berlakuSampai: (isLocalFresher && localOp) ? (localOp.berlakuSampai ?? null) : (co.berlaku_sampai !== undefined ? co.berlaku_sampai : (localOp?.berlakuSampai ?? null)),
+              berlakuMulai: (co.berlaku_mulai !== undefined && co.berlaku_mulai !== null)
+                ? co.berlaku_mulai
+                : (localOp?.berlakuMulai || '2020-01-01'),
+              berlakuSampai: (co.berlaku_sampai !== undefined && co.berlaku_sampai !== null)
+                ? co.berlaku_sampai
+                : (localOp?.berlakuSampai ?? null),
               // Jangan timpa status active lokal jika perubahan lokal lebih baru!
               active: isLocalFresher ? (localOp.active !== false) : (co.active !== false),
               createdAt: co.created_at || localOp?.createdAt || new Date().toISOString(),

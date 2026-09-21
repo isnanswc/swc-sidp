@@ -7681,6 +7681,9 @@ const onMachineChange = () => {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator;
       form.turunan = `${activeOp.kodeOperator}A01`;
+    } else {
+      form.operator = '';
+      form.kodeOperator = '';
     }
   }
   updateAutoFields();
@@ -8052,9 +8055,14 @@ const detectedOperator = computed(() => {
   const targetDate = form.tanggalShift || form.tanggal || new Date().toISOString().slice(0, 10);
   const isHistorical = isEditing.value;
   // Jika tambah baru atau duplikasi, hanya gunakan operator yang aktif!
-  const candidateList = isHistorical 
+  const baseList = isHistorical 
     ? (configStore.operatorList || [])
     : (configStore.activeOperators || []).filter(o => o.active !== false);
+
+  // Isolasi ketat: batasi candidateList hanya pada operator yang sesuai mesin form saat ini jika mesin terisi
+  const candidateList = form.mesin
+    ? baseList.filter(o => isMachineMatch(o.mesin, form.mesin))
+    : baseList;
 
   if (form.operator) {
     const opClean = form.operator.trim().toUpperCase();
@@ -8065,37 +8073,27 @@ const detectedOperator = computed(() => {
     const codeClean = form.kodeOperator.trim().toUpperCase();
     if (typeof configStore.getOperatorByDate === 'function') {
       const byDate = configStore.getOperatorByDate(codeClean, form.mesin, targetDate);
-      if (byDate && (isHistorical || byDate.active !== false)) return byDate;
+      if (byDate && (isHistorical || byDate.active !== false) && (!form.mesin || isMachineMatch(byDate.mesin, form.mesin))) return byDate;
     }
-    const byCodeAndMachine = candidateList.find(
-      o => o.kodeOperator && o.kodeOperator.trim().toUpperCase() === codeClean && isMachineMatch(o.mesin, form.mesin)
-    );
-    if (byCodeAndMachine) return byCodeAndMachine;
     const byCode = candidateList.find(o => o.kodeOperator && o.kodeOperator.trim().toUpperCase() === codeClean);
     if (byCode) return byCode;
   }
   if (!detectedPrefix.value) return null;
   if (typeof configStore.getOperatorByDate === 'function') {
     const byDate = configStore.getOperatorByDate(detectedPrefix.value, form.mesin, targetDate);
-    if (byDate && (isHistorical || byDate.active !== false)) return byDate;
-  }
-  // Cari di candidateList berdasarkan kodeOperator dan mesin aktif di form
-  if (form.mesin) {
-    const byCodeAndMachine = candidateList.find(
-      o => o.kodeOperator === detectedPrefix.value && isMachineMatch(o.mesin, form.mesin)
-    );
-    if (byCodeAndMachine) return byCodeAndMachine;
+    if (byDate && (isHistorical || byDate.active !== false) && (!form.mesin || isMachineMatch(byDate.mesin, form.mesin))) return byDate;
   }
   return candidateList.find(o => o.kodeOperator === detectedPrefix.value) || null;
 });
 
-// Daftar operator khusus untuk mesin yang sedang dipilih di form (HANYA OPERATOR YANG AKTIF MENJABAT)
+// Daftar operator khusus untuk mesin yang sedang dipilih di form (HANYA OPERATOR YANG AKTIF MENJABAT PADA MESIN INI)
 const machineOperators = computed(() => {
   const list = (configStore.activeOperators || []).filter(o => o.active !== false);
-  let matched = list;
+  let matched = [];
   if (form.mesin) {
-    const filtered = list.filter(o => isMachineMatch(o.mesin, form.mesin));
-    if (filtered.length > 0) matched = filtered;
+    matched = list.filter(o => isMachineMatch(o.mesin, form.mesin));
+  } else {
+    matched = list;
   }
   // Khusus jika sedang edit record lama dan operator pada label lama sudah non-aktif/demisioner,
   // sertakan operator tersebut agar tidak hilang saat meninjau/mengedit atribut lain pada record lama
@@ -8106,7 +8104,10 @@ const machineOperators = computed(() => {
 });
 
 const selectedOperatorId = computed(() => {
-  if (detectedOperator.value && detectedOperator.value.id) return detectedOperator.value.id;
+  if (detectedOperator.value && detectedOperator.value.id) {
+    const existsInMachine = machineOperators.value.some(o => String(o.id) === String(detectedOperator.value.id));
+    if (existsInMachine) return detectedOperator.value.id;
+  }
   if (form.operator) {
     const opClean = form.operator.trim().toUpperCase();
     const op = machineOperators.value.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
@@ -8148,7 +8149,7 @@ watch(() => form.turunan, () => {
   }
 });
 
-// Mendapatkan operator aktif untuk mesin tertentu dari jadwal shift / roster handover (100% OPERATOR AKTIF)
+// Mendapatkan operator aktif untuk mesin tertentu dari jadwal shift / roster handover (100% OPERATOR AKTIF & KHUSUS MESIN TERSEBUT)
 const getActiveShiftOperator = (machineName) => {
   const m = (machineName || form.mesin || 'SLITTING').toUpperCase();
   const shift = scheduleStore.getCurrentShiftInfo(null, m);
@@ -8157,6 +8158,10 @@ const getActiveShiftOperator = (machineName) => {
   // Wajib HANYA operator yang aktif menjabat hari ini
   const activeOps = (configStore.activeOperators || []).filter(o => o.active !== false);
 
+  // ISOLASI KETAT: Hanya operator yang terdaftar di mesin target! DILARANG fallback ke operator mesin lain!
+  const machineOps = activeOps.filter(o => isMachineMatch(o.mesin, m));
+  if (machineOps.length === 0) return null;
+
   // 1. Roster konfirmasi handover (HANYA valid jika tanggal dan shift COCOK PERSIS dengan shift aktif saat ini)
   if (scheduleStore.confirmedRoster && scheduleStore.confirmedRosterDate && scheduleStore.confirmedRosterShift) {
     const isCurrent = scheduleStore.confirmedRosterDate === shift.date
@@ -8164,7 +8169,7 @@ const getActiveShiftOperator = (machineName) => {
     if (isCurrent) {
       for (const [key, r] of Object.entries(scheduleStore.confirmedRoster)) {
         if (r && r.operator && isMachineMatch(key, m)) {
-          const op = activeOps.find(o => o.nama && o.nama.toUpperCase() === r.operator.toUpperCase());
+          const op = machineOps.find(o => o.nama && o.nama.toUpperCase() === r.operator.toUpperCase());
           if (op) return op;
         }
       }
@@ -8173,32 +8178,29 @@ const getActiveShiftOperator = (machineName) => {
 
   // 2. Kasus Khusus Mesin REWIND (Shift 1: Dzaki [J/Grup A], Shift 2: Davva [K/Grup B])
   if (m === 'REWIND') {
-    const rewindOps = activeOps.filter(o => isMachineMatch(o.mesin, 'REWIND'));
     if (String(shift.shiftCode) === '2') {
-      const opShift2 = rewindOps.find(o => cleanGroupStr(o.kodeGrup) === 'B' || o.kodeOperator === 'K' || (o.nama && o.nama.toUpperCase() === 'DAVVA'));
+      const opShift2 = machineOps.find(o => cleanGroupStr(o.kodeGrup) === 'B' || o.kodeOperator === 'K' || (o.nama && o.nama.toUpperCase() === 'DAVVA'));
       if (opShift2) return opShift2;
     } else {
-      const opShift1 = rewindOps.find(o => cleanGroupStr(o.kodeGrup) === 'A' || o.kodeOperator === 'J' || (o.nama && o.nama.toUpperCase() === 'DZAKI'));
+      const opShift1 = machineOps.find(o => cleanGroupStr(o.kodeGrup) === 'A' || o.kodeOperator === 'J' || (o.nama && o.nama.toUpperCase() === 'DZAKI'));
       if (opShift1) return opShift1;
     }
-    if (rewindOps.length > 0) return rewindOps[0];
+    return machineOps[0] || null;
   }
 
-  // 3. Cari dari master operator di database: operator aktif yang cocok MESIN dan cocok GRUP shift saat ini
+  // 3. Cari dari master operator mesin tersebut yang cocok GRUP shift saat ini
   if (currentGroup) {
-    const matchedByGroupAndMachine = activeOps.find(o => 
-      isMachineMatch(o.mesin, m) && cleanGroupStr(o.kodeGrup) === currentGroup
-    );
+    const matchedByGroupAndMachine = machineOps.find(o => cleanGroupStr(o.kodeGrup) === currentGroup);
     if (matchedByGroupAndMachine) return matchedByGroupAndMachine;
   }
 
-  // 4. Roster terjadwal shift saat ini dari scheduleStore
+  // 4. Roster terjadwal shift saat ini dari scheduleStore (khusus mesin target)
   try {
     const scheduled = scheduleStore.getScheduledOperators(shift.date, shift.shiftCode, shift.group);
     if (scheduled && scheduled.roster) {
       for (const [key, rOp] of Object.entries(scheduled.roster)) {
         if (rOp && isMachineMatch(key, m)) {
-          const validActive = activeOps.find(o => o.nama && rOp.nama && o.nama.toUpperCase() === rOp.nama.toUpperCase());
+          const validActive = machineOps.find(o => o.nama && rOp.nama && o.nama.toUpperCase() === rOp.nama.toUpperCase());
           if (validActive) return validActive;
         }
       }
@@ -8207,18 +8209,8 @@ const getActiveShiftOperator = (machineName) => {
     console.warn('Error getScheduledOperators:', e);
   }
 
-  // 5. Fallback real database: Operator aktif yang cocok dengan mesin
-  const matchedByMachine = activeOps.find(o => isMachineMatch(o.mesin, m));
-  if (matchedByMachine) return matchedByMachine;
-
-  // 6. Fallback real database: Operator aktif dari grup shift saat ini
-  if (currentGroup) {
-    const matchedByGroup = activeOps.find(o => cleanGroupStr(o.kodeGrup) === currentGroup);
-    if (matchedByGroup) return matchedByGroup;
-  }
-
-  // 7. Fallback real database: Operator aktif pertama yang terdaftar di master
-  return activeOps[0] || null;
+  // 5. Fallback real database: Operator aktif pertama dari mesin target
+  return machineOps[0] || null;
 };
 
 // Saat operator mengubah pilihan mesin di form modal, sesuaikan operator & turunan ke operator aktif shift mesin tersebut
@@ -8243,6 +8235,9 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
         } else {
           form.turunan = `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
         }
+      } else {
+        form.operator = '';
+        form.kodeOperator = '';
       }
     }
   }

@@ -2487,6 +2487,7 @@ const operatorForm = reactive({
 });
 
 const isOperatorExpired = (row) => {
+  if (row?.active === false) return true;
   if (!row?.berlakuSampai) return false;
   const today = new Date().toISOString().slice(0, 10);
   return row.berlakuSampai < today;
@@ -2576,8 +2577,16 @@ const saveOperator = async () => {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const isExpired = !isStillActive.value && operatorForm.berlakuSampai && operatorForm.berlakuSampai < today;
-  const activeVal = isStillActive.value ? true : (isExpired ? false : (editingOperator.value?.active ?? true));
+  let activeVal = false;
+  let berlakuSampaiVal = null;
+
+  if (isStillActive.value) {
+    activeVal = true;
+    berlakuSampaiVal = null;
+  } else {
+    berlakuSampaiVal = operatorForm.berlakuSampai || today;
+    activeVal = (berlakuSampaiVal > today);
+  }
 
   const payload = {
     nama: operatorForm.nama.trim().toUpperCase(),
@@ -2585,7 +2594,7 @@ const saveOperator = async () => {
     mesin: operatorForm.mesin,
     kodeGrup: operatorForm.kodeGrup ? operatorForm.kodeGrup.trim().toUpperCase() : '',
     berlakuMulai: operatorForm.berlakuMulai || today,
-    berlakuSampai: isStillActive.value ? null : (operatorForm.berlakuSampai || null),
+    berlakuSampai: berlakuSampaiVal,
     active: activeVal
   };
 
@@ -2615,7 +2624,7 @@ const toggleOperatorActive = async (row) => {
   const changes = { active: newActive };
 
   if (!newActive) {
-    if (!row.berlakuSampai) changes.berlakuSampai = today;
+    changes.berlakuSampai = row.berlakuSampai || today;
   } else {
     if (row.berlakuSampai && row.berlakuSampai <= today) {
       changes.berlakuSampai = null;
