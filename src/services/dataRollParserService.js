@@ -28,9 +28,9 @@ export function parseDateToIso(rawDate) {
     return `${isoPrefix[1]}-${isoPrefix[2]}-${isoPrefix[3]}`;
   }
 
-  // 3. Check Excel Serial Number (e.g. 40000 - 65000)
+  // 3. Check Excel Serial Number (e.g. 40000 - 65000, with optional decimal for time)
   const numDate = parseFloat(s);
-  if (!isNaN(numDate) && numDate > 30000 && numDate < 65000 && !s.includes(' ') && !s.includes('/') && !s.includes('-') && !s.includes('.')) {
+  if (!isNaN(numDate) && numDate > 30000 && numDate < 65000 && /^\d+(\.\d+)?$/.test(s)) {
     const excelEpoch = new Date(Date.UTC(1899, 11, 30));
     const jsDate = new Date(excelEpoch.getTime() + numDate * 86400000);
     return jsDate.toISOString().slice(0, 10);
@@ -414,14 +414,14 @@ export function parseContinuousLot(fullLotStr, machineName = 'SLITTING', supplie
         if (mName === 'REWIND') {
           // REWIND Machine: [Metalize] + [Slitting 2 letters+2 digits] + [Rewind 1 letter+1-2 digits]
           // e.g. E107 + HA06 + J1 or D310A + HC18 + K1 or D307 + IC12 + K1
-          let m = rest.match(/^([A-Z]\d{2,3}[A-B]?)([A-Z]{2,3}\d{2}[A-Z]?)([A-Z]\d{1,2})$/i);
+          let m = rest.match(/^([A-Z]\d{2,3}[A-B]?)([A-Z]{2,3}\d{2}[A-Z]?)([A-Z]\d{1,3})$/i);
           if (m) {
             metSegment = m[1].toUpperCase();
             slitSegment1 = m[2].toUpperCase();
             rewSegment = m[3].toUpperCase();
           } else {
             // Fallback Rewind: [Metalize] + [Rewind]
-            m = rest.match(/^([A-Z]\d{2,3}[A-B]?)([A-Z]\d{1,2})$/i);
+            m = rest.match(/^([A-Z]\d{2,3}[A-B]?)([A-Z]\d{1,3})$/i);
             if (m) {
               metSegment = m[1].toUpperCase();
               rewSegment = m[2].toUpperCase();
@@ -518,15 +518,15 @@ export function parseContinuousLot(fullLotStr, machineName = 'SLITTING', supplie
   // External Supplier continuous:
   // e.g. W5403702F106HA03HA02 -> W5403702 / F106 / HA03 / HA02
   // e.g. W5403702F106HC03HA01 -> W5403702 / F106 / HC03 / HA01
-  const extMatch4 = lotRaw.match(/^([A-Z0-9]+?)(\d{6,8}|[A-Z]\d{2,3})([A-Z]{2}\d{2})([A-Z]{2}\d{2}|[A-Z]\d{1,2})$/i);
+  const extMatch4 = lotRaw.match(/^([A-Z0-9]+?)(\d{6,8}|[A-Z]\d{2,3})([A-Z]{2}\d{2})([A-Z]{2}\d{2}|[A-Z]\d{1,3})$/i);
   if (extMatch4) {
     parsedSegments = [extMatch4[1].toUpperCase(), extMatch4[2].toUpperCase(), extMatch4[3].toUpperCase(), extMatch4[4].toUpperCase()];
   } else {
-    const extMatch3 = lotRaw.match(/^([A-Z0-9]+?)(\d{6,8}|[A-Z]\d{2,3})([A-Z]{2}\d{2}|[A-Z]\d{1,2})$/i);
+    const extMatch3 = lotRaw.match(/^([A-Z0-9]+?)(\d{6,8}|[A-Z]\d{2,3})([A-Z]{2}\d{2}|[A-Z]\d{1,3})$/i);
     if (extMatch3) {
       parsedSegments = [extMatch3[1].toUpperCase(), extMatch3[2].toUpperCase(), extMatch3[3].toUpperCase()];
     } else {
-      const extMatch2 = lotRaw.match(/^([A-Z0-9]{4,12})([A-Z]{2}\d{2}|[A-Z]\d{1,2})$/i);
+      const extMatch2 = lotRaw.match(/^([A-Z0-9]{4,12})([A-Z]{2}\d{2}|[A-Z]\d{1,3})$/i);
       if (extMatch2) {
         parsedSegments = [extMatch2[1].toUpperCase(), extMatch2[2].toUpperCase()];
       }

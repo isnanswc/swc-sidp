@@ -389,12 +389,17 @@ export function isTombstoned(key, id) {
 export async function deleteFromSupabase(table, column, value) {
   if (!value) return;
   // Catat ke tombstone lokal agar device ini tidak pernah re-push jika masih tersisa
-  if (column === 'uuid' || column === 'uniq_id') {
-    recordTombstones(table, [value]);
+  if (column === 'uuid' || column === 'uniq_id' || column === 'nama') {
+    recordTombstones(table, [String(value).toUpperCase()]);
   }
   if (!navigator.onLine) return;
   try {
-    const { error } = await supabase.from(table).delete().eq(column, value);
+    const valStr = String(value).trim();
+    let { error } = await supabase.from(table).delete().eq(column, valStr);
+    if (error && column === 'nama') {
+      const res = await supabase.from(table).delete().ilike('nama', valStr);
+      error = res.error;
+    }
     if (error) {
       console.warn(`[SyncDelete] Gagal hapus dari ${table} (${column} = ${value}):`, error.message);
     } else {
@@ -555,9 +560,18 @@ export async function pushLocalToSupabase() {
     if (db.operator_list) {
       tasks.push((async () => {
         try {
+          const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
+          if (tombstones.size > 0) {
+            for (const deadName of tombstones) {
+              await supabase.from('operator_list').delete().ilike('nama', deadName).catch(() => {});
+            }
+          }
+
           const operators = await db.operator_list.toArray();
-          if (operators.length > 0) {
-            const payload = operators.map(o => ({
+          const validOperators = operators.filter(o => o.nama && !tombstones.has(o.nama.trim().toUpperCase()));
+
+          if (validOperators.length > 0) {
+            const payload = validOperators.map(o => ({
               nama: o.nama,
               mesin: o.mesin || '',
               kode_grup: o.kodeGrup || '',
@@ -1082,7 +1096,12 @@ export async function pullFromSupabase(forceFull = false) {
             const delIds = toDeleteCloud.map(cl => cl.uniq_id).filter(Boolean);
             recordTombstones('labels', delIds);
             for (const uid of delIds) {
-              await db.labels.where('uniqId').equals(uid).delete();
+              try {
+                await db.labels.where('uniqId').equals(uid).delete();
+              } catch (eDel) {
+                const matched = await db.labels.filter(l => l.uniqId === uid || l.uuid === uid).toArray();
+                if (matched.length > 0) await db.labels.bulkDelete(matched.map(m => m.id));
+              }
             }
           }
 
@@ -1090,8 +1109,14 @@ export async function pullFromSupabase(forceFull = false) {
             const cloudUniqIds = toUpsertCloud.map(cl => cl.uniq_id).filter(Boolean);
             removeTombstones('labels', cloudUniqIds);
 
-            const existingLocal = await db.labels.where('uniqId').anyOf(cloudUniqIds).toArray();
-            const localMap = new Map(existingLocal.map(l => [l.uniqId, l]));
+            let existingLocal = [];
+            try {
+              existingLocal = await db.labels.where('uniqId').anyOf(cloudUniqIds).toArray();
+            } catch (eIndex) {
+              const idSet = new Set(cloudUniqIds);
+              existingLocal = await db.labels.filter(l => idSet.has(l.uniqId) || idSet.has(l.uuid)).toArray();
+            }
+            const localMap = new Map(existingLocal.map(l => [l.uniqId || l.uuid, l]));
             const toUpdate = [];
             const toAdd = [];
 
@@ -1464,12 +1489,23 @@ export async function pullFromSupabase(forceFull = false) {
       pullTasks.push((async () => {
         const { data: cloudOps } = await supabase.from('operator_list').select('*');
         if (cloudOps && cloudOps.length > 0) {
+          const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
           const existing = await db.operator_list.toArray();
-          const localMap = new Map(existing.map(o => [o.nama.toUpperCase(), o.id]));
+          const localMap = new Map(existing.map(o => [(o.nama || '').toUpperCase(), o.id]));
           const toUpdate = [];
           const toAdd = [];
+          const cloudDeadNames = [];
 
           for (const co of cloudOps) {
+            const nameUpper = (co.nama || '').trim().toUpperCase();
+            if (!nameUpper) continue;
+
+            // Jika operator ini pernah dihapus/direname (ada di tombstone):
+            if (tombstones.has(nameUpper)) {
+              cloudDeadNames.push(co.nama);
+              continue;
+            }
+
             const rec = {
               nama: co.nama,
               mesin: co.mesin,
@@ -1479,7 +1515,7 @@ export async function pullFromSupabase(forceFull = false) {
               createdAt: co.created_at,
               updatedAt: co.updated_at
             };
-            const localId = localMap.get(co.nama.toUpperCase());
+            const localId = localMap.get(nameUpper);
             if (localId) {
               toUpdate.push({ ...rec, id: localId });
             } else {
@@ -1491,6 +1527,13 @@ export async function pullFromSupabase(forceFull = false) {
             if (toUpdate.length > 0) await db.operator_list.bulkPut(toUpdate);
             if (toAdd.length > 0) await db.operator_list.bulkAdd(toAdd);
           });
+
+          // Purge sisa-sisa baris terhapus di Supabase jika ada
+          if (cloudDeadNames.length > 0) {
+            for (const deadName of cloudDeadNames) {
+              await supabase.from('operator_list').delete().ilike('nama', deadName).catch(() => {});
+            }
+          }
         }
       })());
     }
@@ -2035,7 +2078,12 @@ export function startRealtimeSync(onDataChangeCallback) {
       console.log('⚡ Realtime Label event received:', payload.eventType);
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const item = mapLabelFromSupabase(payload.new);
-        const existing = await db.labels.where('uniqId').equals(item.uniqId).first();
+        let existing = null;
+        try {
+          existing = await db.labels.where('uniqId').equals(item.uniqId).first();
+        } catch (eFind) {
+          existing = await db.labels.filter(l => l.uniqId === item.uniqId || l.uuid === item.uniqId).first();
+        }
         if (existing) {
           // Non-destructive merge: pertahankan mesin dan keterangan lokal jika data cloud kosong
           const merged = {
@@ -2055,7 +2103,12 @@ export function startRealtimeSync(onDataChangeCallback) {
         const targetId = payload.old.uniq_id || payload.old.uniqId || payload.old.id;
         if (targetId) {
           recordTombstones('labels', [targetId]);
-          const existing = await db.labels.where('uniqId').equals(targetId).first();
+          let existing = null;
+          try {
+            existing = await db.labels.where('uniqId').equals(targetId).first();
+          } catch (eFind) {
+            existing = await db.labels.filter(l => l.uniqId === targetId || l.uuid === targetId).first();
+          }
           if (existing) await db.labels.delete(existing.id);
         }
       }

@@ -1,5 +1,5 @@
 import { getSetting } from '@/db';
-import { getAiModelCandidates, recordModelSuccess, recordModelFailure } from '@/services/geminiService';
+import { getAiConfig, getAiModelCandidates, recordModelSuccess, recordModelFailure } from '@/services/geminiService';
 
 /**
  * Service Pemindaian & Ekstraksi AI Dokumen JADWAL SLITTING (3B-PROD)
@@ -132,51 +132,123 @@ export async function getResolvedGeminiApiKey() {
   return '';
 }
 
-export async function parseSpkDocumentImage(fileOrBase64, isCamera = false, filmConfigs = [], scheduleDate = null) {
-  // 1. Dapatkan base64 string
+/**
+ * Kompres dan optimasi citra dokumen SPK ke canvas sebelum diunggah ke Google AI Vision
+ * Menghindari error HTTP 400/413 Payload Too Large dan timeout pada foto resolusi tinggi
+ */
+export function compressBase64ForVision(dataUrlOrFile, maxDimension = 2048, quality = 0.85) {
+  return new Promise(async (resolve) => {
+    try {
+      let dataUrl = '';
+      if (dataUrlOrFile instanceof File || dataUrlOrFile instanceof Blob) {
+        dataUrl = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.onerror = rej;
+          reader.readAsDataURL(dataUrlOrFile);
+        });
+      } else if (typeof dataUrlOrFile === 'string') {
+        if (!dataUrlOrFile.startsWith('data:image/')) {
+          dataUrl = `data:image/jpeg;base64,${dataUrlOrFile}`;
+        } else {
+          dataUrl = dataUrlOrFile;
+        }
+      } else {
+        return resolve(dataUrlOrFile);
+      }
+
+      if (typeof window === 'undefined' || !window.Image) {
+        return resolve(dataUrl);
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        canvas.width = 0;
+        canvas.height = 0;
+        img.src = '';
+        resolve(compressed);
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    } catch (e) {
+      resolve(dataUrlOrFile);
+    }
+  });
+}
+
+export async function parseSpkDocumentImage(fileOrBase64, isCamera = false, filmConfigs = [], scheduleDate = null, onProgress = null) {
+  // 1. Kompresi dan optimasi citra dokumen
+  if (typeof onProgress === 'function') {
+    onProgress('compress', 25, 'Mengompresi citra dokumen SPK untuk transmisi cepat...');
+  }
+  const compressedDataUrl = await compressBase64ForVision(fileOrBase64, 2048, 0.85);
+
   let base64Data = '';
   let mimeType = 'image/jpeg';
 
-  if (typeof fileOrBase64 === 'string') {
-    if (fileOrBase64.includes(';base64,')) {
-      const parts = fileOrBase64.split(';base64,');
+  if (typeof compressedDataUrl === 'string') {
+    if (compressedDataUrl.includes(';base64,')) {
+      const parts = compressedDataUrl.split(';base64,');
       mimeType = parts[0].replace('data:', '') || 'image/jpeg';
       base64Data = parts[1];
     } else {
-      base64Data = fileOrBase64;
+      base64Data = compressedDataUrl;
     }
-  } else if (fileOrBase64 instanceof File || fileOrBase64 instanceof Blob) {
-    mimeType = fileOrBase64.type || 'image/jpeg';
-    base64Data = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const res = reader.result;
-        resolve(res.includes(',') ? res.split(',')[1] : res);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(fileOrBase64);
-    });
   }
 
-  // 2. Cek API Key Gemini dari seluruh kemungkinan konfigurasi
-  const geminiApiKey = await getResolvedGeminiApiKey();
+  // 2. Cek API Key Gemini dari database settings
+  const aiCfg = await getAiConfig();
+  let geminiApiKey = (aiCfg.apiKey || '').trim();
+  if (!geminiApiKey) {
+    geminiApiKey = await getResolvedGeminiApiKey();
+  }
 
   if (!geminiApiKey) {
     throw new Error('Google Gemini API Key belum terdeteksi. Silakan buka menu Pengaturan Sistem (Settings) > tab "Google Gemini Engine", masukkan API Key Anda dan klik Simpan.');
   }
 
-  // 3. Eksekusi panggilan Vision ke Gemini
-  return await callGeminiVisionSpkParser(base64Data, geminiApiKey, mimeType, filmConfigs, scheduleDate);
+  // 3. Eksekusi panggilan Vision ke Gemini dengan Smart Fallback terintegrasi database
+  return await callGeminiVisionSpkParser(base64Data, geminiApiKey, mimeType, filmConfigs, scheduleDate, onProgress, aiCfg);
 }
 
 /**
- * Panggilan ke Google Gemini API Vision untuk ekstraksi dokumen fisik
+ * Panggilan ke Google Gemini API Vision untuk ekstraksi dokumen fisik dengan Smart Fallback
  */
-async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/jpeg', filmConfigs = [], scheduleDate = null) {
-  const modelCandidates = await getAiModelCandidates();
+async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/jpeg', filmConfigs = [], scheduleDate = null, onProgress = null, aiCfg = {}) {
+  let modelCandidates = await getAiModelCandidates();
   if (!modelCandidates || modelCandidates.length === 0) {
-    modelCandidates.push('gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash');
+    modelCandidates = [
+      aiCfg.selectedModel || 'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro'
+    ].filter(Boolean);
   }
+
+  // Pastikan modelCandidates tidak ada duplikasi
+  modelCandidates = modelCandidates.filter((m, i, arr) => arr.indexOf(m) === i);
 
   const prompt = `
 Analisis dokumen formulir fisik PT. Saptawarna Cemerlang "JADWAL SLITTING (Kode: 3B-PROD)".
@@ -220,10 +292,18 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
 
   for (let i = 0; i < modelCandidates.length; i++) {
     const modelTarget = modelCandidates[i];
+    const isLast = i === modelCandidates.length - 1;
+    const nextModel = !isLast ? modelCandidates[i + 1] : null;
+
+    if (typeof onProgress === 'function') {
+      const pct = Math.min(85, 45 + Math.round((i / modelCandidates.length) * 40));
+      onProgress('analyzing', pct, `Menganalisis dokumen dengan ${modelTarget}...`);
+    }
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelTarget}:generateContent`;
 
     const abortCtrl = new AbortController();
-    const timeoutId = setTimeout(() => abortCtrl.abort(), 25000); // 25s timeout per candidate
+    const timeoutId = setTimeout(() => abortCtrl.abort(), 35000); // 35s timeout per candidate
 
     try {
       const response = await fetch(url, {
@@ -257,9 +337,16 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
         } catch {
           errText = await response.text();
         }
-        console.warn(`[SPK Vision] Model ${modelTarget} returned HTTP ${response.status}: ${errText}. Mencoba model fallback...`);
+        console.warn(`[SPK Vision] Model ${modelTarget} returned HTTP ${response.status}: ${errText}.`);
         recordModelFailure(modelTarget, errText, response.status).catch(() => {});
         lastError = new Error(`Model ${modelTarget} (${response.status}): ${errText}`);
+
+        if (!isLast && nextModel) {
+          if (typeof onProgress === 'function') {
+            onProgress('fallback', 55 + Math.round((i / modelCandidates.length) * 30), `Model ${modelTarget} terkendala (${response.status}). Beralih ke model cadangan ${nextModel}...`);
+          }
+          await new Promise(r => setTimeout(r, 600));
+        }
         continue;
       }
 
@@ -268,10 +355,21 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
       if (!text.trim()) {
         console.warn(`[SPK Vision] Model ${modelTarget} mengembalikan output kosong. Mencoba fallback...`);
         recordModelFailure(modelTarget, 'Output respon kosong', 204).catch(() => {});
+        if (!isLast && nextModel) {
+          if (typeof onProgress === 'function') {
+            onProgress('fallback', 55 + Math.round((i / modelCandidates.length) * 30), `Respon ${modelTarget} kosong. Beralih ke ${nextModel}...`);
+          }
+        }
         continue;
       }
 
-      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      let cleanJson = text.replace(/```json\s*|```/g, '').trim();
+      const firstBracket = cleanJson.indexOf('[');
+      const lastBracket = cleanJson.lastIndexOf(']');
+      if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+        cleanJson = cleanJson.substring(firstBracket, lastBracket + 1);
+      }
+
       let parsed;
       try {
         parsed = JSON.parse(cleanJson);
@@ -279,19 +377,33 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
         console.warn(`[SPK Vision] JSON Parse error on ${modelTarget}:`, text);
         lastError = parseErr;
         recordModelFailure(modelTarget, 'Format JSON rusak', null).catch(() => {});
+        if (!isLast && nextModel) {
+          if (typeof onProgress === 'function') {
+            onProgress('fallback', 55 + Math.round((i / modelCandidates.length) * 30), `Format JSON ${modelTarget} rusak. Beralih ke ${nextModel}...`);
+          }
+        }
         continue;
       }
 
       // Berhasil! Rekam sebagai Sticky Winner di Cloud Database
       recordModelSuccess(modelTarget).catch(() => {});
+      if (typeof onProgress === 'function') {
+        onProgress('success', 92, `Berhasil diproses oleh ${modelTarget}! Menstandarisasi format SPK...`);
+      }
       return postProcessExtractedRows(Array.isArray(parsed) ? parsed : [parsed], filmConfigs, scheduleDate);
     } catch (netErr) {
       clearTimeout(timeoutId);
       const isTimeout = netErr.name === 'AbortError';
-      const reason = isTimeout ? 'Timeout (>25s)' : (netErr.message || 'Error');
+      const reason = isTimeout ? 'Timeout (>35s)' : (netErr.message || 'Error');
       console.warn(`[SPK Vision] Network error on model ${modelTarget} (${reason}):`, netErr);
       recordModelFailure(modelTarget, reason, isTimeout ? 408 : null).catch(() => {});
       lastError = netErr;
+      if (!isLast && nextModel) {
+        if (typeof onProgress === 'function') {
+          onProgress('fallback', 55 + Math.round((i / modelCandidates.length) * 30), `Koneksi ke ${modelTarget} terputus (${reason}). Beralih ke ${nextModel}...`);
+        }
+        await new Promise(r => setTimeout(r, 600));
+      }
     }
   }
 

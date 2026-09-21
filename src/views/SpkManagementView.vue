@@ -2989,10 +2989,16 @@ const processImageScan = async (file) => {
       await configStore.loadAll();
     }
 
-    aiScanStage.value = 'Menganalisis tabel formulir JADWAL SLITTING (3B-PROD)...';
-    aiScanProgress.value = 75;
-
-    const extractedRows = await parseSpkDocumentImage(file, false, configStore.filmConfigs);
+    const extractedRows = await parseSpkDocumentImage(
+      file,
+      false,
+      configStore.filmConfigs,
+      null,
+      (stage, pct, msg) => {
+        if (pct) aiScanProgress.value = pct;
+        if (msg) aiScanStage.value = msg;
+      }
+    );
 
     aiScanStage.value = 'Standarisasi format SPK & kalkulasi auto-trim...';
     aiScanProgress.value = 95;

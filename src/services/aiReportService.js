@@ -539,10 +539,9 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
   } catch (parseErr) {
     console.warn('Percobaan pertama JSON.parse gagal, mencoba perbaikan otomatis format...', parseErr);
     try {
-      // Perbaiki error trailing commas atau format tak lengkap sederhana
       const repairedJson = cleanJsonText
         .replace(/,\s*([\]}])/g, '$1')
-        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":');
+        .replace(/([{,]\s*)(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '$1"$3":');
       rawParsedData = JSON.parse(repairedJson);
     } catch (retryErr) {
       console.error('Gagal mem-parse respon AI:', cleanJsonText);

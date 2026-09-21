@@ -397,6 +397,10 @@ db.version(23).stores({
   data_rolls: '++id, uuid, uploadId, batchId, kodeFg, lot, turunan, jenis, kodeFormula, thickness, width, length, core, treatment, od, slitting, rewind, sml, machineName, tanggal, tanggalFormatted, spk, kodePack, subKode, qualityStatus, verified, synced, createdAt, updatedAt'
 });
 
+db.version(24).stores({
+  labels: '++id, uniqId, uuid, barcode, noPack, tanggal, spk, lot, turunan, operator, kodeOperator, jenis, type, kode, thickness, width, length, meter, joint, netto, paperCore, kodePack, subKode, status, treatment, od, jenisPrint, verified, synced, createdAt, updatedAt'
+});
+
 export async function saveSetting(key, value) {
   try {
     let cleanValue = value;

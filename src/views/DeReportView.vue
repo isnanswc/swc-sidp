@@ -2984,13 +2984,18 @@ const selectedBatchRolls = computed(() => {
   );
 });
 
-const batchDetailRollsCount = computed(() => selectedBatchRolls.value.length);
-const batchDetailTotalKg = computed(() => {
-  return parseFloat(selectedBatchRolls.value.reduce((sum, r) => sum + (parseFloat(r.netto || r.berat || 0) || 0), 0).toFixed(2));
+const validBatchDetailRolls = computed(() => {
+  const hasBahan = selectedBatchRolls.value.some(r => r.jenisProses === 'BAHAN');
+  return hasBahan ? selectedBatchRolls.value.filter(r => r.jenisProses !== 'BAHAN') : selectedBatchRolls.value;
 });
-const batchDetailPassCount = computed(() => selectedBatchRolls.value.filter(r => (r.qualityStatus || r.status || 'PASS').toUpperCase() === 'PASS').length);
-const batchDetailHoldCount = computed(() => selectedBatchRolls.value.filter(r => (r.qualityStatus || r.status || '').toUpperCase() === 'HOLD').length);
-const batchDetailRejectCount = computed(() => selectedBatchRolls.value.filter(r => (r.qualityStatus || r.status || '').toUpperCase() === 'REJECT').length);
+
+const batchDetailRollsCount = computed(() => validBatchDetailRolls.value.length);
+const batchDetailTotalKg = computed(() => {
+  return parseFloat(validBatchDetailRolls.value.reduce((sum, r) => sum + (parseFloat(r.netto || r.berat || 0) || 0), 0).toFixed(2));
+});
+const batchDetailPassCount = computed(() => validBatchDetailRolls.value.filter(r => (r.qualityStatus || r.status || 'PASS').toUpperCase() === 'PASS').length);
+const batchDetailHoldCount = computed(() => validBatchDetailRolls.value.filter(r => (r.qualityStatus || r.status || '').toUpperCase() === 'HOLD').length);
+const batchDetailRejectCount = computed(() => validBatchDetailRolls.value.filter(r => (r.qualityStatus || r.status || '').toUpperCase() === 'REJECT').length);
 
 const filteredBatchDetailRolls = computed(() => {
   let list = selectedBatchRolls.value;
@@ -3191,7 +3196,8 @@ const getCoreSizeText = (item) => {
 const getParentLotInfo = (lotNo) => {
   if (!lotNo) return { parentWidth: 0, parentMeter: 0, parentBeratTeori: 0 };
   
-  const allLotItems = labelStore.labels.filter(l => l.lot === lotNo);
+  const sourceList = (allSourceItems.value && allSourceItems.value.length) ? allSourceItems.value : labelStore.labels;
+  const allLotItems = sourceList.filter(l => (l.lot === lotNo || l.baseLot === lotNo || l.noLot === lotNo));
   if (!allLotItems.length) return { parentWidth: 0, parentMeter: 0, parentBeratTeori: 0 };
   
   const first = allLotItems[0];
@@ -3202,8 +3208,8 @@ const getParentLotInfo = (lotNo) => {
     const chartMap = new Map();
     allLotItems.forEach(item => {
       const turunanStr = String(item.turunan || '').trim().toUpperCase();
-      const match = turunanStr.match(/^[A-Z]([A-Z])\d+/);
-      const ch = match ? match[1] : (turunanStr.charAt(1) || 'A');
+      const match = turunanStr.match(/^([A-Za-z]+)(\d+)/);
+      const ch = match ? (match[1].length > 1 ? match[1].charAt(1) : match[1].charAt(0)) : (turunanStr.charAt(1) || 'A');
       const w = parseFloat(item.width || item.lebar) || 0;
       if (!chartMap.has(ch) && w > 0) {
         chartMap.set(ch, w);
@@ -3219,8 +3225,8 @@ const getParentLotInfo = (lotNo) => {
     const seqMap = new Map();
     allLotItems.forEach(item => {
       const turunanStr = String(item.turunan || '').trim().toUpperCase();
-      const match = turunanStr.match(/^[A-Z][A-Z](\d+)/);
-      const seq = match ? match[1] : '01';
+      const match = turunanStr.match(/^([A-Za-z]+)(\d+)/);
+      const seq = match ? match[2] : '01';
       const len = parseFloat(item.meter || item.length || item.panjang) || 0;
       if (!seqMap.has(seq) && len > 0) {
         seqMap.set(seq, len);
@@ -3238,11 +3244,7 @@ const getParentLotInfo = (lotNo) => {
     parentBeratTeori = parseFloat(((thick * parentWidth * parentMeter * density) / 1000000).toFixed(2));
   }
 
-  return {
-    parentWidth,
-    parentMeter,
-    parentBeratTeori
-  };
+  return { parentWidth, parentMeter, parentBeratTeori };
 };
 
 const getParentWidth = (item) => {
@@ -3422,11 +3424,16 @@ const getReasonDefectText = (item) => {
 // ----------------------------------------------------
 // SPARSE DISPLAY & PARENT DELIMITER LOGIC
 // ----------------------------------------------------
+const getGlobalRowIndex = (rIdx) => {
+  return (unverifiedPageSize.value === -1 ? 0 : (unverifiedPage.value - 1) * unverifiedPageSize.value) + rIdx;
+};
+
 const isFirstRowOfParent = (rIdx) => {
-  if (rIdx === 0) return true;
+  const globalIdx = getGlobalRowIndex(rIdx);
+  if (globalIdx === 0) return true;
   const list = filteredUnverifiedList.value;
-  const current = list[rIdx];
-  const prev = list[rIdx - 1];
+  const current = list[globalIdx];
+  const prev = list[globalIdx - 1];
   if (!current || !prev) return false;
   return current.lot !== prev.lot || current.spk !== prev.spk;
 };
@@ -3517,8 +3524,9 @@ const formatCellValue = (val, key, item, rIdx) => {
 
   // 4. Aturan Sparse Shift Waste: Waste Polos & Metal hanya muncul 1x per shift
   if (key === 'wastePolos' || key === 'wasteMetal' || key === 'keteranganWaste' || key === 'noteOperator') {
-    if (rIdx > 0) {
-      const prev = filteredUnverifiedList.value[rIdx - 1];
+    const globalIdx = getGlobalRowIndex(rIdx);
+    if (globalIdx > 0) {
+      const prev = filteredUnverifiedList.value[globalIdx - 1];
       if (prev && getShiftCombined(prev) === getShiftCombined(item) && prev.tanggal === item.tanggal) {
         if (!val || val === prev[key]) return '';
       }
@@ -4508,7 +4516,11 @@ const addNewBlankRow = async () => {
 };
 
 const refreshData = async () => {
-  await labelStore.loadLabels();
+  await Promise.all([
+    labelStore.loadLabels(),
+    dataRollStore.loadRolls(),
+    dataRollStore.loadUploadHistory()
+  ]);
 };
 
 // ----------------------------------------------------
@@ -4958,6 +4970,8 @@ const handleFileUpload = (e) => {
       parsePastedText();
     } catch (err) {
       alert('Gagal membaca file Excel: ' + err.message);
+    } finally {
+      if (e.target) e.target.value = '';
     }
   };
   reader.readAsArrayBuffer(file);

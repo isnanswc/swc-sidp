@@ -584,7 +584,8 @@ export const useLabelStore = defineStore('labelStore', {
 
     async updateLabel(id, updatedFields) {
       const isRoll = typeof id === 'string' && id.startsWith('roll_');
-      const item = this.labels.find(l => l.id === id);
+      const cleanId = (typeof id === 'string' && /^\d+$/.test(id)) ? parseInt(id, 10) : id;
+      const item = this.labels.find(l => l.id === id || l.id === cleanId || l.id == id);
       const rollId = isRoll ? (item?.originalRollId || parseInt(id.replace('roll_', ''), 10)) : null;
 
       if (isRoll && rollId && db.data_rolls) {
@@ -634,6 +635,9 @@ export const useLabelStore = defineStore('labelStore', {
         rollPayload.synced = 0;
         
         await db.data_rolls.update(rollId, rollPayload);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
+        }
       } else {
         const payload = {
           ...updatedFields,
@@ -642,16 +646,16 @@ export const useLabelStore = defineStore('labelStore', {
         };
         delete payload.isDataRoll;
         delete payload.originalRollId;
-        if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
-          await db.labels.update(id, payload);
+        if (typeof cleanId === 'number' || (typeof cleanId === 'string' && !cleanId.startsWith('roll_'))) {
+          await db.labels.update(cleanId, payload);
         }
       }
 
-      const idx = this.labels.findIndex(l => l.id === id);
+      const idx = this.labels.findIndex(l => l.id === cleanId || l.id === id || l.id == id || (l.uniqId && updatedFields.uniqId && l.uniqId === updatedFields.uniqId));
       if (idx !== -1) {
         const merged = { ...this.labels[idx], ...updatedFields, updatedAt: new Date().toISOString() };
         const sortKeys = computeLabelSortKeys(merged, merged.mesin || 'SLITTING');
-        this.labels[idx] = markRaw({ ...merged, ...sortKeys });
+        this.labels.splice(idx, 1, markRaw({ ...merged, ...sortKeys }));
       }
       pushLocalToSupabase().catch(() => {});
     },
@@ -670,6 +674,9 @@ export const useLabelStore = defineStore('labelStore', {
           recordTombstones('data_rolls', [rUuid]);
           deleteFromSupabase('data_rolls', 'uuid', rUuid).catch(() => {});
         }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sync:data-rolls-updated'));
+        }
       }
 
       // 2. Hapus dari db.labels jika bukan data roll
@@ -678,7 +685,12 @@ export const useLabelStore = defineStore('labelStore', {
         if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('roll_'))) {
           await db.labels.delete(id);
         } else if (item && item.uniqId) {
-          await db.labels.where('uniqId').equals(item.uniqId).delete();
+          try {
+            await db.labels.where('uniqId').equals(item.uniqId).delete();
+          } catch (eDel) {
+            const matched = await db.labels.filter(l => l.uniqId === item.uniqId || l.uuid === item.uniqId).toArray();
+            if (matched.length > 0) await db.labels.bulkDelete(matched.map(m => m.id));
+          }
         }
         if (targetUniqId) {
           recordTombstones('labels', [targetUniqId]);

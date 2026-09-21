@@ -2558,6 +2558,7 @@
                   <label class="block font-bold text-zinc-700 mb-1">No SPK</label>
                   <input
                     v-model="parentLotForm.spk"
+                    @input="parentLotForm.spk = (parentLotForm.spk || '').toUpperCase()"
                     type="text"
                     class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-mono font-bold text-zinc-900 uppercase focus:ring-1 focus:ring-zinc-900 outline-none bg-white text-sm"
                     placeholder="SPK"
@@ -3419,9 +3420,10 @@
                   <label class="block font-bold text-sky-950 mb-0.5 text-[11px]">No. SPK <span class="text-red-500">*</span></label>
                   <input
                     v-model="form.spk"
+                    @input="form.spk = (form.spk || '').toUpperCase()"
                     required
                     placeholder="No. SPK"
-                    class="w-full px-2 py-1 text-xs border border-sky-300 rounded-lg outline-none bg-white font-mono font-semibold focus:ring-1 focus:ring-sky-500 shadow-2xs"
+                    class="w-full px-2 py-1 text-xs border border-sky-300 rounded-lg outline-none bg-white font-mono font-semibold focus:ring-1 focus:ring-sky-500 shadow-2xs uppercase"
                   />
                 </div>
               </div>
@@ -3514,10 +3516,11 @@
                   </div>
 
                   <input
+                    ref="turunanInputRef"
                     v-model="form.turunan"
                     @input="form.turunan = form.turunan.toUpperCase()"
                     required
-                    placeholder="HA01"
+                    :placeholder="form.mesin === 'REWIND' ? 'Contoh: HA03/J101' : 'HA01'"
                     class="w-full px-2 py-1 text-xs border border-indigo-300 rounded-lg bg-white font-mono font-bold text-red-600 outline-none uppercase focus:ring-1 focus:ring-red-500"
                   />
 
@@ -4304,6 +4307,7 @@ const wipFilterJenis = ref('');
 const wipFilterLokasi = ref('');
 const selectedWipRoll = ref(null);
 const widthInputRef = ref(null);
+const turunanInputRef = ref(null);
 
 const getWipAgingInfo = (roll) => {
   if (!roll) return { isAging: false, remainingFormatted: 'Siap Pakai', targetDateFormatted: '—' };
@@ -4669,11 +4673,63 @@ const handleLotInput = () => {
   }
 };
 
+const extractRewindSourceParts = (roll) => {
+  if (!roll) return { parentLot: '', slittingTurunan: '' };
+  let lot = String(roll.lot || '').trim();
+  let turunan = String(roll.turunan || '').trim();
+
+  let slittingTurunan = '';
+  if (turunan) {
+    if (turunan.includes('/')) {
+      slittingTurunan = turunan.split('/')[0].trim().toUpperCase();
+    } else {
+      slittingTurunan = turunan.toUpperCase();
+    }
+  }
+
+  // Jika turunan kosong, cek apakah lot memiliki format dengan slash dan bagian akhir adalah turunan (contoh m07260826a101/f102/ha03)
+  if (!slittingTurunan && lot.includes('/')) {
+    const parts = lot.split('/').map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const last = parts[parts.length - 1];
+      if (/^[A-Za-z]{1,3}\d{1,3}$/i.test(last)) {
+        slittingTurunan = last.toUpperCase();
+      }
+    }
+  }
+
+  let parentLot = lot;
+  if (slittingTurunan) {
+    parentLot = extractCleanParentLot(lot, slittingTurunan);
+  } else {
+    parentLot = extractCleanParentLot(lot, turunan);
+  }
+
+  return {
+    parentLot: (parentLot || lot).replace(/\s+/g, '').toUpperCase(),
+    slittingTurunan: slittingTurunan.toUpperCase()
+  };
+};
+
 const selectWipRoll = (roll) => {
   if (!roll) return;
-  form.lot = (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+  const isRewind = form.mesin === 'REWIND';
+  if (isRewind) {
+    const rParts = extractRewindSourceParts(roll);
+    form.lot = rParts.parentLot || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+    if (rParts.slittingTurunan) {
+      form.turunan = `${rParts.slittingTurunan}/`;
+    }
+    const activeOp = getActiveShiftOperator('REWIND');
+    if (activeOp) {
+      form.operator = activeOp.nama;
+      form.kodeOperator = activeOp.kodeOperator;
+    }
+  } else {
+    form.lot = (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+  }
   modalSearchQuery.value = form.lot;
-  if (roll.spk) form.spk = roll.spk;
+  if (roll.spk) form.spk = String(roll.spk).trim().toUpperCase();
   if (roll.kodeFormula) form.kode = roll.kodeFormula;
   if (roll.jenis) form.jenis = roll.jenis;
   if (roll.thickness) form.thickness = String(roll.thickness);
@@ -4698,7 +4754,11 @@ const selectWipRoll = (roll) => {
   updateAutoFields();
 
   nextTick(() => {
-    if (widthInputRef.value) {
+    if (isRewind && turunanInputRef.value) {
+      turunanInputRef.value.focus?.();
+      const len = form.turunan.length;
+      turunanInputRef.value.setSelectionRange?.(len, len);
+    } else if (widthInputRef.value) {
       widthInputRef.value.focus?.();
       widthInputRef.value.select?.();
     }
@@ -4706,10 +4766,29 @@ const selectWipRoll = (roll) => {
 };
 
 const selectDataRoll = (roll) => {
-  const cleanLot = extractCleanParentLot(roll.lot, roll.turunan);
-  form.lot = (cleanLot || roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+  const isRewind = form.mesin === 'REWIND';
+  if (isRewind) {
+    const rParts = extractRewindSourceParts(roll);
+    form.lot = rParts.parentLot || extractCleanParentLot(roll.lot, roll.turunan) || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+    if (rParts.slittingTurunan) {
+      form.turunan = `${rParts.slittingTurunan}/`;
+    }
+    const activeOp = getActiveShiftOperator('REWIND');
+    if (activeOp) {
+      form.operator = activeOp.nama;
+      form.kodeOperator = activeOp.kodeOperator;
+    }
+  } else {
+    const cleanLot = extractCleanParentLot(roll.lot, roll.turunan);
+    form.lot = (cleanLot || roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+    if (roll.turunan) form.turunan = roll.turunan;
+    if (roll.operator || roll.kodeOperator) {
+      form.operator = roll.operator || form.operator;
+      form.kodeOperator = roll.kodeOperator || form.kodeOperator;
+    }
+  }
   modalSearchQuery.value = form.lot;
-  if (roll.spk) form.spk = roll.spk;
+  if (roll.spk) form.spk = String(roll.spk).trim().toUpperCase();
   if (roll.kodeFormula || roll.kodeFg) form.kode = roll.kodeFormula || roll.kodeFg;
   if (roll.jenis) form.jenis = roll.jenis;
   if (roll.thickness) form.thickness = String(roll.thickness);
@@ -4727,11 +4806,6 @@ const selectDataRoll = (roll) => {
 
   form.supplier = (roll.supplier || '').replace(/\s+/g, '').toUpperCase() || 'INHOUSE';
   if (roll.qualityStatus || roll.status) form.status = String(roll.qualityStatus || roll.status).toUpperCase();
-  if (roll.turunan) form.turunan = roll.turunan;
-  if (roll.operator || roll.kodeOperator) {
-    form.operator = roll.operator || form.operator;
-    form.kodeOperator = roll.kodeOperator || form.kodeOperator;
-  }
   
   syncFormulaConfigs();
   selectedWipRoll.value = roll;
@@ -4740,7 +4814,11 @@ const selectDataRoll = (roll) => {
   updateAutoFields();
 
   nextTick(() => {
-    if (widthInputRef.value) {
+    if (isRewind && turunanInputRef.value) {
+      turunanInputRef.value.focus?.();
+      const len = form.turunan.length;
+      turunanInputRef.value.setSelectionRange?.(len, len);
+    } else if (widthInputRef.value) {
       widthInputRef.value.focus?.();
       widthInputRef.value.select?.();
     }
@@ -4932,6 +5010,20 @@ const hierarchyDatesPerPage = ref(5); // Default 5 tanggal per halaman agar sang
 watch([() => labelStore.searchTerm, () => labelStore.filterMesin, () => labelStore.filterStatus], () => {
   hierarchyPage.value = 1;
 });
+
+// Reset pilihan ceklis row setiap berpindah mesin, halaman (tabel & hierarki), atau filter
+watch(
+  [
+    () => labelStore.filterMesin,
+    () => labelStore.currentPage,
+    hierarchyPage,
+    () => labelStore.filterStatus,
+    () => labelStore.searchTerm
+  ],
+  () => {
+    selectedIds.value = [];
+  }
+);
 
 // Daftar seluruh tanggal unik yang cocok dengan filter aktif
 const allHierarchyDates = computed(() => {
@@ -5169,9 +5261,15 @@ function resolveOperator(item) {
   const rawOp = String(item.operator || '').trim();
   const rawCode = String(item.kodeOperator || '').trim();
   const machine = String(item.mesin || '').trim().toUpperCase();
+  const targetDate = item.tanggalShift || item.tanggalProduksi || item.tanggal || (item.createdAt ? String(item.createdAt).slice(0, 10) : null);
 
-  // 1. Direct match by kodeOperator & Machine
+  // 1. Direct match by kodeOperator & Machine dengan timeline masa jabatan
   if (rawCode) {
+    if (typeof configStore.getOperatorByDate === 'function') {
+      const byDate = configStore.getOperatorByDate(rawCode, machine, targetDate);
+      if (byDate) return byDate;
+    }
+
     const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
       || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
     if (byCodeMachine) return byCodeMachine;
@@ -5196,6 +5294,10 @@ function resolveOperator(item) {
       if (bracketMatch) {
         const bName = bracketMatch[1].trim().toUpperCase();
         const bCode = bracketMatch[2].trim().toUpperCase();
+        if (typeof configStore.getOperatorByDate === 'function') {
+          const byDate = configStore.getOperatorByDate(bCode, machine, targetDate);
+          if (byDate) return byDate;
+        }
         const byBracket = list.find(o => (o.kodeOperator && o.kodeOperator.toUpperCase() === bCode) || (o.nama && o.nama.toUpperCase() === bName));
         if (byBracket) return byBracket;
       }
@@ -5208,6 +5310,11 @@ function resolveOperator(item) {
       if (byName) return byName;
 
       // Check if cleanedOp matches operator's kodeOperator (e.g. "G", "H", "W")
+      if (typeof configStore.getOperatorByDate === 'function') {
+        const byDate = configStore.getOperatorByDate(cleanedOp, machine, targetDate);
+        if (byDate) return byDate;
+      }
+
       const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === cleanedOp.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
       if (byCodeMachine) return byCodeMachine;
 
@@ -5222,6 +5329,11 @@ function resolveOperator(item) {
     if (parsed) {
       const opPrefix = (parsed.isCasting && parsed.op) ? parsed.op : parsed.prefix;
       if (opPrefix) {
+        if (typeof configStore.getOperatorByDate === 'function') {
+          const byDate = configStore.getOperatorByDate(opPrefix, machine, targetDate);
+          if (byDate) return byDate;
+        }
+
         const byTurunanMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
           || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
         if (byTurunanMachine) return byTurunanMachine;
@@ -5247,7 +5359,8 @@ function getOperatorDisplayName(item) {
     return rawOp.toUpperCase();
   }
   if (item.turunan) {
-    const fromTurunan = getOperatorFromTurunan(item.turunan, item.mesin);
+    const targetDate = item.tanggalShift || item.tanggalProduksi || item.tanggal || (item.createdAt ? String(item.createdAt).slice(0, 10) : null);
+    const fromTurunan = getOperatorFromTurunan(item.turunan, item.mesin, targetDate);
     if (fromTurunan) return fromTurunan.toUpperCase();
   }
   return rawOp ? rawOp.toUpperCase() : '—';
@@ -5297,12 +5410,18 @@ function resolveOperatorName(item) {
   return name !== '—' ? name.toUpperCase() : 'OPERATOR';
 }
 
-function getOperatorFromTurunan(turunanVal, mesinVal) {
+function getOperatorFromTurunan(turunanVal, mesinVal, targetDateVal = null) {
   if (!turunanVal) return '';
   const parsed = parseTurunan(turunanVal);
   if (!parsed) return '';
   const opPrefix = (parsed.isCasting && parsed.op) ? parsed.op : parsed.prefix;
   if (!opPrefix) return '';
+
+  if (typeof configStore.getOperatorByDate === 'function') {
+    const byDate = configStore.getOperatorByDate(opPrefix, mesinVal, targetDateVal);
+    if (byDate) return `${byDate.nama} (${byDate.kodeOperator})`;
+  }
+
   const list = configStore.operatorList || [];
   const op = list.find(o => o.kodeOperator === opPrefix && (!mesinVal || !o.mesin || o.mesin.toUpperCase() === mesinVal.toUpperCase()))
     || list.find(o => o.kodeOperator === opPrefix);
@@ -5317,6 +5436,16 @@ const formatLotTable = (item) => {
   // 1. Jika item memiliki turunan eksplisit (dari input form manual atau parsing)
   if (turunanStr) {
     const upperLot = lotStr.toUpperCase();
+    if (turunanStr.includes('/')) {
+      const slittingPart = turunanStr.split('/')[0].trim().toUpperCase();
+      if (slittingPart && upperLot.endsWith('/' + slittingPart)) {
+        const parent = lotStr.slice(0, -(slittingPart.length + 1)).trim();
+        return {
+          parentLot: parent.split('/').map(s => s.trim()).join(' / '),
+          childTurunan: turunanStr
+        };
+      }
+    }
     if (upperLot.endsWith('/' + turunanStr)) {
       const parent = lotStr.slice(0, -(turunanStr.length + 1)).trim();
       return {
@@ -5599,6 +5728,12 @@ const hierarchyTree = computed(() => {
 
         if (parentLot.includes('/')) {
           // Jika item.lot mengandung slash '/', periksa apakah segmen terakhir adalah turunan (misal /A01 atau /01)
+          if (turunan && turunan.includes('/')) {
+            const slittingPart = turunan.split('/')[0].trim();
+            if (slittingPart && parentLot.endsWith('/' + slittingPart)) {
+              parentLot = parentLot.slice(0, -(slittingPart.length + 1)).trim();
+            }
+          }
           if (turunan && parentLot.endsWith('/' + turunan)) {
             parentLot = parentLot.slice(0, -(turunan.length + 1)).trim();
           } else if (turunan) {
@@ -7576,9 +7711,107 @@ const activeChartinganList = computed(() => {
   return list.length > 0 ? list : ['A', 'B', 'C', 'D'];
 });
 
+// Memoization Cache untuk parseTurunan (O(1) lookup drastis mempercepat sorting dan duplikasi Chart C & multi-chart)
+const turunanParseCache = new Map();
+
 function parseTurunan(turunanStr) {
   if (!turunanStr) return { prefix: 'H', chartingan: 'A', noUrut: 1, numDigits: 2 };
   const str = String(turunanStr).trim();
+  if (turunanParseCache.has(str)) {
+    return turunanParseCache.get(str);
+  }
+  if (turunanParseCache.size > 5000) {
+    turunanParseCache.clear();
+  }
+
+  let result = null;
+
+  // 1a. Pola Khusus Compound Rewind: <turunan_slitting>/<turunan_rewind>
+  // Contoh: HA03/J101, ha03/j101, HA03/JA01, HA03/J01, HA03/
+  if (str.includes('/')) {
+    const slashParts = str.split('/');
+    const parentTurunan = slashParts[0].trim().toUpperCase();
+    const childRaw = slashParts.slice(1).join('/').trim().toUpperCase();
+
+    if (!childRaw) {
+      result = {
+        isCompoundRewind: true,
+        parentTurunan,
+        childTurunan: '',
+        prefix: '',
+        chartingan: 'A',
+        noUrut: 0,
+        numDigits: 3,
+        hasChildLetter: false
+      };
+      turunanParseCache.set(str, result);
+      return result;
+    }
+
+    // A. Format misal JA01 (Prefix operator 'J' + Arm 'A' + Urutan '01')
+    const matchChildComplex = childRaw.match(/^([A-Za-z]+?)([A-Za-z])(\d+)$/);
+    if (matchChildComplex) {
+      result = {
+        isCompoundRewind: true,
+        parentTurunan,
+        childTurunan: childRaw,
+        prefix: matchChildComplex[1].toUpperCase(),
+        chartingan: matchChildComplex[2].toUpperCase(),
+        noUrut: parseInt(matchChildComplex[3], 10),
+        numDigits: matchChildComplex[3].length,
+        hasChildLetter: true
+      };
+      turunanParseCache.set(str, result);
+      return result;
+    }
+
+    // B. Format misal J101 atau J01 (Prefix operator 'J' + Urutan '101')
+    const matchChildSimple = childRaw.match(/^([A-Za-z]+)(\d+)$/);
+    if (matchChildSimple) {
+      result = {
+        isCompoundRewind: true,
+        parentTurunan,
+        childTurunan: childRaw,
+        prefix: matchChildSimple[1].toUpperCase(),
+        chartingan: 'A',
+        noUrut: parseInt(matchChildSimple[2], 10),
+        numDigits: matchChildSimple[2].length,
+        hasChildLetter: false
+      };
+      turunanParseCache.set(str, result);
+      return result;
+    }
+
+    // C. Format angka saja misal 101 atau 01
+    const matchChildDigitsOnly = childRaw.match(/^(\d+)$/);
+    if (matchChildDigitsOnly) {
+      result = {
+        isCompoundRewind: true,
+        parentTurunan,
+        childTurunan: childRaw,
+        prefix: 'J',
+        chartingan: 'A',
+        noUrut: parseInt(matchChildDigitsOnly[1], 10),
+        numDigits: matchChildDigitsOnly[1].length,
+        hasChildLetter: false
+      };
+      turunanParseCache.set(str, result);
+      return result;
+    }
+
+    result = {
+      isCompoundRewind: true,
+      parentTurunan,
+      childTurunan: childRaw,
+      prefix: 'J',
+      chartingan: 'A',
+      noUrut: 1,
+      numDigits: 3,
+      hasChildLetter: false
+    };
+    turunanParseCache.set(str, result);
+    return result;
+  }
 
   // 1. Pola Khusus Mesin Casting:
   // [formula 3 digit][tanggal bulan tahun 2 digit][kode operator][shift 1/2/3][chartingan][turunan 1-2 digit]
@@ -7592,7 +7825,7 @@ function parseTurunan(turunanStr) {
     const chart = matchCasting[5].toUpperCase();
     const num = parseInt(matchCasting[6], 10);
     const digits = matchCasting[6].length;
-    return {
+    result = {
       isCasting: true,
       formula,
       date,
@@ -7603,40 +7836,81 @@ function parseTurunan(turunanStr) {
       noUrut: num,
       numDigits: digits
     };
+    turunanParseCache.set(str, result);
+    return result;
   }
 
-  // 2. Pola Standar Slitting/Rewind: Kode Operator/Prefix + 1 Huruf Chartingan + Angka No Urut (contoh: HA01, HB02, GC01)
+  // 2. Pola Standar Slitting/Rewind: Kode Operator/Prefix + 1 Huruf Chartingan + Angka No Urut (contoh: HA01, HB02, GC01, A01, C01)
   const match = str.match(/^([A-Za-z]+?)([A-Za-z])(\d+)$/);
   if (match) {
-    return {
+    result = {
       prefix: match[1].toUpperCase(),
       chartingan: match[2].toUpperCase(),
       noUrut: parseInt(match[3], 10),
       numDigits: match[3].length
     };
+    turunanParseCache.set(str, result);
+    return result;
   }
+
   const matchSimple = str.match(/^([A-Za-z]+)(\d+)$/);
   if (matchSimple) {
     const letters = matchSimple[1].toUpperCase();
     const num = parseInt(matchSimple[2], 10);
     const digits = matchSimple[2].length;
     if (letters.length >= 2) {
-      return {
+      result = {
         prefix: letters.substring(0, letters.length - 1),
         chartingan: letters.substring(letters.length - 1),
         noUrut: num,
         numDigits: digits
       };
+    } else if (letters.length === 1) {
+      // Format 1 huruf (misal A01, C01, B02, D01): huruf tersebut adalah posisi chartingan
+      result = { prefix: '', chartingan: letters, noUrut: num, numDigits: digits };
+    } else {
+      result = { prefix: letters, chartingan: 'A', noUrut: num, numDigits: digits };
     }
-    return { prefix: letters, chartingan: 'A', noUrut: num, numDigits: digits };
+    turunanParseCache.set(str, result);
+    return result;
   }
-  return { prefix: 'H', chartingan: 'A', noUrut: 1, numDigits: 2 };
+
+  result = { prefix: 'H', chartingan: 'A', noUrut: 1, numDigits: 2 };
+  turunanParseCache.set(str, result);
+  return result;
 }
 
-function getNextTurunan(prevTurunan, lot = '') {
+function getNextTurunan(prevTurunan, lot = '', forcePrefix = null) {
   const parsed = parseTurunan(prevTurunan);
-  const prefix = parsed.prefix;
-  const chartingan = parsed.chartingan;
+  const chartingan = parsed.chartingan || 'A';
+  const prefix = forcePrefix !== null ? forcePrefix : parsed.prefix;
+
+  // Kasus Khusus: Compound Rewind Format (e.g. HA03/J101 -> HA03/J102 atau HA03/K102)
+  if (parsed.isCompoundRewind) {
+    const parentT = parsed.parentTurunan;
+    const opPrefix = forcePrefix !== null ? forcePrefix : (parsed.prefix || 'J');
+    let maxUrut = parsed.noUrut || 0;
+
+    const relatedLabels = labelStore.labels.filter(l => {
+      if (!l.turunan || !l.turunan.includes('/')) return false;
+      if (lot && l.lot && l.lot.trim().toUpperCase() !== lot.trim().toUpperCase()) return false;
+      const p = parseTurunan(l.turunan);
+      return p.isCompoundRewind && p.parentTurunan === parentT;
+    });
+
+    for (const l of relatedLabels) {
+      const p = parseTurunan(l.turunan);
+      if (p.noUrut > maxUrut) maxUrut = p.noUrut;
+    }
+
+    const nextNo = maxUrut > 0 ? maxUrut + 1 : (parsed.noUrut > 0 ? parsed.noUrut + 1 : 101);
+    const formattedNum = String(nextNo).padStart(parsed.numDigits || 3, '0');
+
+    if (parsed.hasChildLetter) {
+      return `${parentT}/${opPrefix}${parsed.chartingan || 'A'}${formattedNum}`;
+    }
+    return `${parentT}/${opPrefix}${formattedNum}`;
+  }
 
   // Kasus Khusus: Casting Turunan Format (e.g. L04270826B1A27 -> L04270826B1A28)
   if (parsed.isCasting) {
@@ -7644,7 +7918,7 @@ function getNextTurunan(prevTurunan, lot = '') {
     const relatedLabels = labelStore.labels.filter(l => {
       if (!l.turunan) return false;
       const p = parseTurunan(l.turunan);
-      return p.isCasting && p.prefix === prefix && p.chartingan === chartingan;
+      return p.isCasting && p.chartingan === chartingan;
     });
     for (const l of relatedLabels) {
       const p = parseTurunan(l.turunan);
@@ -7670,7 +7944,7 @@ function getNextTurunan(prevTurunan, lot = '') {
     let maxCustom = parsed.noUrut;
     for (const l of relatedLabels) {
       const p = parseTurunan(l.turunan);
-      if (p.prefix === prefix && p.chartingan === chartingan && p.noUrut >= rangeMin && p.noUrut <= rangeMax) {
+      if ((!prefix || p.prefix === prefix) && p.chartingan === chartingan && p.noUrut >= rangeMin && p.noUrut <= rangeMax) {
         if (p.noUrut > maxCustom) maxCustom = p.noUrut;
       }
     }
@@ -7682,12 +7956,12 @@ function getNextTurunan(prevTurunan, lot = '') {
   let maxUrut = 0;
   for (const l of relatedLabels) {
     const p = parseTurunan(l.turunan);
-    if (p.prefix === prefix && p.chartingan === chartingan && p.noUrut > 0 && p.noUrut < 8000) {
+    if ((!prefix || p.prefix === prefix) && p.chartingan === chartingan && p.noUrut > 0 && p.noUrut < 8000) {
       if (p.noUrut > maxUrut) maxUrut = p.noUrut;
     }
   }
 
-  const nextNoUrut = maxUrut > 0 ? maxUrut + 1 : parsed.noUrut + 1;
+  const nextNoUrut = maxUrut > 0 ? maxUrut + 1 : (parsed.noUrut > 0 ? parsed.noUrut + 1 : 1);
   const formattedNum = String(nextNoUrut).padStart(parsed.numDigits || 2, '0');
   return `${prefix}${chartingan}${formattedNum}`;
 }
@@ -7740,8 +8014,12 @@ function getSmartNextSubKode(item, mesinOverride = '', kodePackOverride = '') {
 
 const applyChartinganToForm = (letter) => {
   const parsed = parseTurunan(form.turunan);
-  const formattedNum = String(parsed.noUrut).padStart(parsed.numDigits || (parsed.isCasting ? 1 : 2), '0');
-  form.turunan = `${parsed.prefix}${letter.toUpperCase()}${formattedNum}`;
+  const formattedNum = String(parsed.noUrut || 1).padStart(parsed.numDigits || (parsed.isCasting ? 1 : 2), '0');
+  if (parsed.isCompoundRewind) {
+    form.turunan = `${parsed.parentTurunan}/${parsed.prefix || 'J'}${letter.toUpperCase()}${formattedNum}`;
+  } else {
+    form.turunan = `${parsed.prefix}${letter.toUpperCase()}${formattedNum}`;
+  }
 };
 
 const advanceFormTurunan = () => {
@@ -7771,13 +8049,19 @@ const isMachineMatch = (opMesin, targetMesin) => {
 };
 
 const detectedOperator = computed(() => {
+  const targetDate = form.tanggalShift || form.tanggal || new Date().toISOString().slice(0, 10);
   if (form.operator) {
     const opClean = form.operator.trim().toUpperCase();
-    const byName = configStore.operatorList.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
+    const byName = (configStore.activeOperators || configStore.operatorList).find(o => o.nama && o.nama.trim().toUpperCase() === opClean)
+      || configStore.operatorList.find(o => o.nama && o.nama.trim().toUpperCase() === opClean);
     if (byName) return byName;
   }
   if (form.kodeOperator) {
     const codeClean = form.kodeOperator.trim().toUpperCase();
+    if (typeof configStore.getOperatorByDate === 'function') {
+      const byDate = configStore.getOperatorByDate(codeClean, form.mesin, targetDate);
+      if (byDate) return byDate;
+    }
     const byCodeAndMachine = configStore.operatorList.find(
       o => o.kodeOperator && o.kodeOperator.trim().toUpperCase() === codeClean && isMachineMatch(o.mesin, form.mesin)
     );
@@ -7786,6 +8070,10 @@ const detectedOperator = computed(() => {
     if (byCode) return byCode;
   }
   if (!detectedPrefix.value) return null;
+  if (typeof configStore.getOperatorByDate === 'function') {
+    const byDate = configStore.getOperatorByDate(detectedPrefix.value, form.mesin, targetDate);
+    if (byDate) return byDate;
+  }
   // Cari di configStore.operatorList berdasarkan kodeOperator dan mesin aktif di form
   if (form.mesin) {
     const byCodeAndMachine = configStore.operatorList.find(
@@ -7793,14 +8081,18 @@ const detectedOperator = computed(() => {
     );
     if (byCodeAndMachine) return byCodeAndMachine;
   }
-  return configStore.operatorList.find(o => o.kodeOperator === detectedPrefix.value && o.active !== false)
+  return (configStore.activeOperators || configStore.operatorList).find(o => o.kodeOperator === detectedPrefix.value && o.active !== false)
+    || configStore.operatorList.find(o => o.kodeOperator === detectedPrefix.value && o.active !== false)
     || configStore.operatorList.find(o => o.kodeOperator === detectedPrefix.value)
     || null;
 });
 
-// Daftar operator khusus untuk mesin yang sedang dipilih di form (murni dari database real)
+// Daftar operator khusus untuk mesin yang sedang dipilih di form (hanya operator yang aktif menjabat)
 const machineOperators = computed(() => {
-  const list = (configStore.operatorList || []).filter(o => o.active !== false);
+  const source = configStore.activeOperators && configStore.activeOperators.length > 0
+    ? configStore.activeOperators
+    : (configStore.operatorList || []);
+  const list = source.filter(o => o.active !== false);
   let matched = list;
   if (form.mesin) {
     const filtered = list.filter(o => isMachineMatch(o.mesin, form.mesin));
@@ -7829,7 +8121,12 @@ const handleOperatorSelect = (opId) => {
   if (form.turunan) {
     const parsed = parseTurunan(form.turunan);
     const formattedNum = String(parsed.noUrut || 1).padStart(parsed.numDigits || 2, '0');
-    form.turunan = `${op.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
+    if (parsed.isCompoundRewind) {
+      const childPart = parsed.hasChildLetter ? `${op.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}` : `${op.kodeOperator}${formattedNum}`;
+      form.turunan = `${parsed.parentTurunan}/${childPart}`;
+    } else {
+      form.turunan = `${op.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
+    }
   } else {
     form.turunan = `${op.kodeOperator}A01`;
   }
@@ -7934,7 +8231,12 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
         form.kodeOperator = activeOp.kodeOperator;
         const parsed = parseTurunan(form.turunan);
         const formattedNum = String(parsed.noUrut || 1).padStart(parsed.numDigits || 2, '0');
-        form.turunan = `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
+        if (parsed.isCompoundRewind) {
+          const childPart = parsed.hasChildLetter ? `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}` : `${activeOp.kodeOperator}${formattedNum}`;
+          form.turunan = `${parsed.parentTurunan}/${childPart}`;
+        } else {
+          form.turunan = `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
+        }
       }
     }
   }
@@ -8096,6 +8398,7 @@ const handleFormSubmit = async () => {
 
   // 1. Bersihkan spasi dari Lot dan Supplier (aktual tersimpan tanpa spasi)
   form.lot = (form.lot || '').replace(/\s+/g, '').toUpperCase();
+  form.spk = (form.spk || '').trim().toUpperCase();
   form.supplier = (form.supplier || '').replace(/\s+/g, '').toUpperCase();
   form.turunan = (form.turunan || '').trim().toUpperCase();
   form.kodeOperator = (form.kodeOperator || '').trim().toUpperCase();
@@ -8129,8 +8432,11 @@ const handleFormSubmit = async () => {
   if (payload.parentMeter !== undefined && payload.parentMeter !== '') {
     payload.parentMeter = parseFloat(payload.parentMeter) || '';
   }
-  if (payload.parentBeratAktual !== undefined && payload.parentBeratAktual !== '' && payload.parentBeratAktual !== null) {
-    payload.parentBeratAktual = parseFloat(payload.parentBeratAktual) || null;
+  if (payload.parentTrim !== undefined && payload.parentTrim !== '') {
+    payload.parentTrim = parseFloat(payload.parentTrim) || '';
+  }
+  if (payload.parentBeratAktual !== undefined && payload.parentBeratAktual !== '') {
+    payload.parentBeratAktual = parseFloat(payload.parentBeratAktual) || '';
   }
 
   // Tutup modal langsung agar user tidak menunggu response async dan mencegah klik berulang
@@ -8171,7 +8477,14 @@ const duplicateData = (item) => {
   form.verified = 0;
   form.verifiedAt = null;
   form.verifiedBy = null;
-  form.shift = item.shift || scheduleStore.getCurrentShiftInfo(null, item.mesin || form.mesin).shiftCode;
+  form.spk = (item.spk || '').trim().toUpperCase();
+  const currentShiftInfo = scheduleStore.getCurrentShiftInfo(null, form.mesin || item.mesin);
+  form.shift = currentShiftInfo?.shiftCode || item.shift || '1';
+
+  // Ambil operator shift aktif saat ini untuk mesin terkait
+  const activeOp = getActiveShiftOperator(form.mesin || item.mesin);
+  const targetOpCode = activeOp?.kodeOperator || item.kodeOperator || 'H';
+  const targetOpName = activeOp?.nama || item.operator || '';
 
   // Hitung tanggal shift & kode pack otomatis terlebih dahulu
   const tglShift = calculateShiftDate();
@@ -8180,16 +8493,21 @@ const duplicateData = (item) => {
   form.tanggal = finalDate;
   form.kodePack = generateKodePack(finalDate, form.mesin);
 
-  // Auto-complete Turunan cerdas (mencari urutan tertinggi di lot tersebut, mengabaikan kode custom 8xxx/9xxx)
-  const nextTurunanVal = getNextTurunan(item.turunan, item.lot);
+  // Auto-complete Turunan cerdas berlaku untuk SEMUA chart (A, B, C, D, dst)
+  // Menjaga chartingan posisi asli (A/B/C/D) dan mengadopsi kode operator shift yang aktif
+  const nextTurunanVal = getNextTurunan(item.turunan, item.lot, targetOpCode);
   form.turunan = nextTurunanVal;
 
-  // Untuk record baru duplikasi: cari operator master saat ini untuk kode operator tersebut (pengganti baru jika ada)
   const parsedNext = parseTurunan(nextTurunanVal);
-  const prefix = parsedNext.isCasting ? (parsedNext.op || 'B') : parsedNext.prefix;
-  const currentOp = configStore.operatorList.find(o => o.kodeOperator === prefix && (!item.mesin || o.mesin === item.mesin))
-    || configStore.operatorList.find(o => o.kodeOperator === prefix);
-  form.operator = currentOp ? currentOp.nama : (item.operator || '');
+  let prefix = targetOpCode;
+  if (parsedNext.isCasting) {
+    prefix = parsedNext.op || targetOpCode;
+  } else if (parsedNext.isCompoundRewind) {
+    prefix = parsedNext.prefix || targetOpCode;
+  } else {
+    prefix = parsedNext.prefix || targetOpCode;
+  }
+  form.operator = targetOpName;
   form.kodeOperator = prefix;
   if (parsedNext.isCasting && parsedNext.shift) {
     form.shift = parsedNext.shift;
@@ -8252,7 +8570,13 @@ const deleteSelected = async () => {
 };
 
 const previewSingle = (item) => {
-  previewItems.value = [item];
+  if (!item) return;
+  const cleanId = (typeof item.id === 'string' && /^\d+$/.test(item.id)) ? parseInt(item.id, 10) : item.id;
+  const freshItem = labelStore.labels.find(l =>
+    l.id === cleanId || l.id === item.id || l.id == item.id ||
+    (l.uniqId && item.uniqId && l.uniqId === item.uniqId)
+  ) || item;
+  previewItems.value = [freshItem];
   showPreviewModal.value = true;
 };
 

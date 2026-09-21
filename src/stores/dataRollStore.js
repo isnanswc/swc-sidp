@@ -55,6 +55,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
   const uploadHistory = ref([]);
   const loading = ref(false);
   const filterSearch = ref('');
+  const filterUploadId = ref('');
   const filterMachine = ref('ALL'); // 'ALL' | 'SLITTING' | 'REWIND' | 'SML'
   const filterStatus = ref('ALL');  // 'ALL' | 'PASS' | 'HOLD' | 'REJECT'
   const sortDirection = ref('desc'); // 'desc' | 'asc'
@@ -148,6 +149,11 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       } else if (filterMachine.value === 'SML') {
         list = list.filter(r => r.sml === 1 || String(r.machineName || r.mesin || '').toUpperCase() === 'SML');
       }
+    }
+
+    // Filter Upload Batch ID
+    if (filterUploadId.value) {
+      list = list.filter(r => (r.uploadId || '') === filterUploadId.value);
     }
 
     // Filter Status
@@ -650,15 +656,34 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     }
   };
 
-  // Update roll
+  // Update roll (supports both db.data_rolls and db.labels from DE Report)
   const updateRoll = async (id, updates) => {
     try {
       const now = new Date().toISOString();
-      await db.data_rolls.update(id, {
-        ...updates,
-        synced: 0,
-        updatedAt: now
-      });
+      const isDeLabel = typeof id === 'string' && id.startsWith('de_label_');
+      if (isDeLabel && db.labels) {
+        const itemInMemory = rolls.value.find(r => r.id === id);
+        const lId = itemInMemory?.originalLabelId || parseInt(id.replace('de_label_', ''), 10);
+        if (lId) {
+          const labelUpdates = { ...updates, synced: 0, updatedAt: now };
+          if (updates.qualityStatus !== undefined && updates.status === undefined) {
+            labelUpdates.status = updates.qualityStatus;
+          }
+          if (updates.machineName !== undefined && updates.mesin === undefined) {
+            labelUpdates.mesin = updates.machineName;
+          }
+          if (updates.meter !== undefined && updates.length === undefined) {
+            labelUpdates.length = updates.meter;
+          }
+          await db.labels.update(lId, labelUpdates);
+        }
+      } else if (db.data_rolls) {
+        await db.data_rolls.update(id, {
+          ...updates,
+          synced: 0,
+          updatedAt: now
+        });
+      }
       await loadRolls(true);
       pushLocalToSupabase().catch(() => {});
     } catch (e) {
@@ -757,72 +782,41 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
       loading.value = true;
       // 1. Gather all existing UUIDs from rolls currently displayed
       const currentUuids = rolls.value.map(r => r.uuid).filter(Boolean);
-      const deLabelIds = [];
-      const deLabelUniqIds = [];
-
-      for (const r of rolls.value) {
-        if (r.source === 'DE Report' || (typeof r.id === 'string' && r.id.startsWith('de_label_')) || r.originalLabelId) {
-          const lId = r.originalLabelId || (typeof r.id === 'string' ? parseInt(r.id.replace('de_label_', ''), 10) : null);
-          if (lId) deLabelIds.push(lId);
-          if (r.uuid) deLabelUniqIds.push(r.uuid);
-        }
-      }
 
       // 2. Also gather all UUIDs from db.data_rolls directly
       const allExisting = db.data_rolls ? await db.data_rolls.toArray() : [];
       const explicitUuids = allExisting.map(r => r.uuid).filter(Boolean);
 
-      // 3. Also gather all from db.labels if any DE rolls
-      if (db.labels) {
-        const allLabelsInDb = await db.labels.toArray();
-        for (const l of allLabelsInDb) {
-          if (l.uniqId) deLabelUniqIds.push(l.uniqId);
-          deLabelIds.push(l.id);
-        }
-      }
-
       const allRollUuids = [...new Set([...currentUuids, ...explicitUuids])];
       if (allRollUuids.length > 0) {
         recordTombstones('data_rolls', allRollUuids);
       }
-      const uniqueDeLabelIds = [...new Set(deLabelIds)];
-      const uniqueDeLabelUniqIds = [...new Set(deLabelUniqIds.filter(Boolean))];
-      if (uniqueDeLabelUniqIds.length > 0) {
-        recordTombstones('labels', uniqueDeLabelUniqIds);
-      }
 
-      // 4. Clear local db.data_rolls
+      // 3. Clear local db.data_rolls
       if (db.data_rolls) {
         await db.data_rolls.clear();
       }
 
-      // 5. Delete matching DE labels if user wants full wipe
-      if (uniqueDeLabelIds.length > 0 && db.labels) {
-        await db.labels.bulkDelete(uniqueDeLabelIds);
-        if (uniqueDeLabelUniqIds.length > 0) {
-          deleteMultipleFromSupabase('labels', 'uniq_id', uniqueDeLabelUniqIds).catch(() => {});
-        }
-      }
-
-      // 6. Clear batch uploads if any
+      // 4. Clear batch uploads if any
       if (db.data_roll_uploads) {
         await db.data_roll_uploads.clear();
       }
 
       rolls.value = [];
       uploadHistory.value = [];
+      filterUploadId.value = '';
 
-      // 7. Delete all from Supabase data_rolls
+      // 5. Delete all from Supabase data_rolls
       try {
         await supabase.from('data_rolls').delete().neq('uuid', 'keep_all');
       } catch (errCloud) {
         console.warn('Supabase clear data_rolls warning:', errCloud);
       }
 
-      // 8. Catat wipe persisten ke Cloud Supabase agar perangkat lain otomatis bersih
+      // 6. Catat wipe persisten ke Cloud Supabase agar perangkat lain otomatis bersih
       await recordDataRollsWipedCloud();
 
-      // 9. Broadcast clear ke semua perangkat lain yang sedang online
+      // 7. Broadcast clear ke semua perangkat lain yang sedang online
       await broadcastClearAllRolls();
     } catch (e) {
       console.error('Failed to clear data_rolls:', e);
@@ -924,6 +918,7 @@ export const useDataRollStore = defineStore('dataRollStore', () => {
     uploadHistory,
     loading,
     filterSearch,
+    filterUploadId,
     filterMachine,
     filterStatus,
     sortDirection,

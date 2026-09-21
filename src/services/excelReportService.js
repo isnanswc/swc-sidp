@@ -164,7 +164,7 @@ export async function exportCastingReportToExcel(headerData, rollsData, resinDat
   // Data Sheet 3: Material Balance Summary
   const totalResin = resinData.reduce((acc, r) => acc + (parseFloat(r.pemakaian_kg) || 0), 0);
   const totalRolls = rollsData.reduce((acc, r) => acc + (parseFloat(r.berat_aktual) || 0), 0);
-  const totalWaste = rollsData.reduce((acc, r) => acc + (parseFloat(r.sample_qc) || 0) + (parseFloat(r.start_up) || 0) + (parseFloat(r.bekuan) || 0), 0);
+  const totalWaste = rollsData.reduce((acc, r) => acc + (parseFloat(r.sample_qc) || 0) + (parseFloat(r.start_up) || 0) + (parseFloat(r.bekuan) || 0) + (parseFloat(r.transisi) || 0) + (parseFloat(r.sesetan) || 0), 0);
   const diff = Number((totalRolls + totalWaste - totalResin).toFixed(2));
 
   const sheet3Data = [
@@ -362,6 +362,7 @@ export async function exportMetalizeReportToExcel(headerData, metalizeRows) {
   ws1['!cols'] = COLS_WIDTH_METALIZE;
   ws2['!cols'] = [{ wch: 35 }, { wch: 25 }];
 
+  formatWorksheetDateCells(ws1, XLSX);
   XLSX.utils.book_append_sheet(wb, ws1, 'Laporan Produksi Metalize');
   XLSX.utils.book_append_sheet(wb, ws2, 'Material Balance');
 
@@ -429,6 +430,7 @@ export async function exportFullSessionToExcel(session) {
 
     const wsAll = XLSX.utils.json_to_sheet(allMetalizeRows);
     wsAll['!cols'] = COLS_WIDTH_METALIZE;
+    formatWorksheetDateCells(wsAll, XLSX);
     XLSX.utils.book_append_sheet(wb, wsAll, 'Laporan Metalize Harian');
 
     // 3. INDIVIDUAL SHEETS PER SHIFT
@@ -438,6 +440,7 @@ export async function exportFullSessionToExcel(session) {
         const sRows = (s.tabel_metalize || []).map(r => formatMetalizeRow(r, s.header || {}));
         const wsShift = XLSX.utils.json_to_sheet(sRows);
         wsShift['!cols'] = COLS_WIDTH_METALIZE;
+        formatWorksheetDateCells(wsShift, XLSX);
         XLSX.utils.book_append_sheet(wb, wsShift, sName);
       });
     }

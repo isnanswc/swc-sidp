@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { db, getSetting, saveSetting } from '@/db';
-import { pushLocalToSupabase, deleteFromSupabase } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase, recordTombstones, getTombstones } from '@/services/syncService';
 
 // ── DEFAULT SEED DATA ──────────────────────────────────────────────────────────
 
@@ -22,6 +22,18 @@ export function getDefaultFilmAlias(jenis, kodeFormula) {
   }
   return '';
 }
+
+export const isMachineMatch = (opMesin, targetMesin) => {
+  if (!opMesin || !targetMesin) return false;
+  const o = String(opMesin).trim().toUpperCase();
+  const t = String(targetMesin).trim().toUpperCase();
+  if (o === t) return true;
+  if (o.includes(t) || t.includes(o)) return true;
+  const normO = o.replace(/[^A-Z]/g, '');
+  const normT = t.replace(/[^A-Z]/g, '');
+  if (normO && normT && (normO.includes(normT) || normT.includes(normO))) return true;
+  return false;
+};
 
 const DEFAULT_FILM_CONFIGS = [
   { jenis: 'CPP', kodeFormula: 'M01', alias: 'TPMGS', tipeBahan: 'LG', jenisBahan: 'Transparent', kategoriFilm: 'POLOS', density: 0.91, speed: 600, supplier: 'INHOUSE' },
@@ -274,7 +286,13 @@ export const useConfigStore = defineStore('configStore', {
   getters: {
     activeJenis: (state) => state.jenisList.filter(j => j.active).map(j => j.nama),
     activeMesin: (state) => state.mesinList.filter(m => m.active).map(m => m.nama),
-    activeOperators: (state) => state.operatorList.filter(o => o.active !== false),
+    activeOperators: (state) => state.operatorList.filter(o => {
+      if (o.active === false) return false;
+      const today = new Date().toISOString().slice(0, 10);
+      if (o.berlakuSampai && o.berlakuSampai < today) return false;
+      if (o.berlakuMulai && o.berlakuMulai > today) return false;
+      return true;
+    }),
     activeLabelSigns: (state) => state.labelSignList.filter(s => s.active !== false),
     activeLocations: (state) => state.locationList.filter(l => l.active !== false),
     activeJenisBahan: (state) => state.jenisBahanList.filter(j => j.active).map(j => j.nama),
@@ -349,35 +367,67 @@ export const useConfigStore = defineStore('configStore', {
           }
         }
 
-        // Migrasi data kodeGrup operator jika belum ada di database
+        // Migrasi data kodeGrup & masa jabatan operator jika belum ada di database
         const now = new Date().toISOString();
         for (let i = 0; i < this.operatorList.length; i++) {
           const op = this.operatorList[i];
+          let changed = false;
+          const patch = {};
           if (!op.kodeGrup) {
             const defaultGrp = (i % 3 === 0) ? 'A' : (i % 3 === 1) ? 'B' : 'C';
             op.kodeGrup = defaultGrp;
-            if (op.id) {
-              await db.operator_list.update(op.id, { kodeGrup: defaultGrp, updatedAt: now });
-            }
+            patch.kodeGrup = defaultGrp;
+            changed = true;
+          }
+          if (!op.berlakuMulai) {
+            op.berlakuMulai = '2020-01-01';
+            patch.berlakuMulai = '2020-01-01';
+            changed = true;
+          }
+          if (op.berlakuSampai === undefined) {
+            op.berlakuSampai = null;
+            patch.berlakuSampai = null;
+            changed = true;
+          }
+          if (changed && op.id) {
+            patch.updatedAt = now;
+            await db.operator_list.update(op.id, patch);
           }
         }
 
         // ZERO-SEEDING POLICY: Tidak ada auto-seeding data dummy baru. Data yang diupload pengguna dijaga 100% utuh tanpa pemblokiran nama.
-        // Jika IndexedDB lokal belum memiliki daftar operator, ambil data real yang tersimpan di Cloud Supabase
+        const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
+
+        // Bersihkan data lokal yang ada di tombstone (misal dari sisa rename/delete lama)
+        if (tombstones.size > 0 && this.operatorList.length > 0) {
+          const toRemoveIds = this.operatorList
+            .filter(o => o.nama && tombstones.has(o.nama.trim().toUpperCase()))
+            .map(o => o.id);
+          if (toRemoveIds.length > 0) {
+            await db.operator_list.bulkDelete(toRemoveIds);
+            this.operatorList = this.operatorList.filter(o => !toRemoveIds.includes(o.id));
+          }
+        }
+
+        // Jika IndexedDB lokal belum memiliki daftar operator, ambil data real yang tersimpan di Cloud Supabase (kecuali tombstone)
         if (this.operatorList.length === 0) {
           try {
             const { supabase } = await import('@/services/supabaseClient');
             const { data: cloudOps } = await supabase.from('operator_list').select('*');
             if (cloudOps && cloudOps.length > 0) {
-              const recs = cloudOps.map(co => ({
-                nama: co.nama,
-                mesin: co.mesin,
-                kodeGrup: co.kode_grup,
-                kodeOperator: co.kode_operator,
-                active: co.active !== false,
-                createdAt: co.created_at || now,
-                updatedAt: co.updated_at || now
-              }));
+              const recs = cloudOps
+                .filter(co => !tombstones.has((co.nama || '').trim().toUpperCase()))
+                .map(co => ({
+                  nama: co.nama,
+                  mesin: co.mesin,
+                  kodeGrup: co.kode_grup,
+                  kodeOperator: co.kode_operator,
+                  berlakuMulai: co.berlaku_mulai || '2020-01-01',
+                  berlakuSampai: co.berlaku_sampai || null,
+                  active: co.active !== false,
+                  createdAt: co.created_at || now,
+                  updatedAt: co.updated_at || now
+                }));
               await db.operator_list.bulkPut(recs);
             }
           } catch (eCloud) {
@@ -703,6 +753,8 @@ export const useConfigStore = defineStore('configStore', {
         kodeOperator: (row.kodeOperator || '').trim().toUpperCase(),
         kodeGrup: (row.kodeGrup || '').trim().toUpperCase(),
         mesin: (row.mesin || '').trim().toUpperCase(),
+        berlakuMulai: row.berlakuMulai || now.slice(0, 10),
+        berlakuSampai: row.berlakuSampai || null,
         active: row.active ?? true,
         createdAt: now,
         updatedAt: now
@@ -717,25 +769,118 @@ export const useConfigStore = defineStore('configStore', {
       const now = new Date().toISOString();
       const updated = {
         ...changes,
-        nama: (changes.nama || '').trim().toUpperCase(),
-        kodeOperator: (changes.kodeOperator || '').trim().toUpperCase(),
-        kodeGrup: (changes.kodeGrup || '').trim().toUpperCase(),
-        mesin: (changes.mesin || '').trim().toUpperCase(),
+        nama: changes.nama !== undefined ? (changes.nama || '').trim().toUpperCase() : undefined,
+        kodeOperator: changes.kodeOperator !== undefined ? (changes.kodeOperator || '').trim().toUpperCase() : undefined,
+        kodeGrup: changes.kodeGrup !== undefined ? (changes.kodeGrup || '').trim().toUpperCase() : undefined,
+        mesin: changes.mesin !== undefined ? (changes.mesin || '').trim().toUpperCase() : undefined,
+        berlakuMulai: changes.berlakuMulai !== undefined ? (changes.berlakuMulai || '2020-01-01') : undefined,
+        berlakuSampai: changes.berlakuSampai !== undefined ? (changes.berlakuSampai || null) : undefined,
         updatedAt: now
       };
+      Object.keys(updated).forEach(k => updated[k] === undefined && delete updated[k]);
+
+      const oldRecord = await db.operator_list.get(id);
+      const isRenamed = oldRecord && updated.nama && oldRecord.nama && (oldRecord.nama.trim().toUpperCase() !== updated.nama.trim().toUpperCase());
+
       await db.operator_list.update(id, updated);
       const idx = this.operatorList.findIndex(o => o.id === id);
       if (idx !== -1) Object.assign(this.operatorList[idx], updated);
       this.operatorList.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+
+      // PENTING: Penanganan Rename Operator
+      // Jika nama operator diubah, nama lama di Supabase HARUS dihapus dan dicatat di tombstone,
+      // agar tidak tertinggal di cloud dan ditarik kembali sebagai duplikat saat sinkronisasi!
+      if (isRenamed) {
+        const oldName = oldRecord.nama.trim();
+        recordTombstones('operator_list', [oldName.toUpperCase()]);
+        deleteFromSupabase('operator_list', 'nama', oldName).catch(() => {});
+        try {
+          const { supabase } = await import('@/services/supabaseClient');
+          if (supabase) {
+            await supabase.from('operator_list').delete().ilike('nama', oldName);
+          }
+        } catch (e) {}
+      }
+
       pushLocalToSupabase().catch(() => {});
+    },
+
+    /**
+     * Estafet Pergantian Operator:
+     * Menutup masa jabatan operator lama pada cutOffDate,
+     * dan membuat operator baru yang mulai aktif setelahnya dengan kode yang sama.
+     */
+    async replaceOperatorWithHistory(oldOperatorId, newOperatorData, cutOffDate = null) {
+      const now = new Date().toISOString();
+      const today = now.slice(0, 10);
+      const endDate = cutOffDate || today;
+
+      // 1. Update masa jabatan operator lama (tutup masa aktif)
+      await this.updateOperator(oldOperatorId, {
+        berlakuSampai: endDate,
+        updatedAt: now
+      });
+
+      // 2. Tambahkan operator baru mulai hari berikutnya atau startDate yang ditentukan
+      const d = new Date(endDate);
+      d.setDate(d.getDate() + 1);
+      const nextDay = d.toISOString().slice(0, 10);
+      const startDate = newOperatorData.berlakuMulai || nextDay;
+
+      await this.addOperator({
+        ...newOperatorData,
+        berlakuMulai: startDate,
+        berlakuSampai: null,
+        active: true
+      });
+    },
+
+    getOperatorByDate(kodeOperator, machine = '', targetDate = null) {
+      if (!kodeOperator) return null;
+      const dateStr = targetDate ? String(targetDate).slice(0, 10) : new Date().toISOString().slice(0, 10);
+      const code = String(kodeOperator).trim().toUpperCase();
+      const m = machine ? String(machine).trim().toUpperCase() : '';
+
+      const matchingOps = this.operatorList.filter(o => {
+        if ((o.kodeOperator || '').toUpperCase() !== code) return false;
+        if (m && o.mesin && !isMachineMatch(o.mesin, m)) return false;
+        return true;
+      });
+
+      if (matchingOps.length === 0) return null;
+      if (matchingOps.length === 1) return matchingOps[0];
+
+      // 1. Cocokkan rentang masa jabatan
+      const periodMatch = matchingOps.find(o => {
+        const start = o.berlakuMulai || '2020-01-01';
+        const end = o.berlakuSampai || '9999-12-31';
+        return dateStr >= start && dateStr <= end;
+      });
+      if (periodMatch) return periodMatch;
+
+      // 2. Fallback: ambil yang sedang aktif menjabat
+      const activeOp = matchingOps.find(o => !o.berlakuSampai && o.active !== false);
+      if (activeOp) return activeOp;
+
+      return matchingOps[matchingOps.length - 1];
     },
 
     async deleteOperator(id) {
       const item = await db.operator_list.get(id);
+      if (!item) return;
       await db.operator_list.delete(id);
       this.operatorList = this.operatorList.filter(o => o.id !== id);
-      if (item) {
-        deleteFromSupabase('operator_list', 'nama', item.nama).catch(() => {});
+
+      const cleanName = (item.nama || '').trim();
+      if (cleanName) {
+        recordTombstones('operator_list', [cleanName.toUpperCase()]);
+        deleteFromSupabase('operator_list', 'nama', cleanName).catch(() => {});
+        try {
+          const { supabase } = await import('@/services/supabaseClient');
+          if (supabase) {
+            await supabase.from('operator_list').delete().ilike('nama', cleanName);
+          }
+        } catch (e) {}
       }
     },
 
@@ -757,18 +902,45 @@ export const useConfigStore = defineStore('configStore', {
       const updatedChanges = { ...changes };
       if (updatedChanges.nama) updatedChanges.nama = updatedChanges.nama.trim().toUpperCase();
       if (updatedChanges.praKodePack !== undefined) updatedChanges.praKodePack = updatedChanges.praKodePack.trim().toUpperCase();
+
+      const oldRecord = await db.mesin_list.get(id);
+      const isRenamed = oldRecord && updatedChanges.nama && oldRecord.nama && (oldRecord.nama.trim().toUpperCase() !== updatedChanges.nama.trim().toUpperCase());
+
       await db.mesin_list.update(id, updatedChanges);
       const idx = this.mesinList.findIndex(m => m.id === id);
       if (idx !== -1) Object.assign(this.mesinList[idx], updatedChanges);
+
+      if (isRenamed) {
+        const oldName = oldRecord.nama.trim();
+        recordTombstones('mesin_list', [oldName.toUpperCase()]);
+        deleteFromSupabase('mesin_list', 'nama', oldName).catch(() => {});
+        try {
+          const { supabase } = await import('@/services/supabaseClient');
+          if (supabase) {
+            await supabase.from('mesin_list').delete().ilike('nama', oldName);
+          }
+        } catch (e) {}
+      }
+
       pushLocalToSupabase().catch(() => {});
     },
 
     async deleteMesin(id) {
       const item = await db.mesin_list.get(id);
+      if (!item) return;
       await db.mesin_list.delete(id);
       this.mesinList = this.mesinList.filter(m => m.id !== id);
-      if (item) {
-        deleteFromSupabase('mesin_list', 'nama', item.nama).catch(() => {});
+
+      const cleanName = (item.nama || '').trim();
+      if (cleanName) {
+        recordTombstones('mesin_list', [cleanName.toUpperCase()]);
+        deleteFromSupabase('mesin_list', 'nama', cleanName).catch(() => {});
+        try {
+          const { supabase } = await import('@/services/supabaseClient');
+          if (supabase) {
+            await supabase.from('mesin_list').delete().ilike('nama', cleanName);
+          }
+        } catch (e) {}
       }
     },
 

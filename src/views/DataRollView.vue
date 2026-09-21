@@ -201,10 +201,10 @@
             </button>
 
             <button
-              v-if="dataRollStore.totalRolls > 0"
+              v-if="authStore.isSuperAdmin && dataRollStore.totalRolls > 0"
               @click="handleClearAllRolls"
               class="px-2.5 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
-              title="Hapus seluruh data roll secara permanen"
+              title="Hapus seluruh data roll secara permanen (Khusus Super Admin)"
             >
               <span>🔥 Hapus Semua</span>
             </button>
@@ -1787,10 +1787,13 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useDataRollStore } from '@/stores/dataRollStore';
+import { useAuthStore } from '@/stores/authStore';
+import { db } from '@/db';
 import { parseCopasTextDataRoll, parseExcelFileDataRoll, parseDataRollRow, extractCleanParentLot } from '@/services/dataRollParserService';
 import Chart from 'chart.js/auto';
 
 const dataRollStore = useDataRollStore();
+const authStore = useAuthStore();
 
 // Active Sheet / Tab ('table' | 'analytics')
 const activeSheet = ref('table');
@@ -2397,6 +2400,20 @@ const totalPages = computed(() => {
   return Math.ceil(dataRollStore.filteredRolls.length / pageSize.value) || 1;
 });
 
+// Reset page to 1 when filters or page size change
+watch(
+  [
+    () => dataRollStore.filterSearch,
+    () => dataRollStore.filterMachine,
+    () => dataRollStore.filterStatus,
+    () => dataRollStore.filterUploadId,
+    pageSize
+  ],
+  () => {
+    currentPage.value = 1;
+  }
+);
+
 const jumpPageInput = ref('');
 const jumpToPage = () => {
   const p = parseInt(jumpPageInput.value, 10);
@@ -2630,12 +2647,19 @@ const openBatchDetail = (batch) => {
   showBatchDetailModal.value = true;
 };
 
-const exportBatch = (batch) => {
+const exportBatch = async (batch) => {
   if (!batch) return;
   try {
-    const rolls = JSON.parse(batch.rollsJson || '[]');
+    let rolls = [];
+    const batchUuid = batch.uuid || batch.id;
+    if (batchUuid && db.data_rolls) {
+      rolls = await db.data_rolls.where('uploadId').equals(batchUuid).toArray();
+    }
+    if (!rolls || rolls.length === 0) {
+      rolls = JSON.parse(batch.rollsJson || '[]');
+    }
     const safeName = (batch.fileName || batch.batchName || 'Data_Roll').replace(/[^a-zA-Z0-9_-]/g, '_');
-    dataRollStore.exportToExcel(rolls, `Export_${safeName}.xlsx`);
+    await dataRollStore.exportToExcel(rolls, `Export_${safeName}.xlsx`);
   } catch (e) {
     alert('Gagal export batch: ' + e.message);
   }
@@ -2655,6 +2679,7 @@ const handleDeleteHistory = async (batch) => {
 const loadBatchIntoMainTable = (batch) => {
   showBatchDetailModal.value = false;
   activeSheet.value = 'table';
+  dataRollStore.filterUploadId = batch.uuid || batch.id || '';
   if (batch.fileName) {
     dataRollStore.filterSearch = batch.fileName;
   } else if (batch.machine && batch.machine !== 'ALL') {
@@ -2703,6 +2728,7 @@ const handleFileUpload = async (event) => {
     alert('Gagal membaca file Excel: ' + err.message);
   } finally {
     importProgress.active = false;
+    if (event.target) event.target.value = '';
   }
 };
 
@@ -2789,9 +2815,17 @@ const editRoll = (item) => {
 };
 
 const saveManualRoll = async () => {
-  if (manualForm.kodeFg && !manualForm.lot) {
-    const parsed = parseDataRollRow(manualForm);
-    if (parsed) Object.assign(manualForm, parsed);
+  const parsed = parseDataRollRow(manualForm);
+  if (parsed) {
+    Object.assign(manualForm, {
+      ...parsed,
+      berat: manualForm.berat ? parseFloat(manualForm.berat) : parsed.beratTeori,
+      netto: manualForm.netto ? parseFloat(manualForm.netto) : parsed.beratTeori,
+      paperCore: parsed.paperCore,
+      bruto: parsed.bruto,
+      beratTeori: parsed.beratTeori,
+      density: parsed.density
+    });
   }
 
   manualForm.slitting = manualForm.machineName === 'SLITTING' ? 1 : 0;
@@ -2820,10 +2854,20 @@ const handleBulkDelete = async () => {
 };
 
 const handleClearAllRolls = async () => {
+  if (!authStore.isSuperAdmin) {
+    alert('Akses ditolak: Hanya Super Admin yang dapat menghapus seluruh data roll.');
+    return;
+  }
   const count = dataRollStore.totalRolls;
-  if (confirm(`PERINGATAN: Apakah Anda yakin ingin menghapus SEMUA (${count.toLocaleString()}) data roll secara permanen dari perangkat dan cloud? Tindakan ini tidak dapat dibatalkan.`)) {
-    await dataRollStore.clearAll();
-    selectedRollIds.value = [];
+  if (confirm(`PERINGATAN KRUSIAL: Anda akan menghapus SEMUA (${count.toLocaleString()}) data roll secara permanen dari perangkat dan cloud. Tindakan ini tidak dapat dibatalkan!`)) {
+    const confirmation = prompt('Ketik "HAPUS SEMUA ROLL" dengan huruf besar untuk mengonfirmasi tindakan debugging ini:');
+    if (confirmation === 'HAPUS SEMUA ROLL') {
+      await dataRollStore.clearAll();
+      selectedRollIds.value = [];
+      alert('Semua data roll berhasil dibersihkan.');
+    } else {
+      alert('Konfirmasi dibatalkan atau teks tidak cocok.');
+    }
   }
 };
 

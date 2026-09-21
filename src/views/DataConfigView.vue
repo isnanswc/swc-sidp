@@ -715,13 +715,14 @@
                     <th class="px-4 py-3 text-left font-bold">Kode Operator</th>
                     <th class="px-4 py-3 text-left font-bold">Mesin Penugasan</th>
                     <th class="px-4 py-3 text-left font-bold">Kode Grup</th>
+                    <th class="px-4 py-3 text-left font-bold">Masa Jabatan (Periode)</th>
                     <th class="px-4 py-3 text-center font-bold w-28">Status</th>
                     <th class="px-4 py-3 text-center font-bold w-24">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-100">
                   <tr v-if="configStore.operatorList.length === 0">
-                    <td colspan="7" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data operator</td>
+                    <td colspan="8" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data operator</td>
                   </tr>
                   <tr v-for="(row, idx) in configStore.operatorList" :key="row.id" class="hover:bg-zinc-50">
                     <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
@@ -729,9 +730,21 @@
                     <td class="px-4 py-3 font-mono font-bold text-blue-700">{{ row.kodeOperator }}</td>
                     <td class="px-4 py-3 text-zinc-600">{{ row.mesin || '—' }}</td>
                     <td class="px-4 py-3 font-mono text-zinc-600">{{ row.kodeGrup || '—' }}</td>
+                    <td class="px-4 py-3 text-xs">
+                      <div v-if="!row.berlakuSampai" class="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>Sejak <strong class="font-mono">{{ row.berlakuMulai || '2020-01-01' }}</strong> (Aktif)</span>
+                      </div>
+                      <div v-else class="flex items-center gap-1 text-zinc-500 text-[11px]">
+                        <span class="font-mono text-zinc-700">{{ row.berlakuMulai || '2020-01-01' }}</span>
+                        <span>s/d</span>
+                        <span class="font-mono text-zinc-700 font-bold">{{ row.berlakuSampai }}</span>
+                        <span v-if="isOperatorExpired(row)" class="ml-1 px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-500 text-[9px] font-bold">Demisioner</span>
+                      </div>
+                    </td>
                     <td class="px-4 py-3 text-center">
-                      <button @click="toggleOperatorActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', row.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
-                        {{ row.active !== false ? 'Aktif' : 'Non-aktif' }}
+                      <button @click="toggleOperatorActive(row)" :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer', (row.active !== false && !isOperatorExpired(row)) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200']">
+                        {{ (row.active !== false && !isOperatorExpired(row)) ? 'Aktif' : 'Non-aktif' }}
                       </button>
                     </td>
                     <td class="px-4 py-3 text-center">
@@ -1465,43 +1478,87 @@
 
     <!-- 7. MODAL OPERATOR -->
     <div v-if="showOperatorModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-          <h3 class="font-black text-zinc-900 text-sm">{{ editingOperator ? 'Edit' : 'Tambah' }} Operator</h3>
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between shrink-0">
+          <div>
+            <h3 class="font-black text-zinc-900 text-sm">{{ editingOperator ? 'Edit / Kelola' : 'Tambah' }} Operator</h3>
+            <p class="text-[11px] text-zinc-500 mt-0.5">Pengaturan profil dan masa jabatan (timeline) operator</p>
+          </div>
           <button @click="showOperatorModal = false" class="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        <div class="px-6 py-4 space-y-3.5">
+        <div class="px-6 py-4 space-y-3.5 overflow-y-auto">
+          <!-- Mode Estafet Switcher jika sedang edit -->
+          <div v-if="editingOperator" class="p-3 bg-amber-50/80 rounded-xl border border-amber-200">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-950">Ganti Pemegang Kode Operator?</span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" v-model="isEstafetMode" class="sr-only peer">
+                <div class="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+              </label>
+            </div>
+            <p class="text-[10.5px] text-amber-800 mt-1 leading-snug">
+              {{ isEstafetMode ? '⚡ Mode Estafet: Operator lama ditutup masa jabatannya, dan nama baru dibuat dengan kode yang sama mulai tanggal efektif.' : 'ℹ️ Mode Biasa: Hanya memperbarui profil/nama operator tanpa membuat riwayat baru.' }}
+            </p>
+          </div>
+
           <div>
-            <label class="block text-[11px] font-bold text-zinc-600 mb-1">Nama Operator *</label>
-            <input v-model="operatorForm.nama" placeholder="Mis: UMAR..." class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none uppercase font-bold" />
+            <label class="block text-[11px] font-bold text-zinc-600 mb-1">{{ isEstafetMode ? 'Nama Operator Pengganti Baru *' : 'Nama Operator *' }}</label>
+            <input v-model="operatorForm.nama" placeholder="Mis: HENDRA..." class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none uppercase font-bold" />
           </div>
           <div>
             <label class="block text-[11px] font-bold text-zinc-600 mb-1">Kode Operator *</label>
-            <input v-model="operatorForm.kodeOperator" placeholder="Mis: UMR..." class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none uppercase font-mono font-bold text-blue-700" />
+            <input v-model="operatorForm.kodeOperator" placeholder="Mis: H..." :disabled="isEstafetMode" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl focus:ring-1 focus:ring-red-500 outline-none uppercase font-mono font-bold text-blue-700 disabled:bg-zinc-100" />
           </div>
-          <div>
-            <label class="block text-[11px] font-bold text-zinc-600 mb-1">Mesin Penugasan</label>
-            <select v-model="operatorForm.mesin" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl bg-white outline-none">
-              <option value="">Pilih Mesin...</option>
-              <option v-for="m in configStore.mesinList" :key="m.id" :value="m.nama">{{ m.nama }}</option>
-            </select>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-bold text-zinc-600 mb-1">Mesin Penugasan</label>
+              <select v-model="operatorForm.mesin" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl bg-white outline-none">
+                <option value="">Pilih Mesin...</option>
+                <option v-for="m in configStore.mesinList" :key="m.id" :value="m.nama">{{ m.nama }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-zinc-600 mb-1">Grup Shift Kerja</label>
+              <select v-model="operatorForm.kodeGrup" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl bg-white font-bold outline-none focus:ring-1 focus:ring-red-500">
+                <option value="">Pilih Grup...</option>
+                <option value="A">GRUP A</option>
+                <option value="B">GRUP B</option>
+                <option value="C">GRUP C</option>
+                <option value="NON-GRUP">NON-GRUP</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label class="block text-[11px] font-bold text-zinc-600 mb-1">Grup Shift Kerja</label>
-            <select v-model="operatorForm.kodeGrup" class="w-full px-2.5 py-2 text-xs border border-zinc-300 rounded-xl bg-white font-bold outline-none focus:ring-1 focus:ring-red-500">
-              <option value="">Pilih Grup...</option>
-              <option value="A">GRUP A</option>
-              <option value="B">GRUP B</option>
-              <option value="C">GRUP C</option>
-              <option value="NON-GRUP">NON-GRUP (Non-Shift)</option>
-            </select>
+
+          <!-- Bagian Masa Jabatan (Timeline) -->
+          <div class="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-2.5">
+            <h4 class="text-[11px] font-black text-zinc-700 uppercase tracking-wider flex items-center gap-1">
+              <span>📅</span> Masa Jabatan & Periode Aktif
+            </h4>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10.5px] font-bold text-zinc-600 mb-1">{{ isEstafetMode ? 'Mulai Aktif Pengganti' : 'Mulai Menjabat' }}</label>
+                <input type="date" v-model="operatorForm.berlakuMulai" class="w-full px-2 py-1.5 text-xs border border-zinc-300 rounded-lg bg-white font-mono" />
+              </div>
+              <div v-if="!isEstafetMode">
+                <label class="block text-[10.5px] font-bold text-zinc-600 mb-1">Sampai Tanggal</label>
+                <input type="date" v-model="operatorForm.berlakuSampai" :disabled="isStillActive" class="w-full px-2 py-1.5 text-xs border border-zinc-300 rounded-lg bg-white font-mono disabled:bg-zinc-100" />
+              </div>
+              <div v-else>
+                <label class="block text-[10.5px] font-bold text-amber-900 mb-1">Akhir Jabatan Operator Lama</label>
+                <input type="date" v-model="estafetCutOffDate" class="w-full px-2 py-1.5 text-xs border border-amber-300 rounded-lg bg-white font-mono" />
+              </div>
+            </div>
+            <div v-if="!isEstafetMode" class="flex items-center gap-2 pt-1">
+              <input type="checkbox" id="stillActiveChk" v-model="isStillActive" @change="onStillActiveChange" class="rounded border-zinc-300 text-red-600 focus:ring-red-500" />
+              <label for="stillActiveChk" class="text-[11px] font-semibold text-zinc-700 cursor-pointer">Masih Aktif Menjabat (Tanpa batas akhir)</label>
+            </div>
           </div>
         </div>
-        <div class="px-6 py-4 border-t border-zinc-100 flex justify-end gap-2 bg-zinc-50/50">
+        <div class="px-6 py-4 border-t border-zinc-100 flex justify-end gap-2 bg-zinc-50/50 shrink-0">
           <button @click="showOperatorModal = false" class="px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-100 rounded-xl cursor-pointer">Batal</button>
-          <button @click="saveOperator" class="px-5 py-2 text-xs font-black bg-red-600 hover:bg-red-500 text-white rounded-xl cursor-pointer">Simpan</button>
+          <button @click="saveOperator" class="px-5 py-2 text-xs font-black bg-red-600 hover:bg-red-500 text-white rounded-xl cursor-pointer shadow-xs">{{ isEstafetMode ? 'Eksekusi Estafet' : 'Simpan' }}</button>
         </div>
       </div>
     </div>
@@ -2370,26 +2427,95 @@ const deleteMesin = async (id) => {
 
 const showOperatorModal = ref(false);
 const editingOperator = ref(null);
-const operatorForm = reactive({ nama: '', kodeOperator: '', mesin: '', kodeGrup: '' });
+const isEstafetMode = ref(false);
+const isStillActive = ref(true);
+const estafetCutOffDate = ref(new Date().toISOString().slice(0, 10));
+
+const operatorForm = reactive({ 
+  nama: '', 
+  kodeOperator: '', 
+  mesin: '', 
+  kodeGrup: '',
+  berlakuMulai: '',
+  berlakuSampai: ''
+});
+
+const isOperatorExpired = (row) => {
+  if (!row?.berlakuSampai) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return row.berlakuSampai < today;
+};
+
+const onStillActiveChange = () => {
+  if (isStillActive.value) {
+    operatorForm.berlakuSampai = '';
+  } else {
+    operatorForm.berlakuSampai = new Date().toISOString().slice(0, 10);
+  }
+};
 
 const openOperatorModal = (row = null) => {
   editingOperator.value = row;
-  if (row) Object.assign(operatorForm, { ...row });
-  else Object.assign(operatorForm, { nama: '', kodeOperator: '', mesin: '', kodeGrup: '' });
+  isEstafetMode.value = false;
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (row) {
+    Object.assign(operatorForm, {
+      nama: row.nama || '',
+      kodeOperator: row.kodeOperator || '',
+      mesin: row.mesin || '',
+      kodeGrup: row.kodeGrup || '',
+      berlakuMulai: row.berlakuMulai || '2020-01-01',
+      berlakuSampai: row.berlakuSampai || ''
+    });
+    isStillActive.value = !row.berlakuSampai;
+    estafetCutOffDate.value = today;
+  } else {
+    Object.assign(operatorForm, { 
+      nama: '', 
+      kodeOperator: '', 
+      mesin: '', 
+      kodeGrup: '',
+      berlakuMulai: today,
+      berlakuSampai: ''
+    });
+    isStillActive.value = true;
+    estafetCutOffDate.value = today;
+  }
   showOperatorModal.value = true;
 };
 
 const saveOperator = async () => {
-  if (!operatorForm.nama.trim() || !operatorForm.kodeOperator.trim()) return alert('Nama dan Kode Operator wajib diisi!');
+  if (!operatorForm.nama.trim() || !operatorForm.kodeOperator.trim()) {
+    return alert('Nama dan Kode Operator wajib diisi!');
+  }
+
   const payload = {
     nama: operatorForm.nama.trim().toUpperCase(),
     kodeOperator: operatorForm.kodeOperator.trim().toUpperCase(),
     mesin: operatorForm.mesin,
-    kodeGrup: operatorForm.kodeGrup.trim().toUpperCase()
+    kodeGrup: operatorForm.kodeGrup ? operatorForm.kodeGrup.trim().toUpperCase() : '',
+    berlakuMulai: operatorForm.berlakuMulai || '2020-01-01',
+    berlakuSampai: isStillActive.value ? null : (operatorForm.berlakuSampai || null)
   };
-  if (editingOperator.value) await configStore.updateOperator(editingOperator.value.id, payload);
-  else await configStore.addOperator(payload);
-  showOperatorModal.value = false;
+
+  try {
+    if (isEstafetMode.value && editingOperator.value) {
+      await configStore.replaceOperatorWithHistory(
+        editingOperator.value.id,
+        payload,
+        estafetCutOffDate.value || new Date().toISOString().slice(0, 10)
+      );
+    } else if (editingOperator.value) {
+      await configStore.updateOperator(editingOperator.value.id, payload);
+    } else {
+      await configStore.addOperator(payload);
+    }
+    showOperatorModal.value = false;
+  } catch (err) {
+    console.error('Error saving operator:', err);
+    alert('Gagal menyimpan operator: ' + (err.message || err));
+  }
 };
 
 const toggleOperatorActive = async (row) => {
