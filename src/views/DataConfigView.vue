@@ -635,14 +635,23 @@
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Tambah Mesin
               </button>
-              <button
-                v-else
-                @click="openOperatorModal(null)"
-                class="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Tambah Operator
-              </button>
+              <div v-else class="flex items-center gap-2">
+                <button
+                  @click="purgeCloudOperators"
+                  class="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-zinc-200 shadow-xs"
+                  title="Bersihkan sisa operator yang telah dihapus agar tidak muncul lagi dari Cloud"
+                >
+                  <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  <span>Bersihkan Sisa Cloud</span>
+                </button>
+                <button
+                  @click="openOperatorModal(null)"
+                  class="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>Tambah Operator</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -706,6 +715,40 @@
 
           <!-- SUB-VIEW OPERATOR -->
           <div v-else class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+            <!-- Filter Bar & Search -->
+            <div class="p-3 bg-zinc-50/70 border-b border-zinc-200/80 flex flex-wrap items-center justify-between gap-2.5">
+              <div class="flex items-center gap-1 bg-zinc-200/60 p-0.5 rounded-xl text-xs">
+                <button
+                  @click="operatorFilterTab = 'all'"
+                  :class="['px-3 py-1 rounded-lg font-bold transition-all cursor-pointer', operatorFilterTab === 'all' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-600 hover:text-zinc-900']"
+                >
+                  Semua ({{ (configStore.operatorList || []).length }})
+                </button>
+                <button
+                  @click="operatorFilterTab = 'active'"
+                  :class="['px-3 py-1 rounded-lg font-bold transition-all cursor-pointer', operatorFilterTab === 'active' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900']"
+                >
+                  Aktif ({{ operatorActiveCount }})
+                </button>
+                <button
+                  @click="operatorFilterTab = 'inactive'"
+                  :class="['px-3 py-1 rounded-lg font-bold transition-all cursor-pointer', operatorFilterTab === 'inactive' ? 'bg-zinc-800 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900']"
+                >
+                  Non-aktif ({{ operatorInactiveCount }})
+                </button>
+              </div>
+
+              <div class="relative w-full sm:w-64">
+                <input
+                  v-model="operatorSearchQuery"
+                  type="text"
+                  placeholder="Cari nama / kode operator..."
+                  class="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg outline-none focus:ring-1 focus:ring-red-500 font-medium"
+                />
+                <svg class="w-3.5 h-3.5 absolute left-2.5 top-2 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              </div>
+            </div>
+
             <div class="overflow-x-auto">
               <table class="w-full text-xs min-w-[580px] whitespace-nowrap">
                 <thead class="bg-zinc-100 border-b border-zinc-200 text-zinc-600">
@@ -721,10 +764,10 @@
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-100">
-                  <tr v-if="configStore.operatorList.length === 0">
-                    <td colspan="8" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data operator</td>
+                  <tr v-if="filteredOperatorList.length === 0">
+                    <td colspan="8" class="py-12 text-center text-zinc-400 text-xs">Tidak ada data operator yang sesuai</td>
                   </tr>
-                  <tr v-for="(row, idx) in configStore.operatorList" :key="row.id" class="hover:bg-zinc-50">
+                  <tr v-for="(row, idx) in filteredOperatorList" :key="row.id" class="hover:bg-zinc-50">
                     <td class="px-4 py-3 text-zinc-400 font-mono">{{ idx + 1 }}</td>
                     <td class="px-4 py-3 font-bold text-zinc-900">{{ row.nama }}</td>
                     <td class="px-4 py-3 font-mono font-bold text-blue-700">{{ row.kodeOperator }}</td>
@@ -733,10 +776,10 @@
                     <td class="px-4 py-3 text-xs">
                       <div v-if="!row.berlakuSampai" class="flex items-center gap-1.5 text-emerald-700 font-semibold">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        <span>Sejak <strong class="font-mono">{{ row.berlakuMulai || '2020-01-01' }}</strong> (Aktif)</span>
+                        <span>Sejak <strong class="font-mono">{{ row.berlakuMulai || '—' }}</strong> (Aktif)</span>
                       </div>
                       <div v-else class="flex items-center gap-1 text-zinc-500 text-[11px]">
-                        <span class="font-mono text-zinc-700">{{ row.berlakuMulai || '2020-01-01' }}</span>
+                        <span class="font-mono text-zinc-700">{{ row.berlakuMulai || '—' }}</span>
                         <span>s/d</span>
                         <span class="font-mono text-zinc-700 font-bold">{{ row.berlakuSampai }}</span>
                         <span v-if="isOperatorExpired(row)" class="ml-1 px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-500 text-[9px] font-bold">Demisioner</span>
@@ -1543,7 +1586,7 @@
               </div>
               <div v-if="!isEstafetMode">
                 <label class="block text-[10.5px] font-bold text-zinc-600 mb-1">Sampai Tanggal</label>
-                <input type="date" v-model="operatorForm.berlakuSampai" :disabled="isStillActive" class="w-full px-2 py-1.5 text-xs border border-zinc-300 rounded-lg bg-white font-mono disabled:bg-zinc-100" />
+                <input type="date" v-model="operatorForm.berlakuSampai" :disabled="isStillActive" @input="onBerlakuSampaiInput" class="w-full px-2 py-1.5 text-xs border border-zinc-300 rounded-lg bg-white font-mono disabled:bg-zinc-100" />
               </div>
               <div v-else>
                 <label class="block text-[10.5px] font-bold text-amber-900 mb-1">Akhir Jabatan Operator Lama</label>
@@ -2431,6 +2474,9 @@ const isEstafetMode = ref(false);
 const isStillActive = ref(true);
 const estafetCutOffDate = ref(new Date().toISOString().slice(0, 10));
 
+const operatorSearchQuery = ref('');
+const operatorFilterTab = ref('all'); // 'all', 'active', 'inactive'
+
 const operatorForm = reactive({ 
   nama: '', 
   kodeOperator: '', 
@@ -2446,11 +2492,50 @@ const isOperatorExpired = (row) => {
   return row.berlakuSampai < today;
 };
 
+const filteredOperatorList = computed(() => {
+  let list = configStore.operatorList || [];
+  const q = operatorSearchQuery.value.trim().toUpperCase();
+  if (q) {
+    list = list.filter(o => 
+      (o.nama && o.nama.toUpperCase().includes(q)) ||
+      (o.kodeOperator && o.kodeOperator.toUpperCase().includes(q)) ||
+      (o.mesin && o.mesin.toUpperCase().includes(q)) ||
+      (o.kodeGrup && o.kodeGrup.toUpperCase().includes(q))
+    );
+  }
+  if (operatorFilterTab.value === 'active') {
+    list = list.filter(o => o.active !== false && !isOperatorExpired(o));
+  } else if (operatorFilterTab.value === 'inactive') {
+    list = list.filter(o => o.active === false || isOperatorExpired(o));
+  }
+  return list;
+});
+
+const operatorActiveCount = computed(() => {
+  return (configStore.operatorList || []).filter(o => o.active !== false && !isOperatorExpired(o)).length;
+});
+
+const operatorInactiveCount = computed(() => {
+  return (configStore.operatorList || []).filter(o => o.active === false || isOperatorExpired(o)).length;
+});
+
+const purgeCloudOperators = async () => {
+  if (!confirm('Bersihkan data operator yang sudah dihapus/tombstoned dari Cloud Supabase?')) return;
+  const count = await configStore.purgeGhostOperators();
+  alert(`Pembersihan sisa cloud selesai. ${count} data operator dibersihkan.`);
+};
+
 const onStillActiveChange = () => {
   if (isStillActive.value) {
     operatorForm.berlakuSampai = '';
   } else {
     operatorForm.berlakuSampai = new Date().toISOString().slice(0, 10);
+  }
+};
+
+const onBerlakuSampaiInput = () => {
+  if (operatorForm.berlakuSampai) {
+    isStillActive.value = false;
   }
 };
 
@@ -2465,10 +2550,10 @@ const openOperatorModal = (row = null) => {
       kodeOperator: row.kodeOperator || '',
       mesin: row.mesin || '',
       kodeGrup: row.kodeGrup || '',
-      berlakuMulai: row.berlakuMulai || '2020-01-01',
+      berlakuMulai: row.berlakuMulai || today,
       berlakuSampai: row.berlakuSampai || ''
     });
-    isStillActive.value = !row.berlakuSampai;
+    isStillActive.value = !row.berlakuSampai && row.active !== false;
     estafetCutOffDate.value = today;
   } else {
     Object.assign(operatorForm, { 
@@ -2490,13 +2575,18 @@ const saveOperator = async () => {
     return alert('Nama dan Kode Operator wajib diisi!');
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+  const isExpired = !isStillActive.value && operatorForm.berlakuSampai && operatorForm.berlakuSampai < today;
+  const activeVal = isStillActive.value ? true : (isExpired ? false : (editingOperator.value?.active ?? true));
+
   const payload = {
     nama: operatorForm.nama.trim().toUpperCase(),
     kodeOperator: operatorForm.kodeOperator.trim().toUpperCase(),
     mesin: operatorForm.mesin,
     kodeGrup: operatorForm.kodeGrup ? operatorForm.kodeGrup.trim().toUpperCase() : '',
-    berlakuMulai: operatorForm.berlakuMulai || '2020-01-01',
-    berlakuSampai: isStillActive.value ? null : (operatorForm.berlakuSampai || null)
+    berlakuMulai: operatorForm.berlakuMulai || today,
+    berlakuSampai: isStillActive.value ? null : (operatorForm.berlakuSampai || null),
+    active: activeVal
   };
 
   try {
@@ -2504,7 +2594,7 @@ const saveOperator = async () => {
       await configStore.replaceOperatorWithHistory(
         editingOperator.value.id,
         payload,
-        estafetCutOffDate.value || new Date().toISOString().slice(0, 10)
+        estafetCutOffDate.value || today
       );
     } else if (editingOperator.value) {
       await configStore.updateOperator(editingOperator.value.id, payload);
@@ -2519,11 +2609,24 @@ const saveOperator = async () => {
 };
 
 const toggleOperatorActive = async (row) => {
-  await configStore.updateOperator(row.id, { active: row.active === false ? true : false });
+  const isCurrentlyActive = (row.active !== false && !isOperatorExpired(row));
+  const newActive = !isCurrentlyActive;
+  const today = new Date().toISOString().slice(0, 10);
+  const changes = { active: newActive };
+
+  if (!newActive) {
+    if (!row.berlakuSampai) changes.berlakuSampai = today;
+  } else {
+    if (row.berlakuSampai && row.berlakuSampai <= today) {
+      changes.berlakuSampai = null;
+    }
+  }
+
+  await configStore.updateOperator(row.id, changes);
 };
 
 const deleteOperator = async (id) => {
-  if (!confirm('Hapus operator ini?')) return;
+  if (!confirm('Hapus operator ini secara permanen dari database lokal dan cloud?')) return;
   await configStore.deleteOperator(id);
 };
 

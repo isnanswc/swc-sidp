@@ -401,6 +401,10 @@ db.version(24).stores({
   labels: '++id, uniqId, uuid, barcode, noPack, tanggal, spk, lot, turunan, operator, kodeOperator, jenis, type, kode, thickness, width, length, meter, joint, netto, paperCore, kodePack, subKode, status, treatment, od, jenisPrint, verified, synced, createdAt, updatedAt'
 });
 
+db.version(25).stores({
+  operator_list: '++id, nama, mesin, kodeGrup, kodeOperator, berlakuMulai, berlakuSampai, active, createdAt, updatedAt'
+});
+
 export async function saveSetting(key, value) {
   try {
     let cleanValue = value;

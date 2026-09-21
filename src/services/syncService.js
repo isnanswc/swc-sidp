@@ -576,18 +576,42 @@ export async function pushLocalToSupabase() {
               mesin: o.mesin || '',
               kode_grup: o.kodeGrup || '',
               kode_operator: o.kodeOperator || '',
+              berlaku_mulai: o.berlakuMulai || '2020-01-01',
+              berlaku_sampai: o.berlakuSampai || null,
               active: o.active !== false,
               created_at: o.createdAt || new Date().toISOString(),
               updated_at: o.updatedAt || new Date().toISOString()
             }));
-            const { error } = await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
+
+            let { error } = await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
+            if (error && (error.message?.includes('berlaku') || error.code === '42703')) {
+              // Jika kolom masa jabatan belum ada di Supabase remote, fallback tanpa kolom tersebut
+              const strippedPayload = payload.map(({ berlaku_mulai, berlaku_sampai, ...rest }) => rest);
+              const res = await supabase.from('operator_list').upsert(strippedPayload, { onConflict: 'nama' });
+              error = res.error;
+            }
+
+            // Jika upsert gagal (misal tidak ada constraint unique nama di Supabase), jalankan fallback update/insert per baris
             if (error) {
-              console.warn('operator_list upsert notice, trying missing insert:', error.message);
+              console.warn('operator_list upsert fallback per-item:', error.message);
               const { data: existing } = await supabase.from('operator_list').select('nama');
               const existingSet = new Set((existing || []).map(e => (e.nama || '').trim().toUpperCase()));
-              const missing = payload.filter(p => !existingSet.has((p.nama || '').trim().toUpperCase()));
-              if (missing.length > 0) {
-                await supabase.from('operator_list').insert(missing);
+
+              for (const p of payload) {
+                const isExisting = existingSet.has((p.nama || '').trim().toUpperCase());
+                if (isExisting) {
+                  let { error: uErr } = await supabase.from('operator_list').update(p).ilike('nama', p.nama);
+                  if (uErr && (uErr.message?.includes('berlaku') || uErr.code === '42703')) {
+                    const { berlaku_mulai, berlaku_sampai, ...rest } = p;
+                    await supabase.from('operator_list').update(rest).ilike('nama', p.nama);
+                  }
+                } else {
+                  let { error: iErr } = await supabase.from('operator_list').insert([p]);
+                  if (iErr && (iErr.message?.includes('berlaku') || iErr.code === '42703')) {
+                    const { berlaku_mulai, berlaku_sampai, ...rest } = p;
+                    await supabase.from('operator_list').insert([rest]);
+                  }
+                }
               }
             }
           }
@@ -1491,7 +1515,7 @@ export async function pullFromSupabase(forceFull = false) {
         if (cloudOps && cloudOps.length > 0) {
           const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
           const existing = await db.operator_list.toArray();
-          const localMap = new Map(existing.map(o => [(o.nama || '').toUpperCase(), o.id]));
+          const localMap = new Map(existing.map(o => [(o.nama || '').toUpperCase(), o]));
           const toUpdate = [];
           const toAdd = [];
           const cloudDeadNames = [];
@@ -1506,18 +1530,27 @@ export async function pullFromSupabase(forceFull = false) {
               continue;
             }
 
+            const localOp = localMap.get(nameUpper);
+            const cloudTime = co.updated_at ? new Date(co.updated_at).getTime() : 0;
+            const localTime = localOp?.updatedAt ? new Date(localOp.updatedAt).getTime() : 0;
+            const isLocalFresher = localOp && (localTime > cloudTime);
+
             const rec = {
               nama: co.nama,
-              mesin: co.mesin,
-              kodeGrup: co.kode_grup,
-              kodeOperator: co.kode_operator,
-              active: co.active,
-              createdAt: co.created_at,
-              updatedAt: co.updated_at
+              mesin: co.mesin || localOp?.mesin || '',
+              kodeGrup: co.kode_grup || localOp?.kodeGrup || '',
+              kodeOperator: co.kode_operator || localOp?.kodeOperator || '',
+              // Pertahankan masa jabatan lokal jika cloud belum ada kolom atau lokal lebih baru
+              berlakuMulai: (isLocalFresher && localOp?.berlakuMulai) ? localOp.berlakuMulai : (co.berlaku_mulai || localOp?.berlakuMulai || '2020-01-01'),
+              berlakuSampai: (isLocalFresher && localOp) ? (localOp.berlakuSampai ?? null) : (co.berlaku_sampai !== undefined ? co.berlaku_sampai : (localOp?.berlakuSampai ?? null)),
+              // Jangan timpa status active lokal jika perubahan lokal lebih baru!
+              active: isLocalFresher ? (localOp.active !== false) : (co.active !== false),
+              createdAt: co.created_at || localOp?.createdAt || new Date().toISOString(),
+              updatedAt: isLocalFresher ? localOp.updatedAt : (co.updated_at || new Date().toISOString())
             };
-            const localId = localMap.get(nameUpper);
-            if (localId) {
-              toUpdate.push({ ...rec, id: localId });
+
+            if (localOp?.id) {
+              toUpdate.push({ ...rec, id: localOp.id });
             } else {
               toAdd.push(rec);
             }

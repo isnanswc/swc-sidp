@@ -747,13 +747,14 @@ export const useConfigStore = defineStore('configStore', {
     // ── OPERATORS CRUD ────────────────────────────────────────────────────────
     async addOperator(row) {
       const now = new Date().toISOString();
+      const today = now.slice(0, 10);
       const newOp = {
         ...row,
         nama: (row.nama || '').trim().toUpperCase(),
         kodeOperator: (row.kodeOperator || '').trim().toUpperCase(),
         kodeGrup: (row.kodeGrup || '').trim().toUpperCase(),
         mesin: (row.mesin || '').trim().toUpperCase(),
-        berlakuMulai: row.berlakuMulai || now.slice(0, 10),
+        berlakuMulai: row.berlakuMulai || today,
         berlakuSampai: row.berlakuSampai || null,
         active: row.active ?? true,
         createdAt: now,
@@ -762,6 +763,33 @@ export const useConfigStore = defineStore('configStore', {
       const id = await db.operator_list.add(newOp);
       this.operatorList.push({ ...newOp, id });
       this.operatorList.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+
+      // Direct insert ke Cloud Supabase agar tersimpan seketika
+      try {
+        const { supabase } = await import('@/services/supabaseClient');
+        if (supabase) {
+          const cloudPayload = {
+            nama: newOp.nama,
+            mesin: newOp.mesin,
+            kode_grup: newOp.kodeGrup,
+            kode_operator: newOp.kodeOperator,
+            berlaku_mulai: newOp.berlakuMulai,
+            berlaku_sampai: newOp.berlakuSampai,
+            active: newOp.active !== false,
+            created_at: now,
+            updated_at: now
+          };
+          const { error: insErr } = await supabase.from('operator_list').insert([cloudPayload]);
+          if (insErr && (insErr.message?.includes('berlaku') || insErr.code === '42703')) {
+            delete cloudPayload.berlaku_mulai;
+            delete cloudPayload.berlaku_sampai;
+            await supabase.from('operator_list').insert([cloudPayload]);
+          }
+        }
+      } catch (e) {
+        console.warn('[ConfigStore] Direct cloud insert operator notice:', e);
+      }
+
       pushLocalToSupabase().catch(() => {});
     },
 
@@ -773,8 +801,9 @@ export const useConfigStore = defineStore('configStore', {
         kodeOperator: changes.kodeOperator !== undefined ? (changes.kodeOperator || '').trim().toUpperCase() : undefined,
         kodeGrup: changes.kodeGrup !== undefined ? (changes.kodeGrup || '').trim().toUpperCase() : undefined,
         mesin: changes.mesin !== undefined ? (changes.mesin || '').trim().toUpperCase() : undefined,
-        berlakuMulai: changes.berlakuMulai !== undefined ? (changes.berlakuMulai || '2020-01-01') : undefined,
+        berlakuMulai: changes.berlakuMulai !== undefined ? changes.berlakuMulai : undefined,
         berlakuSampai: changes.berlakuSampai !== undefined ? (changes.berlakuSampai || null) : undefined,
+        active: changes.active !== undefined ? Boolean(changes.active) : undefined,
         updatedAt: now
       };
       Object.keys(updated).forEach(k => updated[k] === undefined && delete updated[k]);
@@ -802,6 +831,33 @@ export const useConfigStore = defineStore('configStore', {
         } catch (e) {}
       }
 
+      // DIRECT UPDATE ke Supabase Cloud seketika agar status active & tanggal jabatan tidak ter-revert
+      try {
+        const { supabase } = await import('@/services/supabaseClient');
+        if (supabase) {
+          const targetName = (isRenamed ? updated.nama : (oldRecord?.nama || updated.nama || '')).trim();
+          if (targetName) {
+            const cloudUpdate = {};
+            if (updated.active !== undefined) cloudUpdate.active = updated.active;
+            if (updated.kodeOperator !== undefined) cloudUpdate.kode_operator = updated.kodeOperator;
+            if (updated.kodeGrup !== undefined) cloudUpdate.kode_grup = updated.kodeGrup;
+            if (updated.mesin !== undefined) cloudUpdate.mesin = updated.mesin;
+            if (updated.berlakuMulai !== undefined) cloudUpdate.berlaku_mulai = updated.berlakuMulai;
+            if (updated.berlakuSampai !== undefined) cloudUpdate.berlaku_sampai = updated.berlakuSampai;
+            cloudUpdate.updated_at = now;
+
+            const { error: updErr } = await supabase.from('operator_list').update(cloudUpdate).ilike('nama', targetName);
+            if (updErr && (updErr.message?.includes('berlaku') || updErr.code === '42703')) {
+              delete cloudUpdate.berlaku_mulai;
+              delete cloudUpdate.berlaku_sampai;
+              await supabase.from('operator_list').update(cloudUpdate).ilike('nama', targetName);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[ConfigStore] Direct cloud update operator notice:', e);
+      }
+
       pushLocalToSupabase().catch(() => {});
     },
 
@@ -818,6 +874,7 @@ export const useConfigStore = defineStore('configStore', {
       // 1. Update masa jabatan operator lama (tutup masa aktif)
       await this.updateOperator(oldOperatorId, {
         berlakuSampai: endDate,
+        active: false,
         updatedAt: now
       });
 
@@ -881,6 +938,28 @@ export const useConfigStore = defineStore('configStore', {
             await supabase.from('operator_list').delete().ilike('nama', cleanName);
           }
         } catch (e) {}
+      }
+    },
+
+    /**
+     * Membersihkan sisa record operator di Supabase yang sudah masuk tombstone
+     */
+    async purgeGhostOperators() {
+      try {
+        const { supabase } = await import('@/services/supabaseClient');
+        if (!supabase) return 0;
+        const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
+        if (tombstones.size === 0) return 0;
+
+        let purged = 0;
+        for (const deadName of tombstones) {
+          const { error } = await supabase.from('operator_list').delete().ilike('nama', deadName);
+          if (!error) purged++;
+        }
+        return purged;
+      } catch (e) {
+        console.warn('purgeGhostOperators error:', e);
+        return 0;
       }
     },
 
