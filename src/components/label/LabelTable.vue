@@ -207,7 +207,7 @@
             <td v-if="visibleColumns.lot" class="py-2.5 px-3 whitespace-nowrap font-mono font-bold">
               <span class="text-zinc-900 uppercase">{{ formatLotVisual(item.lot, item.supplier) }}</span>
               <span v-if="item.turunan" class="text-zinc-400 font-bold mx-1">/</span>
-              <span v-if="item.turunan" class="text-red-600 uppercase">{{ item.turunan }}</span>
+              <span v-if="item.turunan" class="text-red-600 uppercase">{{ formatTurunanDisplay(item.turunan) }}</span>
             </td>
 
             <!-- Dimensi (NO WRAP) -->
@@ -336,6 +336,7 @@
 <script setup>
 import { formatLotVisual } from '@/services/aiAutomationService';
 import { useConfigStore } from '@/stores/configStore';
+import { formatTurunanDisplay, getOperatorCodeFromTurunan } from '@/stores/labelStore';
 
 const configStore = useConfigStore();
 
@@ -347,6 +348,16 @@ function resolveOperator(item) {
   const rawOp = String(item.operator || '').trim();
   const rawCode = String(item.kodeOperator || '').trim();
   const machine = String(item.mesin || '').trim().toUpperCase();
+
+  // Aturan khusus REWIND: turunan compound/single rewind menentukan operator REWIND
+  if (machine === 'REWIND' || (item.kodePack && String(item.kodePack).toUpperCase().startsWith('R'))) {
+    const rewindCode = getOperatorCodeFromTurunan(item.turunan, 'REWIND');
+    if (rewindCode) {
+      const byCodeRewind = list.find(o => o.mesin && o.mesin.toUpperCase().includes('REWIND') && o.kodeOperator && o.kodeOperator.toUpperCase() === rewindCode.toUpperCase() && o.active !== false)
+        || list.find(o => o.mesin && o.mesin.toUpperCase().includes('REWIND') && o.kodeOperator && o.kodeOperator.toUpperCase() === rewindCode.toUpperCase());
+      if (byCodeRewind) return byCodeRewind;
+    }
+  }
 
   if (rawCode) {
     const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
@@ -416,6 +427,11 @@ function getOperatorCode(item) {
   const op = resolveOperator(item);
   if (op && op.kodeOperator) return op.kodeOperator.toUpperCase();
   if (item.kodeOperator) return item.kodeOperator.toUpperCase();
+  const machine = String(item.mesin || '').trim().toUpperCase();
+  if (machine === 'REWIND') {
+    const rewindCode = getOperatorCodeFromTurunan(item.turunan, 'REWIND');
+    if (rewindCode) return rewindCode;
+  }
   if (item.turunan) {
     const match = String(item.turunan).match(/^([A-Za-z]+)/);
     if (match) return match[1].toUpperCase();

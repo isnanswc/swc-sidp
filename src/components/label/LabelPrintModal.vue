@@ -150,7 +150,7 @@
                     <tr>
                       <td style="padding: 1px; background-color: #f0f0f0; font-size: 9.5px; text-align: center;"><strong>{{ item.supplier || '-' }}</strong></td>
                       <td colspan="4" style="padding: 1px; font-size: 15px; font-weight: bold; text-align: center;">{{ formatLotVisual(item.lot, item.supplier) }}</td>
-                      <td style="padding: 1px; font-size: 12px; font-weight: bold; text-align: center;">{{ item.turunan }}</td>
+                      <td style="padding: 1px; font-size: 12px; font-weight: bold; text-align: center;">{{ formatTurunanDisplay(item.turunan) }}</td>
                     </tr>
 
                     <!-- ROW 7: Code Pack & Status (All Center) -->
@@ -337,7 +337,7 @@
                   <tr>
                     <td style="padding: 1px; background-color: #f0f0f0; font-size: 9.5px; text-align: center;"><strong>{{ item.supplier || '-' }}</strong></td>
                     <td colspan="4" style="padding: 1px; font-size: 15px; font-weight: bold; text-align: center;">{{ formatLotVisual(item.lot, item.supplier) }}</td>
-                    <td style="padding: 1px; font-size: 12px; font-weight: bold; text-align: center;">{{ item.turunan }}</td>
+                    <td style="padding: 1px; font-size: 12px; font-weight: bold; text-align: center;">{{ formatTurunanDisplay(item.turunan) }}</td>
                   </tr>
 
                   <!-- ROW 7: Code Pack & Status (All Center) -->
@@ -389,6 +389,7 @@
 
 <script setup>
 import { formatLotVisual } from '@/services/aiAutomationService';
+import { formatTurunanDisplay } from '@/stores/labelStore';
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },

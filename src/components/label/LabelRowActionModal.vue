@@ -34,7 +34,7 @@
           <div class="truncate font-mono">
             <span class="text-zinc-900 uppercase">{{ item?.lot }}</span>
             <span v-if="item?.turunan" class="text-zinc-400 font-bold">/</span>
-            <span v-if="item?.turunan" class="text-red-600 uppercase">{{ item?.turunan }}</span>
+            <span v-if="item?.turunan" class="text-red-600 uppercase">{{ formatTurunanDisplay(item?.turunan) }}</span>
           </div>
           <span class="text-[10px] text-zinc-400 font-mono">SPK: {{ item?.spk }}</span>
         </div>
@@ -139,6 +139,8 @@
 </template>
 
 <script setup>
+import { formatTurunanDisplay } from '@/stores/labelStore';
+
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   item: { type: Object, default: null }

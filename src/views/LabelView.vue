@@ -487,9 +487,9 @@
                   <span
                     v-if="formatLotTable(item).childTurunan || item.turunan"
                     class="px-2 py-0.5 rounded-md font-black bg-red-100 text-red-700 border border-red-200 shadow-2xs text-[11px]"
-                    :title="`Turunan / Child Roll: ${formatLotTable(item).childTurunan || item.turunan}`"
+                    :title="`Turunan / Child Roll: ${formatTurunanDisplay(formatLotTable(item).childTurunan || item.turunan)}`"
                   >
-                    {{ formatLotTable(item).childTurunan || item.turunan }}
+                    {{ formatTurunanDisplay(formatLotTable(item).childTurunan || item.turunan) }}
                   </span>
                 </div>
               </td>
@@ -1445,7 +1445,7 @@
                           <div class="flex items-center justify-between gap-1.5">
                             <div class="flex items-center gap-1.5 min-w-0">
                               <span class="text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200/80 uppercase font-mono font-black text-[10.5px] shrink-0">
-                                {{ item.turunan }}
+                                {{ formatTurunanDisplay(item.turunan) }}
                               </span>
                               <span class="font-mono font-bold text-xs text-zinc-800 truncate">
                                 {{ item.kodePack }}<span class="text-red-600">{{ item.subKode }}</span>
@@ -1588,7 +1588,7 @@
                             <!-- Turunan -->
                             <td class="py-2 px-3 font-mono font-black whitespace-nowrap">
                               <span class="text-red-600 bg-red-50/80 px-1.5 py-0.5 rounded border border-red-200/80 uppercase text-[11px]">
-                                {{ item.turunan }}
+                                {{ formatTurunanDisplay(item.turunan) }}
                               </span>
                             </td>
 
@@ -2470,8 +2470,8 @@
                       class="hover:bg-zinc-50/80 transition-colors"
                     >
                       <td class="px-3 py-2 text-center">
-                        <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-zinc-100 font-black text-zinc-900 border border-zinc-300">
-                          {{ ch.turunan || '-' }}
+                        <span class="inline-flex items-center justify-center min-w-6 px-1.5 py-0.5 rounded bg-zinc-100 font-black text-zinc-900 border border-zinc-300">
+                          {{ formatTurunanDisplay(ch.turunan || '-') }}
                         </span>
                       </td>
                       <td class="px-3 py-2 font-bold text-zinc-900">
@@ -3518,9 +3518,10 @@
                   <input
                     ref="turunanInputRef"
                     v-model="form.turunan"
-                    @input="form.turunan = form.turunan.toUpperCase()"
+                    @input="onTurunanInput"
+                    @blur="onTurunanBlur"
                     required
-                    :placeholder="form.mesin === 'REWIND' ? 'Contoh: HA03/J101' : 'HA01'"
+                    :placeholder="form.mesin === 'REWIND' ? 'Contoh: IB02 J101 atau J101' : 'HA01'"
                     class="w-full px-2 py-1 text-xs border border-indigo-300 rounded-lg bg-white font-mono font-bold text-red-600 outline-none uppercase focus:ring-1 focus:ring-red-500"
                   />
 
@@ -3980,7 +3981,7 @@
                     <td class="py-2.5 px-3">
                       <div class="flex flex-col">
                         <span class="font-mono font-black text-xs text-indigo-800 group-hover:text-indigo-950">{{ extractCleanParentLot(item.roll.lot, item.roll.turunan) }}</span>
-                        <span v-if="item.roll.turunan" class="text-[10px] font-mono text-slate-500">Turunan: {{ item.roll.turunan }}</span>
+                        <span v-if="item.roll.turunan" class="text-[10px] font-mono text-slate-500">Turunan: {{ formatTurunanDisplay(item.roll.turunan) }}</span>
                       </div>
                     </td>
                     <!-- Kemiripan No Lot dengan Persentase & Warna -->
@@ -4204,7 +4205,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { useLabelStore, compareHierarkiLabel } from '@/stores/labelStore';
+import { useLabelStore, compareHierarkiLabel, normalizeTurunan, formatTurunanDisplay, getOperatorCodeFromTurunan } from '@/stores/labelStore';
 import { useConfigStore, getDefaultFilmAlias } from '@/stores/configStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useWipStore } from '@/stores/wipStore';
@@ -5262,6 +5263,34 @@ function resolveOperator(item) {
   const rawCode = String(item.kodeOperator || '').trim();
   const machine = String(item.mesin || '').trim().toUpperCase();
   const targetDate = item.tanggalShift || item.tanggalProduksi || item.tanggal || (item.createdAt ? String(item.createdAt).slice(0, 10) : null);
+
+  // 0. ATURAN KHUSUS MESIN REWIND:
+  // Pada mesin REWIND, operator HANYA BOLEH operator REWIND (DZAKI [J] atau DAVVA [K]).
+  // Kode operator di awal prefix turunan compound (seperti 'I' pada 'IB02/J101' atau 'IB02 J101') adalah turunan slitting parent,
+  // BUKAN operator mesin rewind! Kode operator rewind berada di segmen rewind (J101 -> 'J' = Dzaki).
+  if (machine === 'REWIND' || (item.kodePack && String(item.kodePack).toUpperCase().startsWith('R'))) {
+    const rewindCode = getOperatorCodeFromTurunan(item.turunan, 'REWIND');
+    if (rewindCode) {
+      if (typeof configStore.getOperatorByDate === 'function') {
+        const byDate = configStore.getOperatorByDate(rewindCode, 'REWIND', targetDate);
+        if (byDate) return byDate;
+      }
+      const byCodeRewind = list.find(o => isMachineMatch(o.mesin, 'REWIND') && o.kodeOperator && o.kodeOperator.toUpperCase() === rewindCode.toUpperCase() && o.active !== false)
+        || list.find(o => isMachineMatch(o.mesin, 'REWIND') && o.kodeOperator && o.kodeOperator.toUpperCase() === rewindCode.toUpperCase());
+      if (byCodeRewind) return byCodeRewind;
+    }
+    if (rawCode) {
+      const byRawCodeRewind = list.find(o => isMachineMatch(o.mesin, 'REWIND') && o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase());
+      if (byRawCodeRewind) return byRawCodeRewind;
+    }
+    if (rawOp) {
+      const byRawOpRewind = list.find(o => isMachineMatch(o.mesin, 'REWIND') && o.nama && o.nama.toUpperCase().includes(rawOp.toUpperCase()));
+      if (byRawOpRewind) return byRawOpRewind;
+    }
+    const rewindDefault = list.find(o => isMachineMatch(o.mesin, 'REWIND') && o.active !== false)
+      || list.find(o => isMachineMatch(o.mesin, 'REWIND'));
+    if (rewindDefault) return rewindDefault;
+  }
 
   // 1. Direct match by kodeOperator & Machine dengan timeline masa jabatan
   if (rawCode) {
@@ -7719,7 +7748,16 @@ const turunanParseCache = new Map();
 
 function parseTurunan(turunanStr) {
   if (!turunanStr) return { prefix: 'H', chartingan: 'A', noUrut: 1, numDigits: 2 };
-  const str = String(turunanStr).trim();
+  let str = String(turunanStr).trim().toUpperCase();
+
+  // Normalisasi spasi antar token menjadi slash jika format compound (e.g. "IB02 J101" -> "IB02/J101")
+  if (!str.includes('/') && str.includes(' ')) {
+    const spaceParts = str.split(/\s+/).filter(Boolean);
+    if (spaceParts.length >= 2) {
+      str = spaceParts.join('/');
+    }
+  }
+
   if (turunanParseCache.has(str)) {
     return turunanParseCache.get(str);
   }
@@ -7730,7 +7768,7 @@ function parseTurunan(turunanStr) {
   let result = null;
 
   // 1a. Pola Khusus Compound Rewind: <turunan_slitting>/<turunan_rewind>
-  // Contoh: HA03/J101, ha03/j101, HA03/JA01, HA03/J01, HA03/
+  // Contoh: HA03/J101, ha03/j101, HA03/JA01, HA03/J01, HA03/, IB02/J101
   if (str.includes('/')) {
     const slashParts = str.split('/');
     const parentTurunan = slashParts[0].trim().toUpperCase();
@@ -7861,7 +7899,10 @@ function parseTurunan(turunanStr) {
     const letters = matchSimple[1].toUpperCase();
     const num = parseInt(matchSimple[2], 10);
     const digits = matchSimple[2].length;
-    if (letters.length >= 2) {
+    if (letters === 'J' || letters === 'K' || digits >= 3) {
+      // Format khusus single rewind (e.g. J101, K101, J01, K02): huruf tersebut adalah kode operator rewind!
+      result = { prefix: letters, chartingan: 'A', noUrut: num, numDigits: digits };
+    } else if (letters.length >= 2) {
       result = {
         prefix: letters.substring(0, letters.length - 1),
         chartingan: letters.substring(letters.length - 1),
@@ -8029,6 +8070,18 @@ const advanceFormTurunan = () => {
   form.turunan = getNextTurunan(form.turunan, form.lot);
 };
 
+const onTurunanInput = () => {
+  if (form.turunan) {
+    form.turunan = form.turunan.toUpperCase();
+  }
+};
+
+const onTurunanBlur = () => {
+  if (form.turunan) {
+    form.turunan = normalizeTurunan(form.turunan);
+  }
+};
+
 // ── OPERATOR LOOKUP & TRACKING ────────────────────────────────────────────────
 const detectedPrefix = computed(() => {
   const p = parseTurunan(form.turunan);
@@ -8129,11 +8182,17 @@ const handleOperatorSelect = (opId) => {
     if (parsed.isCompoundRewind) {
       const childPart = parsed.hasChildLetter ? `${op.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}` : `${op.kodeOperator}${formattedNum}`;
       form.turunan = `${parsed.parentTurunan}/${childPart}`;
+    } else if (form.mesin === 'REWIND') {
+      form.turunan = `${op.kodeOperator}${formattedNum}`;
     } else {
       form.turunan = `${op.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
     }
   } else {
-    form.turunan = `${op.kodeOperator}A01`;
+    if (form.mesin === 'REWIND') {
+      form.turunan = `${op.kodeOperator}101`;
+    } else {
+      form.turunan = `${op.kodeOperator}A01`;
+    }
   }
   updateAutoFields();
 };
@@ -8363,12 +8422,12 @@ const openModal = async (item = -1) => {
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator || '';
-      const opPrefix = activeOp.kodeOperator || 'H';
-      form.turunan = `${opPrefix}A01`;
+      const opPrefix = activeOp.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
+      form.turunan = form.mesin === 'REWIND' ? `${opPrefix}101` : `${opPrefix}A01`;
     } else {
       form.operator = '';
       form.kodeOperator = '';
-      form.turunan = 'HA01';
+      form.turunan = form.mesin === 'REWIND' ? 'J101' : 'HA01';
     }
     if (form.mesin === 'REWIND') {
       lotSearchSource.value = 'DATA_ROLL';
@@ -8401,7 +8460,26 @@ const handleFormSubmit = async () => {
   form.lot = (form.lot || '').replace(/\s+/g, '').toUpperCase();
   form.spk = (form.spk || '').trim().toUpperCase();
   form.supplier = (form.supplier || '').replace(/\s+/g, '').toUpperCase();
-  form.turunan = (form.turunan || '').trim().toUpperCase();
+  form.turunan = normalizeTurunan(form.turunan || '');
+
+  // Khusus mesin REWIND: pastikan operator dan kodeOperator diekstrak dari turunan child rewind
+  if (form.mesin === 'REWIND') {
+    const rewindOpCode = getOperatorCodeFromTurunan(form.turunan, 'REWIND');
+    if (rewindOpCode) {
+      const matchOp = (configStore.activeOperators || []).find(o => 
+        o.kodeOperator === rewindOpCode && isMachineMatch(o.mesin, 'REWIND')
+      ) || (configStore.operatorList || []).find(o => 
+        o.kodeOperator === rewindOpCode && isMachineMatch(o.mesin, 'REWIND')
+      );
+      if (matchOp) {
+        form.operator = matchOp.nama;
+        form.kodeOperator = matchOp.kodeOperator;
+      } else {
+        form.kodeOperator = rewindOpCode;
+      }
+    }
+  }
+
   form.kodeOperator = (form.kodeOperator || '').trim().toUpperCase();
   form.operator = (form.operator || '').trim().toUpperCase();
 
@@ -8516,6 +8594,17 @@ const duplicateData = (item) => {
   }
   form.operator = targetOpName;
   form.kodeOperator = prefix;
+  if (form.mesin === 'REWIND') {
+    const rewindCode = getOperatorCodeFromTurunan(nextTurunanVal, 'REWIND') || prefix;
+    const rewindOp = (configStore.activeOperators || []).find(o => o.kodeOperator === rewindCode && isMachineMatch(o.mesin, 'REWIND'))
+      || (configStore.operatorList || []).find(o => o.kodeOperator === rewindCode && isMachineMatch(o.mesin, 'REWIND'));
+    if (rewindOp) {
+      form.operator = rewindOp.nama;
+      form.kodeOperator = rewindOp.kodeOperator;
+    } else {
+      form.kodeOperator = rewindCode;
+    }
+  }
   if (parsedNext.isCasting && parsedNext.shift) {
     form.shift = parsedNext.shift;
   }

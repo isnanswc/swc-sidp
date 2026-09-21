@@ -6,6 +6,85 @@ import { useConfigStore } from '@/stores/configStore';
 import { useGlobalLoading } from '@/services/loadingService';
 import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones, recordLabelsWipedCloud } from '@/services/syncService';
 
+export function normalizeTurunan(val) {
+  if (!val) return '';
+  let str = String(val).trim().toUpperCase();
+  if (str.includes(' ') || str.includes('/')) {
+    str = str.replace(/\s*\/\s*/g, '/').replace(/\s+/g, '/');
+  }
+  return str;
+}
+
+export function formatTurunanDisplay(turunan) {
+  if (!turunan) return '-';
+  const str = String(turunan).trim().toUpperCase();
+  if (str.includes('/')) {
+    return str.split('/').map(s => s.trim()).filter(Boolean).join(' / ');
+  }
+  if (str.includes(' ')) {
+    return str.split(/\s+/).filter(Boolean).join(' / ');
+  }
+  return str;
+}
+
+export function getOperatorCodeFromTurunan(turunan, mesin = '') {
+  if (!turunan) return '';
+  const str = String(turunan).trim().toUpperCase();
+  const m = String(mesin || '').trim().toUpperCase();
+
+  // 1. Kasus Compound (ada slash '/' atau spasi)
+  if (str.includes('/') || str.includes(' ')) {
+    const parts = str.split(/[\/\s]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const child = parts[parts.length - 1];
+      const childMatch = child.match(/^([A-Z]+)\d+$/);
+      if (childMatch) {
+        const letters = childMatch[1];
+        if (letters.length > 1 && ['A', 'B', 'C', 'D'].includes(letters.slice(-1))) {
+          return letters.slice(0, -1);
+        }
+        return letters.charAt(0);
+      }
+      const firstChar = child.charAt(0);
+      if (/[A-Z]/.test(firstChar)) return firstChar;
+    }
+  }
+
+  // 2. Format Single Rewind (e.g. J101, K101, J01, JA01)
+  if (m === 'REWIND') {
+    const rewindMatch = str.match(/^([A-Z]+)\d+$/);
+    if (rewindMatch) {
+      const letters = rewindMatch[1];
+      if (letters.length > 1 && ['A', 'B', 'C', 'D'].includes(letters.slice(-1))) {
+        return letters.slice(0, -1);
+      }
+      return letters.charAt(0);
+    }
+    return str.charAt(0);
+  }
+
+  // 3. Format Casting: L04270826B1A27
+  const matchCasting = str.match(/^([A-Za-z]\d{2})(\d{6})([A-Za-z])([1-3])([A-Za-z])(\d{1,2})$/);
+  if (matchCasting) {
+    return matchCasting[3].toUpperCase();
+  }
+
+  // 4. Standar Slitting: HA01 -> H
+  const matchSlitting = str.match(/^([A-Za-z]+?)([A-Za-z])(\d+)$/);
+  if (matchSlitting) {
+    return matchSlitting[1].toUpperCase();
+  }
+
+  const matchSimple = str.match(/^([A-Za-z]+)(\d+)$/);
+  if (matchSimple) {
+    const letters = matchSimple[1].toUpperCase();
+    if (letters.length >= 2) return letters.substring(0, letters.length - 1);
+    return letters;
+  }
+
+  return str.charAt(0) || 'G';
+}
+
 export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
   const lot = String(item.lot || '').toUpperCase();
   const parts = lot.split('/');
@@ -15,9 +94,19 @@ export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
   if (!t && parts.length >= 2) {
     t = parts[parts.length - 1].toUpperCase();
   }
-  const match = t.match(/^([A-Za-z]+)(\d+)(.*)$/);
+
+  // Jika compound (ada slash atau spasi), gunakan bagian child/rewind untuk penomoran urut
+  let sortToken = t;
+  if (t.includes('/') || t.includes(' ')) {
+    const subParts = t.split(/[\/\s]+/).filter(Boolean);
+    if (subParts.length >= 2) {
+      sortToken = subParts[subParts.length - 1];
+    }
+  }
+
+  const match = sortToken.match(/^([A-Za-z]+)(\d+)(.*)$/);
   const turunanNum = match ? parseInt(match[2], 10) : 999999;
-  const turunanPrefix = match ? match[1] : t;
+  const turunanPrefix = match ? match[1] : sortToken;
   const turunanExtra = match ? match[3] || '' : '';
 
   const dateStr = String(item.tanggalFormatted || item.tanggal || '');
@@ -200,7 +289,7 @@ export const useLabelStore = defineStore('labelStore', {
             matchesOperator = matchedOps.some(o => 
               (item.kodeOperator && item.kodeOperator.toUpperCase() === o.kodeOperator.toUpperCase()) ||
               (item.operator && (item.operator.toUpperCase().includes(o.kodeOperator.toUpperCase()) || item.operator.toUpperCase().includes(o.nama.toUpperCase()))) ||
-              (item.turunan && item.turunan.toUpperCase().startsWith(o.kodeOperator.toUpperCase()))
+              (item.turunan && getOperatorCodeFromTurunan(item.turunan, item.mesin) === o.kodeOperator.toUpperCase())
             );
           }
         }
@@ -389,14 +478,18 @@ export const useLabelStore = defineStore('labelStore', {
           delete item.isDataRoll;
           delete item.originalRollId;
 
+          const normTurunan = normalizeTurunan(turunan);
+          const detectedOpCode = getOperatorCodeFromTurunan(normTurunan, item.mesin || 'SLITTING');
+          const finalOpCode = (item.mesin === 'REWIND' && detectedOpCode) ? detectedOpCode : (kodeOperator || detectedOpCode || 'G');
+
           const baseObj = {
             ...item,
             isDataRoll: false,
             originalRollId: null,
             lot,
-            turunan,
-            kodeOperator: kodeOperator || (turunan ? turunan.charAt(0) : 'G'),
-            operator: item.operator || (kodeOperator ? `OPERATOR ${kodeOperator}` : 'OPERATOR'),
+            turunan: normTurunan,
+            kodeOperator: finalOpCode,
+            operator: item.operator || (finalOpCode ? `OPERATOR ${finalOpCode}` : 'OPERATOR'),
             shift,
             supplier,
             uniqId: item.uniqId || `LBL-${Date.now().toString(36)}`,
@@ -443,8 +536,9 @@ export const useLabelStore = defineStore('labelStore', {
             .filter(r => !existingUuids.has(r.uuid) && (!r.uuid || !deletedRollSet.has(r.uuid)))
             .map(r => {
               const lot = r.lot || '';
-              const turunan = r.turunan || '';
-              const kodeOperator = r.kodeOperator || (turunan ? turunan.charAt(0) : 'G');
+              const normTurunan = normalizeTurunan(r.turunan || '');
+              const detectedOpCode = getOperatorCodeFromTurunan(normTurunan, r.mesin || 'SLITTING');
+              const kodeOperator = (r.mesin === 'REWIND' && detectedOpCode) ? detectedOpCode : (r.kodeOperator || detectedOpCode || 'G');
               const shift = r.shift || '';
               const supplier = r.supplier || detectSupplier(r.kodeFg || lot, r.spk);
 
