@@ -537,6 +537,7 @@ export const useLabelStore = defineStore('labelStore', {
             .map(r => {
               const lot = r.lot || '';
               const normTurunan = normalizeTurunan(r.turunan || '');
+              const turunan = normTurunan || r.turunan || '';
               const detectedOpCode = getOperatorCodeFromTurunan(normTurunan, r.mesin || 'SLITTING');
               const kodeOperator = (r.mesin === 'REWIND' && detectedOpCode) ? detectedOpCode : (r.kodeOperator || detectedOpCode || 'G');
               const shift = r.shift || '';

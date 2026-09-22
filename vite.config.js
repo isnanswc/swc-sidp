@@ -7,9 +7,18 @@ export default defineConfig({
   plugins: [vue()],
   base: './', // Vital for GitHub Pages & static hosting
   resolve: {
+    preserveSymlinks: true,
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
+  },
+  server: {
+    fs: {
+      strict: false
+    }
+  },
+  optimizeDeps: {
+    entries: ['index.html']
   },
   build: {
     chunkSizeWarningLimit: 1000,
