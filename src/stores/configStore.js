@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { db, getSetting, saveSetting } from '@/db';
-import { pushLocalToSupabase, deleteFromSupabase, recordTombstones, getTombstones } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase, recordTombstones, removeTombstones, getTombstones } from '@/services/syncService';
 
 // ── DEFAULT SEED DATA ──────────────────────────────────────────────────────────
 
@@ -397,9 +397,30 @@ export const useConfigStore = defineStore('configStore', {
                 const localExisting = await db.operator_list.toArray();
 
                 // Bersihkan record lokal yang sudah dihapus dari Cloud Supabase (ZOMBIE PURGE)
-                const zombieIds = localExisting
-                  .filter(l => l.nama && !cloudNames.has(l.nama.trim().toUpperCase()))
-                  .map(l => l.id);
+                // Kecuali record yang baru dibuat di lokal (< 2 menit)
+                const nowMs = Date.now();
+                const zombieIds = [];
+                for (const l of localExisting) {
+                  const locName = (l.nama || '').trim().toUpperCase();
+                  if (!locName) continue;
+                  if (!cloudNames.has(locName)) {
+                    const ageMs = nowMs - new Date(l.createdAt || 0).getTime();
+                    if (ageMs >= 120000) {
+                      zombieIds.push(l.id);
+                    } else {
+                      // Operator baru dibuat di lokal: pertahankan dan segera push ke Cloud!
+                      supabase.from('operator_list').upsert({
+                        nama: locName,
+                        mesin: (l.mesin || '').trim().toUpperCase(),
+                        kode_grup: (l.kodeGrup || 'A').trim().toUpperCase(),
+                        kode_operator: (l.kodeOperator || '').trim().toUpperCase(),
+                        active: l.active !== false,
+                        created_at: l.createdAt || now,
+                        updated_at: l.updatedAt || now
+                      }, { onConflict: 'nama' }).then(() => {});
+                    }
+                  }
+                }
                 if (zombieIds.length > 0) {
                   await db.operator_list.bulkDelete(zombieIds);
                 }
@@ -436,13 +457,16 @@ export const useConfigStore = defineStore('configStore', {
                   };
 
                   const existingLocal = localExisting.find(l => (l.nama || '').trim().toUpperCase() === upperName);
-                  if (existingLocal) {
+                  if (existingLocal && existingLocal.id) {
                     rec.id = existingLocal.id;
+                    await db.operator_list.put(rec);
+                  } else {
+                    const newId = await db.operator_list.add(rec);
+                    rec.id = newId;
                   }
                   syncedOps.push(rec);
                 }
 
-                await db.operator_list.bulkPut(syncedOps);
                 this.operatorList = syncedOps.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
               }
             }
@@ -779,11 +803,12 @@ export const useConfigStore = defineStore('configStore', {
         createdAt: now,
         updatedAt: now
       };
+      removeTombstones('operator_list', [newOp.nama]);
       const id = await db.operator_list.add(newOp);
       this.operatorList.push({ ...newOp, id });
       this.operatorList.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
 
-      // Direct insert ke Cloud Supabase agar tersimpan seketika
+      // Direct upsert ke Cloud Supabase agar tersimpan seketika
       try {
         const { supabase } = await import('@/services/supabaseClient');
         if (supabase) {
@@ -796,7 +821,10 @@ export const useConfigStore = defineStore('configStore', {
             created_at: now,
             updated_at: now
           };
-          await supabase.from('operator_list').insert([cloudPayload]);
+          const { error: insErr } = await supabase.from('operator_list').upsert(cloudPayload, { onConflict: 'nama' });
+          if (insErr) {
+            console.warn('[ConfigStore] Direct cloud upsert operator notice:', insErr.message);
+          }
         }
       } catch (e) {
         console.warn('[ConfigStore] Direct cloud insert operator notice:', e);
@@ -826,11 +854,14 @@ export const useConfigStore = defineStore('configStore', {
           }
         }
 
-        await supabase.from('settings').upsert({
+        const { error: setErr } = await supabase.from('settings').upsert({
           key: 'operator_tenure_registry',
           value: JSON.stringify(tenureMap),
           updated_at: new Date().toISOString()
-        });
+        }, { onConflict: 'key' });
+        if (setErr) {
+          console.warn('[ConfigStore] Gagal simpan operator_tenure_registry ke Supabase:', setErr.message);
+        }
       } catch (e) {
         console.warn('[ConfigStore] Gagal simpan operator_tenure_registry ke Supabase:', e);
       }
@@ -885,7 +916,10 @@ export const useConfigStore = defineStore('configStore', {
             if (updated.mesin !== undefined) cloudUpdate.mesin = updated.mesin;
             cloudUpdate.updated_at = now;
 
-            await supabase.from('operator_list').update(cloudUpdate).ilike('nama', targetName);
+            const { error: updErr } = await supabase.from('operator_list').update(cloudUpdate).ilike('nama', targetName);
+            if (updErr) {
+              console.warn('[ConfigStore] Direct cloud update operator error:', updErr.message);
+            }
           }
         }
       } catch (e) {
@@ -917,7 +951,7 @@ export const useConfigStore = defineStore('configStore', {
       const d = new Date(endDate);
       d.setDate(d.getDate() + 1);
       const nextDay = d.toISOString().slice(0, 10);
-      const startDate = newOperatorData.berlakuMulai || nextDay;
+      const startDate = newOperatorData.berlakuMulai || (endDate < today ? nextDay : today);
 
       await this.addOperator({
         ...newOperatorData,

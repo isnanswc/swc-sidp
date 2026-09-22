@@ -563,7 +563,9 @@ export async function pushLocalToSupabase() {
           const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
           if (tombstones.size > 0) {
             for (const deadName of tombstones) {
-              await supabase.from('operator_list').delete().ilike('nama', deadName).catch(() => {});
+              try {
+                await supabase.from('operator_list').delete().ilike('nama', deadName);
+              } catch (_) {}
             }
           }
 
@@ -571,25 +573,17 @@ export async function pushLocalToSupabase() {
           const validOperators = operators.filter(o => o.nama && !tombstones.has(o.nama.trim().toUpperCase()));
 
           if (validOperators.length > 0) {
-            // Ambil daftar nama sah di Cloud agar tidak membangkitkan zombie dari PC stale
-            const { data: cloudList } = await supabase.from('operator_list').select('nama');
-            const cloudNamesSet = new Set((cloudList || []).map(c => (c.nama || '').trim().toUpperCase()));
+            const payload = validOperators.map(o => ({
+              nama: (o.nama || '').trim().toUpperCase(),
+              mesin: (o.mesin || '').trim().toUpperCase(),
+              kode_grup: (o.kodeGrup || 'A').trim().toUpperCase(),
+              kode_operator: (o.kodeOperator || '').trim().toUpperCase(),
+              active: o.active !== false,
+              created_at: o.createdAt || new Date().toISOString(),
+              updated_at: o.updatedAt || new Date().toISOString()
+            }));
 
-            const toPush = validOperators.filter(o => cloudNamesSet.size === 0 || cloudNamesSet.has(o.nama.trim().toUpperCase()));
-
-            if (toPush.length > 0) {
-              const payload = toPush.map(o => ({
-                nama: o.nama,
-                mesin: o.mesin || '',
-                kode_grup: o.kodeGrup || '',
-                kode_operator: o.kodeOperator || '',
-                active: o.active !== false,
-                created_at: o.createdAt || new Date().toISOString(),
-                updated_at: o.updatedAt || new Date().toISOString()
-              }));
-
-              await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
-            }
+            await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
           }
         } catch (e) {
           console.warn('operator_list push error:', e);
@@ -1512,9 +1506,30 @@ export async function pullFromSupabase(forceFull = false) {
           }
 
           // Bersihkan record lokal yang tidak ada di Cloud (ZOMBIE PURGE)
-          const zombieIds = existing
-            .filter(o => o.nama && !cloudNamesSet.has(o.nama.trim().toUpperCase()))
-            .map(o => o.id);
+          // Kecuali record yang baru saja dibuat di lokal (< 2 menit) untuk mencegah race condition
+          const nowMs = Date.now();
+          const zombieIds = [];
+          for (const o of existing) {
+            const opName = (o.nama || '').trim().toUpperCase();
+            if (!opName) continue;
+            if (!cloudNamesSet.has(opName)) {
+              const ageMs = nowMs - new Date(o.createdAt || 0).getTime();
+              if (ageMs >= 120000) {
+                zombieIds.push(o.id);
+              } else {
+                // Record baru dibuat di lokal: segera push ke Cloud!
+                supabase.from('operator_list').upsert({
+                  nama: opName,
+                  mesin: (o.mesin || '').trim().toUpperCase(),
+                  kode_grup: (o.kodeGrup || 'A').trim().toUpperCase(),
+                  kode_operator: (o.kodeOperator || '').trim().toUpperCase(),
+                  active: o.active !== false,
+                  created_at: o.createdAt || new Date().toISOString(),
+                  updated_at: o.updatedAt || new Date().toISOString()
+                }, { onConflict: 'nama' }).then(() => {});
+              }
+            }
+          }
           if (zombieIds.length > 0) {
             await db.operator_list.bulkDelete(zombieIds);
           }
@@ -1573,7 +1588,9 @@ export async function pullFromSupabase(forceFull = false) {
           // Purge sisa-sisa baris terhapus di Supabase jika ada
           if (cloudDeadNames.length > 0) {
             for (const deadName of cloudDeadNames) {
-              await supabase.from('operator_list').delete().ilike('nama', deadName).catch(() => {});
+              try {
+                await supabase.from('operator_list').delete().ilike('nama', deadName);
+              } catch (_) {}
             }
           }
         }
