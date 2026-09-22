@@ -91,3 +91,10 @@ textarea:focus {
   z-index: 15;
 }
 
+/* ── STRICT PRINT ISOLATION: GUARANTEE ONLY #printOnlyArea PRINTS ── */
+@media print {
+  body > *:not(#printOnlyArea) {
+    display: none !important;
+  }
+}
+

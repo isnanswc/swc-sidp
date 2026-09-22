@@ -9080,8 +9080,9 @@ watch(() => form.kode, () => {
     height: auto !important;
   }
 
-  /* HIDE ENTIRE SPA UI */
-  #app {
+  /* HIDE ENTIRE SPA UI AND ALL BODY POPUPS / OVERLAYS */
+  #app,
+  body > *:not(#printOnlyArea) {
     display: none !important;
   }
 

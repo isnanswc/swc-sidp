@@ -13,7 +13,7 @@
     >
       <div
         v-if="isLoading"
-        class="fixed top-0 left-0 right-0 z-999 h-0.5 sm:h-1 bg-transparent pointer-events-none overflow-hidden"
+        class="fixed top-0 left-0 right-0 z-999 h-0.5 sm:h-1 bg-transparent pointer-events-none overflow-hidden print:hidden"
       >
         <!-- Animated Crimson Glowing Bar -->
         <div class="h-full bg-gradient-to-r from-red-600 via-rose-500 to-red-600 shadow-[0_0_8px_rgba(239,68,68,0.8)] slim-progress-bar"></div>
@@ -33,7 +33,7 @@
     >
       <div
         v-if="isLoading"
-        class="fixed top-16 sm:top-18 right-3 sm:right-6 z-40 select-none pointer-events-auto"
+        class="fixed top-16 sm:top-18 right-3 sm:right-6 z-40 select-none pointer-events-auto print:hidden"
       >
         <div
           class="bg-zinc-900/95 text-white backdrop-blur-md border border-zinc-700/80 shadow-xl rounded-2xl py-1.5 px-3 flex items-center gap-2 max-w-[280px] sm:max-w-xs text-xs font-medium"
@@ -93,5 +93,11 @@ const { isLoading, loadingMessage, elapsedSeconds, isLongRunning, forceResetLoad
   animation: slimProgressIndeterminate 1.4s infinite cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: left center;
   width: 100%;
+}
+
+@media print {
+  * {
+    display: none !important;
+  }
 }
 </style>
