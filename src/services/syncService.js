@@ -1553,9 +1553,11 @@ export async function pullFromSupabase(forceFull = false) {
             const berlakuMulai = tInfo.berlakuMulai || co.berlaku_mulai || '2020-01-01';
             const berlakuSampai = (tInfo.berlakuSampai !== undefined) ? tInfo.berlakuSampai : (co.berlaku_sampai ?? null);
 
+            // Status active: jika salah satu (tabel operator_list atau tenure registry) bernilai false,
+            // maka operator tersebut NONAKTIF! Nilai true lama tidak boleh membangkitkan operator yang sudah dinonaktifkan.
             let activeState = (co.active !== false);
-            if (tInfo.active !== undefined) {
-              activeState = Boolean(tInfo.active);
+            if (co.active === false || tInfo.active === false) {
+              activeState = false;
             }
             if (berlakuSampai && berlakuSampai < today) {
               activeState = false;
