@@ -5292,23 +5292,28 @@ function resolveOperator(item) {
     if (rewindDefault) return rewindDefault;
   }
 
-  // 1. Direct match by kodeOperator & Machine dengan timeline masa jabatan
-  if (rawCode) {
+  // 1. PRIORITAS UTAMA: Ekstrak kode operator sah (dari kodeOperator atau dari Turunan) dan cocokkan Masa Jabatan
+  let effectiveCode = rawCode;
+  if (!effectiveCode && item.turunan) {
+    effectiveCode = getOperatorCodeFromTurunan(item.turunan, machine) || '';
+  }
+
+  if (effectiveCode) {
     if (typeof configStore.getOperatorByDate === 'function') {
-      const byDate = configStore.getOperatorByDate(rawCode, machine, targetDate);
+      const byDate = configStore.getOperatorByDate(effectiveCode, machine, targetDate);
       if (byDate) return byDate;
     }
 
-    const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
-      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
+    const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === effectiveCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
+      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === effectiveCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
     if (byCodeMachine) return byCodeMachine;
 
-    const byCode = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.active !== false)
-      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase());
+    const byCode = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === effectiveCode.toUpperCase() && o.active !== false)
+      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === effectiveCode.toUpperCase());
     if (byCode) return byCode;
   }
 
-  // 2. Direct match by nama or code in item.operator
+  // 2. Match by nama or bracketed in item.operator
   if (rawOp) {
     let cleanedOp = rawOp;
     if (cleanedOp.toUpperCase().startsWith('OPERATOR ')) {
@@ -5337,40 +5342,6 @@ function resolveOperator(item) {
 
       const byName = list.find(o => o.nama && o.nama.toUpperCase() === cleanedOp.toUpperCase());
       if (byName) return byName;
-
-      // Check if cleanedOp matches operator's kodeOperator (e.g. "G", "H", "W")
-      if (typeof configStore.getOperatorByDate === 'function') {
-        const byDate = configStore.getOperatorByDate(cleanedOp, machine, targetDate);
-        if (byDate) return byDate;
-      }
-
-      const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === cleanedOp.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
-      if (byCodeMachine) return byCodeMachine;
-
-      const byCode = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === cleanedOp.toUpperCase());
-      if (byCode) return byCode;
-    }
-  }
-
-  // 3. Fallback: Parse from Turunan
-  if (item.turunan) {
-    const parsed = parseTurunan(item.turunan);
-    if (parsed) {
-      const opPrefix = (parsed.isCasting && parsed.op) ? parsed.op : parsed.prefix;
-      if (opPrefix) {
-        if (typeof configStore.getOperatorByDate === 'function') {
-          const byDate = configStore.getOperatorByDate(opPrefix, machine, targetDate);
-          if (byDate) return byDate;
-        }
-
-        const byTurunanMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
-          || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
-        if (byTurunanMachine) return byTurunanMachine;
-
-        const byTurunan = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase() && o.active !== false)
-          || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase());
-        if (byTurunan) return byTurunan;
-      }
     }
   }
 

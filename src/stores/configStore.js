@@ -367,76 +367,95 @@ export const useConfigStore = defineStore('configStore', {
           }
         }
 
-        // Migrasi data kodeGrup & masa jabatan operator jika belum ada di database
+        // ── SINKRONISASI OPERATOR: CLOUD AS SINGLE SOURCE OF TRUTH ─────────────
         const now = new Date().toISOString();
-        for (let i = 0; i < this.operatorList.length; i++) {
-          const op = this.operatorList[i];
-          let changed = false;
-          const patch = {};
-          if (!op.kodeGrup) {
-            const defaultGrp = (i % 3 === 0) ? 'A' : (i % 3 === 1) ? 'B' : 'C';
-            op.kodeGrup = defaultGrp;
-            patch.kodeGrup = defaultGrp;
-            changed = true;
-          }
-          if (!op.berlakuMulai) {
-            op.berlakuMulai = '2020-01-01';
-            patch.berlakuMulai = '2020-01-01';
-            changed = true;
-          }
-          if (op.berlakuSampai === undefined) {
-            op.berlakuSampai = null;
-            patch.berlakuSampai = null;
-            changed = true;
-          }
-          if (changed && op.id) {
-            patch.updatedAt = now;
-            await db.operator_list.update(op.id, patch);
-          }
-        }
+        const today = now.slice(0, 10);
 
-        // ZERO-SEEDING POLICY: Tidak ada auto-seeding data dummy baru. Data yang diupload pengguna dijaga 100% utuh tanpa pemblokiran nama.
-        const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
-
-        // Bersihkan data lokal yang ada di tombstone (misal dari sisa rename/delete lama)
-        if (tombstones.size > 0 && this.operatorList.length > 0) {
-          const toRemoveIds = this.operatorList
-            .filter(o => o.nama && tombstones.has(o.nama.trim().toUpperCase()))
-            .map(o => o.id);
-          if (toRemoveIds.length > 0) {
-            await db.operator_list.bulkDelete(toRemoveIds);
-            this.operatorList = this.operatorList.filter(o => !toRemoveIds.includes(o.id));
-          }
-        }
-
-        // Jika IndexedDB lokal belum memiliki daftar operator, ambil data real yang tersimpan di Cloud Supabase (kecuali tombstone)
-        if (this.operatorList.length === 0) {
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
           try {
             const { supabase } = await import('@/services/supabaseClient');
-            const { data: cloudOps } = await supabase.from('operator_list').select('*');
-            if (cloudOps && cloudOps.length > 0) {
-              const recs = cloudOps
-                .filter(co => !tombstones.has((co.nama || '').trim().toUpperCase()))
-                .map(co => ({
-                  nama: co.nama,
-                  mesin: co.mesin,
-                  kodeGrup: co.kode_grup,
-                  kodeOperator: co.kode_operator,
-                  berlakuMulai: co.berlaku_mulai || '2020-01-01',
-                  berlakuSampai: co.berlaku_sampai || null,
-                  active: co.active !== false,
-                  createdAt: co.created_at || now,
-                  updatedAt: co.updated_at || now
-                }));
-              await db.operator_list.bulkPut(recs);
+            if (supabase) {
+              const [opsRes, tenureRes] = await Promise.all([
+                supabase.from('operator_list').select('*'),
+                supabase.from('settings').select('value').eq('key', 'operator_tenure_registry').single()
+              ]);
+
+              const cloudOps = opsRes.data || [];
+              let tenureMap = {};
+              if (tenureRes.data && tenureRes.data.value) {
+                try {
+                  tenureMap = typeof tenureRes.data.value === 'string'
+                    ? JSON.parse(tenureRes.data.value)
+                    : tenureRes.data.value;
+                } catch (eT) {
+                  tenureMap = {};
+                }
+              }
+
+              if (cloudOps.length > 0) {
+                const cloudNames = new Set(cloudOps.map(co => (co.nama || '').trim().toUpperCase()));
+                const localExisting = await db.operator_list.toArray();
+
+                // Bersihkan record lokal yang sudah dihapus dari Cloud Supabase (ZOMBIE PURGE)
+                const zombieIds = localExisting
+                  .filter(l => l.nama && !cloudNames.has(l.nama.trim().toUpperCase()))
+                  .map(l => l.id);
+                if (zombieIds.length > 0) {
+                  await db.operator_list.bulkDelete(zombieIds);
+                }
+
+                // Gabungkan data cloud dengan metadata masa jabatan tenure registry
+                const syncedOps = [];
+                for (const co of cloudOps) {
+                  const upperName = (co.nama || '').trim().toUpperCase();
+                  if (!upperName) continue;
+                  const tInfo = tenureMap[upperName] || {};
+
+                  const berlakuMulai = tInfo.berlakuMulai || co.berlaku_mulai || '2020-01-01';
+                  const berlakuSampai = (tInfo.berlakuSampai !== undefined) ? tInfo.berlakuSampai : (co.berlaku_sampai ?? null);
+
+                  // Status active: patuhi Cloud & tenureMap. Jika berlakuSampai < today, otomatis nonaktif
+                  let activeState = (co.active !== false);
+                  if (tInfo.active !== undefined) {
+                    activeState = Boolean(tInfo.active);
+                  }
+                  if (berlakuSampai && berlakuSampai < today) {
+                    activeState = false;
+                  }
+
+                  const rec = {
+                    nama: upperName,
+                    mesin: (co.mesin || tInfo.mesin || '').trim().toUpperCase(),
+                    kodeGrup: (co.kode_grup || tInfo.kodeGrup || 'A').trim().toUpperCase(),
+                    kodeOperator: (co.kode_operator || tInfo.kodeOperator || '').trim().toUpperCase(),
+                    berlakuMulai,
+                    berlakuSampai,
+                    active: activeState,
+                    createdAt: co.created_at || now,
+                    updatedAt: co.updated_at || now
+                  };
+
+                  const existingLocal = localExisting.find(l => (l.nama || '').trim().toUpperCase() === upperName);
+                  if (existingLocal) {
+                    rec.id = existingLocal.id;
+                  }
+                  syncedOps.push(rec);
+                }
+
+                await db.operator_list.bulkPut(syncedOps);
+                this.operatorList = syncedOps.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+              }
             }
           } catch (eCloud) {
             console.warn('[ConfigStore] Gagal sinkron operator dari Supabase:', eCloud);
           }
         }
 
-        this.operatorList = (await db.operator_list.toArray())
-          .sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+        // Fallback jika offline atau cloud belum siap
+        if (!this.operatorList || this.operatorList.length === 0) {
+          this.operatorList = (await db.operator_list.toArray())
+            .sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
+        }
       } finally {
         this.loading = false;
       }
@@ -773,24 +792,48 @@ export const useConfigStore = defineStore('configStore', {
             mesin: newOp.mesin,
             kode_grup: newOp.kodeGrup,
             kode_operator: newOp.kodeOperator,
-            berlaku_mulai: newOp.berlakuMulai,
-            berlaku_sampai: newOp.berlakuSampai,
             active: newOp.active !== false,
             created_at: now,
             updated_at: now
           };
-          const { error: insErr } = await supabase.from('operator_list').insert([cloudPayload]);
-          if (insErr && (insErr.message?.includes('berlaku') || insErr.code === '42703')) {
-            delete cloudPayload.berlaku_mulai;
-            delete cloudPayload.berlaku_sampai;
-            await supabase.from('operator_list').insert([cloudPayload]);
-          }
+          await supabase.from('operator_list').insert([cloudPayload]);
         }
       } catch (e) {
         console.warn('[ConfigStore] Direct cloud insert operator notice:', e);
       }
 
+      await this.saveTenureRegistryToCloud();
       pushLocalToSupabase().catch(() => {});
+    },
+
+    async saveTenureRegistryToCloud() {
+      try {
+        if (typeof navigator === 'undefined' || !navigator.onLine) return;
+        const { supabase } = await import('@/services/supabaseClient');
+        if (!supabase) return;
+
+        const tenureMap = {};
+        for (const o of this.operatorList) {
+          if (o.nama) {
+            tenureMap[o.nama.trim().toUpperCase()] = {
+              kodeOperator: o.kodeOperator,
+              mesin: o.mesin,
+              kodeGrup: o.kodeGrup,
+              berlakuMulai: o.berlakuMulai || '2020-01-01',
+              berlakuSampai: o.berlakuSampai || null,
+              active: o.active !== false
+            };
+          }
+        }
+
+        await supabase.from('settings').upsert({
+          key: 'operator_tenure_registry',
+          value: JSON.stringify(tenureMap),
+          updated_at: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('[ConfigStore] Gagal simpan operator_tenure_registry ke Supabase:', e);
+      }
     },
 
     async updateOperator(id, changes) {
@@ -817,8 +860,6 @@ export const useConfigStore = defineStore('configStore', {
       this.operatorList.sort((a, b) => (a.kodeOperator || '').localeCompare(b.kodeOperator || ''));
 
       // PENTING: Penanganan Rename Operator
-      // Jika nama operator diubah, nama lama di Supabase HARUS dihapus dan dicatat di tombstone,
-      // agar tidak tertinggal di cloud dan ditarik kembali sebagai duplikat saat sinkronisasi!
       if (isRenamed) {
         const oldName = oldRecord.nama.trim();
         recordTombstones('operator_list', [oldName.toUpperCase()]);
@@ -831,7 +872,7 @@ export const useConfigStore = defineStore('configStore', {
         } catch (e) {}
       }
 
-      // DIRECT UPDATE ke Supabase Cloud seketika agar status active & tanggal jabatan tidak ter-revert
+      // DIRECT UPDATE ke Supabase Cloud seketika agar status active tidak ter-revert
       try {
         const { supabase } = await import('@/services/supabaseClient');
         if (supabase) {
@@ -842,22 +883,16 @@ export const useConfigStore = defineStore('configStore', {
             if (updated.kodeOperator !== undefined) cloudUpdate.kode_operator = updated.kodeOperator;
             if (updated.kodeGrup !== undefined) cloudUpdate.kode_grup = updated.kodeGrup;
             if (updated.mesin !== undefined) cloudUpdate.mesin = updated.mesin;
-            if (updated.berlakuMulai !== undefined) cloudUpdate.berlaku_mulai = updated.berlakuMulai;
-            if (updated.berlakuSampai !== undefined) cloudUpdate.berlaku_sampai = updated.berlakuSampai;
             cloudUpdate.updated_at = now;
 
-            const { error: updErr } = await supabase.from('operator_list').update(cloudUpdate).ilike('nama', targetName);
-            if (updErr && (updErr.message?.includes('berlaku') || updErr.code === '42703')) {
-              delete cloudUpdate.berlaku_mulai;
-              delete cloudUpdate.berlaku_sampai;
-              await supabase.from('operator_list').update(cloudUpdate).ilike('nama', targetName);
-            }
+            await supabase.from('operator_list').update(cloudUpdate).ilike('nama', targetName);
           }
         }
       } catch (e) {
         console.warn('[ConfigStore] Direct cloud update operator notice:', e);
       }
 
+      await this.saveTenureRegistryToCloud();
       pushLocalToSupabase().catch(() => {});
     },
 
@@ -908,15 +943,25 @@ export const useConfigStore = defineStore('configStore', {
       if (matchingOps.length === 1) return matchingOps[0];
 
       // 1. Cocokkan rentang masa jabatan
-      const periodMatch = matchingOps.find(o => {
+      const periodMatches = matchingOps.filter(o => {
         const start = o.berlakuMulai || '2020-01-01';
         const end = o.berlakuSampai || '9999-12-31';
         return dateStr >= start && dateStr <= end;
       });
-      if (periodMatch) return periodMatch;
+
+      if (periodMatches.length === 1) return periodMatches[0];
+      if (periodMatches.length > 1) {
+        const today = new Date().toISOString().slice(0, 10);
+        if (dateStr >= today) {
+          const activeMatch = periodMatches.find(o => o.active !== false && !o.berlakuSampai);
+          if (activeMatch) return activeMatch;
+        }
+        return periodMatches[periodMatches.length - 1];
+      }
 
       // 2. Fallback: ambil yang sedang aktif menjabat
-      const activeOp = matchingOps.find(o => !o.berlakuSampai && o.active !== false);
+      const activeOp = matchingOps.find(o => !o.berlakuSampai && o.active !== false)
+        || matchingOps.find(o => o.active !== false);
       if (activeOp) return activeOp;
 
       return matchingOps[matchingOps.length - 1];
@@ -939,6 +984,7 @@ export const useConfigStore = defineStore('configStore', {
           }
         } catch (e) {}
       }
+      await this.saveTenureRegistryToCloud();
     },
 
     /**

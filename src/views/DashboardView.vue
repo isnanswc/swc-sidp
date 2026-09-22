@@ -2221,12 +2221,21 @@ const selectedMachineTab = ref('SLITTING');
 const resolveOperatorInfo = (item, targetMachine) => {
   const rawOp = String(item.operator || '').trim();
   const rawCode = String(item.kodeOperator || (item.turunan ? item.turunan.charAt(0) : '')).trim().toUpperCase();
+  const targetDate = item.tanggalShift || item.tanggalProduksi || item.tanggal || (item.createdAt ? String(item.createdAt).slice(0, 10) : null);
   const dbOps = configStore.operatorList || [];
 
-  // 1. Cari exact match by Nama Operator di Master Database
-  let matched = dbOps.find(o => o.nama && o.nama.toUpperCase() === rawOp.toUpperCase());
+  // 1. Prioritaskan kecocokan masa jabatan berdasarkan tanggal produksi & kode operator
+  let matched = null;
+  if (rawCode && typeof configStore.getOperatorByDate === 'function') {
+    matched = configStore.getOperatorByDate(rawCode, targetMachine, targetDate);
+  }
 
-  // 2. Cari by Kode Operator & Mesin
+  // 2. Cari exact match by Nama Operator di Master Database
+  if (!matched && rawOp) {
+    matched = dbOps.find(o => o.nama && o.nama.toUpperCase() === rawOp.toUpperCase());
+  }
+
+  // 3. Cari by Kode Operator & Mesin
   if (!matched && rawCode) {
     matched = dbOps.find(o => 
       o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode &&
@@ -2234,7 +2243,7 @@ const resolveOperatorInfo = (item, targetMachine) => {
     );
   }
 
-  // 3. Cari by Kode Operator saja
+  // 4. Cari by Kode Operator saja
   if (!matched && rawCode) {
     matched = dbOps.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode);
   }

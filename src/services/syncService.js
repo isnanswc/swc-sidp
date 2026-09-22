@@ -571,48 +571,24 @@ export async function pushLocalToSupabase() {
           const validOperators = operators.filter(o => o.nama && !tombstones.has(o.nama.trim().toUpperCase()));
 
           if (validOperators.length > 0) {
-            const payload = validOperators.map(o => ({
-              nama: o.nama,
-              mesin: o.mesin || '',
-              kode_grup: o.kodeGrup || '',
-              kode_operator: o.kodeOperator || '',
-              berlaku_mulai: o.berlakuMulai || '2020-01-01',
-              berlaku_sampai: o.berlakuSampai || null,
-              active: o.active !== false,
-              created_at: o.createdAt || new Date().toISOString(),
-              updated_at: o.updatedAt || new Date().toISOString()
-            }));
+            // Ambil daftar nama sah di Cloud agar tidak membangkitkan zombie dari PC stale
+            const { data: cloudList } = await supabase.from('operator_list').select('nama');
+            const cloudNamesSet = new Set((cloudList || []).map(c => (c.nama || '').trim().toUpperCase()));
 
-            let { error } = await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
-            if (error && (error.message?.includes('berlaku') || error.code === '42703')) {
-              // Jika kolom masa jabatan belum ada di Supabase remote, fallback tanpa kolom tersebut
-              const strippedPayload = payload.map(({ berlaku_mulai, berlaku_sampai, ...rest }) => rest);
-              const res = await supabase.from('operator_list').upsert(strippedPayload, { onConflict: 'nama' });
-              error = res.error;
-            }
+            const toPush = validOperators.filter(o => cloudNamesSet.size === 0 || cloudNamesSet.has(o.nama.trim().toUpperCase()));
 
-            // Jika upsert gagal (misal tidak ada constraint unique nama di Supabase), jalankan fallback update/insert per baris
-            if (error) {
-              console.warn('operator_list upsert fallback per-item:', error.message);
-              const { data: existing } = await supabase.from('operator_list').select('nama');
-              const existingSet = new Set((existing || []).map(e => (e.nama || '').trim().toUpperCase()));
+            if (toPush.length > 0) {
+              const payload = toPush.map(o => ({
+                nama: o.nama,
+                mesin: o.mesin || '',
+                kode_grup: o.kodeGrup || '',
+                kode_operator: o.kodeOperator || '',
+                active: o.active !== false,
+                created_at: o.createdAt || new Date().toISOString(),
+                updated_at: o.updatedAt || new Date().toISOString()
+              }));
 
-              for (const p of payload) {
-                const isExisting = existingSet.has((p.nama || '').trim().toUpperCase());
-                if (isExisting) {
-                  let { error: uErr } = await supabase.from('operator_list').update(p).ilike('nama', p.nama);
-                  if (uErr && (uErr.message?.includes('berlaku') || uErr.code === '42703')) {
-                    const { berlaku_mulai, berlaku_sampai, ...rest } = p;
-                    await supabase.from('operator_list').update(rest).ilike('nama', p.nama);
-                  }
-                } else {
-                  let { error: iErr } = await supabase.from('operator_list').insert([p]);
-                  if (iErr && (iErr.message?.includes('berlaku') || iErr.code === '42703')) {
-                    const { berlaku_mulai, berlaku_sampai, ...rest } = p;
-                    await supabase.from('operator_list').insert([rest]);
-                  }
-                }
-              }
+              await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
             }
           }
         } catch (e) {
@@ -1508,14 +1484,41 @@ export async function pullFromSupabase(forceFull = false) {
       }
     } catch (e) {}
 
-    // Pull Operators
+    // Pull Operators (Cloud as Single Source of Truth)
     if (db.operator_list) {
       pullTasks.push((async () => {
-        const { data: cloudOps } = await supabase.from('operator_list').select('*');
+        const [opsRes, tenureRes] = await Promise.all([
+          supabase.from('operator_list').select('*'),
+          supabase.from('settings').select('value').eq('key', 'operator_tenure_registry').single()
+        ]);
+
+        const cloudOps = opsRes.data;
         if (cloudOps && cloudOps.length > 0) {
           const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
           const existing = await db.operator_list.toArray();
           const localMap = new Map(existing.map(o => [(o.nama || '').trim().toUpperCase(), o]));
+          const cloudNamesSet = new Set(cloudOps.map(co => (co.nama || '').trim().toUpperCase()));
+          const today = new Date().toISOString().slice(0, 10);
+
+          let tenureMap = {};
+          if (tenureRes.data && tenureRes.data.value) {
+            try {
+              tenureMap = typeof tenureRes.data.value === 'string'
+                ? JSON.parse(tenureRes.data.value)
+                : tenureRes.data.value;
+            } catch (eT) {
+              tenureMap = {};
+            }
+          }
+
+          // Bersihkan record lokal yang tidak ada di Cloud (ZOMBIE PURGE)
+          const zombieIds = existing
+            .filter(o => o.nama && !cloudNamesSet.has(o.nama.trim().toUpperCase()))
+            .map(o => o.id);
+          if (zombieIds.length > 0) {
+            await db.operator_list.bulkDelete(zombieIds);
+          }
+
           const toUpdate = [];
           const toAdd = [];
           const cloudDeadNames = [];
@@ -1524,33 +1527,35 @@ export async function pullFromSupabase(forceFull = false) {
             const nameUpper = (co.nama || '').trim().toUpperCase();
             if (!nameUpper) continue;
 
-            // Jika operator ini pernah dihapus/direname (ada di tombstone):
             if (tombstones.has(nameUpper)) {
               cloudDeadNames.push(co.nama);
               continue;
             }
 
             const localOp = localMap.get(nameUpper);
-            const cloudTime = co.updated_at ? new Date(co.updated_at).getTime() : 0;
-            const localTime = localOp?.updatedAt ? new Date(localOp.updatedAt).getTime() : 0;
-            const isLocalFresher = localOp && (localTime > cloudTime);
+            const tInfo = tenureMap[nameUpper] || {};
+
+            const berlakuMulai = tInfo.berlakuMulai || co.berlaku_mulai || '2020-01-01';
+            const berlakuSampai = (tInfo.berlakuSampai !== undefined) ? tInfo.berlakuSampai : (co.berlaku_sampai ?? null);
+
+            let activeState = (co.active !== false);
+            if (tInfo.active !== undefined) {
+              activeState = Boolean(tInfo.active);
+            }
+            if (berlakuSampai && berlakuSampai < today) {
+              activeState = false;
+            }
 
             const rec = {
-              nama: co.nama,
-              mesin: co.mesin || localOp?.mesin || '',
-              kodeGrup: co.kode_grup || localOp?.kodeGrup || '',
-              kodeOperator: co.kode_operator || localOp?.kodeOperator || '',
-              // Pertahankan masa jabatan lokal jika cloud belum ada kolom atau lokal lebih baru
-              berlakuMulai: (co.berlaku_mulai !== undefined && co.berlaku_mulai !== null)
-                ? co.berlaku_mulai
-                : (localOp?.berlakuMulai || '2020-01-01'),
-              berlakuSampai: (co.berlaku_sampai !== undefined && co.berlaku_sampai !== null)
-                ? co.berlaku_sampai
-                : (localOp?.berlakuSampai ?? null),
-              // Jangan timpa status active lokal jika perubahan lokal lebih baru!
-              active: isLocalFresher ? (localOp.active !== false) : (co.active !== false),
+              nama: nameUpper,
+              mesin: (co.mesin || tInfo.mesin || localOp?.mesin || '').trim().toUpperCase(),
+              kodeGrup: (co.kode_grup || tInfo.kodeGrup || localOp?.kodeGrup || 'A').trim().toUpperCase(),
+              kodeOperator: (co.kode_operator || tInfo.kodeOperator || localOp?.kodeOperator || '').trim().toUpperCase(),
+              berlakuMulai,
+              berlakuSampai,
+              active: activeState,
               createdAt: co.created_at || localOp?.createdAt || new Date().toISOString(),
-              updatedAt: isLocalFresher ? localOp.updatedAt : (co.updated_at || new Date().toISOString())
+              updatedAt: co.updated_at || new Date().toISOString()
             };
 
             if (localOp?.id) {
@@ -2242,6 +2247,11 @@ export function startRealtimeSync(onDataChangeCallback) {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'operator_list' }, () => {
       debouncedPull(onDataChangeCallback, 'operator_list');
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
+      if (payload?.new?.key === 'operator_tenure_registry' || payload?.old?.key === 'operator_tenure_registry') {
+        debouncedPull(onDataChangeCallback, 'operator_list');
+      }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'mesin_list' }, () => {
       debouncedPull(onDataChangeCallback, 'mesin_list');
