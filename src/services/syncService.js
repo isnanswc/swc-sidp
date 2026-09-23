@@ -803,19 +803,24 @@ export async function pushLocalToSupabase() {
           if (db.wip_updates) {
             const updates = await db.wip_updates.toArray();
             if (updates.length > 0) {
+              const activeUpdate = updates.find(u => u.isActive === 1 || u.isActive === true) || updates[0];
+              const activeUuid = activeUpdate?.uuid || (typeof window !== 'undefined' ? localStorage.getItem('m_label_active_wip_batch_uuid') : null) || null;
               const payload = {
                 key: 'ims_wip_updates_registry',
-                value: JSON.stringify(updates.map(u => ({
-                  uuid: u.uuid,
-                  title: u.title,
-                  tanggal: u.tanggal,
-                  fileName: u.fileName,
-                  totalRolls: u.totalRolls,
-                  totalKg: u.totalKg,
-                  isActive: u.isActive,
-                  createdAt: u.createdAt,
-                  updatedAt: u.updatedAt
-                }))),
+                value: JSON.stringify({
+                  activeWipBatchUuid: activeUuid,
+                  updates: updates.map(u => ({
+                    uuid: u.uuid,
+                    title: u.title,
+                    tanggal: u.tanggal,
+                    fileName: u.fileName,
+                    totalRolls: u.totalRolls,
+                    totalKg: u.totalKg,
+                    isActive: u.isActive,
+                    createdAt: u.createdAt,
+                    updatedAt: u.updatedAt
+                  }))
+                }),
                 updated_at: new Date().toISOString()
               };
               await supabase.from('settings').upsert([payload], { onConflict: 'key' });
@@ -1867,10 +1872,12 @@ export async function pullFromSupabase(forceFull = false) {
                   const batchMap = new Map(existingBatches.map(b => [b.uuid, b.id]));
                   for (const cb of updatesList) {
                     const localId = batchMap.get(cb.uuid);
+                    const shouldBeActive = activeWipUuid ? (cb.uuid === activeWipUuid ? 1 : 0) : cb.isActive;
+                    const batchData = { ...cb, isActive: shouldBeActive };
                     if (localId) {
-                      await db.wip_updates.update(localId, { ...cb, id: localId });
+                      await db.wip_updates.update(localId, { ...batchData, id: localId });
                     } else {
-                      const { id, ...newBatch } = cb;
+                      const { id, ...newBatch } = batchData;
                       await db.wip_updates.add(newBatch);
                     }
                   }
@@ -2347,7 +2354,7 @@ export function startRealtimeSync(onDataChangeCallback) {
     // 6. Broadcast Events (Sub-100ms ultra fast device-to-device sync)
     .on('broadcast', { event: 'wip_broadcast' }, async (payload) => {
       console.log('⚡ [Realtime] Received WIP broadcast from another device', payload);
-      const wUuid = payload?.payload?.targetUuid || payload?.payload?.batchUuid;
+      const wUuid = payload?.payload?.targetUuid || payload?.payload?.batchUuid || payload?.payload?.newActiveUuid;
       if (wUuid && typeof window !== 'undefined') {
         localStorage.setItem('m_label_active_wip_batch_uuid', wUuid);
       }

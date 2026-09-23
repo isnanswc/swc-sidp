@@ -320,7 +320,7 @@ export const useWipStore = defineStore('wip', () => {
 
     try {
       await pushLocalToSupabase();
-      broadcastRealtimeEvent('wip_broadcast', { action: 'create_wip_update', batchUuid });
+      broadcastRealtimeEvent('wip_broadcast', { action: 'create_wip_update', batchUuid, targetUuid: batchUuid });
     } catch (pushErr) {
       console.warn('Push WIP to Supabase notice:', pushErr);
     }
