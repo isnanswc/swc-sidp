@@ -224,6 +224,8 @@ CREATE TABLE IF NOT EXISTS public.operator_list (
     mesin TEXT,
     kode_grup TEXT,
     kode_operator TEXT,
+    berlaku_mulai TEXT DEFAULT '2020-01-01',
+    berlaku_sampai TEXT DEFAULT NULL,
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

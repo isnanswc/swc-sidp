@@ -2490,7 +2490,7 @@ const isOperatorExpired = (row) => {
   if (row?.active === false) return true;
   if (!row?.berlakuSampai) return false;
   const today = new Date().toISOString().slice(0, 10);
-  return row.berlakuSampai < today;
+  return row.berlakuSampai <= today;
 };
 
 const filteredOperatorList = computed(() => {

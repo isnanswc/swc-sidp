@@ -1535,20 +1535,36 @@ export async function pullFromSupabase(forceFull = false) {
             const localTime = localOp?.updatedAt ? new Date(localOp.updatedAt).getTime() : 0;
             const isLocalFresher = localOp && (localTime > cloudTime);
 
+            const today = new Date().toISOString().slice(0, 10);
+            let finalBerlakuMulai = localOp?.berlakuMulai || '2020-01-01';
+            let finalBerlakuSampai = localOp?.berlakuSampai ?? null;
+
+            if (isLocalFresher) {
+              finalBerlakuMulai = localOp.berlakuMulai || '2020-01-01';
+              finalBerlakuSampai = localOp.berlakuSampai ?? null;
+            } else {
+              if (co.berlaku_mulai !== undefined && co.berlaku_mulai !== null && co.berlaku_mulai !== '') {
+                finalBerlakuMulai = co.berlaku_mulai;
+              }
+              if (co.berlaku_sampai !== undefined) {
+                finalBerlakuSampai = co.berlaku_sampai || null;
+              }
+            }
+
+            const isExpired = Boolean(finalBerlakuSampai && finalBerlakuSampai <= today);
+            let finalActive = isLocalFresher ? (localOp.active !== false) : (co.active !== false);
+            if (isExpired) {
+              finalActive = false;
+            }
+
             const rec = {
               nama: co.nama,
               mesin: co.mesin || localOp?.mesin || '',
               kodeGrup: co.kode_grup || localOp?.kodeGrup || '',
               kodeOperator: co.kode_operator || localOp?.kodeOperator || '',
-              // Pertahankan masa jabatan lokal jika cloud belum ada kolom atau lokal lebih baru
-              berlakuMulai: (co.berlaku_mulai !== undefined && co.berlaku_mulai !== null)
-                ? co.berlaku_mulai
-                : (localOp?.berlakuMulai || '2020-01-01'),
-              berlakuSampai: (co.berlaku_sampai !== undefined && co.berlaku_sampai !== null)
-                ? co.berlaku_sampai
-                : (localOp?.berlakuSampai ?? null),
-              // Jangan timpa status active lokal jika perubahan lokal lebih baru!
-              active: isLocalFresher ? (localOp.active !== false) : (co.active !== false),
+              berlakuMulai: finalBerlakuMulai,
+              berlakuSampai: finalBerlakuSampai,
+              active: finalActive,
               createdAt: co.created_at || localOp?.createdAt || new Date().toISOString(),
               updatedAt: isLocalFresher ? localOp.updatedAt : (co.updated_at || new Date().toISOString())
             };
@@ -1564,6 +1580,11 @@ export async function pullFromSupabase(forceFull = false) {
             if (toUpdate.length > 0) await db.operator_list.bulkPut(toUpdate);
             if (toAdd.length > 0) await db.operator_list.bulkAdd(toAdd);
           });
+
+          // Pemicu reaktif agar pinia store & UI seketika memuat perubahan operator terbaru
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('sync:config-updated'));
+          }
 
           // Purge sisa-sisa baris terhapus di Supabase jika ada
           if (cloudDeadNames.length > 0) {

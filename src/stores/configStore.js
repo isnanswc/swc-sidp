@@ -289,7 +289,7 @@ export const useConfigStore = defineStore('configStore', {
     activeOperators: (state) => state.operatorList.filter(o => {
       if (o.active === false) return false;
       const today = new Date().toISOString().slice(0, 10);
-      if (o.berlakuSampai && o.berlakuSampai < today) return false;
+      if (o.berlakuSampai && o.berlakuSampai <= today) return false;
       if (o.berlakuMulai && o.berlakuMulai > today) return false;
       return true;
     }),
@@ -415,19 +415,24 @@ export const useConfigStore = defineStore('configStore', {
             const { supabase } = await import('@/services/supabaseClient');
             const { data: cloudOps } = await supabase.from('operator_list').select('*');
             if (cloudOps && cloudOps.length > 0) {
+              const today = new Date().toISOString().slice(0, 10);
               const recs = cloudOps
                 .filter(co => !tombstones.has((co.nama || '').trim().toUpperCase()))
-                .map(co => ({
-                  nama: co.nama,
-                  mesin: co.mesin,
-                  kodeGrup: co.kode_grup,
-                  kodeOperator: co.kode_operator,
-                  berlakuMulai: co.berlaku_mulai || '2020-01-01',
-                  berlakuSampai: co.berlaku_sampai || null,
-                  active: co.active !== false,
-                  createdAt: co.created_at || now,
-                  updatedAt: co.updated_at || now
-                }));
+                .map(co => {
+                  const bSampai = co.berlaku_sampai || null;
+                  const isExp = Boolean(bSampai && bSampai <= today);
+                  return {
+                    nama: co.nama,
+                    mesin: co.mesin,
+                    kodeGrup: co.kode_grup,
+                    kodeOperator: co.kode_operator,
+                    berlakuMulai: co.berlaku_mulai || '2020-01-01',
+                    berlakuSampai: bSampai,
+                    active: isExp ? false : (co.active !== false),
+                    createdAt: co.created_at || now,
+                    updatedAt: co.updated_at || now
+                  };
+                });
               await db.operator_list.bulkPut(recs);
             }
           } catch (eCloud) {

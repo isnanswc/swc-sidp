@@ -58,6 +58,10 @@ BEGIN
         ALTER TABLE public.operator_list ADD CONSTRAINT uq_operator_list_nama UNIQUE (nama);
     END IF;
 
+    -- 4b.2 Tambah kolom masa jabatan operator jika belum ada
+    ALTER TABLE public.operator_list ADD COLUMN IF NOT EXISTS berlaku_mulai TEXT DEFAULT '2020-01-01';
+    ALTER TABLE public.operator_list ADD COLUMN IF NOT EXISTS berlaku_sampai TEXT DEFAULT NULL;
+
     -- 4c. location_list unique (nama)
     DELETE FROM public.location_list a USING public.location_list b
     WHERE a.id < b.id AND LOWER(TRIM(a.nama)) = LOWER(TRIM(b.nama));
