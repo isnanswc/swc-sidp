@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db } from '@/db';
-import { pushLocalToSupabase } from '@/services/syncService';
+import { pushLocalToSupabase, broadcastRealtimeEvent } from '@/services/syncService';
 
 export function parseNumSafe(val, fallback = 0) {
   if (val === undefined || val === null || val === '') return fallback;
@@ -222,6 +222,19 @@ export function parseFg27ColRow(rowArrayOrObject) {
   };
 }
 
+export const sortInventoryUploads = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.slice().sort((a, b) => {
+    const dateB = new Date(b.uploadDate || b.createdAt || 0).getTime() || 0;
+    const dateA = new Date(a.uploadDate || a.createdAt || 0).getTime() || 0;
+    if (dateB !== dateA) return dateB - dateA;
+    const cB = new Date(b.createdAt || 0).getTime() || 0;
+    const cA = new Date(a.createdAt || 0).getTime() || 0;
+    if (cB !== cA) return cB - cA;
+    return (b.id || 0) - (a.id || 0);
+  });
+};
+
 export const useInventoryStore = defineStore('inventory', () => {
   const masterItems = ref([]);
   const stockUploads = ref([]);
@@ -230,69 +243,148 @@ export const useInventoryStore = defineStore('inventory', () => {
   const stockViewMode = ref('EXCEL');
 
   let initialUploadId = null;
+  let initialUploadUuid = null;
   try {
-    const savedId = typeof window !== 'undefined' ? localStorage.getItem('m_label_active_fg_upload_id') : null;
-    if (savedId) initialUploadId = parseInt(savedId, 10);
+    if (typeof window !== 'undefined') {
+      const savedId = localStorage.getItem('m_label_active_fg_upload_id');
+      if (savedId) initialUploadId = parseInt(savedId, 10);
+      initialUploadUuid = localStorage.getItem('m_label_active_fg_upload_uuid') || null;
+    }
   } catch (e) {}
   const activeUploadId = ref(initialUploadId);
+  const activeUploadUuid = ref(initialUploadUuid);
 
   const activeUpload = computed(() => {
-    if (!stockUploads.value || stockUploads.value.length === 0) return null;
-    if (activeUploadId.value) {
-      const found = stockUploads.value.find(u => u.id === activeUploadId.value);
-      if (found) return found;
+    const list = Array.isArray(stockUploads.value) ? stockUploads.value : [];
+    if (list.length === 0) return null;
+    if (activeUploadUuid.value) {
+      const foundByUuid = list.find(u => u.uuid === activeUploadUuid.value);
+      if (foundByUuid) return foundByUuid;
     }
-    return stockUploads.value[0];
+    if (activeUploadId.value) {
+      const foundById = list.find(u => u.id === activeUploadId.value);
+      if (foundById) return foundById;
+    }
+    return list[0] || null;
   });
 
-  const setActiveUpload = async (uploadId) => {
-    activeUploadId.value = uploadId;
-    localStorage.setItem('m_label_active_fg_upload_id', String(uploadId));
-    
-    const targetUpload = stockUploads.value.find(u => u.id === uploadId);
-    if (targetUpload && targetUpload.itemsJson) {
-      try {
-        const items = JSON.parse(targetUpload.itemsJson);
-        await db.inventory_current_stocks.clear();
-        const records = items.map(row => ({
-          itemKey: `KEY_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-          descriptionExcel: row.descriptionExcel,
-          descriptionNav: row.descriptionNav,
-          sourceNo: row.sourceNo,
-          jenis: row.jenis,
-          kodeFormula: row.kodeFormula,
-          thickness: row.thickness,
-          width: row.width,
-          length: row.length,
-          core: row.core,
-          od: row.od,
-          tanda: row.tanda,
-          density: row.density,
-          weight: row.weight,
-          keterangan: row.keterangan || '',
-          lastProduction: row.lastProduction || '-',
-          lastTransfer: row.lastTransfer || '-',
-          moving: row.moving || '-',
-          totalRoll: row.totalRoll,
-          totalPanjang: row.totalPanjang,
-          totalKg: row.totalKg,
-          areaA: row.areaA || 0,
-          areaB: row.areaB || 0,
-          areaC: row.areaC || 0,
-          areaD: row.areaD || 0,
-          areaE: row.areaE || 0,
-          qtyRak: row.qtyRak || 0,
-          listRak: row.listRak || '',
-          lastUploadDate: targetUpload.uploadDate,
-          updatedAt: new Date().toISOString()
-        }));
-        await db.inventory_current_stocks.bulkAdd(records);
-        currentStocks.value = await db.inventory_current_stocks.toArray();
-      } catch (err) {
-        console.error('Failed to set active FG upload:', err);
+  // Reconcile and guarantee strictly 1 active upload session across devices
+  const reconcileInventoryActiveUpload = async (preferredUuidOrId = null) => {
+    if (!stockUploads.value || stockUploads.value.length === 0) {
+      activeUploadUuid.value = null;
+      activeUploadId.value = null;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('m_label_active_fg_upload_uuid');
+        localStorage.removeItem('m_label_active_fg_upload_id');
+      }
+      return null;
+    }
+
+    // Always sort by latest date descending
+    stockUploads.value = sortInventoryUploads(stockUploads.value);
+
+    // Auto-assign UUID for any uploads missing UUID in Dexie
+    for (const u of stockUploads.value) {
+      if (!u.uuid) {
+        u.uuid = `fg_upload_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        if (u.id && db.inventory_stock_uploads) {
+          try {
+            await db.inventory_stock_uploads.update(u.id, { uuid: u.uuid });
+          } catch (err) {}
+        }
       }
     }
-    pushLocalToSupabase().catch(() => {});
+
+    let targetUpload = null;
+    if (preferredUuidOrId) {
+      targetUpload = stockUploads.value.find(u => 
+        (u.uuid && u.uuid === preferredUuidOrId) ||
+        (u.id && (u.id === preferredUuidOrId || String(u.id) === String(preferredUuidOrId)))
+      );
+    }
+
+    if (!targetUpload && activeUploadUuid.value) {
+      targetUpload = stockUploads.value.find(u => u.uuid === activeUploadUuid.value);
+    }
+
+    if (!targetUpload && activeUploadId.value) {
+      targetUpload = stockUploads.value.find(u => u.id === activeUploadId.value);
+    }
+
+    if (!targetUpload) {
+      targetUpload = stockUploads.value[0];
+    }
+
+    if (targetUpload) {
+      activeUploadUuid.value = targetUpload.uuid || null;
+      activeUploadId.value = targetUpload.id || null;
+      if (typeof window !== 'undefined') {
+        if (targetUpload.uuid) localStorage.setItem('m_label_active_fg_upload_uuid', targetUpload.uuid);
+        if (targetUpload.id) localStorage.setItem('m_label_active_fg_upload_id', String(targetUpload.id));
+      }
+
+      // Populate current stocks from itemsJson if present
+      if (targetUpload.itemsJson && db.inventory_current_stocks) {
+        try {
+          const items = JSON.parse(targetUpload.itemsJson);
+          if (Array.isArray(items) && items.length > 0) {
+            await db.inventory_current_stocks.clear();
+            const records = items.map(row => ({
+              itemKey: `KEY_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+              descriptionExcel: row.descriptionExcel,
+              descriptionNav: row.descriptionNav,
+              sourceNo: row.sourceNo,
+              jenis: row.jenis,
+              kodeFormula: row.kodeFormula,
+              thickness: row.thickness,
+              width: row.width,
+              length: row.length,
+              core: row.core,
+              od: row.od,
+              tanda: row.tanda,
+              density: row.density,
+              weight: row.weight,
+              keterangan: row.keterangan || '',
+              lastProduction: row.lastProduction || '-',
+              lastTransfer: row.lastTransfer || '-',
+              moving: row.moving || '-',
+              totalRoll: row.totalRoll,
+              totalPanjang: row.totalPanjang,
+              totalKg: row.totalKg,
+              areaA: row.areaA || 0,
+              areaB: row.areaB || 0,
+              areaC: row.areaC || 0,
+              areaD: row.areaD || 0,
+              areaE: row.areaE || 0,
+              qtyRak: row.qtyRak || 0,
+              listRak: row.listRak || '',
+              lastUploadDate: targetUpload.uploadDate,
+              updatedAt: new Date().toISOString()
+            }));
+            await db.inventory_current_stocks.bulkAdd(records);
+            currentStocks.value = await db.inventory_current_stocks.toArray();
+          }
+        } catch (err) {
+          console.error('Failed to populate current stocks for active upload:', err);
+        }
+      }
+    }
+
+    return targetUpload;
+  };
+
+  const setActiveUpload = async (uploadIdOrUuid) => {
+    const active = await reconcileInventoryActiveUpload(uploadIdOrUuid);
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('inventory_broadcast', { 
+        action: 'set_active_upload', 
+        uploadUuid: active?.uuid || null,
+        uploadId: active?.id || null 
+      });
+    } catch (e) {
+      console.warn('Sync active upload notice:', e);
+    }
   };
 
   // Load All Inventory Data
@@ -301,20 +393,16 @@ export const useInventoryStore = defineStore('inventory', () => {
     try {
       const [items, uploads, stocks] = await Promise.all([
         db.inventory_items ? db.inventory_items.toArray() : Promise.resolve([]),
-        db.inventory_stock_uploads ? db.inventory_stock_uploads.toArray().then(a => a.reverse()) : Promise.resolve([]),
+        db.inventory_stock_uploads ? db.inventory_stock_uploads.toArray() : Promise.resolve([]),
         db.inventory_current_stocks ? db.inventory_current_stocks.toArray() : Promise.resolve([])
       ]);
 
       masterItems.value = items || [];
-      stockUploads.value = uploads || [];
+      stockUploads.value = sortInventoryUploads(uploads || []);
       currentStocks.value = stocks || [];
 
-      if (stockUploads.value.length > 0) {
-        if (!activeUploadId.value || !stockUploads.value.some(u => u.id === activeUploadId.value)) {
-          activeUploadId.value = stockUploads.value[0].id;
-          localStorage.setItem('m_label_active_fg_upload_id', String(stockUploads.value[0].id));
-        }
-      }
+      // Reconcile single active upload (latest date wins by default)
+      await reconcileInventoryActiveUpload(activeUploadUuid.value || activeUploadId.value);
     } catch (e) {
       console.error('Failed to load inventory data:', e);
     } finally {
@@ -355,7 +443,10 @@ export const useInventoryStore = defineStore('inventory', () => {
     const id = await db.inventory_items.add(record);
     record.id = id;
     masterItems.value.push(record);
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('inventory_broadcast', { action: 'add_master_item' });
+    } catch (e) {}
     return record;
   };
 
@@ -369,13 +460,19 @@ export const useInventoryStore = defineStore('inventory', () => {
     if (idx !== -1) {
       masterItems.value[idx] = { ...masterItems.value[idx], ...fields };
     }
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('inventory_broadcast', { action: 'update_master_item' });
+    } catch (e) {}
   };
 
   const deleteMasterItem = async (id) => {
     await db.inventory_items.delete(id);
     masterItems.value = masterItems.value.filter(i => i.id !== id);
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('inventory_broadcast', { action: 'delete_master_item' });
+    } catch (e) {}
   };
 
   const importMasterItems = async (itemsList) => {
@@ -399,20 +496,32 @@ export const useInventoryStore = defineStore('inventory', () => {
 
     await db.inventory_items.bulkAdd(formatted);
     await loadInventory();
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('inventory_broadcast', { action: 'import_master_items' });
+    } catch (e) {}
     return formatted.length;
   };
 
   // ----------------------------------------------------
   // STOCK UPLOADS & CURRENT STOCK ENGINE (27 COLUMNS)
   // ----------------------------------------------------
+  let isProcessingStockUpload = false;
   const processStockUpload = async ({ uploadDate, fileName, uploadedBy, items }) => {
+    if (isProcessingStockUpload) {
+      console.warn('⚠️ processStockUpload rejected: another stock upload is already in progress.');
+      return;
+    }
     if (!items || items.length === 0) return;
+    isProcessingStockUpload = true;
 
-    const validDate = uploadDate || new Date().toISOString().slice(0, 10);
+    try {
+      const validDate = uploadDate || new Date().toISOString().slice(0, 10);
     const totalRoll = items.reduce((sum, item) => sum + (parseInt(item.totalRoll, 10) || 0), 0);
+    const uploadUuid = `fg_upload_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
     const uploadRecord = {
+      uuid: uploadUuid,
       uploadDate: validDate,
       fileName: fileName || 'Upload_Stock.xlsx',
       totalSku: items.length,
@@ -425,6 +534,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     const uploadId = await db.inventory_stock_uploads.add(uploadRecord);
     uploadRecord.id = uploadId;
     stockUploads.value.unshift(uploadRecord);
+    stockUploads.value = sortInventoryUploads(stockUploads.value);
 
     // Update / Upsert Current Stocks with all 27 fields
     for (const row of items) {
@@ -497,26 +607,44 @@ export const useInventoryStore = defineStore('inventory', () => {
     }
 
     currentStocks.value = await db.inventory_current_stocks.toArray();
-    await setActiveUpload(uploadId);
-    return uploadRecord;
-  };
 
-  const deleteUploadRecord = async (uploadId) => {
-    await db.inventory_stock_uploads.delete(uploadId);
-    stockUploads.value = stockUploads.value.filter(u => u.id !== uploadId);
-    if (activeUploadId.value === uploadId) {
-      if (stockUploads.value.length > 0) {
-        await setActiveUpload(stockUploads.value[0].id);
-      } else {
-        activeUploadId.value = null;
-        localStorage.removeItem('m_label_active_fg_upload_id');
-        await db.inventory_current_stocks.clear();
-        currentStocks.value = [];
-        pushLocalToSupabase().catch(() => {});
-      }
-    } else {
-      pushLocalToSupabase().catch(() => {});
+    // Data yang baru di-upload otomatis 100% menjadi data acuan utama
+    await setActiveUpload(uploadUuid);
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('inventory_broadcast', { action: 'upload_stock', uploadUuid, uploadId });
+    } catch (pushErr) {
+      console.warn('Push FG stock to Supabase notice:', pushErr);
     }
+    return uploadRecord;
+  } finally {
+    isProcessingStockUpload = false;
+  }
+};
+
+  const deleteUploadRecord = async (uploadIdOrUuid) => {
+    let target = null;
+    if (typeof uploadIdOrUuid === 'string' && uploadIdOrUuid.startsWith('fg_upload_')) {
+      target = stockUploads.value.find(u => u.uuid === uploadIdOrUuid);
+    } else {
+      target = stockUploads.value.find(u => u.id === Number(uploadIdOrUuid) || u.uuid === uploadIdOrUuid);
+    }
+
+    const idToDelete = target?.id || (typeof uploadIdOrUuid === 'number' ? uploadIdOrUuid : null);
+    if (idToDelete) {
+      await db.inventory_stock_uploads.delete(idToDelete);
+    }
+    stockUploads.value = stockUploads.value.filter(u => u.id !== idToDelete && (!target?.uuid || u.uuid !== target.uuid));
+
+    const wasActive = (target?.uuid && target.uuid === activeUploadUuid.value) || (idToDelete && idToDelete === activeUploadId.value);
+    if (wasActive) {
+      await reconcileInventoryActiveUpload();
+    }
+
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('inventory_broadcast', { action: 'delete_upload', uploadUuid: target?.uuid, uploadId: idToDelete });
+    } catch (e) {}
   };
 
   // ----------------------------------------------------
@@ -566,8 +694,11 @@ export const useInventoryStore = defineStore('inventory', () => {
     isLoading,
     stockViewMode,
     activeUploadId,
+    activeUploadUuid,
     activeUpload,
     setActiveUpload,
+    reconcileInventoryActiveUpload,
+    sortInventoryUploads,
     totalMasterSku,
     totalStockRolls,
     totalStockKg,
@@ -597,6 +728,6 @@ if (typeof window !== 'undefined' && !window.__mlabel_inventory_sync_listener_at
       } catch (e) {
         console.warn('Auto reload inventoryStore failed:', e);
       }
-    }, 1500);
+    }, 300);
   });
 }

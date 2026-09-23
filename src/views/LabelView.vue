@@ -1741,7 +1741,8 @@
           </div>
           <button
             @click="showShiftModal = false"
-            class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer"
+            :disabled="isSavingShift"
+            class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             ✕
           </button>
@@ -2119,16 +2120,22 @@
               <button
                 type="button"
                 @click="showShiftModal = false"
-                class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer"
+                :disabled="isSavingShift"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Batal
               </button>
               <button
                 type="submit"
-                class="px-5 py-2 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                :disabled="isSavingShift"
+                class="px-5 py-2 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                <span>Simpan Data Shift & Waste</span>
+                <svg v-if="isSavingShift" class="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                <span>{{ isSavingShift ? 'Menyimpan...' : 'Simpan Data Shift & Waste' }}</span>
               </button>
             </div>
           </div>
@@ -2176,7 +2183,8 @@
 
           <button
             @click="showParentLotModal = false"
-            class="p-2 rounded-xl text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer"
+            :disabled="isSavingParentLot"
+            class="p-2 rounded-xl text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="Tutup Modal"
           >
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -3099,16 +3107,22 @@
             <button
               type="button"
               @click="showParentLotModal = false"
-              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer"
+              :disabled="isSavingParentLot"
+              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Batal
             </button>
             <button
               type="submit"
-              class="px-6 py-2 rounded-xl text-xs font-black text-white bg-zinc-900 hover:bg-zinc-800 shadow-md shadow-zinc-900/10 transition-all flex items-center gap-2 cursor-pointer"
+              :disabled="isSavingParentLot"
+              class="px-6 py-2 rounded-xl text-xs font-black text-white bg-zinc-900 hover:bg-zinc-800 shadow-md shadow-zinc-900/10 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              <span>Simpan Perubahan Parent Lot</span>
+              <svg v-if="isSavingParentLot" class="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span>{{ isSavingParentLot ? 'Menyimpan...' : 'Simpan Perubahan Parent Lot' }}</span>
             </button>
           </div>
         </form>
@@ -4681,10 +4695,11 @@ const extractRewindSourceParts = (roll) => {
 
   let slittingTurunan = '';
   if (turunan) {
-    if (turunan.includes('/')) {
-      slittingTurunan = turunan.split('/')[0].trim().toUpperCase();
+    const norm = normalizeTurunan(turunan);
+    if (norm.includes('/')) {
+      slittingTurunan = norm.split('/')[0].trim().toUpperCase();
     } else {
-      slittingTurunan = turunan.toUpperCase();
+      slittingTurunan = norm.toUpperCase();
     }
   }
 
@@ -4718,14 +4733,18 @@ const selectWipRoll = (roll) => {
   if (isRewind) {
     const rParts = extractRewindSourceParts(roll);
     form.lot = rParts.parentLot || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
-    if (rParts.slittingTurunan) {
-      form.turunan = `${rParts.slittingTurunan}/`;
-    }
     const activeOp = getActiveShiftOperator('REWIND');
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator;
     }
+    const opCode = activeOp?.kodeOperator || form.kodeOperator || 'J';
+    form.turunan = getSmartNextRewindTurunan({
+      lot: form.lot,
+      parentTurunan: rParts.slittingTurunan || '',
+      shift: form.shift,
+      kodeOperator: opCode
+    });
   } else {
     form.lot = (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
   }
@@ -4753,6 +4772,13 @@ const selectWipRoll = (roll) => {
   showWipModal.value = false;
   userDismissedWipModal.value = true;
   updateAutoFields();
+  if (!isEditing.value && (!form.subKodeNumeric || form.subKode === '0000')) {
+    const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+    form.subKodeType = 'numeric';
+    form.subKodeNumeric = String(nextSubNum);
+    form.subKode = String(nextSubNum).padStart(4, '0');
+    form.status = 'PASS';
+  }
 
   nextTick(() => {
     if (isRewind && turunanInputRef.value) {
@@ -4771,14 +4797,18 @@ const selectDataRoll = (roll) => {
   if (isRewind) {
     const rParts = extractRewindSourceParts(roll);
     form.lot = rParts.parentLot || extractCleanParentLot(roll.lot, roll.turunan) || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
-    if (rParts.slittingTurunan) {
-      form.turunan = `${rParts.slittingTurunan}/`;
-    }
     const activeOp = getActiveShiftOperator('REWIND');
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator;
     }
+    const opCode = activeOp?.kodeOperator || form.kodeOperator || 'J';
+    form.turunan = getSmartNextRewindTurunan({
+      lot: form.lot,
+      parentTurunan: rParts.slittingTurunan || '',
+      shift: form.shift,
+      kodeOperator: opCode
+    });
   } else {
     const cleanLot = extractCleanParentLot(roll.lot, roll.turunan);
     form.lot = (cleanLot || roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
@@ -4813,6 +4843,13 @@ const selectDataRoll = (roll) => {
   showWipModal.value = false;
   userDismissedWipModal.value = true;
   updateAutoFields();
+  if (!isEditing.value && (!form.subKodeNumeric || form.subKode === '0000')) {
+    const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+    form.subKodeType = 'numeric';
+    form.subKodeNumeric = String(nextSubNum);
+    form.subKode = String(nextSubNum).padStart(4, '0');
+    form.status = 'PASS';
+  }
 
   nextTick(() => {
     if (isRewind && turunanInputRef.value) {
@@ -4949,6 +4986,8 @@ const showModal = ref(false);
 const showPreviewModal = ref(false);
 const isEditing = ref(false);
 const isSubmittingLabel = ref(false);
+const isSavingShift = ref(false);
+const isSavingParentLot = ref(false);
 const previewItems = ref([]);
 
 const toggleSortOrder = () => {
@@ -6163,50 +6202,59 @@ const openShiftModal = (shiftNode) => {
 };
 
 const saveShiftData = async () => {
+  if (isSavingShift.value) return;
   if (!currentEditingShiftNode.value || !currentEditingShiftNode.value.items) return;
+  isSavingShift.value = true;
 
-  const items = currentEditingShiftNode.value.items;
-  const newShift = String(shiftForm.shift || '1').trim();
-  const newOperator = (shiftForm.operator || '').trim().toUpperCase();
+  try {
+    const items = currentEditingShiftNode.value.items;
+    const newShift = String(shiftForm.shift || '1').trim();
+    const newOperator = (shiftForm.operator || '').trim().toUpperCase();
 
-  // Filter dan normalisasi multi-waste list
-  const validWasteList = (shiftForm.wasteList || []).filter(w => (parseFloat(w.berat) > 0 || (w.catatan || '').trim() !== '')).map(w => {
-    const finalJenis = (w.jenis === 'LAINNYA' && w.customJenis) ? w.customJenis.trim().toUpperCase() : (w.jenis || 'TRIM').trim().toUpperCase();
-    return {
-      id: w.id,
-      jenis: finalJenis,
-      berat: parseFloat(parseFloat(w.berat || 0).toFixed(2)),
-      catatan: (w.catatan || '').trim()
-    };
-  });
+    // Filter dan normalisasi multi-waste list
+    const validWasteList = (shiftForm.wasteList || []).filter(w => (parseFloat(w.berat) > 0 || (w.catatan || '').trim() !== '')).map(w => {
+      const finalJenis = (w.jenis === 'LAINNYA' && w.customJenis) ? w.customJenis.trim().toUpperCase() : (w.jenis || 'TRIM').trim().toUpperCase();
+      return {
+        id: w.id,
+        jenis: finalJenis,
+        berat: parseFloat(parseFloat(w.berat || 0).toFixed(2)),
+        catatan: (w.catatan || '').trim()
+      };
+    });
 
-  const totalWasteKg = parseFloat(validWasteList.reduce((acc, w) => acc + (w.berat || 0), 0).toFixed(2));
-  const summaryNotes = validWasteList.map(w => `${w.jenis}: ${w.berat} kg${w.catatan ? ` (${w.catatan})` : ''}`).join(', ');
+    const totalWasteKg = parseFloat(validWasteList.reduce((acc, w) => acc + (w.berat || 0), 0).toFixed(2));
+    const summaryNotes = validWasteList.map(w => `${w.jenis}: ${w.berat} kg${w.catatan ? ` (${w.catatan})` : ''}`).join(', ');
 
-  for (const item of items) {
-    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
-    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
+    for (const item of items) {
+      const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+      const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
 
-    const payload = {
-      ...(newShift ? { shift: newShift } : {}),
-      ...(newOperator ? { operator: newOperator } : {}),
-      shiftWaste: totalWasteKg,
-      shiftWasteNote: summaryNotes,
-      shiftWasteDetails: validWasteList,
-      synced: 0,
-      updatedAt: new Date().toISOString()
-    };
+      const payload = {
+        ...(newShift ? { shift: newShift } : {}),
+        ...(newOperator ? { operator: newOperator } : {}),
+        shiftWaste: totalWasteKg,
+        shiftWasteNote: summaryNotes,
+        shiftWasteDetails: validWasteList,
+        synced: 0,
+        updatedAt: new Date().toISOString()
+      };
 
-    if (isRoll && rollId && db.data_rolls) {
-      await db.data_rolls.update(rollId, payload);
-    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
-      await db.labels.update(item.id, payload);
+      if (isRoll && rollId && db.data_rolls) {
+        await db.data_rolls.update(rollId, payload);
+      } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+        await db.labels.update(item.id, payload);
+      }
     }
-  }
 
-  await labelStore.loadLabels(true);
-  pushLocalToSupabase().catch(() => {});
-  showShiftModal.value = false;
+    await labelStore.loadLabels(true);
+    pushLocalToSupabase().catch(() => {});
+    showShiftModal.value = false;
+  } catch (err) {
+    console.error('Failed to save shift data:', err);
+    alert('Gagal menyimpan data shift: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    isSavingShift.value = false;
+  }
 };
 
 // ── PARENT LOT EDIT MODAL STATE & HANDLERS ────────────────────────────────────
@@ -6863,6 +6911,7 @@ const openParentLotModal = (lotNode) => {
 };
 
 const saveParentLotData = async () => {
+  if (isSavingParentLot.value) return;
   if (!currentEditingLotNode.value || !currentEditingLotNode.value.items) return;
 
   const newLot = (parentLotForm.newLot || '').trim().toUpperCase();
@@ -6870,53 +6919,61 @@ const saveParentLotData = async () => {
     alert('No Lot Induk tidak boleh kosong!');
     return;
   }
+  isSavingParentLot.value = true;
 
-  const items = currentEditingLotNode.value.items;
-  const beratTeori = computedParentBeratTeori.value;
-  const beratMasukVal = parseFloat(computedParentBeratMasuk.value.toFixed(2));
-  const bAktualVal = (parentLotForm.parentBeratAktual !== '' && parentLotForm.parentBeratAktual !== null)
-    ? parseFloat(parentLotForm.parentBeratAktual)
-    : null;
-  const sisaMeterVal = parseFloat(parentLotForm.sisaMeter) || 0;
-  const sisaKgVal = parseFloat(computedBeratSisaJumbo.value.toFixed(2));
+  try {
+    const items = currentEditingLotNode.value.items;
+    const beratTeori = computedParentBeratTeori.value;
+    const beratMasukVal = parseFloat(computedParentBeratMasuk.value.toFixed(2));
+    const bAktualVal = (parentLotForm.parentBeratAktual !== '' && parentLotForm.parentBeratAktual !== null)
+      ? parseFloat(parentLotForm.parentBeratAktual)
+      : null;
+    const sisaMeterVal = parseFloat(parentLotForm.sisaMeter) || 0;
+    const sisaKgVal = parseFloat(computedBeratSisaJumbo.value.toFixed(2));
 
-  for (const item of items) {
-    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
-    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
+    for (const item of items) {
+      const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+      const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
 
-    const payload = {
-      lot: newLot,
-      ...(parentLotForm.spk ? { spk: parentLotForm.spk } : {}),
-      ...(parentLotForm.jenis ? { jenis: parentLotForm.jenis } : {}),
-      ...(parentLotForm.kode !== undefined ? { kode: parentLotForm.kode } : {}),
-      ...(parentLotForm.thickness ? { thickness: parseFloat(parentLotForm.thickness) || 0 } : {}),
-      parentWidth: parseFloat(parentLotForm.parentWidth) || '',
-      parentTrim: parseFloat(parentLotForm.trim) || 0,
-      parentMeter: parseFloat(parentLotForm.parentMeter) || '',
-      parentSisaMeter: sisaMeterVal,
-      parentSisaKg: sisaKgVal,
-      parentDensity: parseFloat(parentLotForm.parentDensity) || 0.91,
-      parentBeratTeori: parseFloat(beratTeori.toFixed(2)),
-      parentBeratAktual: bAktualVal,
-      parentBeratMasuk: beratMasukVal,
-      parentRollsJoint: (parentLotForm.isMultiParent && parentLotForm.multiParents.length > 1) ? JSON.parse(JSON.stringify(parentLotForm.multiParents)) : null,
-      resinConsumptions: parentLotForm.isResinMode ? JSON.parse(JSON.stringify(parentLotForm.resinConsumptions)) : null,
-      synced: 0,
-      updatedAt: new Date().toISOString()
-    };
+      const payload = {
+        lot: newLot,
+        ...(parentLotForm.spk ? { spk: parentLotForm.spk } : {}),
+        ...(parentLotForm.jenis ? { jenis: parentLotForm.jenis } : {}),
+        ...(parentLotForm.kode !== undefined ? { kode: parentLotForm.kode } : {}),
+        ...(parentLotForm.thickness ? { thickness: parseFloat(parentLotForm.thickness) || 0 } : {}),
+        parentWidth: parseFloat(parentLotForm.parentWidth) || '',
+        parentTrim: parseFloat(parentLotForm.trim) || 0,
+        parentMeter: parseFloat(parentLotForm.parentMeter) || '',
+        parentSisaMeter: sisaMeterVal,
+        parentSisaKg: sisaKgVal,
+        parentDensity: parseFloat(parentLotForm.parentDensity) || 0.91,
+        parentBeratTeori: parseFloat(beratTeori.toFixed(2)),
+        parentBeratAktual: bAktualVal,
+        parentBeratMasuk: beratMasukVal,
+        parentRollsJoint: (parentLotForm.isMultiParent && parentLotForm.multiParents.length > 1) ? JSON.parse(JSON.stringify(parentLotForm.multiParents)) : null,
+        resinConsumptions: parentLotForm.isResinMode ? JSON.parse(JSON.stringify(parentLotForm.resinConsumptions)) : null,
+        synced: 0,
+        updatedAt: new Date().toISOString()
+      };
 
-    if (isRoll && rollId && db.data_rolls) {
-      await db.data_rolls.update(rollId, payload);
-    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
-      const turunan = (item.turunan || '').trim().toUpperCase();
-      payload.lotAkhir = turunan ? `${newLot}/${turunan}` : newLot;
-      await db.labels.update(item.id, payload);
+      if (isRoll && rollId && db.data_rolls) {
+        await db.data_rolls.update(rollId, payload);
+      } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+        const turunan = (item.turunan || '').trim().toUpperCase();
+        payload.lotAkhir = turunan ? `${newLot}/${turunan}` : newLot;
+        await db.labels.update(item.id, payload);
+      }
     }
-  }
 
-  await labelStore.loadLabels(true);
-  pushLocalToSupabase().catch(() => {});
-  showParentLotModal.value = false;
+    await labelStore.loadLabels(true);
+    pushLocalToSupabase().catch(() => {});
+    showParentLotModal.value = false;
+  } catch (err) {
+    console.error('Failed to save parent lot data:', err);
+    alert('Gagal menyimpan data parent lot: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    isSavingParentLot.value = false;
+  }
 };
 
 // ── INLINE PARENT LOT EDITING (HIERARCHY VIEW) ──
@@ -7587,9 +7644,9 @@ const subKodeValidation = computed(() => {
     if (currentId && l.id === currentId) return false;
     const lKodePack = (l.kodePack || '').trim().toUpperCase();
     const lMesin = (l.mesin || '').trim().toUpperCase();
-    if (targetKodePack && lKodePack) return lKodePack === targetKodePack;
-    if (targetMesin && lMesin) return lMesin === targetMesin;
-    return true;
+    const mesinMatches = !targetMesin || isMachineMatch(lMesin, targetMesin);
+    const kodePackMatches = !targetKodePack || lKodePack === targetKodePack;
+    return mesinMatches && kodePackMatches;
   });
 
   // 1. Cek DUPLIKAT (Double)
@@ -7680,13 +7737,33 @@ const onMachineChange = () => {
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator;
-      form.turunan = `${activeOp.kodeOperator}A01`;
     } else {
       form.operator = '';
       form.kodeOperator = '';
     }
+    const opPrefix = form.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
+    if (form.mesin === 'REWIND') {
+      lotSearchSource.value = 'DATA_ROLL';
+      const currentParentT = parseTurunan(form.turunan)?.parentTurunan || '';
+      form.turunan = getSmartNextRewindTurunan({
+        lot: form.lot,
+        parentTurunan: currentParentT,
+        shift: form.shift,
+        kodeOperator: opPrefix
+      });
+    } else {
+      lotSearchSource.value = 'WIP';
+      form.turunan = `${opPrefix}A01`;
+    }
+    updateAutoFields();
+    const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+    form.subKodeType = 'numeric';
+    form.subKodeNumeric = String(nextSubNum);
+    form.subKode = String(nextSubNum).padStart(4, '0');
+    form.status = 'PASS';
+  } else {
+    updateAutoFields();
   }
-  updateAutoFields();
 };
 
 // ── TURUNAN & CHARTINGAN AUTO-COMPLETE (KHUSUS SLITTING) ─────────────────────
@@ -7872,7 +7949,7 @@ function parseTurunan(turunanStr) {
     const digits = matchSimple[2].length;
     if (letters === 'J' || letters === 'K' || digits >= 3) {
       // Format khusus single rewind (e.g. J101, K101, J01, K02): huruf tersebut adalah kode operator rewind!
-      result = { prefix: letters, chartingan: 'A', noUrut: num, numDigits: digits };
+      result = { prefix: letters, chartingan: '', noUrut: num, numDigits: digits, isSingleRewind: true };
     } else if (letters.length >= 2) {
       result = {
         prefix: letters.substring(0, letters.length - 1),
@@ -7925,6 +8002,24 @@ function getNextTurunan(prevTurunan, lot = '', forcePrefix = null) {
       return `${parentT}/${opPrefix}${parsed.chartingan || 'A'}${formattedNum}`;
     }
     return `${parentT}/${opPrefix}${formattedNum}`;
+  }
+
+  // Kasus Khusus: Single Rewind Format (e.g. J101 -> J102, K201 -> K202)
+  if (parsed.isSingleRewind || (!parsed.isCompoundRewind && !parsed.isCasting && !parsed.chartingan && parsed.numDigits >= 3)) {
+    const opPrefix = forcePrefix !== null ? forcePrefix : (parsed.prefix || 'J');
+    let maxUrut = parsed.noUrut || 0;
+    const relatedLabels = labelStore.labels.filter(l => {
+      if (!l.turunan) return false;
+      if (lot && l.lot && l.lot.trim().toUpperCase() !== lot.trim().toUpperCase()) return false;
+      const p = parseTurunan(l.turunan);
+      return !p.isCompoundRewind && (p.prefix === opPrefix || p.prefix === parsed.prefix);
+    });
+    for (const l of relatedLabels) {
+      const p = parseTurunan(l.turunan);
+      if (p.noUrut > maxUrut) maxUrut = p.noUrut;
+    }
+    const nextNo = maxUrut > 0 ? maxUrut + 1 : (parsed.noUrut > 0 ? parsed.noUrut + 1 : 101);
+    return `${opPrefix}${String(nextNo).padStart(parsed.numDigits || 3, '0')}`;
   }
 
   // Kasus Khusus: Casting Turunan Format (e.g. L04270826B1A27 -> L04270826B1A28)
@@ -7981,24 +8076,101 @@ function getNextTurunan(prevTurunan, lot = '', forcePrefix = null) {
   return `${prefix}${chartingan}${formattedNum}`;
 }
 
-function getSmartNextSubKode(item, mesinOverride = '', kodePackOverride = '') {
-  if (!item) return 1;
-  const targetMesin = (mesinOverride || item.mesin || '').trim().toUpperCase();
-  const targetKodePack = (kodePackOverride || item.kodePack || '').trim().toUpperCase();
-  const rawCurrent = parseInt(item.subKodeNumeric || item.subKode || '0', 10);
+function getSmartNextRewindTurunan({ lot = '', parentTurunan = '', shift = '1', kodeOperator = 'J' } = {}) {
+  const cleanParentT = (parentTurunan || '').trim().toUpperCase();
+  const cleanLot = (lot || '').trim().toUpperCase();
+  const op = (kodeOperator || 'J').trim().toUpperCase();
+
+  // Ambil angka shift (misal '1', '2', '3', 'LS1' -> '1', 'LS2' -> '2')
+  let shiftDigit = '1';
+  const shiftStr = String(shift || '1').trim();
+  if (shiftStr.includes('3')) shiftDigit = '3';
+  else if (shiftStr.includes('2')) shiftDigit = '2';
+  else shiftDigit = '1';
+
+  const shiftBase = parseInt(shiftDigit, 10) * 100;
+
+  // Filter label mesin REWIND yang valid (abaikan reject / hold)
+  const rewindLabels = (labelStore.labels || []).filter(l => {
+    if (!isMachineMatch(l.mesin, 'REWIND')) return false;
+    if (l.status === 'HOLD' || l.status === 'REJECT' || l.subKode === '0000' || l.subKode === 'REJECT') return false;
+    return true;
+  });
+
+  let maxSeq = 0;
+
+  if (cleanParentT) {
+    // Skenario roll turunan slitting parent sudah ada (misal 'IB02')
+    for (const l of rewindLabels) {
+      if (!l.turunan) continue;
+      const p = parseTurunan(l.turunan);
+      if (p.isCompoundRewind && p.parentTurunan === cleanParentT) {
+        const num = p.noUrut || 0;
+        if (num >= shiftBase && num < shiftBase + 100) {
+          const seq = num - shiftBase;
+          if (seq > maxSeq) maxSeq = seq;
+        } else if (num > 0 && num < 100) {
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+    }
+  } else if (cleanLot) {
+    // Skenario ada lot tapi tidak ada parent turunan
+    for (const l of rewindLabels) {
+      if (!l.turunan) continue;
+      const lLot = (l.lot || '').trim().toUpperCase();
+      if (lLot === cleanLot) {
+        const p = parseTurunan(l.turunan);
+        const num = p.noUrut || 0;
+        if (num >= shiftBase && num < shiftBase + 100) {
+          const seq = num - shiftBase;
+          if (seq > maxSeq) maxSeq = seq;
+        } else if (num > 0 && num < 100) {
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+    }
+  } else {
+    // Skenario ketik manual murni tanpa lot (awal buka form)
+    for (const l of rewindLabels) {
+      if (!l.turunan) continue;
+      const p = parseTurunan(l.turunan);
+      if (p.prefix === op) {
+        const num = p.noUrut || 0;
+        if (num >= shiftBase && num < shiftBase + 100) {
+          const seq = num - shiftBase;
+          if (seq > maxSeq) maxSeq = seq;
+        } else if (num > 0 && num < 100) {
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+    }
+  }
+
+  const nextSeq = maxSeq > 0 ? maxSeq + 1 : 1;
+  const fullNum = shiftBase + nextSeq;
+  const rewindChild = `${op}${fullNum}`;
+
+  if (cleanParentT) {
+    return `${cleanParentT}/${rewindChild}`;
+  }
+  return rewindChild;
+}
+
+function getSmartNextSubKode(item = null, mesinOverride = '', kodePackOverride = '') {
+  const targetMesin = (mesinOverride || item?.mesin || form?.mesin || '').trim().toUpperCase();
+  const targetKodePack = (kodePackOverride || item?.kodePack || form?.kodePack || '').trim().toUpperCase();
+  const rawCurrent = item ? parseInt(item.subKodeNumeric || item.subKode || '0', 10) : 0;
   const isCustomCode = !isNaN(rawCurrent) && rawCurrent >= 5000 && rawCurrent <= 9999;
 
   // Filter SELURUH label berdasarkan Mesin dan/atau Kode Pack yang sama (Unik keseluruhan per mesin, bukan per lot)
-  const relatedLabels = labelStore.labels.filter(l => {
+  const relatedLabels = (labelStore.labels || []).filter(l => {
+    if (l.status === 'HOLD' || l.status === 'REJECT' || l.subKode === '0000' || l.subKode === 'REJECT') return false;
     const lKodePack = (l.kodePack || '').trim().toUpperCase();
     const lMesin = (l.mesin || '').trim().toUpperCase();
-    if (targetKodePack && lKodePack) {
-      return lKodePack === targetKodePack;
-    }
-    if (targetMesin && lMesin) {
-      return lMesin === targetMesin;
-    }
-    return true;
+    const mesinMatches = !targetMesin || isMachineMatch(lMesin, targetMesin);
+    const kodePackMatches = !targetKodePack || lKodePack === targetKodePack;
+    return mesinMatches && kodePackMatches;
   });
 
   if (isCustomCode) {
@@ -8249,7 +8421,7 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
     updateAutoFields();
     if (newMesin === 'REWIND') {
       lotSearchSource.value = 'DATA_ROLL';
-    } else if (newMesin === 'SLITTING') {
+    } else {
       lotSearchSource.value = 'WIP';
     }
     if (!isEditing.value) {
@@ -8257,18 +8429,28 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
       if (activeOp) {
         form.operator = activeOp.nama;
         form.kodeOperator = activeOp.kodeOperator;
-        const parsed = parseTurunan(form.turunan);
-        const formattedNum = String(parsed.noUrut || 1).padStart(parsed.numDigits || 2, '0');
-        if (parsed.isCompoundRewind) {
-          const childPart = parsed.hasChildLetter ? `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}` : `${activeOp.kodeOperator}${formattedNum}`;
-          form.turunan = `${parsed.parentTurunan}/${childPart}`;
-        } else {
-          form.turunan = `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
-        }
       } else {
         form.operator = '';
         form.kodeOperator = '';
       }
+      const opPrefix = form.kodeOperator || (newMesin === 'REWIND' ? 'J' : 'H');
+      if (newMesin === 'REWIND') {
+        const currentParentT = parseTurunan(form.turunan)?.parentTurunan || '';
+        form.turunan = getSmartNextRewindTurunan({
+          lot: form.lot,
+          parentTurunan: currentParentT,
+          shift: form.shift,
+          kodeOperator: opPrefix
+        });
+      } else {
+        form.turunan = `${opPrefix}A01`;
+      }
+      // Otomatis terisi urutan kodePack mesin baru
+      const nextSubNum = getSmartNextSubKode(null, newMesin, form.kodePack);
+      form.subKodeType = 'numeric';
+      form.subKodeNumeric = String(nextSubNum);
+      form.subKode = String(nextSubNum).padStart(4, '0');
+      form.status = 'PASS';
     }
   }
 });
@@ -8393,19 +8575,32 @@ const openModal = async (item = -1) => {
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator || '';
-      const opPrefix = activeOp.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
-      form.turunan = form.mesin === 'REWIND' ? `${opPrefix}101` : `${opPrefix}A01`;
     } else {
       form.operator = '';
       form.kodeOperator = '';
-      form.turunan = form.mesin === 'REWIND' ? 'J101' : 'HA01';
     }
+    const opPrefix = form.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
     if (form.mesin === 'REWIND') {
+      form.turunan = getSmartNextRewindTurunan({
+        lot: form.lot,
+        parentTurunan: '',
+        shift: form.shift,
+        kodeOperator: opPrefix
+      });
       lotSearchSource.value = 'DATA_ROLL';
     } else {
+      form.turunan = `${opPrefix}A01`;
       lotSearchSource.value = 'WIP';
     }
     updateAutoFields();
+    // Otomatis terisi urutan kodePack masing-masing mesin
+    const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+    form.subKodeType = 'numeric';
+    form.subKodeNumeric = String(nextSubNum);
+    form.subKode = String(nextSubNum).padStart(4, '0');
+    form.status = 'PASS';
+    previousInfo.initialSuggestedTurunan = form.turunan;
+    previousInfo.initialSuggestedSubKode = form.subKodeNumeric;
   }
   if (!dataRollStore.rolls || dataRollStore.rolls.length === 0) {
     dataRollStore.loadRolls().catch(console.error);
@@ -8657,7 +8852,13 @@ const triggerPrint = () => {
   window.print();
 };
 
+const handleLabelsSync = async () => {
+  await labelStore.loadLabels(true);
+  refreshQuickTags();
+};
+
 onMounted(async () => {
+  window.addEventListener('sync:labels-updated', handleLabelsSync);
   await Promise.all([
     labelStore.loadLabels(),
     configStore.loadAll(),
@@ -8684,6 +8885,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateControlBarOffset);
+  window.removeEventListener('sync:labels-updated', handleLabelsSync);
 });
 
 // ── CONFIG-DRIVEN COMPUTED & MACHINE SHEETS ───────────────────────────────────

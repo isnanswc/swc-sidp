@@ -1310,7 +1310,7 @@
               </p>
             </div>
           </div>
-          <button @click="showImportModal = false" class="text-white/80 hover:text-white text-lg font-bold cursor-pointer">✕</button>
+          <button @click="showImportModal = false" :disabled="isImporting" class="text-white/80 hover:text-white text-lg font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
         </div>
 
         <!-- Body -->
@@ -1498,7 +1498,7 @@
           <h3 class="font-black text-sm text-white">
             {{ editingRollId ? 'Edit Identitas Roll' : 'Tambah Roll Manual' }}
           </h3>
-          <button @click="showManualModal = false" class="text-white/80 hover:text-white cursor-pointer font-bold">✕</button>
+          <button @click="showManualModal = false" :disabled="isSavingManualRoll" class="text-white/80 hover:text-white cursor-pointer font-bold disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
         </div>
 
         <div class="p-5 space-y-3 max-h-[75vh] overflow-y-auto text-xs">
@@ -1558,8 +1558,24 @@
         </div>
 
         <div class="px-6 py-4 border-t border-zinc-200 bg-zinc-50 flex justify-end gap-2">
-          <button @click="showManualModal = false" class="px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer">Batal</button>
-          <button @click="saveManualRoll" class="px-5 py-2 text-xs font-black bg-blue-600 hover:bg-blue-500 text-white rounded-xl cursor-pointer">Simpan Roll</button>
+          <button
+            @click="showManualModal = false"
+            :disabled="isSavingManualRoll"
+            class="px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            Batal
+          </button>
+          <button
+            @click="saveManualRoll"
+            :disabled="isSavingManualRoll"
+            class="px-5 py-2 text-xs font-black bg-blue-600 hover:bg-blue-500 text-white rounded-xl cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+          >
+            <svg v-if="isSavingManualRoll" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>{{ isSavingManualRoll ? 'Menyimpan...' : 'Simpan Roll' }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1820,6 +1836,7 @@ const importProgress = reactive({
 
 // Manual Modal State
 const showManualModal = ref(false);
+const isSavingManualRoll = ref(false);
 const editingRollId = ref(null);
 const manualForm = reactive({
   kodeFg: '',
@@ -2753,7 +2770,7 @@ const handleFileDrop = async (event) => {
 };
 
 const commitImport = async () => {
-  if (previewParsedRolls.value.length === 0) return;
+  if (isImporting.value || previewParsedRolls.value.length === 0) return;
   isImporting.value = true;
   importProgress.active = true;
   importProgress.percent = 5;
@@ -2815,29 +2832,38 @@ const editRoll = (item) => {
 };
 
 const saveManualRoll = async () => {
-  const parsed = parseDataRollRow(manualForm);
-  if (parsed) {
-    Object.assign(manualForm, {
-      ...parsed,
-      berat: manualForm.berat ? parseFloat(manualForm.berat) : parsed.beratTeori,
-      netto: manualForm.netto ? parseFloat(manualForm.netto) : parsed.beratTeori,
-      paperCore: parsed.paperCore,
-      bruto: parsed.bruto,
-      beratTeori: parsed.beratTeori,
-      density: parsed.density
-    });
-  }
+  if (isSavingManualRoll.value) return;
+  isSavingManualRoll.value = true;
+  try {
+    const parsed = parseDataRollRow(manualForm);
+    if (parsed) {
+      Object.assign(manualForm, {
+        ...parsed,
+        berat: manualForm.berat ? parseFloat(manualForm.berat) : parsed.beratTeori,
+        netto: manualForm.netto ? parseFloat(manualForm.netto) : parsed.beratTeori,
+        paperCore: parsed.paperCore,
+        bruto: parsed.bruto,
+        beratTeori: parsed.beratTeori,
+        density: parsed.density
+      });
+    }
 
-  manualForm.slitting = manualForm.machineName === 'SLITTING' ? 1 : 0;
-  manualForm.rewind = manualForm.machineName === 'REWIND' ? 1 : 0;
-  manualForm.sml = manualForm.machineName === 'SML' ? 1 : 0;
+    manualForm.slitting = manualForm.machineName === 'SLITTING' ? 1 : 0;
+    manualForm.rewind = manualForm.machineName === 'REWIND' ? 1 : 0;
+    manualForm.sml = manualForm.machineName === 'SML' ? 1 : 0;
 
-  if (editingRollId.value) {
-    await dataRollStore.updateRoll(editingRollId.value, { ...manualForm });
-  } else {
-    await dataRollStore.addRoll({ ...manualForm });
+    if (editingRollId.value) {
+      await dataRollStore.updateRoll(editingRollId.value, { ...manualForm });
+    } else {
+      await dataRollStore.addRoll({ ...manualForm });
+    }
+    showManualModal.value = false;
+  } catch (err) {
+    console.error('Failed to save manual roll:', err);
+    alert('Gagal menyimpan roll: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    isSavingManualRoll.value = false;
   }
-  showManualModal.value = false;
 };
 
 const deleteSingleRoll = async (id) => {

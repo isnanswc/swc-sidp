@@ -49,6 +49,24 @@
         </span>
       </button>
 
+      <!-- Universal Acuan HUD Trigger -->
+      <button
+        @click="showAcuanModal = true"
+        class="flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-emerald-50/70 hover:border-emerald-300 transition-all cursor-pointer shadow-2xs select-none"
+        title="Klik untuk melihat & beralih Data Acuan Aktif (SPK, WIP Jumbo, Roll FG)"
+      >
+        <span class="text-xs">🎯</span>
+        <div class="text-left leading-tight hidden lg:block">
+          <p class="text-[9.5px] font-bold text-zinc-500 uppercase tracking-tight">Acuan Aktif</p>
+          <p class="text-xs font-black text-emerald-800 flex items-center gap-1 font-mono">
+            <span>SPK</span> • <span>WIP</span> • <span>FG</span>
+          </p>
+        </div>
+        <span class="lg:hidden text-[10.5px] font-black text-emerald-800">
+          Acuan
+        </span>
+      </button>
+
       <!-- Cloud Supabase Sync Status Indicator -->
       <button
         @click="handleManualSync"
@@ -252,6 +270,189 @@
       </div>
     </div>
   </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL: UNIVERSAL ACUAN MANAGER (HUD QUICK SWITCHER)                -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div
+      v-if="showAcuanModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs animate-fade-in select-none"
+    >
+      <div class="bg-white rounded-3xl border border-zinc-200 shadow-2xl max-w-xl w-full overflow-hidden">
+        <!-- Modal Header -->
+        <div class="px-5 py-4 bg-zinc-950 text-white flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">🎯</span>
+            <div>
+              <h3 class="font-black text-sm text-white flex items-center gap-2">
+                <span>Manajemen Acuan Utama Sistem</span>
+                <span class="px-2 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  REALTIME CLOUD
+                </span>
+              </h3>
+              <p class="text-[10.5px] text-zinc-400">Pusat kendali sesi acuan aktif SPK, Stok WIP, & Stok FG di semua perangkat</p>
+            </div>
+          </div>
+          <button @click="showAcuanModal = false" class="text-zinc-400 hover:text-white cursor-pointer font-bold text-base">✕</button>
+        </div>
+
+        <!-- Info Ribbon -->
+        <div class="px-5 py-2.5 bg-amber-50/80 border-b border-amber-200 text-amber-900 text-[11px] flex items-center gap-2">
+          <span>💡</span>
+          <span>Aturan Sistem: <strong>Data terbaru otomatis menjadi acuan utama</strong>. Setiap pergantian di bawah langsung tersinkron ke PC lain.</span>
+        </div>
+
+        <!-- Body: 3 Acuan Sections -->
+        <div class="p-4 sm:p-5 space-y-3.5 text-xs max-h-[75vh] overflow-y-auto">
+          
+          <!-- 1. ACUAN SPK -->
+          <div class="p-3.5 rounded-2xl border border-zinc-200 bg-zinc-50/60 hover:border-blue-300 transition-colors space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-200">
+                  1. ACUAN SPK
+                </span>
+                <span class="font-bold text-zinc-700">Jadwal Produksi Slitting</span>
+              </div>
+              <button
+                @click="showAcuanModal = false; router.push('/spk')"
+                class="text-[11px] font-bold text-blue-600 hover:text-blue-800 cursor-pointer flex items-center gap-1"
+              >
+                <span>Buka Modul SPK</span> <span>➔</span>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-zinc-200">
+              <span class="relative flex h-2.5 w-2.5 shrink-0">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <div class="flex-1 min-w-0">
+                <p class="text-[10px] text-zinc-400 font-bold uppercase">Batch Acuan Aktif Saat Ini</p>
+                <p class="text-xs font-black text-zinc-900 truncate font-mono">
+                  {{ spkStore.activeBatch ? `${spkStore.activeBatch.batchName} (${spkStore.activeBatch.tanggal})` : 'Belum Ada Batch SPK' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Quick Switcher Dropdown -->
+            <div v-if="(spkStore.batches || []).length > 0" class="flex items-center gap-2">
+              <label class="text-[11px] font-bold text-zinc-500 shrink-0">Ganti Acuan SPK:</label>
+              <select
+                :value="spkStore.activeTimelineBatchUuid || spkStore.activeBatch?.uuid"
+                @change="handleQuickChangeSpk($event.target.value)"
+                class="flex-1 px-2.5 py-1.5 text-xs font-mono font-bold bg-white border border-zinc-300 rounded-xl outline-none cursor-pointer focus:border-blue-500"
+              >
+                <option v-for="b in spkStore.batches" :key="b.uuid" :value="b.uuid">
+                  {{ b.batchName }} ({{ b.tanggal }}) - {{ b.totalItems || 0 }} SPK
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 2. ACUAN WIP JUMBO ROLL -->
+          <div class="p-3.5 rounded-2xl border border-zinc-200 bg-zinc-50/60 hover:border-amber-300 transition-colors space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200">
+                  2. ACUAN WIP JUMBO
+                </span>
+                <span class="font-bold text-zinc-700">Stok Bahan Baku Jumbo</span>
+              </div>
+              <button
+                @click="showAcuanModal = false; router.push('/wip')"
+                class="text-[11px] font-bold text-amber-600 hover:text-amber-800 cursor-pointer flex items-center gap-1"
+              >
+                <span>Buka Modul WIP</span> <span>➔</span>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-zinc-200">
+              <span class="relative flex h-2.5 w-2.5 shrink-0">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <div class="flex-1 min-w-0">
+                <p class="text-[10px] text-zinc-400 font-bold uppercase">Sesi Acuan Aktif Saat Ini</p>
+                <p class="text-xs font-black text-zinc-900 truncate">
+                  {{ wipStore.activeUpdate ? `${wipStore.activeUpdate.title} (${wipStore.activeUpdate.totalRolls || 0} Roll)` : 'Belum Ada Data WIP' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Quick Switcher Dropdown -->
+            <div v-if="(wipStore.wipUpdates || []).length > 0" class="flex items-center gap-2">
+              <label class="text-[11px] font-bold text-zinc-500 shrink-0">Ganti Acuan WIP:</label>
+              <select
+                :value="wipStore.activeUpdate?.uuid || wipStore.activeUpdate?.id"
+                @change="handleQuickChangeWip($event.target.value)"
+                class="flex-1 px-2.5 py-1.5 text-xs font-bold bg-white border border-zinc-300 rounded-xl outline-none cursor-pointer focus:border-amber-500"
+              >
+                <option v-for="u in wipStore.wipUpdates" :key="u.uuid || u.id" :value="u.uuid || u.id">
+                  {{ u.title }} ({{ u.tanggal }}) - {{ u.totalRolls || 0 }} Roll
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 3. ACUAN FINISHED GOODS (FG ROLL) -->
+          <div class="p-3.5 rounded-2xl border border-zinc-200 bg-zinc-50/60 hover:border-red-300 transition-colors space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-red-100 text-red-900 border border-red-200">
+                  3. ACUAN STOK FG
+                </span>
+                <span class="font-bold text-zinc-700">Finished Goods (27 Kolom)</span>
+              </div>
+              <button
+                @click="showAcuanModal = false; router.push('/inventory')"
+                class="text-[11px] font-bold text-red-600 hover:text-red-800 cursor-pointer flex items-center gap-1"
+              >
+                <span>Buka Modul FG</span> <span>➔</span>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-zinc-200">
+              <span class="relative flex h-2.5 w-2.5 shrink-0">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <div class="flex-1 min-w-0">
+                <p class="text-[10px] text-zinc-400 font-bold uppercase">Sesi Acuan Aktif Saat Ini</p>
+                <p class="text-xs font-black text-zinc-900 truncate">
+                  {{ inventoryStore.activeUpload ? `${inventoryStore.activeUpload.fileName} (${inventoryStore.activeUpload.uploadDate})` : 'Belum Ada Stok FG' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Quick Switcher Dropdown -->
+            <div v-if="(inventoryStore.stockUploads || []).length > 0" class="flex items-center gap-2">
+              <label class="text-[11px] font-bold text-zinc-500 shrink-0">Ganti Acuan FG:</label>
+              <select
+                :value="inventoryStore.activeUpload?.uuid || inventoryStore.activeUpload?.id"
+                @change="handleQuickChangeFg($event.target.value)"
+                class="flex-1 px-2.5 py-1.5 text-xs font-bold bg-white border border-zinc-300 rounded-xl outline-none cursor-pointer focus:border-red-500"
+              >
+                <option v-for="up in inventoryStore.stockUploads" :key="up.uuid || up.id" :value="up.uuid || up.id">
+                  {{ up.fileName }} ({{ up.uploadDate }}) - {{ up.totalRoll }} Roll
+                </option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="px-5 py-3 border-t border-zinc-200 bg-zinc-50 flex items-center justify-end">
+          <button
+            @click="showAcuanModal = false"
+            class="px-5 py-2 text-xs font-black bg-zinc-900 hover:bg-black text-white rounded-xl cursor-pointer transition-all shadow-xs"
+          >
+            Selesai
+          </button>
+        </div>
+      </div>
+    </div>
 </template>
 
 <script setup>
@@ -260,6 +461,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useConfigStore } from '@/stores/configStore';
+import { useSpkStore } from '@/stores/spkStore';
+import { useWipStore } from '@/stores/wipStore';
+import { useInventoryStore } from '@/stores/inventoryStore';
 import { syncState, syncAll, forceFullSync, countUnsynced, startRealtimeSync } from '@/services/syncService';
 import ShiftHandoverModal from '@/components/schedule/ShiftHandoverModal.vue';
 
@@ -270,9 +474,25 @@ const router = useRouter();
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const configStore = useConfigStore();
+const spkStore = useSpkStore();
+const wipStore = useWipStore();
+const inventoryStore = useInventoryStore();
 
 const showSyncModal = ref(false);
+const showAcuanModal = ref(false);
 const syncMessage = ref('');
+
+const handleQuickChangeSpk = async (uuid) => {
+  await spkStore.setActiveReferenceBatch(uuid);
+};
+
+const handleQuickChangeWip = async (uuidOrId) => {
+  await wipStore.setActiveUpdate(uuidOrId);
+};
+
+const handleQuickChangeFg = async (uuidOrId) => {
+  await inventoryStore.setActiveUpload(uuidOrId);
+};
 
 const handleLogout = async () => {
   if (confirm('Apakah Anda yakin ingin keluar dari sistem?')) {

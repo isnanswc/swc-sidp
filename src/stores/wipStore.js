@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db, generateUniqID } from '@/db';
 import { useConfigStore } from '@/stores/configStore';
-import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, broadcastRealtimeEvent } from '@/services/syncService';
 
 export const useWipStore = defineStore('wip', () => {
   const wipUpdates = ref([]); // List of batch update sessions
@@ -45,9 +45,24 @@ export const useWipStore = defineStore('wip', () => {
     return excel.trim();
   };
 
-  // Active Update Session (Acuan Utama Stok)
+  // Helper to sort WIP update batches strictly by date (latest date first)
+  const sortWipUpdates = (list) => {
+    if (!Array.isArray(list)) return [];
+    return list.slice().sort((a, b) => {
+      const timeB = new Date(b.tanggal || b.createdAt || 0).getTime() || 0;
+      const timeA = new Date(a.tanggal || a.createdAt || 0).getTime() || 0;
+      if (timeB !== timeA) return timeB - timeA;
+      const cB = new Date(b.createdAt || 0).getTime() || 0;
+      const cA = new Date(a.createdAt || 0).getTime() || 0;
+      if (cB !== cA) return cB - cA;
+      return (b.id || 0) - (a.id || 0);
+    });
+  };
+
+  // Active Update Session (Acuan Utama Stok) - strictly single active batch
   const activeUpdate = computed(() => {
     const list = Array.isArray(wipUpdates.value) ? wipUpdates.value : [];
+    if (list.length === 0) return null;
     return list.find(u => u.isActive === 1 || u.isActive === true) || list[0] || null;
   });
 
@@ -60,13 +75,65 @@ export const useWipStore = defineStore('wip', () => {
     return filtered.length > 0 ? filtered : allRolls;
   });
 
+  // Auto-Healing: Reconcile active update batch (strictly ONE active, latest date wins)
+  const reconcileWipActiveBatch = async (preferredUuid = null) => {
+    if (!wipUpdates.value || wipUpdates.value.length === 0) return null;
+
+    // Always keep updates sorted by latest date descending
+    wipUpdates.value = sortWipUpdates(wipUpdates.value);
+
+    let activeBatch = null;
+
+    // 1. Check preferred UUID if specified
+    if (preferredUuid) {
+      activeBatch = wipUpdates.value.find(u => u.uuid === preferredUuid || String(u.id) === String(preferredUuid));
+    }
+
+    // 2. Check current active items
+    if (!activeBatch) {
+      const activeCandidates = wipUpdates.value.filter(u => u.isActive === 1 || u.isActive === true);
+      if (activeCandidates.length === 1) {
+        activeBatch = activeCandidates[0];
+      } else if (activeCandidates.length > 1) {
+        console.warn(`[WIP Auto-Healing] Mendeteksi ${activeCandidates.length} acuan ganda! Menetapkan hanya 1 batch terbaru sebagai acuan.`);
+        const sortedCandidates = sortWipUpdates(activeCandidates);
+        activeBatch = sortedCandidates[0];
+      }
+    }
+
+    // 3. Fallback: choose latest date batch (index 0)
+    if (!activeBatch) {
+      console.log('[WIP Auto-Healing] Tidak ada acuan aktif, menetapkan batch tanggal terbaru sebagai acuan utama.');
+      activeBatch = wipUpdates.value[0];
+    }
+
+    const activeUuid = activeBatch.uuid || activeBatch.id;
+
+    // Atomically enforce isActive = 1 for the chosen batch and 0 for all others
+    for (const u of wipUpdates.value) {
+      const shouldBeActive = (u.uuid === activeUuid || u.id === activeBatch.id) ? 1 : 0;
+      if (u.isActive !== shouldBeActive) {
+        u.isActive = shouldBeActive;
+        if (u.id) {
+          await db.wip_updates.update(u.id, { isActive: shouldBeActive, updatedAt: new Date().toISOString() });
+        }
+      }
+    }
+
+    if (activeBatch.uuid) {
+      localStorage.setItem('m_label_active_wip_batch_uuid', activeBatch.uuid);
+    }
+
+    return activeBatch;
+  };
+
   // Load All WIP Updates & Rolls from IndexedDB
   const loadWipRolls = async () => {
     isLoading.value = true;
     try {
-      // 1. Load Batches
-      const updates = await db.wip_updates.orderBy('id').reverse().toArray();
-      wipUpdates.value = updates || [];
+      // 1. Load Batches & sort strictly by latest date
+      const updates = await db.wip_updates.toArray();
+      wipUpdates.value = sortWipUpdates(updates || []);
 
       // 2. Load Rolls & Auto-Normalize to Master Racks
       const rolls = await db.wip_rolls.orderBy('id').reverse().toArray();
@@ -116,12 +183,9 @@ export const useWipStore = defineStore('wip', () => {
         }
       }
 
-      // Ensure exactly one active update batch
-      const activeCount = wipUpdates.value.filter(u => u.isActive === 1 || u.isActive === true).length;
-      if (activeCount === 0 && wipUpdates.value.length > 0) {
-        wipUpdates.value[0].isActive = 1;
-        await db.wip_updates.update(wipUpdates.value[0].id, { isActive: 1 });
-      }
+      // Reconcile and ensure exactly one active update batch (latest date wins, auto-healing)
+      const savedActiveUuid = localStorage.getItem('m_label_active_wip_batch_uuid');
+      await reconcileWipActiveBatch(savedActiveUuid);
     } catch (e) {
       console.error('Failed to load WIP data from DB:', e);
     } finally {
@@ -131,26 +195,30 @@ export const useWipStore = defineStore('wip', () => {
 
   // Set One Update Batch as Active Primary Stock Anchor
   const setActiveUpdate = async (updateItemOrId) => {
-    const targetId = typeof updateItemOrId === 'object' ? (updateItemOrId.id || updateItemOrId.uuid) : updateItemOrId;
-    
-    for (const update of wipUpdates.value) {
-      const isMatch = update.id === targetId || update.uuid === targetId;
-      const newStatus = isMatch ? 1 : 0;
-      update.isActive = newStatus;
-      if (update.id) {
-        await db.wip_updates.update(update.id, { isActive: newStatus, updatedAt: new Date().toISOString() });
-      }
+    const targetId = typeof updateItemOrId === 'object' ? (updateItemOrId.uuid || updateItemOrId.id) : updateItemOrId;
+    const active = await reconcileWipActiveBatch(targetId);
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('wip_broadcast', { action: 'set_active', targetUuid: active?.uuid || targetId });
+    } catch (e) {
+      console.warn('Sync active update notice:', e);
     }
-    pushLocalToSupabase().catch(() => {});
   };
 
   // Create New WIP Update Batch from Upload / Import
+  let isProcessingWipUpdate = false;
   const createWipUpdate = async ({ title, tanggal, fileName, rawRollsList, makeActive = true }) => {
+    if (isProcessingWipUpdate) {
+      console.warn('⚠️ createWipUpdate rejected: another WIP update is already in progress.');
+      return;
+    }
     if (!rawRollsList || rawRollsList.length === 0) {
       throw new Error('Tidak ada data baris WIP yang dapat di-import.');
     }
+    isProcessingWipUpdate = true;
 
-    const batchUuid = generateUniqID('WIP_BATCH');
+    try {
+      const batchUuid = generateUniqID('WIP_BATCH');
     const tgl = tanggal || new Date().toISOString().slice(0, 10);
     const batchTitle = title || `Update Stok WIP ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
@@ -212,6 +280,7 @@ export const useWipStore = defineStore('wip', () => {
         agingRemainingFormatted: r.agingRemainingFormatted || 'Siap Pakai',
         agingProgressPercent: r.agingProgressPercent !== undefined ? r.agingProgressPercent : 100,
 
+        synced: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -246,9 +315,20 @@ export const useWipStore = defineStore('wip', () => {
     await db.wip_rolls.bulkAdd(formattedRecords);
     wipRolls.value.unshift(...formattedRecords);
 
-    pushLocalToSupabase().catch(() => {});
+    // Ensure the new batch is strictly the sole active anchor
+    await reconcileWipActiveBatch(batchUuid);
 
-    return newBatch;
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('wip_broadcast', { action: 'create_wip_update', batchUuid });
+    } catch (pushErr) {
+      console.warn('Push WIP to Supabase notice:', pushErr);
+    }
+
+      return newBatch;
+    } finally {
+      isProcessingWipUpdate = false;
+    }
   };
 
   // Delete an entire WIP update batch
@@ -273,11 +353,18 @@ export const useWipStore = defineStore('wip', () => {
     await db.wip_rolls.where('updateId').equals(uuid).delete();
     wipRolls.value = wipRolls.value.filter(r => r.updateId !== uuid);
 
-    // If the deleted batch was active, activate the next available batch
+    // If the deleted batch was active, activate the next available batch by latest date
     if (target.isActive && wipUpdates.value.length > 0) {
-      await setActiveUpdate(wipUpdates.value[0]);
+      const newActive = await reconcileWipActiveBatch();
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('wip_broadcast', { action: 'delete_wip_update', updateId, newActiveUuid: newActive?.uuid });
+      } catch (e) {}
     } else {
-      pushLocalToSupabase().catch(() => {});
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('wip_broadcast', { action: 'delete_wip_update', updateId });
+      } catch (e) {}
     }
   };
 
@@ -291,7 +378,10 @@ export const useWipStore = defineStore('wip', () => {
     if (update.id) {
       await db.wip_updates.update(update.id, { title: update.title, updatedAt: update.updatedAt });
     }
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('wip_broadcast', { action: 'rename_wip_update', updateId });
+    } catch (e) {}
   };
 
   // Add Single Roll to an update batch
@@ -337,6 +427,7 @@ export const useWipStore = defineStore('wip', () => {
       descriptionExcel: descExcel,
       keterangan: (rollData.keterangan || '').trim(),
       status: rollData.status || 'AVAILABLE',
+      synced: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -353,7 +444,10 @@ export const useWipStore = defineStore('wip', () => {
       if (batch.id) await db.wip_updates.update(batch.id, { totalRolls: batch.totalRolls, totalKg: batch.totalKg });
     }
 
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('wip_broadcast', { action: 'add_wip_roll', rollId: record.uuid });
+    } catch (e) {}
     return record;
   };
 
@@ -369,7 +463,10 @@ export const useWipStore = defineStore('wip', () => {
     if (idx !== -1) {
       wipRolls.value[idx] = { ...wipRolls.value[idx], ...fields };
     }
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('wip_broadcast', { action: 'update_wip_roll', rollId: id });
+    } catch (e) {}
   };
 
   // Delete a single roll
@@ -390,7 +487,10 @@ export const useWipStore = defineStore('wip', () => {
         if (batch.id) await db.wip_updates.update(batch.id, { totalRolls: batch.totalRolls, totalKg: batch.totalKg });
       }
     }
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('wip_broadcast', { action: 'delete_wip_roll', rollId: id });
+    } catch (e) {}
   };
 
   // Clear all data
@@ -405,7 +505,10 @@ export const useWipStore = defineStore('wip', () => {
     wipUpdates.value = [];
     wipRolls.value = [];
     selectedUpdateId.value = null;
-    pushLocalToSupabase().catch(() => {});
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('wip_broadcast', { action: 'clear_all_wip' });
+    } catch (e) {}
   };
 
   return {
@@ -426,7 +529,9 @@ export const useWipStore = defineStore('wip', () => {
     addWipRoll,
     updateWipRoll,
     deleteWipRoll,
-    clearAllWipRolls
+    clearAllWipRolls,
+    reconcileWipActiveBatch,
+    sortWipUpdates
   };
 });
 
@@ -443,7 +548,7 @@ if (typeof window !== 'undefined' && !window.__mlabel_wip_sync_listener_attached
       } catch (e) {
         console.warn('Auto reload wipStore failed:', e);
       }
-    }, 1500);
+    }, 300);
   });
 }
 

@@ -4,7 +4,7 @@ import { db, generateUniqID, getSetting, saveSetting } from '@/db';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
 import { useGlobalLoading } from '@/services/loadingService';
-import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones, recordLabelsWipedCloud } from '@/services/syncService';
+import { supabase, pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, getTombstones, recordLabelsWipedCloud, broadcastRealtimeEvent } from '@/services/syncService';
 
 export function normalizeTurunan(val) {
   if (!val) return '';
@@ -673,7 +673,10 @@ export const useLabelStore = defineStore('labelStore', {
       const sortKeys = computeLabelSortKeys(record, record.mesin || 'SLITTING');
       this.labels.unshift(markRaw({ ...record, ...sortKeys }));
       this.totalDbCount++;
-      pushLocalToSupabase().catch(() => {});
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('labels_broadcast', { action: 'add_label', uniqId: record.uniqId });
+      } catch (e) {}
       return record;
     },
 
@@ -752,7 +755,10 @@ export const useLabelStore = defineStore('labelStore', {
         const sortKeys = computeLabelSortKeys(merged, merged.mesin || 'SLITTING');
         this.labels.splice(idx, 1, markRaw({ ...merged, ...sortKeys }));
       }
-      pushLocalToSupabase().catch(() => {});
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('labels_broadcast', { action: 'update_label', id });
+      } catch (e) {}
     },
 
     async deleteLabel(id) {
@@ -800,6 +806,10 @@ export const useLabelStore = defineStore('labelStore', {
       if (this.currentPage > this.totalPages) {
         this.currentPage = Math.max(1, this.totalPages);
       }
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('labels_broadcast', { action: 'delete_label', id });
+      } catch (e) {}
     },
 
     async deleteSelectedLabels(ids) {
@@ -849,6 +859,10 @@ export const useLabelStore = defineStore('labelStore', {
       if (this.currentPage > this.totalPages) {
         this.currentPage = Math.max(1, this.totalPages);
       }
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('labels_broadcast', { action: 'delete_selected_labels', count: ids.length });
+      } catch (e) {}
     },
 
     async duplicateLabel(item) {
@@ -1102,6 +1116,6 @@ if (typeof window !== 'undefined' && !window.__mlabel_label_sync_listener_attach
       } catch (e) {
         console.warn('Auto reload labelStore failed:', e);
       }
-    }, 1500);
+    }, 300);
   });
 }

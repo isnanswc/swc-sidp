@@ -1614,7 +1614,7 @@
             >
               🗑️ Hapus
             </button>
-            <button @click="showVerificationModal = false" class="p-1 sm:p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white cursor-pointer ml-1">
+            <button @click="showVerificationModal = false" :disabled="isCommittingVerification" class="p-1 sm:p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white cursor-pointer ml-1 disabled:opacity-40 disabled:cursor-not-allowed">
               ✕
             </button>
           </div>
@@ -1773,15 +1773,21 @@
           <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             <button
               @click="showVerificationModal = false"
-              class="flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer text-center"
+              :disabled="isCommittingVerification"
+              class="flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer text-center disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               Batal
             </button>
             <button
               @click="commitVerificationToPlans"
-              class="flex-1 sm:flex-initial px-4 sm:px-5 py-1.5 sm:py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors cursor-pointer text-center"
+              :disabled="verificationStagingList.length === 0 || isCommittingVerification"
+              class="flex-1 sm:flex-initial px-4 sm:px-5 py-1.5 sm:py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition-colors cursor-pointer text-center disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              ✓ Simpan ({{ verificationStagingList.length }})
+              <svg v-if="isCommittingVerification" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>{{ isCommittingVerification ? 'Menyimpan & Menyinkronkan ke Cloud...' : `✓ Simpan (${verificationStagingList.length})` }}</span>
             </button>
           </div>
         </div>
@@ -1796,7 +1802,7 @@
       <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-zinc-200">
         <div class="p-5 border-b border-zinc-100 flex items-center justify-between">
           <h3 class="text-sm font-black text-zinc-900">{{ editingPlanId ? 'Revisi Planned SPK' : 'Tambah Planned SPK Baru' }}</h3>
-          <button @click="showManualModal = false" class="p-1 rounded-lg text-zinc-400 hover:text-zinc-800 cursor-pointer">✕</button>
+          <button @click="showManualModal = false" :disabled="isSavingManualPlan" class="p-1 rounded-lg text-zinc-400 hover:text-zinc-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
         </div>
         <div class="p-5 space-y-3.5 text-xs">
           <div class="grid grid-cols-2 gap-3">
@@ -1869,9 +1875,23 @@
         </div>
 
         <div class="p-4 border-t border-zinc-100 bg-zinc-50 flex justify-end gap-2">
-          <button @click="showManualModal = false" class="px-4 py-2 font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer">Batal</button>
-          <button @click="saveManualPlan" class="px-5 py-2 font-black bg-red-600 hover:bg-red-500 text-white rounded-xl cursor-pointer">
-            {{ editingPlanId ? 'Simpan Revisi' : 'Tambahkan' }}
+          <button
+            @click="showManualModal = false"
+            :disabled="isSavingManualPlan"
+            class="px-4 py-2 font-bold text-zinc-600 hover:bg-zinc-200 rounded-xl cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            Batal
+          </button>
+          <button
+            @click="saveManualPlan"
+            :disabled="isSavingManualPlan"
+            class="px-5 py-2 font-black bg-red-600 hover:bg-red-500 text-white rounded-xl cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+          >
+            <svg v-if="isSavingManualPlan" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>{{ isSavingManualPlan ? 'Menyimpan...' : (editingPlanId ? 'Simpan Revisi' : 'Tambahkan') }}</span>
           </button>
         </div>
       </div>
@@ -1912,7 +1932,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, watch } from 'vue';
+import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue';
 import { useSpkStore, evaluateTargetStatus, getFilmDensity, calculateBeratTeori } from '@/stores/spkStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
@@ -1936,6 +1956,7 @@ const selectedSpkAnalytics = ref(null);
 
 // Verification Modal State
 const showVerificationModal = ref(false);
+const isCommittingVerification = ref(false);
 const verificationStagingList = ref([]);
 // Batch & Expand State (1 Scan = 1 Batch)
 const expandedBatchIds = ref(new Set());
@@ -2117,6 +2138,7 @@ const confirmDeleteBatch = async (batchUuid, batchName) => {
 
 // Manual / Revision Modal State
 const showManualModal = ref(false);
+const isSavingManualPlan = ref(false);
 const editingPlanId = ref(null);
 const manualForm = reactive({
   spkNo: '',
@@ -2134,13 +2156,22 @@ const manualForm = reactive({
 });
 
 // Lifecycle
+const handleSpkUpdate = async () => {
+  await spkStore.loadAll(true);
+};
+
 onMounted(async () => {
+  window.addEventListener('sync:spk-plans-updated', handleSpkUpdate);
   await Promise.all([
     spkStore.loadAll(),
     configStore.loadAll(),
     labelStore.loadLabels(),
     dataRollStore.loadRolls()
   ]);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('sync:spk-plans-updated', handleSpkUpdate);
 });
 
 // Helpers Format
@@ -3503,46 +3534,56 @@ const deleteSelectedVerificationRows = () => {
 
 
 const commitVerificationToPlans = async () => {
-  const scheduleDateFinal = isDateRangeMode.value
-    ? (verificationBatchDateLabel.value || `${verificationBatchStartDate.value} s/d ${verificationBatchEndDate.value}`)
-    : (verificationBatchDateLabel.value || verificationBatchDate.value || new Date().toISOString().slice(0, 10));
+  if (isCommittingVerification.value || verificationStagingList.value.length === 0) return;
+  isCommittingVerification.value = true;
 
-  const batchMeta = {
-    batchName: verificationBatchName.value || `JADWAL SLITTING ${scheduleDateFinal}`,
-    docNo: '3B-PROD',
-    tanggal: scheduleDateFinal,
-    source: 'AI_SCAN'
-  };
+  try {
+    const scheduleDateFinal = isDateRangeMode.value
+      ? (verificationBatchDateLabel.value || `${verificationBatchStartDate.value} s/d ${verificationBatchEndDate.value}`)
+      : (verificationBatchDateLabel.value || verificationBatchDate.value || new Date().toISOString().slice(0, 10));
 
-  const formattedItems = verificationStagingList.value.map(row => {
-    const upList = [];
-    if (row.up1) upList.push({ upNo: 1, lebar: parseFloat(row.up1), panjang: parseFloat(row.panjangChild) || 12000 });
-    if (row.up2) upList.push({ upNo: 2, lebar: parseFloat(row.up2), panjang: parseFloat(row.panjangChild) || 12000 });
-    if (row.up3) upList.push({ upNo: 3, lebar: parseFloat(row.up3), panjang: parseFloat(row.panjangChild) || 12000 });
-    if (row.up4) upList.push({ upNo: 4, lebar: parseFloat(row.up4), panjang: parseFloat(row.panjangChild) || 12000 });
-
-    return {
-      spkNo: row.spkNo,
+    const batchMeta = {
+      batchName: verificationBatchName.value || `JADWAL SLITTING ${scheduleDateFinal}`,
       docNo: '3B-PROD',
-      formula: row.formula,
-      thickness: row.thickness,
-      lebarParent: row.lebarParent,
-      panjangParent: row.panjangParent,
-      jumlahJumbo: row.jumlahJumbo,
-      totalPlannedMeter: row.totalPlannedMeter,
-      upList,
-      keterangan: row.keterangan,
-      status: 'PLANNED'
+      tanggal: scheduleDateFinal,
+      source: 'AI_SCAN'
     };
-  });
 
-  const res = await spkStore.addBatchWithPlans(batchMeta, formattedItems);
-  if (res && res.batch) {
-    expandedBatchIds.value.add(res.batch.uuid);
+    const formattedItems = verificationStagingList.value.map(row => {
+      const upList = [];
+      if (row.up1) upList.push({ upNo: 1, lebar: parseFloat(row.up1), panjang: parseFloat(row.panjangChild) || 12000 });
+      if (row.up2) upList.push({ upNo: 2, lebar: parseFloat(row.up2), panjang: parseFloat(row.panjangChild) || 12000 });
+      if (row.up3) upList.push({ upNo: 3, lebar: parseFloat(row.up3), panjang: parseFloat(row.panjangChild) || 12000 });
+      if (row.up4) upList.push({ upNo: 4, lebar: parseFloat(row.up4), panjang: parseFloat(row.panjangChild) || 12000 });
+
+      return {
+        spkNo: row.spkNo,
+        docNo: '3B-PROD',
+        formula: row.formula,
+        thickness: row.thickness,
+        lebarParent: row.lebarParent,
+        panjangParent: row.panjangParent,
+        jumlahJumbo: row.jumlahJumbo,
+        totalPlannedMeter: row.totalPlannedMeter,
+        upList,
+        keterangan: row.keterangan,
+        status: 'PLANNED'
+      };
+    });
+
+    const res = await spkStore.addBatchWithPlans(batchMeta, formattedItems);
+    if (res && res.batch) {
+      expandedBatchIds.value.add(res.batch.uuid);
+    }
+    showVerificationModal.value = false;
+    activeSheet.value = 'planned';
+    alert(`✓ Berhasil membuat Batch "${batchMeta.batchName}" dengan ${formattedItems.length} item SPK!`);
+  } catch (err) {
+    console.error('Failed to commit SPK verification:', err);
+    alert(`Gagal menyimpan jadwal SPK: ${err.message || 'Terjadi kesalahan sistem'}`);
+  } finally {
+    isCommittingVerification.value = false;
   }
-  showVerificationModal.value = false;
-  activeSheet.value = 'planned';
-  alert(`✓ Berhasil membuat Batch "${batchMeta.batchName}" dengan ${formattedItems.length} item SPK!`);
 };
 
 // ── MANUAL / REVISI MODAL ──
@@ -3595,48 +3636,57 @@ const openEditPlanModal = (row) => {
 };
 
 const saveManualPlan = async () => {
+  if (isSavingManualPlan.value) return;
   if (!manualForm.spkNo.trim()) return alert('Nomor SPK wajib diisi!');
+  isSavingManualPlan.value = true;
 
-  const upList = [];
-  if (manualForm.up1) upList.push({ upNo: 1, lebar: parseFloat(manualForm.up1), panjang: 12000 });
-  if (manualForm.up2) upList.push({ upNo: 2, lebar: parseFloat(manualForm.up2), panjang: 12000 });
-  if (manualForm.up3) upList.push({ upNo: 3, lebar: parseFloat(manualForm.up3), panjang: 12000 });
-  if (manualForm.up4) upList.push({ upNo: 4, lebar: parseFloat(manualForm.up4), panjang: 12000 });
+  try {
+    const upList = [];
+    if (manualForm.up1) upList.push({ upNo: 1, lebar: parseFloat(manualForm.up1), panjang: 12000 });
+    if (manualForm.up2) upList.push({ upNo: 2, lebar: parseFloat(manualForm.up2), panjang: 12000 });
+    if (manualForm.up3) upList.push({ upNo: 3, lebar: parseFloat(manualForm.up3), panjang: 12000 });
+    if (manualForm.up4) upList.push({ upNo: 4, lebar: parseFloat(manualForm.up4), panjang: 12000 });
 
-  const payload = {
-    spkNo: manualForm.spkNo.trim().toUpperCase(),
-    formula: manualForm.formula.trim().toUpperCase(),
-    thickness: parseFloat(manualForm.thickness) || 25,
-    lebarParent: parseFloat(manualForm.lebarParent) || 0,
-    panjangParent: parseFloat(manualForm.panjangParent) || 0,
-    jumlahJumbo: parseInt(manualForm.jumlahJumbo, 10) || 1,
-    upList,
-    keterangan: manualForm.keterangan.trim(),
-    totalPlannedMeter: (parseInt(manualForm.jumlahJumbo, 10) || 1) * 12000
-  };
+    const payload = {
+      spkNo: manualForm.spkNo.trim().toUpperCase(),
+      formula: manualForm.formula.trim().toUpperCase(),
+      thickness: parseFloat(manualForm.thickness) || 25,
+      lebarParent: parseFloat(manualForm.lebarParent) || 0,
+      panjangParent: parseFloat(manualForm.panjangParent) || 0,
+      jumlahJumbo: parseInt(manualForm.jumlahJumbo, 10) || 1,
+      upList,
+      keterangan: manualForm.keterangan.trim(),
+      totalPlannedMeter: (parseInt(manualForm.jumlahJumbo, 10) || 1) * 12000
+    };
 
-  if (editingPlanId.value) {
-    await spkStore.updatePlan(editingPlanId.value, payload, manualForm.revisionReason || 'Revisi SPK', 'Admin');
-  } else {
-    if (targetBatchUuidForNewItem.value) {
-      payload.batchId = targetBatchUuidForNewItem.value;
-      await spkStore.addPlan(payload);
-      expandedBatchIds.value.add(targetBatchUuidForNewItem.value);
+    if (editingPlanId.value) {
+      await spkStore.updatePlan(editingPlanId.value, payload, manualForm.revisionReason || 'Revisi SPK', 'Admin');
     } else {
-      // Buat batch manual baru
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const res = await spkStore.addBatchWithPlans({
-        batchName: `Jadwal Slitting Manual ${todayStr}`,
-        tanggal: todayStr,
-        source: 'MANUAL'
-      }, [payload]);
-      if (res && res.batch) {
-        expandedBatchIds.value.add(res.batch.uuid);
+      if (targetBatchUuidForNewItem.value) {
+        payload.batchId = targetBatchUuidForNewItem.value;
+        await spkStore.addPlan(payload);
+        expandedBatchIds.value.add(targetBatchUuidForNewItem.value);
+      } else {
+        // Buat batch manual baru
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const res = await spkStore.addBatchWithPlans({
+          batchName: `Jadwal Slitting Manual ${todayStr}`,
+          tanggal: todayStr,
+          source: 'MANUAL'
+        }, [payload]);
+        if (res && res.batch) {
+          expandedBatchIds.value.add(res.batch.uuid);
+        }
       }
     }
-  }
 
-  showManualModal.value = false;
+    showManualModal.value = false;
+  } catch (err) {
+    console.error('Failed to save manual plan:', err);
+    alert(`Gagal menyimpan data SPK: ${err.message || 'Terjadi kesalahan sistem'}`);
+  } finally {
+    isSavingManualPlan.value = false;
+  }
 };
 
 const confirmDeletePlan = async (id, spkNo) => {
