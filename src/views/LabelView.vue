@@ -6984,6 +6984,17 @@ const saveParentLotData = async () => {
     const sisaMeterVal = parseFloat(parentLotForm.sisaMeter) || 0;
     const sisaKgVal = parseFloat(computedBeratSisaJumbo.value.toFixed(2));
 
+    // Bersihkan daftar parentRollsJoint: hanya roll dengan nomor lot yang terisi
+    const cleanedJointRolls = parentLotForm.isMultiParent && Array.isArray(parentLotForm.multiParents)
+      ? parentLotForm.multiParents
+          .filter(p => p && (p.lotNo || p.lot) && String(p.lotNo || p.lot).trim() !== '')
+          .map(p => ({
+            ...p,
+            lotNo: String(p.lotNo || p.lot).trim().toUpperCase()
+          }))
+      : [];
+    const savedParentRollsJoint = cleanedJointRolls.length > 1 ? cleanedJointRolls : null;
+
     for (const item of items) {
       const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
       const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
@@ -7003,7 +7014,7 @@ const saveParentLotData = async () => {
         parentBeratTeori: parseFloat(beratTeori.toFixed(2)),
         parentBeratAktual: bAktualVal,
         parentBeratMasuk: beratMasukVal,
-        parentRollsJoint: (parentLotForm.isMultiParent && parentLotForm.multiParents.length > 1) ? JSON.parse(JSON.stringify(parentLotForm.multiParents)) : null,
+        parentRollsJoint: savedParentRollsJoint,
         resinConsumptions: parentLotForm.isResinMode ? JSON.parse(JSON.stringify(parentLotForm.resinConsumptions)) : null,
         synced: 0,
         updatedAt: new Date().toISOString()
@@ -7040,7 +7051,10 @@ const inlineParentBeratVal = ref('');
 const getLotParentRolls = (lotNode) => {
   if (!lotNode) return [];
 
-  // 1. Dari data multi-parent terstruktur (parentRollsJoint)
+  const lotStr = String(lotNode.lot || '').trim();
+
+  // Sumber HANYA dari data parentRollsJoint yang diinput/disimpan pada form rekonsiliasi material / parent lot
+  // Abaikan slash pada nomor lot anak ataupun informasi join yang melekat pada label child
   const jointList = Array.isArray(lotNode.parentRollsJoint) && lotNode.parentRollsJoint.length > 0
     ? lotNode.parentRollsJoint
     : (Array.isArray(lotNode.items?.[0]?.parentRollsJoint) && lotNode.items[0].parentRollsJoint.length > 0
@@ -7049,37 +7063,23 @@ const getLotParentRolls = (lotNode) => {
 
   if (jointList && jointList.length > 1) {
     const validRolls = jointList
-      .filter(p => p && (p.lotNo || p.lot))
+      .filter(p => p && (p.lotNo || p.lot) && String(p.lotNo || p.lot).trim() !== '')
       .map((p, idx) => ({
-        lotNo: (p.lotNo || p.lot || '').trim().toUpperCase(),
+        lotNo: String(p.lotNo || p.lot || '').trim().toUpperCase(),
         isPrimary: idx === 0,
         meter: p.meter ? parseFloat(p.meter) : null,
         berat: p.berat ? parseFloat(p.berat) : null,
         width: p.width ? parseFloat(p.width) : null,
         spk: p.spk || null,
-        note: idx === 0 ? 'Parent Utama' : `Joint #${idx}`
+        note: p.note || (idx === 0 ? 'Parent Utama' : `Joint #${idx}`)
       }));
-    if (validRolls.length > 1) return validRolls;
-  }
 
-  // 2. Dari string nomor lot yang dipisah slash (misal "M08160926A315/F202" atau "LOT1/LOT2")
-  const lotStr = String(lotNode.lot || '').trim();
-  if (lotStr.includes('/')) {
-    const parts = lotStr.split('/').map(s => s.trim().toUpperCase()).filter(Boolean);
-    if (parts.length > 1) {
-      return parts.map((lotPart, idx) => ({
-        lotNo: lotPart,
-        isPrimary: idx === 0,
-        meter: null,
-        berat: null,
-        width: null,
-        spk: null,
-        note: idx === 0 ? 'Parent Utama' : `Joint #${idx}`
-      }));
+    if (validRolls.length > 1) {
+      return validRolls;
     }
   }
 
-  // 3. Single parent roll (default)
+  // Single parent roll (default normal)
   return [
     {
       lotNo: lotStr || 'Tanpa Lot',
