@@ -5845,31 +5845,28 @@ const hierarchyTree = computed(() => {
         const wipRoll = findWipRollForLot(pureLot, firstItem.spk);
         const sumChildWidth = getSumChildWidthForLot(sortedTurunan, spkPlan);
 
-        // 1. Tentukan Lebar Teori Parent (Parent Width)
-        // Default akumulasi pisau child (sumChildWidth) ditambah standar trimming 30mm (misal 1160+1160=2320 + 30 = 2350mm)
-        let parentWidth = 0;
-        if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) > 0) {
-          const pW = parseFloat(firstItem.parentWidth);
-          // Jika tersimpan sama persis dengan lebar child tanpa trim (bug data lama), sesuaikan dengan standar +30mm
-          if (sumChildWidth > 0 && pW === sumChildWidth && (!firstItem.parentTrim || parseFloat(firstItem.parentTrim) === 0)) {
-            parentWidth = sumChildWidth + 30;
-          } else {
-            parentWidth = pW;
+        // 1. Tentukan Lebar Teori Parent (Parent Width) & Trim
+        // Aturan Standar: Chart (sumChildWidth) + Estimasi Trim (30mm)
+        const chartWidth = sumChildWidth > 0 ? sumChildWidth : (parseFloat(firstItem.width) || 0);
+        let parentTrim = 30; // Default standar estimasi trim 30mm
+
+        // Jika user pernah menyimpan trim secara eksplisit (batas wajar <= 100mm)
+        if (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '' && parseFloat(firstItem.parentTrim) > 0 && parseFloat(firstItem.parentTrim) <= 100) {
+          parentTrim = parseFloat(firstItem.parentTrim);
+        } else if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) >= chartWidth) {
+          const diff = parseFloat(firstItem.parentWidth) - chartWidth;
+          // Hanya gunakan parentWidth tersimpan jika selisihnya wajar (5mm s/d 100mm) untuk memfilter anomali data lama
+          if (diff >= 5 && diff <= 100) {
+            parentTrim = Math.round(diff);
           }
-        } else if (sumChildWidth > 0) {
-          parentWidth = (spkPlan && parseFloat(spkPlan.lebarParent) >= sumChildWidth + 10)
-            ? parseFloat(spkPlan.lebarParent)
-            : (sumChildWidth + 30);
-        } else if (spkPlan && parseFloat(spkPlan.lebarParent) > 0) {
-          parentWidth = parseFloat(spkPlan.lebarParent);
-        } else if (wipRoll && parseFloat(wipRoll.width) > 0) {
-          parentWidth = parseFloat(wipRoll.width);
-        } else {
-          parentWidth = 2350;
+        } else if (spkPlan && parseFloat(spkPlan.lebarParent) >= chartWidth) {
+          const spkTrim = parseFloat(spkPlan.lebarParent) - chartWidth;
+          if (spkTrim >= 10 && spkTrim <= 80) {
+            parentTrim = Math.round(spkTrim);
+          }
         }
-        const parentTrim = (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '' && parseFloat(firstItem.parentTrim) > 0)
-          ? parseFloat(firstItem.parentTrim)
-          : Math.max(0, parentWidth - sumChildWidth);
+
+        const parentWidth = chartWidth > 0 ? Math.round(chartWidth + parentTrim) : 2350;
 
         // 2. Tentukan Panjang Teori Parent (Parent Meter) - Mengikuti estimasi berdasarkan child, tapi bisa di-input manual
         const seqSummary = calculateSequenceLengthSummary(sortedTurunan);
@@ -6776,9 +6773,10 @@ const openParentLotModal = (lotNode) => {
 
   const chartSummary = calculateChartinganWidthSummary(items);
   parentLotForm.uniqueChartList = chartSummary.uniquePositions;
-  parentLotForm.chartinganBaseWidth = (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1)
-    ? chartSummary.baseChartWidth
-    : (parseFloat(lotNode.sumChildWidth) || chartSummary.baseChartWidth || parseFloat(first.width) || 0);
+  const chartBase = (parseFloat(lotNode.sumChildWidth) > 0)
+    ? parseFloat(lotNode.sumChildWidth)
+    : (chartSummary.baseChartWidth > 0 ? chartSummary.baseChartWidth : (parseFloat(first.width) || 0));
+  parentLotForm.chartinganBaseWidth = chartBase;
 
   const seqSummary = calculateSequenceLengthSummary(items);
   parentLotForm.uniqueSeqList = seqSummary.uniqueSequences;
@@ -6792,28 +6790,26 @@ const openParentLotModal = (lotNode) => {
   parentLotForm.kode = lotNode.kode || first.kode || '';
   parentLotForm.thickness = lotNode.thickness || first.thickness || '';
   
-  if (first.parentWidth && parseFloat(first.parentWidth) > 0) {
-    const pW = parseFloat(first.parentWidth);
-    if (parentLotForm.chartinganBaseWidth > 0 && pW === parentLotForm.chartinganBaseWidth && (!first.parentTrim || parseFloat(first.parentTrim) === 0)) {
-      parentLotForm.parentWidth = parentLotForm.chartinganBaseWidth + 30;
-      parentLotForm.trim = 30;
-    } else {
-      parentLotForm.parentWidth = pW;
-      if (first.parentTrim !== undefined && first.parentTrim !== null && first.parentTrim !== '' && parseFloat(first.parentTrim) > 0) {
-        parentLotForm.trim = parseFloat(first.parentTrim);
-      } else {
-        onParentWidthChange();
-      }
+  // Evaluasi Trim & Lebar Parent: Standar = Chart (Base) + Estimasi Trim (30mm)
+  let initialTrim = 30;
+  if (first.parentTrim !== undefined && first.parentTrim !== null && first.parentTrim !== '' && parseFloat(first.parentTrim) > 0 && parseFloat(first.parentTrim) <= 100) {
+    initialTrim = parseFloat(first.parentTrim);
+  } else if (lotNode.parentTrim !== undefined && lotNode.parentTrim !== null && lotNode.parentTrim !== '' && parseFloat(lotNode.parentTrim) > 0 && parseFloat(lotNode.parentTrim) <= 100) {
+    initialTrim = parseFloat(lotNode.parentTrim);
+  } else if (first.parentWidth && parseFloat(first.parentWidth) >= chartBase) {
+    const diff = parseFloat(first.parentWidth) - chartBase;
+    if (diff >= 5 && diff <= 100) {
+      initialTrim = Math.round(diff);
     }
-  } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) > 0) {
-    parentLotForm.parentWidth = parseFloat(lotNode.parentWidth);
-    parentLotForm.trim = (lotNode.parentTrim !== undefined && lotNode.parentTrim !== null && lotNode.parentTrim !== '' && parseFloat(lotNode.parentTrim) > 0)
-      ? parseFloat(lotNode.parentTrim)
-      : Math.max(0, parentLotForm.parentWidth - parentLotForm.chartinganBaseWidth);
-  } else {
-    parentLotForm.parentWidth = parentLotForm.chartinganBaseWidth > 0 ? parentLotForm.chartinganBaseWidth + 30 : 2350;
-    parentLotForm.trim = 30;
+  } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) >= chartBase) {
+    const diff = parseFloat(lotNode.parentWidth) - chartBase;
+    if (diff >= 5 && diff <= 100) {
+      initialTrim = Math.round(diff);
+    }
   }
+
+  parentLotForm.trim = initialTrim;
+  parentLotForm.parentWidth = chartBase > 0 ? Math.round(chartBase + initialTrim) : 2350;
 
   if (first.parentMeter && parseFloat(first.parentMeter) > 0) {
     parentLotForm.parentMeter = parseFloat(first.parentMeter);

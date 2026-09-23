@@ -3216,7 +3216,7 @@ const getParentLotInfo = (lotNo) => {
       }
     });
     const sumWidth = Array.from(chartMap.values()).reduce((acc, w) => acc + w, 0);
-    parentWidth = sumWidth > 0 ? sumWidth : (parseFloat(first.width || first.lebar) || 1000) * 2;
+    parentWidth = sumWidth > 0 ? (sumWidth + 30) : (parseFloat(first.width || first.lebar) || 1000) * 2;
   }
 
   // 2. Parent Meter (Panjang Bahan)
