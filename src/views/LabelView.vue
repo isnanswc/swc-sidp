@@ -1077,15 +1077,49 @@
                           </svg>
                         </span>
 
-                        <!-- Stacked No Lot & SPK (Menghemat tempat horizontal) -->
+                        <!-- Stacked No Lot & SPK (Dengan Dukungan Multi-Parent Joint Estetik) -->
                         <div class="flex flex-col min-w-0 justify-center">
-                        <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate" :title="`No. Lot Induk: ${lotNode.lot}`">
-                          🏷️ {{ lotNode.lot }}
-                        </span>
-                        <span class="text-[10px] font-mono text-zinc-500 font-semibold tracking-tight leading-none mt-0.5" :title="`SPK: ${lotNode.spk}`">
-                          SPK: <strong class="text-zinc-700 font-bold">{{ lotNode.spk }}</strong>
-                        </span>
-                      </div>
+                          <!-- Single Parent Normal -->
+                          <div v-if="getLotParentRolls(lotNode).length <= 1" class="flex items-center gap-1.5 min-w-0">
+                            <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate" :title="`No. Lot Induk: ${lotNode.lot}`">
+                              🏷️ {{ lotNode.lot }}
+                            </span>
+                          </div>
+
+                          <!-- Multi-Parent Joint (Parent Utama + Sambungan) -->
+                          <div v-else class="flex items-center gap-1.5 flex-wrap min-w-0 py-0.5">
+                            <div
+                              v-for="(p, pIdx) in getLotParentRolls(lotNode)"
+                              :key="pIdx"
+                              class="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-lg border text-[10.5px] sm:text-[11px] font-mono transition-all shadow-2xs select-none"
+                              :class="[
+                                p.isPrimary
+                                  ? 'bg-amber-100/90 border-amber-300 text-amber-950 font-black ring-1 ring-amber-400/40'
+                                  : 'bg-indigo-50/90 border-indigo-200 text-indigo-900 font-bold'
+                              ]"
+                              :title="p.isPrimary ? `👑 Parent Utama (Jumbo Awal): ${p.lotNo}` : `🔗 Roll Sambungan #${pIdx}: ${p.lotNo}`"
+                            >
+                              <span class="text-[10px]">{{ p.isPrimary ? '👑' : '🔗' }}</span>
+                              <span
+                                class="text-[8.5px] font-black uppercase px-1 py-0.2 rounded"
+                                :class="p.isPrimary ? 'bg-amber-600 text-white shadow-2xs' : 'bg-indigo-200/90 text-indigo-800'"
+                              >
+                                {{ p.isPrimary ? 'UTAMA' : `JOIN #${pIdx}` }}
+                              </span>
+                              <span class="font-black tracking-wide">{{ p.lotNo }}</span>
+                              <span v-if="p.meter || p.berat" class="text-[9px] opacity-75 font-sans font-semibold border-l pl-1 border-current/20 hidden md:inline">
+                                {{ [p.meter ? `${p.meter}M` : '', p.berat ? `${p.berat}kg` : ''].filter(Boolean).join(' • ') }}
+                              </span>
+                            </div>
+                            <span class="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200/60 hidden lg:inline">
+                              {{ getLotParentRolls(lotNode).length }} Joint
+                            </span>
+                          </div>
+
+                          <span class="text-[10px] font-mono text-zinc-500 font-semibold tracking-tight leading-none mt-0.5" :title="`SPK: ${lotNode.spk}`">
+                            SPK: <strong class="text-zinc-700 font-bold">{{ lotNode.spk }}</strong>
+                          </span>
+                        </div>
 
                       <!-- Subtitle Dimensi Induk & Inline Edit Width & Length (Desktop & Tablet) -->
                       <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono" @click.stop>
@@ -2082,7 +2116,25 @@
                   </thead>
                   <tbody class="divide-y divide-zinc-100">
                     <tr v-for="l in currentEditingShiftNode?.lots || []" :key="l.uniqueKey" class="hover:bg-zinc-50">
-                      <td class="p-2 font-bold text-zinc-900">🏷️ {{ l.lot }}</td>
+                      <td class="p-2 font-bold text-zinc-900">
+                        <div v-if="getLotParentRolls(l).length <= 1" class="flex items-center gap-1">
+                          <span>🏷️ {{ l.lot }}</span>
+                        </div>
+                        <div v-else class="flex flex-col gap-1 py-0.5">
+                          <div class="flex items-center gap-1 flex-wrap">
+                            <span
+                              v-for="(p, pIdx) in getLotParentRolls(l)"
+                              :key="pIdx"
+                              class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-mono border"
+                              :class="p.isPrimary ? 'bg-amber-100 text-amber-900 border-amber-300 font-black' : 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold'"
+                              :title="p.isPrimary ? '👑 Parent Utama' : `🔗 Sambungan #${pIdx}`"
+                            >
+                              <span>{{ p.isPrimary ? '👑' : '🔗' }}</span>
+                              <span>{{ p.lotNo }}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </td>
                       <td class="p-2 text-zinc-600">{{ l.spk }}</td>
                       <td class="p-2 text-zinc-700">{{ l.parentWidth }}mm × {{ l.parentMeter }}M</td>
                       <td class="p-2 text-right font-bold" :class="l.lotTrimKg > 0 ? 'text-emerald-700' : 'text-zinc-400'">
@@ -5929,6 +5981,9 @@ const hierarchyTree = computed(() => {
           parentWidth,
           parentTrim,
           parentMeter,
+          parentRollsJoint: (Array.isArray(firstItem.parentRollsJoint) && firstItem.parentRollsJoint.length > 0)
+            ? firstItem.parentRollsJoint
+            : (sortedTurunan.find(it => Array.isArray(it.parentRollsJoint) && it.parentRollsJoint.length > 0)?.parentRollsJoint || null),
           sumChildLength,
           parentSisaMeter,
           parentSisaKg: parentSisaKg > 0 ? parseFloat(parentSisaKg.toFixed(2)) : 0,
@@ -6980,6 +7035,63 @@ const editingParentField = ref(null); // 'width' | 'length' | 'berat'
 const inlineParentWidthVal = ref('');
 const inlineParentLengthVal = ref('');
 const inlineParentBeratVal = ref('');
+
+// Helper: Ekstraksi daftar roll induk (Parent Utama & Parent Sambungan/Joint) untuk tampilan row hierarki
+const getLotParentRolls = (lotNode) => {
+  if (!lotNode) return [];
+
+  // 1. Dari data multi-parent terstruktur (parentRollsJoint)
+  const jointList = Array.isArray(lotNode.parentRollsJoint) && lotNode.parentRollsJoint.length > 0
+    ? lotNode.parentRollsJoint
+    : (Array.isArray(lotNode.items?.[0]?.parentRollsJoint) && lotNode.items[0].parentRollsJoint.length > 0
+      ? lotNode.items[0].parentRollsJoint
+      : null);
+
+  if (jointList && jointList.length > 1) {
+    const validRolls = jointList
+      .filter(p => p && (p.lotNo || p.lot))
+      .map((p, idx) => ({
+        lotNo: (p.lotNo || p.lot || '').trim().toUpperCase(),
+        isPrimary: idx === 0,
+        meter: p.meter ? parseFloat(p.meter) : null,
+        berat: p.berat ? parseFloat(p.berat) : null,
+        width: p.width ? parseFloat(p.width) : null,
+        spk: p.spk || null,
+        note: idx === 0 ? 'Parent Utama' : `Joint #${idx}`
+      }));
+    if (validRolls.length > 1) return validRolls;
+  }
+
+  // 2. Dari string nomor lot yang dipisah slash (misal "M08160926A315/F202" atau "LOT1/LOT2")
+  const lotStr = String(lotNode.lot || '').trim();
+  if (lotStr.includes('/')) {
+    const parts = lotStr.split('/').map(s => s.trim().toUpperCase()).filter(Boolean);
+    if (parts.length > 1) {
+      return parts.map((lotPart, idx) => ({
+        lotNo: lotPart,
+        isPrimary: idx === 0,
+        meter: null,
+        berat: null,
+        width: null,
+        spk: null,
+        note: idx === 0 ? 'Parent Utama' : `Joint #${idx}`
+      }));
+    }
+  }
+
+  // 3. Single parent roll (default)
+  return [
+    {
+      lotNo: lotStr || 'Tanpa Lot',
+      isPrimary: true,
+      meter: lotNode.parentMeter || null,
+      berat: lotNode.parentBeratAktual || null,
+      width: lotNode.parentWidth || null,
+      spk: lotNode.spk || null,
+      note: 'Parent Utama'
+    }
+  ];
+};
 
 // Helper: Evaluasi status lebar parent terhadap estimasi lebar (sumChildWidth)
 const getParentWidthStatus = (lotNode) => {
