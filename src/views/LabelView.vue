@@ -5672,6 +5672,13 @@ const findWipRollForLot = (lotStr, spkNo) => {
 const getSumChildWidthForLot = (items, spkPlan) => {
   if (!items || items.length === 0) return 0;
   
+  // 1. PRIORITAS UTAMA: Akumulasi pisau fisik aktual dari roll-roll yang ada pada lot ini (misal A: 910mm + C: 1220mm = 2130mm)
+  const chartSummary = calculateChartinganWidthSummary(items);
+  if (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1) {
+    return chartSummary.baseChartWidth;
+  }
+
+  // 2. Jika baru terdata 1 posisi atau pisau belum lengkap, gunakan acuan rencana SPK jika ada
   if (spkPlan) {
     if (Array.isArray(spkPlan.upList) && spkPlan.upList.length > 0) {
       const sumUp = spkPlan.upList.reduce((acc, u) => acc + (parseFloat(u.lebar) || 0), 0);
@@ -5682,11 +5689,6 @@ const getSumChildWidthForLot = (items, spkPlan) => {
       const sumChart = chartJson.reduce((acc, c) => acc + (parseFloat(c.lebar || c.width) || 0), 0);
       if (sumChart > 0) return sumChart;
     }
-  }
-
-  const chartSummary = calculateChartinganWidthSummary(items);
-  if (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1) {
-    return chartSummary.baseChartWidth;
   }
 
   const firstSeqRolls = items.filter(i => {
@@ -6773,9 +6775,9 @@ const openParentLotModal = (lotNode) => {
 
   const chartSummary = calculateChartinganWidthSummary(items);
   parentLotForm.uniqueChartList = chartSummary.uniquePositions;
-  const chartBase = (parseFloat(lotNode.sumChildWidth) > 0)
-    ? parseFloat(lotNode.sumChildWidth)
-    : (chartSummary.baseChartWidth > 0 ? chartSummary.baseChartWidth : (parseFloat(first.width) || 0));
+  const chartBase = (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1)
+    ? chartSummary.baseChartWidth
+    : (parseFloat(lotNode.sumChildWidth) > 0 ? parseFloat(lotNode.sumChildWidth) : (chartSummary.baseChartWidth || parseFloat(first.width) || 0));
   parentLotForm.chartinganBaseWidth = chartBase;
 
   const seqSummary = calculateSequenceLengthSummary(items);
