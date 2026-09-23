@@ -2769,20 +2769,31 @@
               </p>
             </div>
 
-            <!-- Card: Dimensi Induk & Trim Slitting -->
+            <!-- Card: Dimensi Induk & Trim Slitting / Rewind -->
             <div class="p-4 bg-zinc-50/80 border border-zinc-200/90 rounded-xl space-y-3">
               <div class="flex items-center justify-between border-b border-zinc-200 pb-2">
                 <span class="font-bold text-zinc-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
                   <svg class="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                  <span>Dimensi Induk & Kalkulasi Pisau Slitting</span>
+                  <span>{{ parentLotForm.mesin === 'REWIND' ? 'Dimensi Induk Roll Rewind (Roll Utuh 1:1)' : 'Dimensi Induk & Kalkulasi Pisau Slitting' }}</span>
                 </span>
-                <span class="text-xs font-mono text-zinc-600 bg-zinc-200/60 px-2 py-0.5 rounded">
+                <span v-if="parentLotForm.mesin === 'REWIND'" class="text-xs font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-bold">
+                  Lebar Roll: <strong>{{ parentLotForm.parentWidth }} mm</strong> (Tanpa Chart / Trim)
+                </span>
+                <span v-else class="text-xs font-mono text-zinc-600 bg-zinc-200/60 px-2 py-0.5 rounded">
                   Base: <strong>{{ parentLotForm.chartinganBaseWidth }} mm</strong> + Trim: <strong>{{ parentLotForm.trim || 0 }} mm</strong> = <strong>{{ parentLotForm.parentWidth }} mm</strong>
                 </span>
               </div>
 
-              <!-- Visual Formula Bar -->
-              <div class="p-3 bg-white rounded-lg border border-zinc-200 flex items-center justify-between flex-wrap gap-2 text-xs">
+              <!-- Visual Formula Bar (Slitting vs Rewind) -->
+              <div v-if="parentLotForm.mesin === 'REWIND'" class="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 flex items-center justify-between flex-wrap gap-2 text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="text-indigo-900 font-bold">Sifat Mesin Rewind:</span>
+                  <span class="px-2 py-1 bg-white border border-indigo-200 text-indigo-950 rounded font-mono font-bold">Proses Roll Utuh (Tanpa Potong Pisau Charting)</span>
+                  <span class="text-zinc-400 font-bold">•</span>
+                  <span class="text-indigo-800 text-[11px]">Lebar parent sama persis dengan lebar roll child (Trim = 0 mm)</span>
+                </div>
+              </div>
+              <div v-else class="p-3 bg-white rounded-lg border border-zinc-200 flex items-center justify-between flex-wrap gap-2 text-xs">
                 <div class="flex items-center gap-2">
                   <span class="text-zinc-500 font-bold">Rumus Lebar:</span>
                   <span class="px-2 py-1 bg-zinc-100 rounded font-mono font-bold text-zinc-800">Total Pisau: {{ parentLotForm.chartinganBaseWidth }} mm</span>
@@ -2796,8 +2807,8 @@
                 </div>
               </div>
 
-              <!-- Breakdown Positions & Sequences -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+              <!-- Breakdown Positions & Sequences (Hanya jika Slitting / lebih dari 1 posisi) -->
+              <div v-if="parentLotForm.mesin !== 'REWIND'" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
                 <div class="p-3 bg-white rounded-lg border border-zinc-200 space-y-1.5">
                   <div class="font-bold text-zinc-700 text-[11px] flex items-center justify-between">
                     <span>Posisi Pisau Charting (Lebar Sisi):</span>
@@ -2821,7 +2832,7 @@
 
               <!-- Inputs: Trim, Lebar Parent, Panjang Parent -->
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200">
-                <div>
+                <div v-if="parentLotForm.mesin !== 'REWIND'">
                   <label class="block font-bold text-zinc-700 mb-1 text-xs">Trim Sisi (mm)</label>
                   <input
                     v-model="parentLotForm.trim"
@@ -2832,6 +2843,16 @@
                     placeholder="20"
                   />
                   <span class="text-[10px] text-zinc-400 mt-0.5 block">Trim terbuang di sisi roll</span>
+                </div>
+                <div v-else>
+                  <label class="block font-bold text-zinc-500 mb-1 text-xs">Trim Sisi (mm)</label>
+                  <input
+                    disabled
+                    value="0"
+                    type="text"
+                    class="w-full px-3 py-2 border border-zinc-200 rounded-lg font-mono font-bold text-zinc-400 bg-zinc-100 cursor-not-allowed text-xs"
+                  />
+                  <span class="text-[10px] text-zinc-400 mt-0.5 block">Mesin Rewind tanpa trim potong (0 mm)</span>
                 </div>
 
                 <div>
@@ -5897,30 +5918,51 @@ const hierarchyTree = computed(() => {
 
         const spkPlan = findSpkPlanForLot(firstItem.spk);
         const wipRoll = findWipRollForLot(pureLot, firstItem.spk);
+        const machine = String(firstItem.mesin || shiftData.machine || '').toUpperCase();
+        const isRewindMachine = machine === 'REWIND';
         const sumChildWidth = getSumChildWidthForLot(sortedTurunan, spkPlan);
 
         // 1. Tentukan Lebar Teori Parent (Parent Width) & Trim
-        // Aturan Standar: Chart (sumChildWidth) + Estimasi Trim (30mm)
-        const chartWidth = sumChildWidth > 0 ? sumChildWidth : (parseFloat(firstItem.width) || 0);
-        let parentTrim = 30; // Default standar estimasi trim 30mm
+        // KHUSUS MESIN REWIND: Tidak ada charting / pisau slitting dan tidak ada trim potong (lebar parent = lebar roll = 1:1)
+        let chartWidth = 0;
+        let parentTrim = 0;
+        let parentWidth = 0;
 
-        // Jika user pernah menyimpan trim secara eksplisit (batas wajar <= 100mm)
-        if (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '' && parseFloat(firstItem.parentTrim) > 0 && parseFloat(firstItem.parentTrim) <= 100) {
-          parentTrim = parseFloat(firstItem.parentTrim);
-        } else if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) >= chartWidth) {
-          const diff = parseFloat(firstItem.parentWidth) - chartWidth;
-          // Hanya gunakan parentWidth tersimpan jika selisihnya wajar (5mm s/d 100mm) untuk memfilter anomali data lama
-          if (diff >= 5 && diff <= 100) {
-            parentTrim = Math.round(diff);
+        if (isRewindMachine) {
+          // Rewind: Lebar roll anak adalah lebar parent roll (tanpa chart & tanpa trim)
+          const primaryWidth = parseFloat(firstItem.width) || (sortedTurunan.find(it => parseFloat(it.width) > 0)?.width ? parseFloat(sortedTurunan.find(it => parseFloat(it.width) > 0).width) : 0);
+          chartWidth = primaryWidth;
+          parentTrim = 0;
+          if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) > 0) {
+            parentWidth = Math.round(parseFloat(firstItem.parentWidth));
+          } else if (wipRoll && parseFloat(wipRoll.width) > 0) {
+            parentWidth = Math.round(parseFloat(wipRoll.width));
+          } else {
+            parentWidth = primaryWidth > 0 ? Math.round(primaryWidth) : 1000;
           }
-        } else if (spkPlan && parseFloat(spkPlan.lebarParent) >= chartWidth) {
-          const spkTrim = parseFloat(spkPlan.lebarParent) - chartWidth;
-          if (spkTrim >= 10 && spkTrim <= 80) {
-            parentTrim = Math.round(spkTrim);
+        } else {
+          // MESIN SLITTING & LAINNYA: Aturan Standar = Chart (sumChildWidth) + Estimasi Trim (30mm)
+          chartWidth = sumChildWidth > 0 ? sumChildWidth : (parseFloat(firstItem.width) || 0);
+          parentTrim = 30; // Default standar estimasi trim 30mm
+
+          // Jika user pernah menyimpan trim secara eksplisit (batas wajar <= 100mm)
+          if (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '' && parseFloat(firstItem.parentTrim) > 0 && parseFloat(firstItem.parentTrim) <= 100) {
+            parentTrim = parseFloat(firstItem.parentTrim);
+          } else if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) >= chartWidth) {
+            const diff = parseFloat(firstItem.parentWidth) - chartWidth;
+            // Hanya gunakan parentWidth tersimpan jika selisihnya wajar (5mm s/d 100mm) untuk memfilter anomali data lama
+            if (diff >= 5 && diff <= 100) {
+              parentTrim = Math.round(diff);
+            }
+          } else if (spkPlan && parseFloat(spkPlan.lebarParent) >= chartWidth) {
+            const spkTrim = parseFloat(spkPlan.lebarParent) - chartWidth;
+            if (spkTrim >= 10 && spkTrim <= 80) {
+              parentTrim = Math.round(spkTrim);
+            }
           }
+
+          parentWidth = chartWidth > 0 ? Math.round(chartWidth + parentTrim) : 2350;
         }
-
-        const parentWidth = chartWidth > 0 ? Math.round(chartWidth + parentTrim) : 2350;
 
         // 2. Tentukan Panjang Teori Parent (Parent Meter) - Mengikuti estimasi berdasarkan child, tapi bisa di-input manual
         const seqSummary = calculateSequenceLengthSummary(sortedTurunan);
@@ -6532,12 +6574,23 @@ const selectJointRollRecommendation = (rec) => {
 };
 
 const onTrimChange = () => {
+  const isRewind = String(parentLotForm.mesin || '').toUpperCase() === 'REWIND';
   const base = parseFloat(parentLotForm.chartinganBaseWidth) || 0;
+  if (isRewind) {
+    parentLotForm.parentWidth = Math.round(base);
+    parentLotForm.trim = 0;
+    return;
+  }
   const trimVal = parseFloat(parentLotForm.trim) || 0;
   parentLotForm.parentWidth = Math.round(base + trimVal);
 };
 
 const onParentWidthChange = () => {
+  const isRewind = String(parentLotForm.mesin || '').toUpperCase() === 'REWIND';
+  if (isRewind) {
+    parentLotForm.trim = 0;
+    return;
+  }
   const base = parseFloat(parentLotForm.chartinganBaseWidth) || 0;
   const pWidth = parseFloat(parentLotForm.parentWidth) || 0;
   parentLotForm.trim = Math.max(0, Math.round(pWidth - base));
@@ -6846,27 +6899,43 @@ const openParentLotModal = (lotNode) => {
   parentLotForm.jenis = lotNode.jenis || first.jenis || 'CPP';
   parentLotForm.kode = lotNode.kode || first.kode || '';
   parentLotForm.thickness = lotNode.thickness || first.thickness || '';
-  
-  // Evaluasi Trim & Lebar Parent: Standar = Chart (Base) + Estimasi Trim (30mm)
-  let initialTrim = 30;
-  if (first.parentTrim !== undefined && first.parentTrim !== null && first.parentTrim !== '' && parseFloat(first.parentTrim) > 0 && parseFloat(first.parentTrim) <= 100) {
-    initialTrim = parseFloat(first.parentTrim);
-  } else if (lotNode.parentTrim !== undefined && lotNode.parentTrim !== null && lotNode.parentTrim !== '' && parseFloat(lotNode.parentTrim) > 0 && parseFloat(lotNode.parentTrim) <= 100) {
-    initialTrim = parseFloat(lotNode.parentTrim);
-  } else if (first.parentWidth && parseFloat(first.parentWidth) >= chartBase) {
-    const diff = parseFloat(first.parentWidth) - chartBase;
-    if (diff >= 5 && diff <= 100) {
-      initialTrim = Math.round(diff);
-    }
-  } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) >= chartBase) {
-    const diff = parseFloat(lotNode.parentWidth) - chartBase;
-    if (diff >= 5 && diff <= 100) {
-      initialTrim = Math.round(diff);
-    }
-  }
 
-  parentLotForm.trim = initialTrim;
-  parentLotForm.parentWidth = chartBase > 0 ? Math.round(chartBase + initialTrim) : 2350;
+  const isRewindModal = String(parentLotForm.mesin || '').toUpperCase() === 'REWIND';
+  
+  if (isRewindModal) {
+    // KHUSUS MESIN REWIND: Tidak ada konsep chartingan dan tidak ada trim potong (1:1)
+    const childRollWidth = parseFloat(first.width) || (items.find(it => parseFloat(it.width) > 0)?.width ? parseFloat(items.find(it => parseFloat(it.width) > 0).width) : 0);
+    parentLotForm.chartinganBaseWidth = childRollWidth;
+    parentLotForm.trim = 0;
+    if (first.parentWidth && parseFloat(first.parentWidth) > 0) {
+      parentLotForm.parentWidth = Math.round(parseFloat(first.parentWidth));
+    } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) > 0) {
+      parentLotForm.parentWidth = Math.round(parseFloat(lotNode.parentWidth));
+    } else {
+      parentLotForm.parentWidth = childRollWidth > 0 ? Math.round(childRollWidth) : 1000;
+    }
+  } else {
+    // Evaluasi Trim & Lebar Parent SLITTING & Lainnya: Standar = Chart (Base) + Estimasi Trim (30mm)
+    let initialTrim = 30;
+    if (first.parentTrim !== undefined && first.parentTrim !== null && first.parentTrim !== '' && parseFloat(first.parentTrim) > 0 && parseFloat(first.parentTrim) <= 100) {
+      initialTrim = parseFloat(first.parentTrim);
+    } else if (lotNode.parentTrim !== undefined && lotNode.parentTrim !== null && lotNode.parentTrim !== '' && parseFloat(lotNode.parentTrim) > 0 && parseFloat(lotNode.parentTrim) <= 100) {
+      initialTrim = parseFloat(lotNode.parentTrim);
+    } else if (first.parentWidth && parseFloat(first.parentWidth) >= chartBase) {
+      const diff = parseFloat(first.parentWidth) - chartBase;
+      if (diff >= 5 && diff <= 100) {
+        initialTrim = Math.round(diff);
+      }
+    } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) >= chartBase) {
+      const diff = parseFloat(lotNode.parentWidth) - chartBase;
+      if (diff >= 5 && diff <= 100) {
+        initialTrim = Math.round(diff);
+      }
+    }
+
+    parentLotForm.trim = initialTrim;
+    parentLotForm.parentWidth = chartBase > 0 ? Math.round(chartBase + initialTrim) : 2350;
+  }
 
   if (first.parentMeter && parseFloat(first.parentMeter) > 0) {
     parentLotForm.parentMeter = parseFloat(first.parentMeter);
@@ -7097,6 +7166,8 @@ const getLotParentRolls = (lotNode) => {
 const getParentWidthStatus = (lotNode) => {
   const currentW = parseFloat(lotNode.parentWidth) || 0;
   const estimatedW = parseFloat(lotNode.sumChildWidth) || 0;
+  const isRewind = String(lotNode.mesin || '').toUpperCase() === 'REWIND';
+
   if (!currentW || !estimatedW) {
     return {
       status: 'normal',
@@ -7110,6 +7181,31 @@ const getParentWidthStatus = (lotNode) => {
   }
 
   const diff = currentW - estimatedW; // Positif jika parent lebih lebar, negatif jika kurang dari child
+
+  if (isRewind) {
+    // Pada Mesin REWIND: Tidak ada chart dan trim, lebar parent harus sama dengan lebar roll child (1:1)
+    if (diff === 0) {
+      return {
+        status: 'exact',
+        diff: 0,
+        estimatedW,
+        currentW,
+        bgClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300',
+        textClass: 'text-emerald-900 font-black',
+        tooltip: `✓ REWIND PAS (1:1): Lebar Parent ${currentW} mm sama dengan roll child (${estimatedW} mm). Tanpa trim/chart.`
+      };
+    } else {
+      return {
+        status: 'diff',
+        diff,
+        estimatedW,
+        currentW,
+        bgClass: 'bg-amber-100/90 text-amber-900 border border-amber-300 ring-1 ring-amber-300/60',
+        textClass: 'text-amber-900 font-black',
+        tooltip: `⚠️ REWIND SELISIH: Lebar parent (${currentW} mm) berbeda dengan lebar roll child (${estimatedW} mm). Selisih: ${diff > 0 ? '+' : ''}${diff} mm.`
+      };
+    }
+  }
 
   if (diff < 0) {
     // Width kurang dari estimasi child -> Kuning tipis + info float
