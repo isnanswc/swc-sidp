@@ -1218,140 +1218,256 @@
                 </div>
               </div>
 
-              <div class="overflow-x-auto">
-                <table class="w-full text-xs font-mono">
-                  <thead class="bg-zinc-900 text-white font-bold text-[11px]">
-                    <tr>
-                      <th class="px-2 py-2.5 text-center w-10">Urut</th>
-                      <th class="px-3 py-2.5 text-left">SPK</th>
-                      <th class="px-3 py-2.5 text-left">TYPE</th>
-                      <th class="px-2 py-2.5 text-center">TEBAL</th>
-                      <th class="px-3 py-2.5 text-right">LEBAR</th>
-                      <th class="px-3 py-2.5 text-right">PANJANG</th>
-                      <th class="px-2 py-2.5 text-center bg-zinc-800">UP 1</th>
-                      <th class="px-2 py-2.5 text-center bg-zinc-800">UP 2</th>
-                      <th class="px-2 py-2.5 text-center bg-zinc-800">UP 3</th>
-                      <th class="px-2 py-2.5 text-center bg-zinc-800">UP 4</th>
-                      <th class="px-3 py-2.5 text-right">P. CHILD</th>
-                      <th class="px-2 py-2.5 text-center">JR</th>
-                      <th class="px-2 py-2.5 text-center text-red-400">TRIM</th>
-                      <th class="px-3 py-2.5 text-left">KETERANGAN</th>
-                      <th class="px-3 py-2.5 text-right">Meter jr</th>
-                      <th class="px-3 py-2.5 text-center font-sans">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-zinc-200 text-zinc-800">
-                    <tr v-if="getBatchPlans(batch.uuid).length === 0">
-                      <td colspan="16" class="py-8 text-center text-zinc-400 font-sans text-xs">
-                        Belum ada item SPK pada batch ini. Klik tombol "+ Item" untuk menambahkan.
-                      </td>
-                    </tr>
-                    <tr
-                      v-for="(row, rIdx) in getBatchPlans(batch.uuid)"
-                      :key="row.id || row.uuid || rIdx"
-                      :draggable="true"
-                      @dragstart="handlePlanDragStart($event, batch.uuid, rIdx)"
-                      @dragenter.prevent="handlePlanDragOver($event, batch.uuid, rIdx)"
-                      @dragover.prevent="handlePlanDragOver($event, batch.uuid, rIdx)"
-                      @dragleave="handlePlanDragLeave"
-                      @drop.prevent="handlePlanDrop($event, batch.uuid, rIdx)"
-                      @dragend="handlePlanDragEnd"
-                      class="transition-all select-none group cursor-default"
-                      :class="[
-                        draggedBatchUuid === batch.uuid && draggedPlanIndex === rIdx ? 'opacity-30 bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-amber-50/40',
-                        draggedBatchUuid === batch.uuid && dragOverPlanIndex === rIdx && draggedPlanIndex !== rIdx ? 'border-t-4 border-t-blue-600 bg-blue-50/80 shadow-md ring-2 ring-blue-400/30' : ''
-                      ]"
-                    >
-                      <td class="px-2 py-2 text-center text-zinc-500 font-bold whitespace-nowrap">
-                        <div class="flex items-center justify-center gap-1.5">
-                          <!-- Quick Move Buttons (Atas / Bawah) -->
-                          <div class="flex flex-col gap-0.5 items-center justify-center font-sans">
-                            <button
-                              type="button"
-                              :disabled="rIdx === 0"
-                              @click.stop="movePlanUp(batch.uuid, rIdx)"
-                              class="w-4 h-3.5 flex items-center justify-center rounded text-[9px] font-black transition-colors cursor-pointer"
-                              :class="rIdx === 0 ? 'text-zinc-200 cursor-not-allowed' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 active:bg-zinc-300'"
-                              title="Pindah urutan ke atas (1-klik)"
-                            >
-                              ▲
-                            </button>
-                            <button
-                              type="button"
-                              :disabled="rIdx === getBatchPlans(batch.uuid).length - 1"
-                              @click.stop="movePlanDown(batch.uuid, rIdx)"
-                              class="w-4 h-3.5 flex items-center justify-center rounded text-[9px] font-black transition-colors cursor-pointer"
-                              :class="rIdx === getBatchPlans(batch.uuid).length - 1 ? 'text-zinc-200 cursor-not-allowed' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 active:bg-zinc-300'"
-                              title="Pindah urutan ke bawah (1-klik)"
-                            >
-                              ▼
-                            </button>
-                          </div>
-                          <!-- Drag Grip Handle (Dedicated Draggable Handle) -->
-                          <div
-                            :draggable="true"
-                            @dragstart.stop="handlePlanDragStart($event, batch.uuid, rIdx)"
-                            @dragend="handlePlanDragEnd"
-                            class="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 rounded cursor-grab active:cursor-grabbing transition-colors select-none"
-                            title="Klik tahan & geser (Drag & Drop) untuk ubah urutan potong"
-                          >
-                            <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                              <circle cx="7" cy="4" r="1.5" />
-                              <circle cx="13" cy="4" r="1.5" />
-                              <circle cx="7" cy="10" r="1.5" />
-                              <circle cx="13" cy="10" r="1.5" />
-                              <circle cx="7" cy="16" r="1.5" />
-                              <circle cx="13" cy="16" r="1.5" />
-                            </svg>
-                          </div>
-                          <span class="font-mono text-xs font-black text-zinc-700">#{{ rIdx + 1 }}</span>
-                        </div>
-                      </td>
-                      <td class="px-3 py-2 font-black text-zinc-900 text-sm whitespace-nowrap">{{ row.spkNo }}</td>
-                      <td class="px-3 py-2 font-black text-red-600 whitespace-nowrap">{{ row.formula }}</td>
-                      <td class="px-2 py-2 text-center">{{ row.thickness }}</td>
-                      <td class="px-3 py-2 text-right font-bold">{{ formatNumber(row.lebarParent) }}</td>
-                      <td class="px-3 py-2 text-right">{{ formatNumber(row.panjangParent) }}</td>
-                      <td class="px-2 py-2 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 1) }}</td>
-                      <td class="px-2 py-2 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 2) }}</td>
-                      <td class="px-2 py-2 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 3) }}</td>
-                      <td class="px-2 py-2 text-center bg-zinc-50 font-bold text-blue-900">{{ getUpCol(row, 4) }}</td>
-                      <td class="px-3 py-2 text-right">{{ formatNumber(getChildPanjang(row)) }}</td>
-                      <td class="px-2 py-2 text-center font-black text-purple-900">{{ row.jumlahJumbo }}</td>
-                      <td class="px-2 py-2 text-center font-black text-red-600 bg-red-50/50">{{ row.trimAuto }}</td>
-                      <td class="px-3 py-2 text-zinc-500 text-[11px] whitespace-nowrap">{{ row.keterangan || '-' }}</td>
-                      <td class="px-3 py-2 text-right font-black text-emerald-800">{{ formatNumber(row.totalPlannedMeter) }}</td>
-                      <td class="px-3 py-2 text-center whitespace-nowrap font-sans" @mousedown.stop @click.stop>
-                        <div class="flex items-center justify-center gap-1">
+              <!-- HIERARCHICAL PLANNED SPK LIST (PARENT > CHILD ARCHITECTURE) -->
+              <div class="p-3 space-y-3">
+                <div v-if="getBatchPlans(batch.uuid).length === 0" class="py-10 text-center text-zinc-400 font-sans text-xs bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                  Belum ada item SPK pada batch ini. Klik tombol "+ Item" untuk menambahkan.
+                </div>
+
+                <div
+                  v-for="(row, rIdx) in getBatchPlans(batch.uuid)"
+                  :key="row.id || row.uuid || rIdx"
+                  :draggable="true"
+                  @dragstart="handlePlanDragStart($event, batch.uuid, rIdx)"
+                  @dragenter.prevent="handlePlanDragOver($event, batch.uuid, rIdx)"
+                  @dragover.prevent="handlePlanDragOver($event, batch.uuid, rIdx)"
+                  @dragleave="handlePlanDragLeave"
+                  @drop.prevent="handlePlanDrop($event, batch.uuid, rIdx)"
+                  @dragend="handlePlanDragEnd"
+                  class="border rounded-2xl bg-white shadow-2xs overflow-hidden transition-all group select-none"
+                  :class="[
+                    draggedBatchUuid === batch.uuid && draggedPlanIndex === rIdx ? 'opacity-30 bg-blue-100 ring-2 ring-blue-400' : 'hover:border-zinc-300',
+                    draggedBatchUuid === batch.uuid && dragOverPlanIndex === rIdx && draggedPlanIndex !== rIdx ? 'border-t-4 border-t-blue-600 bg-blue-50/80 shadow-md ring-2 ring-blue-400/30' : 'border-zinc-200/90'
+                  ]"
+                >
+                  <!-- ── TIER 1: PARENT JUMBO HEADER ROW ── -->
+                  <div class="p-3 sm:p-3.5 bg-zinc-50/90 border-b border-zinc-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <!-- Left: Reorder Controls + Urut + SPK No + Ukuran Jumbo -->
+                    <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+                      <!-- Quick Move ▲ / ▼ & Drag Handle -->
+                      <div class="flex items-center gap-1 shrink-0 font-sans">
+                        <div class="flex flex-col gap-0.5">
                           <button
-                            @click="openEditPlanModal(row)"
-                            class="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold text-[10px] cursor-pointer"
+                            type="button"
+                            :disabled="rIdx === 0"
+                            @click.stop="movePlanUp(batch.uuid, rIdx)"
+                            class="w-4 h-3.5 flex items-center justify-center rounded text-[8px] font-black cursor-pointer transition-colors"
+                            :class="rIdx === 0 ? 'text-zinc-200 cursor-not-allowed' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 active:bg-zinc-300'"
+                            title="Pindah urutan ke atas"
                           >
-                            Revisi
+                            ▲
                           </button>
                           <button
-                            @click="confirmDeletePlan(row.id, row.spkNo)"
-                            class="p-1 text-zinc-400 hover:text-red-600 rounded cursor-pointer"
-                            title="Hapus baris ini"
+                            type="button"
+                            :disabled="rIdx === getBatchPlans(batch.uuid).length - 1"
+                            @click.stop="movePlanDown(batch.uuid, rIdx)"
+                            class="w-4 h-3.5 flex items-center justify-center rounded text-[8px] font-black cursor-pointer transition-colors"
+                            :class="rIdx === getBatchPlans(batch.uuid).length - 1 ? 'text-zinc-200 cursor-not-allowed' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 active:bg-zinc-300'"
+                            title="Pindah urutan ke bawah"
                           >
-                            🗑️
+                            ▼
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                  <!-- Subtotal Batch Footer -->
-                  <tfoot class="bg-zinc-100 font-bold border-t-2 border-zinc-300 text-zinc-900">
-                    <tr>
-                      <td colspan="11" class="px-4 py-2 text-right uppercase text-[10.5px]">Subtotal Batch Ini:</td>
-                      <td class="px-2 py-2 text-center font-black text-purple-950 text-sm">{{ getBatchTotalJumbo(batch.uuid) }} JR</td>
-                      <td class="px-2 py-2 text-center text-red-600 font-mono">-</td>
-                      <td></td>
-                      <td class="px-3 py-2 text-right font-black text-emerald-900 text-sm">{{ formatNumber(getBatchTotalMeter(batch.uuid)) }} m</td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
+                        <div
+                          :draggable="true"
+                          @dragstart.stop="handlePlanDragStart($event, batch.uuid, rIdx)"
+                          @dragend="handlePlanDragEnd"
+                          class="w-6 h-6 flex items-center justify-center text-zinc-400 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 rounded cursor-grab active:cursor-grabbing transition-colors"
+                          title="Klik tahan & geser (Drag & Drop) untuk ubah urutan"
+                        >
+                          <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <circle cx="7" cy="4" r="1.5" /><circle cx="13" cy="4" r="1.5" />
+                            <circle cx="7" cy="10" r="1.5" /><circle cx="13" cy="10" r="1.5" />
+                            <circle cx="7" cy="16" r="1.5" /><circle cx="13" cy="16" r="1.5" />
+                          </svg>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-md bg-zinc-900 text-white font-mono text-[11px] font-black">
+                          #{{ rIdx + 1 }}
+                        </span>
+                      </div>
+
+                      <!-- SPK Number Badge -->
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] text-zinc-400 font-mono font-medium">SPK:</span>
+                        <strong class="text-sm font-black font-mono text-zinc-900 tracking-tight">{{ row.spkNo }}</strong>
+                      </div>
+
+                      <!-- Ukuran Jumbo Baku: [JENIS] [KODE FORMULA] [MICRON] MC X [WIDTH] MM -->
+                      <div class="px-2.5 py-1 rounded-xl bg-purple-50 text-purple-950 border border-purple-200 font-mono text-xs font-black flex items-center gap-1.5 shadow-2xs">
+                        <span>📐</span>
+                        <span>{{ row.ukuranJumbo || `${row.jenis || 'CPP'} ${row.formula || 'M01'} ${row.thickness || 25} MC X ${row.lebarParent || 0} MM`.toUpperCase() }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Right: Total Panjang Jumbo, Total JR, Status Parent, & Aksi -->
+                    <div class="flex items-center gap-2.5 sm:gap-3.5 flex-wrap justify-between lg:justify-end">
+                      <!-- Total Panjang & Roll Jumbo -->
+                      <div class="flex items-center gap-2.5 text-xs font-mono">
+                        <div class="text-right">
+                          <div class="text-[9.5px] text-zinc-400 font-semibold uppercase">Total Panjang JR</div>
+                          <div class="font-black text-emerald-800 text-xs sm:text-sm">
+                            {{ formatNumber(row.panjangParent > 0 ? (row.panjangParent * (row.jumlahJumbo || 1)) : (row.totalPlannedMeter || 0)) }} m
+                          </div>
+                          <div class="text-[9px] text-zinc-400">@ {{ formatNumber(row.panjangParent || 0) }} m/JR</div>
+                        </div>
+                        <div class="h-7 w-px bg-zinc-200"></div>
+                        <div class="text-center px-2 py-1 rounded-xl bg-zinc-100 border border-zinc-200/80">
+                          <div class="text-[9px] text-zinc-500 font-bold uppercase">Total JR</div>
+                          <div class="font-black text-purple-950 text-xs sm:text-sm">{{ row.jumlahJumbo || 1 }} JR</div>
+                        </div>
+                      </div>
+
+                      <!-- Parent Status & Persentase Potong Realtime -->
+                      <div
+                        v-if="getPlanAnalytics(row).parentStatus"
+                        class="px-2.5 py-1 rounded-xl border text-[11px] font-mono font-bold flex items-center gap-1.5"
+                        :class="[getPlanAnalytics(row).parentStatus.badgeClass, getPlanAnalytics(row).parentStatus.borderClass]"
+                        title="Realisasi pemotongan Jumbo Roll induk di lapangan"
+                      >
+                        <span>{{ getPlanAnalytics(row).parentStatus.icon }}</span>
+                        <span>JR: <strong>{{ getPlanAnalytics(row).actualParentCut }} / {{ row.jumlahJumbo || 1 }}</strong></span>
+                        <span class="text-[10px] opacity-80">({{ getPlanAnalytics(row).parentAchievementPercent }}%)</span>
+                      </div>
+
+                      <!-- Actions (Revisi / Hapus) -->
+                      <div class="flex items-center gap-1 font-sans" @mousedown.stop @click.stop>
+                        <button
+                          @click="openEditPlanModal(row)"
+                          class="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg font-bold text-xs cursor-pointer transition-colors"
+                        >
+                          Revisi
+                        </button>
+                        <button
+                          @click="confirmDeletePlan(row.id, row.spkNo)"
+                          class="p-1 text-zinc-400 hover:text-red-600 rounded cursor-pointer transition-colors"
+                          title="Hapus baris SPK ini"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- ── TIER 2: CHILD / UKURAN YANG DIHASILKAN (SUB-TABLE) ── -->
+                  <div class="p-3 sm:p-4 bg-white space-y-2.5">
+                    <div class="flex items-center justify-between text-xs flex-wrap gap-2">
+                      <div class="flex items-center gap-2">
+                        <span class="text-blue-600 font-black">↳ 🔹</span>
+                        <span class="font-black text-zinc-800 uppercase tracking-tight text-[11px]">
+                          Ukuran Roll Jadi yang Dihasilkan (Child FG)
+                        </span>
+                        <span class="px-2 py-0.2 rounded-full bg-blue-50 text-blue-700 text-[10px] font-mono font-bold border border-blue-200">
+                          {{ (getPlanAnalytics(row).childAnalytics || parseCharting(row.chartingJson)).length }} Variasi UP
+                        </span>
+                      </div>
+                      <div class="text-[11px] font-mono text-zinc-500">
+                        Standar Panjang Roll FG: <strong class="text-zinc-900 font-black">{{ formatNumber(row.panjangChild || getChildPanjang(row)) }} m</strong>
+                      </div>
+                    </div>
+
+                    <!-- Child Items Sub-Table -->
+                    <div class="overflow-x-auto rounded-xl border border-zinc-200/90 shadow-2xs">
+                      <table class="w-full text-xs font-mono">
+                        <thead class="bg-zinc-100/90 text-zinc-700 text-[10.5px] border-b border-zinc-200 font-bold">
+                          <tr>
+                            <th class="px-3 py-2 text-left w-14">Pisau</th>
+                            <th class="px-3 py-2 text-left">Ukuran Jadi (Lebar × Panjang FG)</th>
+                            <th class="px-3 py-2 text-center">Rasio / JR</th>
+                            <th class="px-3 py-2 text-right">Target Roll FG</th>
+                            <th class="px-3 py-2 text-right">Realisasi Label Aktual</th>
+                            <th class="px-3 py-2 text-center">Hasil QC</th>
+                            <th class="px-3 py-2 text-center">Status & Capaian Child</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 text-zinc-800">
+                          <tr
+                            v-for="(child, cIdx) in (getPlanAnalytics(row).childAnalytics || [])"
+                            :key="cIdx"
+                            class="hover:bg-blue-50/20 transition-colors"
+                          >
+                            <td class="px-3 py-2.5 font-black text-blue-900 text-xs">
+                              UP {{ child.upNo }}
+                            </td>
+                            <td class="px-3 py-2.5 font-bold text-zinc-900 text-xs">
+                              <span class="text-sm sm:text-base text-zinc-950 font-black">{{ child.lebar }}</span> mm × {{ formatNumber(child.panjang) }} m
+                            </td>
+                            <td class="px-3 py-2.5 text-center text-zinc-500 font-medium">
+                              {{ child.rollsPerJumbo }} Roll / JR
+                            </td>
+                            <td class="px-3 py-2.5 text-right font-black text-purple-900">
+                              {{ child.targetRolls }} Roll
+                              <span class="text-[9.5px] text-zinc-400 block font-normal font-mono">({{ formatNumber(child.targetMeter) }} m)</span>
+                            </td>
+                            <td class="px-3 py-2.5 text-right">
+                              <strong class="text-emerald-700 font-black text-xs sm:text-sm">{{ child.actualRolls }} Roll</strong>
+                              <span class="text-[9.5px] text-zinc-500 block font-mono">
+                                {{ formatNumber(child.actualMeter) }} m • {{ formatNumber(child.actualKg) }} kg
+                              </span>
+                            </td>
+                            <td class="px-3 py-2.5 text-center">
+                              <div class="inline-flex items-center gap-1 text-[9.5px] font-bold">
+                                <span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">P: {{ child.passCount }}</span>
+                                <span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">H: {{ child.holdCount }}</span>
+                                <span class="px-1.5 py-0.2 rounded bg-red-100 text-red-800">R: {{ child.rejectCount }}</span>
+                              </div>
+                            </td>
+                            <td class="px-3 py-2.5 text-center">
+                              <span
+                                class="px-2 py-0.5 rounded-lg border text-[10px] font-bold inline-flex items-center gap-1"
+                                :class="[child.status?.badgeClass || 'bg-zinc-100 text-zinc-600 border-zinc-200', child.status?.borderClass]"
+                              >
+                                <span>{{ child.status?.icon || '⏱️' }}</span>
+                                <span>{{ child.percent }}% ({{ child.status?.label || 'Belum' }})</span>
+                              </span>
+                            </td>
+                          </tr>
+
+                          <!-- Fallback jika childAnalytics belum terkomputasi -->
+                          <tr v-if="!getPlanAnalytics(row).childAnalytics || getPlanAnalytics(row).childAnalytics.length === 0">
+                            <td colspan="7" class="py-3 text-center text-zinc-400 font-sans">
+                              Spesifikasi Pisau:
+                              UP1: {{ getUpCol(row, 1) }} mm | UP2: {{ getUpCol(row, 2) }} mm | UP3: {{ getUpCol(row, 3) }} mm | UP4: {{ getUpCol(row, 4) }} mm
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- Footer Bar: Trim Buangan, Sisa Butt, Catatan Pisau -->
+                    <div class="bg-zinc-50 p-2 sm:p-2.5 rounded-xl border border-zinc-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 text-[11px] font-mono text-zinc-600">
+                      <div class="flex items-center gap-3 flex-wrap">
+                        <div class="flex items-center gap-1">
+                          <span>✂️ Trim Buangan:</span>
+                          <strong class="text-red-600 font-bold">{{ row.trimAuto }} mm</strong>
+                          <span class="text-zinc-400 text-[10px]">
+                            ({{ row.lebarParent ? ((row.trimAuto / row.lebarParent) * 100).toFixed(1) : 0 }}%)
+                          </span>
+                        </div>
+                        <div class="h-3.5 w-px bg-zinc-300"></div>
+                        <div class="flex items-center gap-1">
+                          <span>🔄 Estimasi Sisa Butt:</span>
+                          <strong class="text-zinc-900 font-bold">
+                            {{ formatNumber(getPlanAnalytics(row).sisaButtPerJumbo || 0) }} m / JR
+                          </strong>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-1.5 truncate">
+                        <span class="text-zinc-400">📝 Keterangan:</span>
+                        <strong class="text-zinc-800 font-sans truncate">{{ row.keterangan || '-' }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Subtotal Batch Footer Card -->
+                <div class="p-3 sm:p-4 bg-zinc-100 rounded-2xl border border-zinc-300/80 flex items-center justify-between font-mono text-xs font-bold text-zinc-900 select-none">
+                  <div class="uppercase text-[11px] tracking-wide text-zinc-600">Subtotal Batch Ini:</div>
+                  <div class="flex items-center gap-4 text-xs sm:text-sm">
+                    <div>Total JR: <span class="text-purple-950 font-black">{{ getBatchTotalJumbo(batch.uuid) }} JR</span></div>
+                    <div class="h-4 w-px bg-zinc-300"></div>
+                    <div>Total Meter: <span class="text-emerald-900 font-black">{{ formatNumber(getBatchTotalMeter(batch.uuid)) }} m</span></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1369,32 +1485,57 @@
             </div>
             <span class="font-mono text-xs font-bold text-amber-900">{{ unassignedPlans.length }} Item</span>
           </div>
-          <div class="overflow-x-auto p-4">
-            <table class="w-full text-xs font-mono">
-              <thead class="bg-zinc-800 text-white font-bold text-[11px]">
-                <tr>
-                  <th class="px-3 py-2 text-left">SPK</th>
-                  <th class="px-3 py-2 text-left">TYPE</th>
-                  <th class="px-3 py-2 text-right">LEBAR</th>
-                  <th class="px-3 py-2 text-center">JR</th>
-                  <th class="px-3 py-2 text-right">Meter jr</th>
-                  <th class="px-3 py-2 text-center font-sans">Aksi</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-200">
-                <tr v-for="uRow in unassignedPlans" :key="uRow.id">
-                  <td class="px-3 py-2 font-bold">{{ uRow.spkNo }}</td>
-                  <td class="px-3 py-2 text-red-600">{{ uRow.formula }}</td>
-                  <td class="px-3 py-2 text-right">{{ formatNumber(uRow.lebarParent) }}</td>
-                  <td class="px-3 py-2 text-center">{{ uRow.jumlahJumbo }}</td>
-                  <td class="px-3 py-2 text-right text-emerald-800 font-bold">{{ formatNumber(uRow.totalPlannedMeter) }}</td>
-                  <td class="px-3 py-2 text-center font-sans">
-                    <button @click="openEditPlanModal(uRow)" class="px-2 py-1 bg-zinc-100 rounded text-[10px] font-bold">Revisi</button>
-                    <button @click="confirmDeletePlan(uRow.id, uRow.spkNo)" class="p-1 text-red-600 ml-1">🗑️</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="p-3 space-y-3">
+            <div
+              v-for="(uRow, uIdx) in unassignedPlans"
+              :key="uRow.id || uIdx"
+              class="border border-zinc-200/90 rounded-2xl bg-white shadow-2xs overflow-hidden"
+            >
+              <!-- Parent Header -->
+              <div class="p-3 bg-zinc-50 border-b border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2 py-0.5 rounded-md bg-zinc-900 text-white font-mono text-[11px] font-black">#{{ uIdx + 1 }}</span>
+                  <span class="text-[10px] text-zinc-400 font-mono">SPK:</span>
+                  <strong class="font-mono text-zinc-900 font-black">{{ uRow.spkNo }}</strong>
+                  <div class="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-900 border border-purple-200 font-mono text-[11px] font-black">
+                    {{ uRow.ukuranJumbo || `${uRow.jenis || 'CPP'} ${uRow.formula || 'M01'} ${uRow.thickness || 25} MC X ${uRow.lebarParent || 0} MM`.toUpperCase() }}
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="text-xs font-mono text-right">
+                    <span class="text-emerald-800 font-black">{{ formatNumber(uRow.panjangParent > 0 ? (uRow.panjangParent * (uRow.jumlahJumbo || 1)) : (uRow.totalPlannedMeter || 0)) }} m</span>
+                    <span class="text-[10px] text-zinc-400 block font-normal">({{ uRow.jumlahJumbo || 1 }} JR)</span>
+                  </div>
+                  <button @click="openEditPlanModal(uRow)" class="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 rounded text-[10px] font-bold">Revisi</button>
+                  <button @click="confirmDeletePlan(uRow.id, uRow.spkNo)" class="p-1 text-zinc-400 hover:text-red-600 rounded">🗑️</button>
+                </div>
+              </div>
+
+              <!-- Child Items List -->
+              <div class="p-3 text-xs font-mono space-y-1.5">
+                <div
+                  v-for="(child, cIdx) in (getPlanAnalytics(uRow).childAnalytics || [])"
+                  :key="cIdx"
+                  class="flex items-center justify-between p-2 rounded-lg bg-zinc-50 border border-zinc-200/60"
+                >
+                  <div class="flex items-center gap-2">
+                    <span class="font-black text-blue-900">UP {{ child.upNo }}:</span>
+                    <strong class="text-zinc-900">{{ child.lebar }} mm × {{ formatNumber(child.panjang) }} m</strong>
+                    <span class="text-zinc-400">({{ child.rollsPerJumbo }} Roll/JR)</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span>Target: <strong>{{ child.targetRolls }} Roll</strong></span>
+                    <span>Aktual: <strong class="text-emerald-700">{{ child.actualRolls }} Roll</strong></span>
+                    <span
+                      class="px-2 py-0.5 rounded text-[10px] font-bold border"
+                      :class="[child.status?.badgeClass || 'bg-zinc-100 text-zinc-600 border-zinc-200']"
+                    >
+                      {{ child.percent }}% ({{ child.status?.label || 'Belum' }})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1816,18 +1957,22 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-3 gap-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div>
               <label class="block font-bold text-zinc-700 mb-1">Tebal (μ)</label>
-              <input v-model.number="manualForm.thickness" type="number" class="w-full p-2 border border-zinc-300 rounded-xl font-mono" />
+              <input v-model.number="manualForm.thickness" type="number" class="w-full p-2 border border-zinc-300 rounded-xl font-mono text-center" />
             </div>
             <div>
               <label class="block font-bold text-zinc-700 mb-1">Lebar JR (mm)</label>
-              <input v-model.number="manualForm.lebarParent" type="number" class="w-full p-2 border border-zinc-300 rounded-xl font-mono font-bold" />
+              <input v-model.number="manualForm.lebarParent" type="number" class="w-full p-2 border border-zinc-300 rounded-xl font-mono font-bold text-right" />
             </div>
             <div>
-              <label class="block font-bold text-zinc-700 mb-1">Panjang JR (m)</label>
-              <input v-model.number="manualForm.panjangParent" type="number" class="w-full p-2 border border-zinc-300 rounded-xl font-mono" />
+              <label class="block font-bold text-zinc-700 mb-1">P. Jumbo (m)</label>
+              <input v-model.number="manualForm.panjangParent" type="number" class="w-full p-2 border border-zinc-300 rounded-xl font-mono text-right" placeholder="Mis: 29300" />
+            </div>
+            <div>
+              <label class="block font-bold text-zinc-700 mb-1">P. Roll FG (m)</label>
+              <input v-model.number="manualForm.panjangChild" type="number" class="w-full p-2 border border-zinc-300 rounded-xl font-mono text-right font-bold text-blue-900" placeholder="12000" />
             </div>
           </div>
 
@@ -3550,23 +3695,41 @@ const commitVerificationToPlans = async () => {
     };
 
     const formattedItems = verificationStagingList.value.map(row => {
+      const pParent = parseFloat(row.panjangParent) || 0;
+      const pChild = parseFloat(row.panjangChild) || 12000;
+      const jJumbo = parseInt(row.jumlahJumbo, 10) || 1;
+      const rollsPerJumbo = (pParent > 0 && pChild > 0 && pParent >= pChild) ? Math.floor(pParent / pChild) : 1;
+      const targetRollsPerUp = rollsPerJumbo * jJumbo;
+      const totalPlannedMeter = pParent > 0 ? (pParent * jJumbo) : (parseFloat(row.totalPlannedMeter) || (pChild * jJumbo));
+
       const upList = [];
-      if (row.up1) upList.push({ upNo: 1, lebar: parseFloat(row.up1), panjang: parseFloat(row.panjangChild) || 12000 });
-      if (row.up2) upList.push({ upNo: 2, lebar: parseFloat(row.up2), panjang: parseFloat(row.panjangChild) || 12000 });
-      if (row.up3) upList.push({ upNo: 3, lebar: parseFloat(row.up3), panjang: parseFloat(row.panjangChild) || 12000 });
-      if (row.up4) upList.push({ upNo: 4, lebar: parseFloat(row.up4), panjang: parseFloat(row.panjangChild) || 12000 });
+      if (row.up1 && parseFloat(row.up1) > 0) upList.push({ upNo: 1, lebar: parseFloat(row.up1), panjang: pChild, rollsPerJumbo, targetRolls: targetRollsPerUp });
+      if (row.up2 && parseFloat(row.up2) > 0) upList.push({ upNo: 2, lebar: parseFloat(row.up2), panjang: pChild, rollsPerJumbo, targetRolls: targetRollsPerUp });
+      if (row.up3 && parseFloat(row.up3) > 0) upList.push({ upNo: 3, lebar: parseFloat(row.up3), panjang: pChild, rollsPerJumbo, targetRolls: targetRollsPerUp });
+      if (row.up4 && parseFloat(row.up4) > 0) upList.push({ upNo: 4, lebar: parseFloat(row.up4), panjang: pChild, rollsPerJumbo, targetRolls: targetRollsPerUp });
+
+      const jenisFilm = String(row.jenis || 'CPP').toUpperCase().trim();
+      const formulaCode = String(row.formula || 'M01').toUpperCase().trim();
+      const thkVal = parseFloat(row.thickness) || 25;
+      const lParent = parseFloat(row.lebarParent) || 0;
+      const ukuranJumbo = row.ukuranJumbo || `${jenisFilm} ${formulaCode} ${thkVal} MC X ${lParent} MM`.toUpperCase();
 
       return {
         spkNo: row.spkNo,
         docNo: '3B-PROD',
-        formula: row.formula,
-        thickness: row.thickness,
-        lebarParent: row.lebarParent,
-        panjangParent: row.panjangParent,
-        jumlahJumbo: row.jumlahJumbo,
-        totalPlannedMeter: row.totalPlannedMeter,
+        formula: formulaCode,
+        jenis: jenisFilm,
+        thickness: thkVal,
+        ukuranJumbo,
+        lebarParent: lParent,
+        panjangParent: pParent,
+        panjangChild: pChild,
+        jumlahJumbo: jJumbo,
+        totalPlannedMeter,
+        rollsPerJumboPerUp: rollsPerJumbo,
+        sisaButtMeter: (pParent > 0 && pChild > 0) ? Math.max(0, pParent - (rollsPerJumbo * pChild)) : 0,
         upList,
-        keterangan: row.keterangan,
+        keterangan: row.keterangan || '',
         status: 'PLANNED'
       };
     });
@@ -3604,7 +3767,8 @@ const openManualPlanModal = () => {
     formula: 'M07',
     thickness: 25,
     lebarParent: 2320,
-    panjangParent: 12000,
+    panjangParent: 29300,
+    panjangChild: 12000,
     up1: 1145,
     up2: 1145,
     up3: null,
@@ -3623,12 +3787,13 @@ const openEditPlanModal = (row) => {
     formula: row.formula,
     thickness: row.thickness,
     lebarParent: row.lebarParent,
-    panjangParent: row.panjangParent,
+    panjangParent: row.panjangParent || 29300,
+    panjangChild: row.panjangChild || getChildPanjang(row) || 12000,
     up1: ups.find(u => u.upNo === 1)?.lebar || null,
     up2: ups.find(u => u.upNo === 2)?.lebar || null,
     up3: ups.find(u => u.upNo === 3)?.lebar || null,
     up4: ups.find(u => u.upNo === 4)?.lebar || null,
-    jumlahJumbo: row.jumlahJumbo,
+    jumlahJumbo: row.jumlahJumbo || 1,
     keterangan: row.keterangan || '',
     revisionReason: 'Revisi manual dokumen SPK'
   });
@@ -3641,22 +3806,40 @@ const saveManualPlan = async () => {
   isSavingManualPlan.value = true;
 
   try {
+    const pParent = parseFloat(manualForm.panjangParent) || 0;
+    const pChild = parseFloat(manualForm.panjangChild) || 12000;
+    const jJumbo = parseInt(manualForm.jumlahJumbo, 10) || 1;
+    const rollsPerJumbo = (pParent > 0 && pChild > 0 && pParent >= pChild) ? Math.floor(pParent / pChild) : 1;
+    const targetRollsPerUp = rollsPerJumbo * jJumbo;
+    const totalPlannedMeter = pParent > 0 ? (pParent * jJumbo) : (pChild * jJumbo);
+
     const upList = [];
-    if (manualForm.up1) upList.push({ upNo: 1, lebar: parseFloat(manualForm.up1), panjang: 12000 });
-    if (manualForm.up2) upList.push({ upNo: 2, lebar: parseFloat(manualForm.up2), panjang: 12000 });
-    if (manualForm.up3) upList.push({ upNo: 3, lebar: parseFloat(manualForm.up3), panjang: 12000 });
-    if (manualForm.up4) upList.push({ upNo: 4, lebar: parseFloat(manualForm.up4), panjang: 12000 });
+    if (manualForm.up1) upList.push({ upNo: 1, lebar: parseFloat(manualForm.up1), panjang: pChild, rollsPerJumbo, targetRolls: targetRollsPerUp });
+    if (manualForm.up2) upList.push({ upNo: 2, lebar: parseFloat(manualForm.up2), panjang: pChild, rollsPerJumbo, targetRolls: targetRollsPerUp });
+    if (manualForm.up3) upList.push({ upNo: 3, lebar: parseFloat(manualForm.up3), panjang: pChild, rollsPerJumbo, targetRolls: targetRollsPerUp });
+    if (manualForm.up4) upList.push({ upNo: 4, lebar: parseFloat(manualForm.up4), panjang: pChild, rollsPerJumbo, targetRolls: targetRollsPerUp });
+
+    const formulaCode = manualForm.formula.trim().toUpperCase();
+    const thkVal = parseFloat(manualForm.thickness) || 25;
+    const lParent = parseFloat(manualForm.lebarParent) || 0;
+    const jenisFilm = 'CPP';
+    const ukuranJumbo = `${jenisFilm} ${formulaCode} ${thkVal} MC X ${lParent} MM`.toUpperCase();
 
     const payload = {
       spkNo: manualForm.spkNo.trim().toUpperCase(),
-      formula: manualForm.formula.trim().toUpperCase(),
-      thickness: parseFloat(manualForm.thickness) || 25,
-      lebarParent: parseFloat(manualForm.lebarParent) || 0,
-      panjangParent: parseFloat(manualForm.panjangParent) || 0,
-      jumlahJumbo: parseInt(manualForm.jumlahJumbo, 10) || 1,
+      formula: formulaCode,
+      jenis: jenisFilm,
+      thickness: thkVal,
+      ukuranJumbo,
+      lebarParent: lParent,
+      panjangParent: pParent,
+      panjangChild: pChild,
+      jumlahJumbo: jJumbo,
       upList,
       keterangan: manualForm.keterangan.trim(),
-      totalPlannedMeter: (parseInt(manualForm.jumlahJumbo, 10) || 1) * 12000
+      totalPlannedMeter,
+      rollsPerJumboPerUp: rollsPerJumbo,
+      sisaButtMeter: (pParent > 0 && pChild > 0) ? Math.max(0, pParent - (rollsPerJumbo * pChild)) : 0
     };
 
     if (editingPlanId.value) {

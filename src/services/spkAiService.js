@@ -251,23 +251,39 @@ async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/j
 
   const prompt = `
 Analisis dokumen formulir fisik PT. Saptawarna Cemerlang "JADWAL SLITTING (Kode: 3B-PROD)".
+Dokumen ini memiliki 14 kolom tabel standar slitting:
+1. No: Nomor urut pengerjaan
+2. SPK: Nomor SPK (contoh: 03/IX, 05/IX, 04/VIII, 07/XII/25, PANVERTA)
+3. TYPE: Kode formula/tipe film (contoh: M08, M07, M06, CMGX)
+4. TEBAL: Ketebalan film dalam mikron (μ) (contoh: 20, 25, 35)
+5. LEBAR: Lebar Jumbo Parent roll dalam mm (contoh: 2160, 2370, 2100, 2095)
+6. PANJANG (KOLOM PANJANG PERTAMA): PANJANG JUMBO ROLL INDUK dalam meter (contoh: 29300, 16300, 12300, 36300)
+7. UP 1: Lebar belahan roll anak 1 dalam mm (contoh: 1220, 1140, 1000, 920)
+8. UP 2: Lebar belahan roll anak 2 dalam mm (contoh: 910, 1140, 1070, 1145)
+9. UP 3: Lebar belahan roll anak 3 jika ada (atau null jika kosong)
+10. UP 4: Lebar belahan roll anak 4 jika ada (atau null jika kosong)
+11. PANJANG (KOLOM PANJANG KEDUA): PANJANG STANDARD ROLL FG JADI dalam meter yang harus diproses (contoh: 12000)
+12. JUMLAH JR: Jumlah Jumbo Roll induk yang dialokasikan (contoh: 1, 2, 4, 7)
+13. KETERANGAN: Catatan instruksi potong / posisi pisau (contoh: C1 TENGAH, C1 ATAS, REWIND, -)
+14. Meter jr: Total meter jumbo roll = Panjang Jumbo × Jumlah JR (contoh: 58600, 116000, 32000, 203000, 72000)
+
 Ekstrak tabel jadwal potong ke dalam array JSON dengan format persis berikut:
 [
   {
     "no": 1,
-    "spkNo": "Nomor SPK (contoh: 04/VIII, 07/XII/25, 02/I, 07/VI, 01/IX, PANVERTA)",
-    "formula": "Kode formula (contoh: M07, M06, CMGX)",
-    "thickness": 35,
-    "lebarParent": 2320,
-    "panjangParent": 19300,
-    "up1": 1145,
-    "up2": 1145,
+    "spkNo": "Nomor SPK (contoh: 03/IX)",
+    "formula": "Kode formula (contoh: M08)",
+    "thickness": 25,
+    "lebarParent": 2160,
+    "panjangParent": 29300,
+    "up1": 1220,
+    "up2": 910,
     "up3": null,
     "up4": null,
     "panjangChild": 12000,
     "jumlahJumbo": 2,
-    "keterangan": "C1 TENGAH / C1 ATAS / -",
-    "totalPlannedMeter": 240000
+    "keterangan": "-",
+    "totalPlannedMeter": 58600
   }
 ]
 
@@ -276,15 +292,18 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
    - DILARANG KERAS MENGGABUNGKAN 2 NOMOR SPK DALAM 1 BARIS (jangan gunakan tanda "&").
    - Jika dokumen fisik menuliskan 2 nomor SPK (misal "07/XII/25 & 02/I"), Anda WAJIB memisahkannya menjadi 2 baris terpisah dalam output JSON!
    - Baris pertama untuk SPK 1 (contoh: "07/XII/25"), dan baris kedua untuk SPK 2 (contoh: "02/I").
-2. ATURAN URUTAN PENGERJAAN:
-   - Urutan baris JSON harus persis sesuai urutan pengerjaan pada lembar jadwal, dari baris paling atas ke baris paling bawah.
-3. ATURAN REWIND (UKURAN SAMA):
+2. ATURAN SUB-BARIS JADWAL:
+   - Jika di bawah nomor urut yang sama ada sub-baris spesifikasi ukuran lain (misal di baris No 2 ada ukuran 29.300m 4 JR dan di bawahnya 16.300m 2 JR), ekstrak sebagai baris JSON terpisah dengan nomor urut yang sama atau berurutan.
+3. ATURAN KOLOM DUA PANJANG:
+   - Ingat: kolom PANJANG pertama (sebelum UP) adalah "panjangParent" (Jumbo).
+   - Kolom PANJANG kedua (setelah UP 4) adalah "panjangChild" (Roll FG Jadi, umumnya 12000 m).
+4. ATURAN REWIND (UKURAN SAMA):
    - Jika kolom UP 1..UP 4 kosong / strip "-" (karena roll induk hanya di-REWIND dengan ukuran yang sama tanpa dibelah), isi up1 = lebarParent, dan up2..up4 = null.
-4. PEDOMAN ANTI-HALUSINASI MUTLAK:
+5. PEDOMAN ANTI-HALUSINASI MUTLAK:
    - Dilarang mengarang atau menebak data yang tidak terlihat pada dokumen fisik.
    - Ekstrak HANYA data yang benar-benar tercantum pada dokumen gambar.
    - Jika kolom atau angka tidak ada, gunakan null atau 0 sesuai skema JSON di atas.
-5. Keluarkan HANYA array JSON murni tanpa pembuka/penutup markdown.
+6. Keluarkan HANYA array JSON murni tanpa pembuka/penutup markdown.
 `;
 
   let lastError = null;
@@ -458,19 +477,57 @@ export function postProcessExtractedRows(rawRows, filmConfigs = [], scheduleDate
       const standardSpk = normalizeSpkToFullStandard(token, executionSeq, scheduleDate, isSupplierInhouse ? '' : supplier, rawJenis);
 
       const lebarParent = parseFloat(raw.lebarParent) || 0;
-      const upList = [];
+      const panjangParent = parseFloat(raw.panjangParent) || 0;
+      const panjangChild = parseFloat(raw.panjangChild) || 12000;
+      const jumlahJumbo = parseInt(raw.jumlahJumbo, 10) || 1;
+      const thickness = parseFloat(raw.thickness) || matchedFilm?.thickness || 25;
+      const jenisFilm = matchedFilm?.jenis || String(raw.jenis || 'CPP').toUpperCase().trim();
 
+      // Hitung berapa roll FG standar yang dihasilkan per 1 Jumbo Roll per UP
+      const rollsPerJumboPerUp = (panjangParent > 0 && panjangChild > 0 && panjangParent >= panjangChild)
+        ? Math.floor(panjangParent / panjangChild)
+        : 1;
+      const targetRollsPerUp = rollsPerJumboPerUp * jumlahJumbo;
+      const sisaButtMeter = (panjangParent > 0 && panjangChild > 0)
+        ? Math.max(0, panjangParent - (rollsPerJumboPerUp * panjangChild))
+        : 0;
+
+      const upList = [];
       if (raw.up1 && parseFloat(raw.up1) > 0) {
-        upList.push({ upNo: 1, lebar: parseFloat(raw.up1), panjang: parseFloat(raw.panjangChild) || 12000 });
+        upList.push({
+          upNo: 1,
+          lebar: parseFloat(raw.up1),
+          panjang: panjangChild,
+          rollsPerJumbo: rollsPerJumboPerUp,
+          targetRolls: targetRollsPerUp
+        });
       }
       if (raw.up2 && parseFloat(raw.up2) > 0) {
-        upList.push({ upNo: 2, lebar: parseFloat(raw.up2), panjang: parseFloat(raw.panjangChild) || 12000 });
+        upList.push({
+          upNo: 2,
+          lebar: parseFloat(raw.up2),
+          panjang: panjangChild,
+          rollsPerJumbo: rollsPerJumboPerUp,
+          targetRolls: targetRollsPerUp
+        });
       }
       if (raw.up3 && parseFloat(raw.up3) > 0) {
-        upList.push({ upNo: 3, lebar: parseFloat(raw.up3), panjang: parseFloat(raw.panjangChild) || 12000 });
+        upList.push({
+          upNo: 3,
+          lebar: parseFloat(raw.up3),
+          panjang: panjangChild,
+          rollsPerJumbo: rollsPerJumboPerUp,
+          targetRolls: targetRollsPerUp
+        });
       }
       if (raw.up4 && parseFloat(raw.up4) > 0) {
-        upList.push({ upNo: 4, lebar: parseFloat(raw.up4), panjang: parseFloat(raw.panjangChild) || 12000 });
+        upList.push({
+          upNo: 4,
+          lebar: parseFloat(raw.up4),
+          panjang: panjangChild,
+          rollsPerJumbo: rollsPerJumboPerUp,
+          targetRolls: targetRollsPerUp
+        });
       }
 
       // ATURAN REWIND (UKURAN SAMA):
@@ -489,7 +546,13 @@ export function postProcessExtractedRows(rawRows, filmConfigs = [], scheduleDate
         finalUp4 = null;
         trimAuto = 0;
         if (upList.length === 0) {
-          upList.push({ upNo: 1, lebar: lebarParent, panjang: parseFloat(raw.panjangParent) || parseFloat(raw.panjangChild) || 12000 });
+          upList.push({
+            upNo: 1,
+            lebar: lebarParent,
+            panjang: panjangChild || panjangParent || 12000,
+            rollsPerJumbo: rollsPerJumboPerUp,
+            targetRolls: targetRollsPerUp
+          });
         }
         if (!keterangan || keterangan === '-') {
           keterangan = 'REWIND (UKURAN SAMA)';
@@ -499,8 +562,17 @@ export function postProcessExtractedRows(rawRows, filmConfigs = [], scheduleDate
         trimAuto = Math.max(0, lebarParent - sumUp);
       }
 
-      const jumlahJumbo = parseInt(raw.jumlahJumbo, 10) || 1;
-      const totalPlannedRolls = upList.length * jumlahJumbo;
+      // TOTAL PLANNED METER:
+      // Di form 3B-PROD, "Meter jr" adalah Total Meter Jumbo Induk = panjangParent * jumlahJumbo
+      const totalPlannedMeter = (panjangParent > 0)
+        ? (panjangParent * jumlahJumbo)
+        : (parseFloat(raw.totalPlannedMeter) || (panjangChild * jumlahJumbo));
+
+      const totalPlannedRolls = upList.reduce((sum, u) => sum + (u.targetRolls || jumlahJumbo), 0);
+
+      // UKURAN JUMBO HIERARKI BAKU:
+      // Format: [JENIS] [KODE FORMULA] [MICRON] MC X [WIDTH] MM (e.g. VMCPP M08 25 MC X 2160 MM)
+      const ukuranJumbo = `${jenisFilm} ${rawFormula} ${thickness} MC X ${lebarParent} MM`.toUpperCase();
 
       resultRows.push({
         no: executionSeq,
@@ -509,20 +581,23 @@ export function postProcessExtractedRows(rawRows, filmConfigs = [], scheduleDate
         spkNo: standardSpk,
         docNo: '3B-PROD',
         formula: rawFormula,
-        jenis: matchedFilm?.jenis || String(raw.jenis || 'CPP').toUpperCase().trim(),
-        thickness: parseFloat(raw.thickness) || matchedFilm?.thickness || 25,
+        jenis: jenisFilm,
+        thickness,
+        ukuranJumbo,
         lebarParent,
-        panjangParent: parseFloat(raw.panjangParent) || 0,
+        panjangParent,
         up1: finalUp1,
         up2: finalUp2,
         up3: finalUp3,
         up4: finalUp4,
-        panjangChild: parseFloat(raw.panjangChild) || 12000,
+        panjangChild,
+        rollsPerJumboPerUp,
+        sisaButtMeter,
         upList,
         trimAuto,
         jumlahJumbo,
         totalPlannedRolls,
-        totalPlannedMeter: parseFloat(raw.totalPlannedMeter) || ((parseFloat(raw.panjangChild) || 12000) * jumlahJumbo),
+        totalPlannedMeter,
         keterangan,
         supplier,
         isSupplierInhouse,

@@ -412,19 +412,35 @@ export const useSpkStore = defineStore('spk', () => {
     for (const planData of items) {
       const upList = planData.upList || [];
       const trim = calculateTrim(planData.lebarParent, upList);
+      const pParent = parseFloat(planData.panjangParent) || 0;
+      const pChild = parseFloat(planData.panjangChild) || 12000;
+      const jJumbo = parseInt(planData.jumlahJumbo, 10) || 1;
+      const rPerJumbo = (pParent > 0 && pChild > 0 && pParent >= pChild) ? Math.floor(pParent / pChild) : 1;
+      const totMeter = parseFloat(planData.totalPlannedMeter) || (pParent > 0 ? (pParent * jJumbo) : (pChild * jJumbo));
+      const totRolls = parseInt(planData.totalPlannedRolls, 10) || (upList.length * rPerJumbo * jJumbo) || (upList.length * jJumbo);
+      const jenisFilm = String(planData.jenis || 'CPP').toUpperCase().trim();
+      const formulaCode = String(planData.formula || 'M01').toUpperCase().trim();
+      const thkVal = parseFloat(planData.thickness) || 20;
+      const lParent = parseFloat(planData.lebarParent) || 0;
+      const ukJumbo = planData.ukuranJumbo || `${jenisFilm} ${formulaCode} ${thkVal} MC X ${lParent} MM`.toUpperCase();
+
       const planRecord = {
         uuid: `spk_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
         batchId: batchUuid,
         spkNo: String(planData.spkNo || '').trim(),
         docNo: String(batchRecord.docNo || '3B-PROD').trim(),
-        formula: String(planData.formula || 'M01').toUpperCase().trim(),
-        jenis: String(planData.jenis || 'CPP').toUpperCase().trim(),
-        thickness: parseFloat(planData.thickness) || 20,
-        lebarParent: parseFloat(planData.lebarParent) || 0,
-        panjangParent: parseFloat(planData.panjangParent) || 0,
-        jumlahJumbo: parseInt(planData.jumlahJumbo, 10) || 1,
-        totalPlannedMeter: parseFloat(planData.totalPlannedMeter) || 0,
-        totalPlannedRolls: parseInt(planData.totalPlannedRolls, 10) || (upList.length * (parseInt(planData.jumlahJumbo, 10) || 1)),
+        formula: formulaCode,
+        jenis: jenisFilm,
+        thickness: thkVal,
+        ukuranJumbo: ukJumbo,
+        lebarParent: lParent,
+        panjangParent: pParent,
+        panjangChild: pChild,
+        jumlahJumbo: jJumbo,
+        totalPlannedMeter: totMeter,
+        totalPlannedRolls: totRolls,
+        rollsPerJumboPerUp: rPerJumbo,
+        sisaButtMeter: (pParent > 0 && pChild > 0) ? Math.max(0, pParent - (rPerJumbo * pChild)) : 0,
         chartingJson: JSON.stringify(upList),
         trimAuto: trim,
         keterangan: planData.keterangan || '',
@@ -506,20 +522,36 @@ export const useSpkStore = defineStore('spk', () => {
     const existingInBatch = bId ? plans.value.filter(p => p.batchId === bId) : [];
     const newSeq = planData.seq || (existingInBatch.length + 1);
 
+    const pParent = parseFloat(planData.panjangParent) || 0;
+    const pChild = parseFloat(planData.panjangChild) || 12000;
+    const jJumbo = parseInt(planData.jumlahJumbo, 10) || 1;
+    const rPerJumbo = (pParent > 0 && pChild > 0 && pParent >= pChild) ? Math.floor(pParent / pChild) : 1;
+    const totMeter = parseFloat(planData.totalPlannedMeter) || (pParent > 0 ? (pParent * jJumbo) : (pChild * jJumbo));
+    const totRolls = parseInt(planData.totalPlannedRolls, 10) || (upList.length * rPerJumbo * jJumbo) || (upList.length * jJumbo);
+    const jenisFilm = String(planData.jenis || 'CPP').toUpperCase().trim();
+    const formulaCode = String(planData.formula || 'M01').toUpperCase().trim();
+    const thkVal = parseFloat(planData.thickness) || 20;
+    const lParent = parseFloat(planData.lebarParent) || 0;
+    const ukJumbo = planData.ukuranJumbo || `${jenisFilm} ${formulaCode} ${thkVal} MC X ${lParent} MM`.toUpperCase();
+
     const record = {
       uuid: `spk_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       batchId: bId,
       seq: newSeq,
       spkNo: String(planData.spkNo || '').trim(),
       docNo: String(planData.docNo || '3B-PROD').trim(),
-      formula: String(planData.formula || 'M01').toUpperCase().trim(),
-      jenis: String(planData.jenis || 'CPP').toUpperCase().trim(),
-      thickness: parseFloat(planData.thickness) || 20,
-      lebarParent: parseFloat(planData.lebarParent) || 0,
-      panjangParent: parseFloat(planData.panjangParent) || 0,
-      jumlahJumbo: parseInt(planData.jumlahJumbo, 10) || 1,
-      totalPlannedMeter: parseFloat(planData.totalPlannedMeter) || 0,
-      totalPlannedRolls: parseInt(planData.totalPlannedRolls, 10) || (upList.length * (parseInt(planData.jumlahJumbo, 10) || 1)),
+      formula: formulaCode,
+      jenis: jenisFilm,
+      thickness: thkVal,
+      ukuranJumbo: ukJumbo,
+      lebarParent: lParent,
+      panjangParent: pParent,
+      panjangChild: pChild,
+      jumlahJumbo: jJumbo,
+      totalPlannedMeter: totMeter,
+      totalPlannedRolls: totRolls,
+      rollsPerJumboPerUp: rPerJumbo,
+      sisaButtMeter: (pParent > 0 && pChild > 0) ? Math.max(0, pParent - (rPerJumbo * pChild)) : 0,
       chartingJson: JSON.stringify(upList),
       trimAuto: trim,
       keterangan: planData.keterangan || '',
@@ -998,7 +1030,15 @@ export const useSpkStore = defineStore('spk', () => {
     const totalUp = Math.max(1, validUps.length || 2);
 
     const plannedParentRolls = parseInt(plan?.jumlahJumbo, 10) || totalJumbo || 1;
-    const plannedChildRolls = plannedParentRolls * totalUp;
+    const panjangParentVal = parseFloat(plan?.panjangParent) || 0;
+    const panjangChildVal = parseFloat(plan?.panjangChild) || 12000;
+    const rollsPerJumboPerUp = (panjangParentVal > 0 && panjangChildVal > 0 && panjangParentVal >= panjangChildVal)
+      ? Math.floor(panjangParentVal / panjangChildVal)
+      : 1;
+
+    const plannedChildRolls = validUps.length > 0
+      ? validUps.reduce((acc, u) => acc + (parseInt(u.targetRolls, 10) || (rollsPerJumboPerUp * plannedParentRolls)), 0)
+      : (plannedParentRolls * totalUp * rollsPerJumboPerUp);
     const actualChildRolls = totalRealRolls;
 
     // Hitung Parent Jumbo yang telah dipotong dari unique parent lots
@@ -1009,7 +1049,7 @@ export const useSpkStore = defineStore('spk', () => {
     );
     const actualParentCut = uniqueParents.size > 0 
       ? uniqueParents.size 
-      : (actualChildRolls > 0 ? Math.ceil(actualChildRolls / totalUp) : 0);
+      : (actualChildRolls > 0 ? Math.ceil(actualChildRolls / (totalUp * rollsPerJumboPerUp)) : 0);
 
     const diffParent = actualParentCut - plannedParentRolls;
     const diffChild = actualChildRolls - plannedChildRolls;
@@ -1017,6 +1057,60 @@ export const useSpkStore = defineStore('spk', () => {
     const achievementPercent = plannedChildRolls > 0 
       ? Math.min(100, Math.round((actualChildRolls / plannedChildRolls) * 100)) 
       : 0;
+
+    // Parent Metrics & Status
+    const parentAchievementPercent = plannedParentRolls > 0
+      ? Math.min(100, Math.round((actualParentCut / plannedParentRolls) * 100))
+      : 0;
+    const parentStatus = evaluateTargetStatus(actualParentCut, plannedParentRolls, plan?.status === 'SKIPPED');
+
+    const jenisFilm = plan?.jenis || 'CPP';
+    const lebarParentVal = plan?.lebarParent || 0;
+    const ukuranJumbo = plan?.ukuranJumbo || `${jenisFilm} ${formula} ${thickness} MC X ${lebarParentVal} MM`.toUpperCase();
+    const totalPanjangJumbo = (panjangParentVal > 0) ? (panjangParentVal * plannedParentRolls) : (plannedMeter || 0);
+    const totalRollJumbo = plannedParentRolls;
+    const sisaButtPerJumbo = (panjangParentVal > 0 && panjangChildVal > 0)
+      ? Math.max(0, panjangParentVal - (rollsPerJumboPerUp * panjangChildVal))
+      : 0;
+
+    // Per-Child UP Analytics (Detailed Realtime per pisau potong)
+    const childAnalytics = validUps.map((u, uIdx) => {
+      const upLebar = parseFloat(u.lebar) || 0;
+      const upPanjang = parseFloat(u.panjang || panjangChildVal) || 12000;
+      const upRollsPerJumbo = parseInt(u.rollsPerJumbo, 10) || rollsPerJumboPerUp;
+      const targetRolls = parseInt(u.targetRolls, 10) || (upRollsPerJumbo * plannedParentRolls);
+      const targetMeter = targetRolls * upPanjang;
+
+      // Matching lots by width with +/- 5mm tolerance
+      const matchingLots = allLots.filter(lt => Math.abs((parseFloat(lt.width) || 0) - upLebar) <= 5);
+      const actualRolls = matchingLots.length;
+      const actualMeter = matchingLots.reduce((sum, lt) => sum + (parseFloat(lt.length) || 0), 0);
+      const actualKg = matchingLots.reduce((sum, lt) => sum + (parseFloat(lt.weight) || 0), 0);
+      const passCount = matchingLots.filter(lt => lt.status === 'PASS' || lt.status === 'OK').length;
+      const holdCount = matchingLots.filter(lt => lt.status === 'HOLD').length;
+      const rejectCount = matchingLots.filter(lt => lt.status === 'REJECT' || lt.status === 'NG').length;
+
+      const percent = targetRolls > 0 ? Math.min(100, Math.round((actualRolls / targetRolls) * 100)) : (actualRolls > 0 ? 100 : 0);
+      const status = evaluateTargetStatus(actualRolls, targetRolls, plan?.status === 'SKIPPED');
+
+      return {
+        upNo: u.upNo || (uIdx + 1),
+        lebar: upLebar,
+        panjang: upPanjang,
+        rollsPerJumbo: upRollsPerJumbo,
+        targetRolls,
+        targetMeter,
+        actualRolls,
+        actualMeter,
+        actualKg,
+        passCount,
+        holdCount,
+        rejectCount,
+        percent,
+        status,
+        diffRolls: actualRolls - targetRolls
+      };
+    });
 
     // Durasi pengerjaan aktual dari selisih waktu label
     let firstLabelTime = Infinity;
@@ -1044,6 +1138,11 @@ export const useSpkStore = defineStore('spk', () => {
       formula,
       thickness,
       supplier,
+      ukuranJumbo,
+      totalPanjangJumbo,
+      totalRollJumbo,
+      sisaButtPerJumbo,
+      rollsPerJumboPerUp,
       totalJumbo,
       totalRealRolls,
       totalRealMeter,
@@ -1059,8 +1158,11 @@ export const useSpkStore = defineStore('spk', () => {
       totalMinutes: timeEst.totalMinutes,
       plannedParentRolls,
       actualParentCut,
+      parentAchievementPercent,
+      parentStatus,
       plannedChildRolls,
       actualChildRolls,
+      childAnalytics,
       diffParent,
       diffChild,
       diffMeter,
