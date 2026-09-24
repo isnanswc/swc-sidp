@@ -581,14 +581,37 @@
           <div
             v-for="(img, qIdx) in queuedImages"
             :key="qIdx"
-            class="relative rounded-xl overflow-hidden border border-zinc-200 bg-zinc-950 group shadow-2xs cursor-pointer aspect-3/4"
+            :class="[
+              'relative rounded-xl overflow-hidden border bg-zinc-950 group shadow-2xs cursor-pointer aspect-3/4 transition-all',
+              img.hasFailed ? 'border-2 border-red-500 ring-2 ring-red-500/20' : 'border-zinc-200'
+            ]"
             @click="openLightbox('main', qIdx)"
           >
             <img :src="img.preview" alt="Lembar Foto" class="h-full w-full object-cover opacity-90 group-hover:opacity-100 transition-all group-hover:scale-105 duration-200" />
             <span class="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-white font-mono font-bold text-[9px] flex items-center gap-1 border border-white/10">
               <span>Lembar #{{ qIdx + 1 }}</span>
             </span>
+
+            <!-- Badge Status Gagal jika lembar ini tertunda -->
+            <div
+              v-if="img.hasFailed"
+              class="absolute inset-x-1.5 top-8 p-1 rounded-lg bg-red-600/90 text-white text-[9.5px] font-bold text-center leading-tight shadow-md backdrop-blur-xs flex items-center justify-center gap-1"
+              :title="img.errorMessage || 'Gagal diekstrak'"
+            >
+              <span>⚠️ Gagal</span>
+            </div>
+
             <div class="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+              <!-- Tombol Coba Ulang Lembar Ini Saja -->
+              <button
+                v-if="img.hasFailed"
+                @click.stop="retryFailedImagesExtraction(img)"
+                :disabled="isRetryingFailed || isExtracting"
+                class="w-6 h-6 rounded-lg bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shadow-xs border border-white/10"
+                title="Ekstrak ulang lembar ini saja"
+              >
+                🔄
+              </button>
               <button
                 @click.stop="rotateQueuedImage(qIdx, 90)"
                 class="w-6 h-6 rounded-lg bg-black/75 hover:bg-black text-white flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shadow-xs border border-white/10"
@@ -631,6 +654,43 @@
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div v-if="isVerifyingOpen && currentActiveSession && currentActiveSession.id !== 'empty'" class="space-y-3 animate-fade-in">
       
+      <!-- Alert Banner: Jika ada lembar yang gagal diekstrak saat scan multi-lembar -->
+      <div
+        v-if="failedQueueItems.length > 0"
+        class="p-3.5 sm:p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl flex items-center justify-between gap-3 text-amber-950 animate-fade-in shadow-md flex-wrap"
+      >
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg font-bold shrink-0 shadow-xs">
+            ⚠️
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h4 class="text-xs font-black uppercase tracking-wider text-amber-950">
+                Data Parsial Tersimpan (Ada {{ failedQueueItems.length }} Lembar Belum Berhasil)
+              </h4>
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-200 text-amber-900 font-mono">
+                Token Aman
+              </span>
+            </div>
+            <p class="text-[11px] text-amber-800 leading-snug mt-0.5">
+              Data lembar yang berhasil sudah masuk dan disajikan di spreadsheet ini. Anda dapat mengekstrak ulang lembar yang gagal kapan saja tanpa mengulang lembar yang sudah selesai!
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            :disabled="isRetryingFailed || isExtracting"
+            @click="retryFailedImagesExtraction()"
+            class="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-xl font-black text-xs transition-all shadow-md shadow-red-600/25 flex items-center gap-1.5 cursor-pointer active:scale-95"
+          >
+            <span v-if="isRetryingFailed" class="animate-spin text-sm">⏳</span>
+            <span v-else>🔄</span>
+            <span>Ekstrak Ulang {{ failedQueueItems.length }} Lembar Ini</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Back Navigation Header -->
       <div class="bg-white p-3 sm:p-3.5 rounded-2xl border border-zinc-200 shadow-2xs flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-3">
@@ -2061,7 +2121,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { getSetting, saveSetting, db } from '@/db';
 import { getAiConfig } from '@/services/geminiService';
 import { useConfigStore } from '@/stores/configStore';
-import { extractReportFromImage, performDeepHandwritingAudit, matchMasterResin } from '@/services/aiReportService';
+import { extractReportFromImage, performDeepHandwritingAudit, matchMasterResin, extractShiftNumber, compareRollsChronological } from '@/services/aiReportService';
 import { exportCastingReportToExcel, exportMetalizeReportToExcel, exportFullSessionToExcel, calculateDurationMinutes, standardizeSpkInhouse } from '@/services/excelReportService';
 
 const configStore = useConfigStore();
@@ -2101,6 +2161,8 @@ const multiFileInputRef = ref(null);
 let mediaStream = null;
 
 const queuedImages = ref([]);
+const failedQueueItems = ref([]);
+const isRetryingFailed = ref(false);
 const isExtracting = ref(false);
 const extractionProgress = ref({
   step: 1,
@@ -2701,8 +2763,10 @@ const processMultiImageExtraction = async () => {
     detail: 'Mengompresi & mengoptimalkan resolusi lembar gambar...'
   };
 
+  const originalQueue = [...queuedImages.value];
+
   try {
-    const previews = queuedImages.value.map(img => img.preview);
+    const previews = originalQueue.map(img => img.preview);
     const extractedSession = await extractReportFromImage(
       previews,
       selectedMachine.value,
@@ -2718,9 +2782,31 @@ const processMultiImageExtraction = async () => {
         detail: 'Selesai! Membuka verifikasi spreadsheet...'
       };
 
+      // ── EVALUASI LEMBAR GAGAL VS BERHASIL ──
+      if (extractedSession.failedSheets && extractedSession.failedSheets.length > 0) {
+        const failedIndices = new Set(extractedSession.failedSheets.map(f => f.index));
+        const failedItems = [];
+        originalQueue.forEach((img, idx) => {
+          if (failedIndices.has(idx)) {
+            const errInfo = extractedSession.failedSheets.find(f => f.index === idx);
+            failedItems.push({
+              ...img,
+              hasFailed: true,
+              errorMessage: errInfo ? errInfo.error : 'Gagal diekstrak'
+            });
+          }
+        });
+        failedQueueItems.value = failedItems;
+        queuedImages.value = failedItems; // Lembar yang gagal TETAP ADA di antrean untuk diekstrak ulang!
+      } else {
+        failedQueueItems.value = [];
+        clearAllQueuedImages(); // Jika seluruh lembar berhasil, kosongkan antrean
+      }
+
+      const totalBerhasil = extractedSession.successCount || (originalQueue.length - failedQueueItems.value.length);
       const newSession = {
         id: `session_${Date.now()}`,
-        name: `Laporan_${selectedMachine.value}_${extractedSession.tanggal || 'Harian'}_(${queuedImages.value.length}_Lembar)`,
+        name: `Laporan_${selectedMachine.value}_${extractedSession.tanggal || 'Harian'}_(${totalBerhasil}_Lembar)`,
         tanggal: extractedSession.tanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
         machine: selectedMachine.value,
         shifts: extractedSession.shifts || []
@@ -2735,18 +2821,111 @@ const processMultiImageExtraction = async () => {
         isVerifyingOpen.value = true;
         selectedShiftIndex.value = 0;
         activeShiftViewMode.value = 'shift';
-        clearAllQueuedImages();
         stopCamera();
         isExtracting.value = false;
       }, 500);
       return;
     }
   } catch (err) {
-    alert(`Gagal mengekstrak dokumen multi-lembar: ${err.message}`);
+    alert(`Gagal mengekstrak dokumen: ${err.message}`);
   } finally {
     if (!isVerifyingOpen.value) {
       isExtracting.value = false;
     }
+  }
+};
+
+// ── Ekstrak Ulang Khusus Lembar yang Gagal ──
+const retryFailedImagesExtraction = async (specificImg = null) => {
+  const imagesToRetry = specificImg ? [specificImg] : [...failedQueueItems.value];
+  if (imagesToRetry.length === 0) return;
+
+  isRetryingFailed.value = true;
+  isExtracting.value = true;
+  extractionProgress.value = {
+    step: 1,
+    percent: 15,
+    detail: `Mengekstrak ulang ${imagesToRetry.length} lembar yang sebelumnya tertunda...`
+  };
+
+  try {
+    const previews = imagesToRetry.map(img => img.preview);
+    const extracted = await extractReportFromImage(
+      previews,
+      currentActiveSession.value.machine || selectedMachine.value,
+      (progress) => {
+        extractionProgress.value = progress;
+      }
+    );
+
+    if (extracted && extracted.shifts && extracted.shifts.length > 0) {
+      // Gabungkan data lembar susulan ke dalam currentActiveSession
+      for (const newShift of extracted.shifts) {
+        const shiftNum = extractShiftNumber(newShift);
+        const existingShift = currentActiveSession.value.shifts.find(s => extractShiftNumber(s) === shiftNum);
+
+        if (existingShift) {
+          // Sambung ke shift yang sudah ada
+          if (newShift.tabel_1_rolls && newShift.tabel_1_rolls.length > 0) {
+            const cleanRolls = newShift.tabel_1_rolls.map(r => ({ ...r, start_up: 0, bekuan: 0 }));
+            existingShift.tabel_1_rolls.push(...cleanRolls);
+            existingShift.tabel_1_rolls.sort(compareRollsChronological);
+            existingShift.tabel_1_rolls.forEach((r, idx) => { r.id = idx + 1; });
+          }
+          if (newShift.tabel_metalize && newShift.tabel_metalize.length > 0) {
+            existingShift.tabel_metalize.push(...newShift.tabel_metalize);
+            existingShift.tabel_metalize.sort(compareRollsChronological);
+            existingShift.tabel_metalize.forEach((r, idx) => { r.id = idx + 1; });
+          }
+          if (newShift.tabel_2_resin && newShift.tabel_2_resin.length > 0) {
+            for (const r of newShift.tabel_2_resin) {
+              const isDup = existingShift.tabel_2_resin.some(ex =>
+                ex.nama_resin === r.nama_resin && Math.abs((Number(ex.pemakaian_kg) || 0) - (Number(r.pemakaian_kg) || 0)) < 0.1
+              );
+              if (!isDup) {
+                existingShift.tabel_2_resin.push({ ...r, id: existingShift.tabel_2_resin.length + 1 });
+              }
+            }
+          }
+        } else {
+          // Tambahkan sebagai shift baru
+          currentActiveSession.value.shifts.push(newShift);
+        }
+      }
+
+      // Urutkan kembali shift secara ketat
+      currentActiveSession.value.shifts.sort((a, b) => extractShiftNumber(a) - extractShiftNumber(b));
+
+      let totalRollsCount = 0;
+      currentActiveSession.value.shifts.forEach(s => {
+        totalRollsCount += (s.tabel_1_rolls?.length || s.tabel_metalize?.length || 0);
+      });
+      currentActiveSession.value.totalShifts = currentActiveSession.value.shifts.length;
+      currentActiveSession.value.totalRolls = totalRollsCount;
+
+      // Hapus lembar yang berhasil dari daftar failedQueueItems & queuedImages
+      if (specificImg) {
+        failedQueueItems.value = failedQueueItems.value.filter(i => i.preview !== specificImg.preview);
+        queuedImages.value = queuedImages.value.filter(i => i.preview !== specificImg.preview);
+      } else {
+        if (!extracted.failedSheets || extracted.failedSheets.length === 0) {
+          failedQueueItems.value = [];
+          queuedImages.value = [];
+        } else {
+          const stillFailedIndices = new Set(extracted.failedSheets.map(f => f.index));
+          failedQueueItems.value = imagesToRetry.filter((_, idx) => stillFailedIndices.has(idx));
+          queuedImages.value = [...failedQueueItems.value];
+        }
+      }
+
+      await saveSessionToDb(currentActiveSession.value);
+      alert('Berhasil! Data lembar susulan telah diekstrak dan digabungkan ke dokumen ini.');
+    }
+  } catch (err) {
+    alert(`Ekstrak ulang gagal: ${err.message}`);
+  } finally {
+    isRetryingFailed.value = false;
+    isExtracting.value = false;
   }
 };
 

@@ -690,6 +690,8 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
 
   const totalSheets = rawImagesArray.length;
   const extractedSessions = [];
+  const sheetResults = [];
+  const failedSheets = [];
   const selectedPrompt = (machineType === 'METALIZE') ? METALIZE_MULTI_PAGE_PROMPT : CASTING_MULTI_PAGE_PROMPT;
   let lastUsedModel = '';
 
@@ -698,94 +700,122 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
     const baseProgress = Math.round((idx / totalSheets) * 90);
     const sheetProgressChunk = Math.max(10, Math.round(90 / totalSheets));
 
-    // 1. Kompresi gambar lembar ini secara individual
-    notify(
-      1,
-      Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.15)),
-      totalSheets > 1 
-        ? `[Lembar ${sheetNum}/${totalSheets}] Mengompresi resolusi lembar gambar...` 
-        : 'Mengompresi resolusi lembar gambar...'
-    );
-
-    const compressed = await compressBase64ForOCR(rawImagesArray[idx], 2048, 0.85);
-
-    // 2. Siapkan payload inline data hanya untuk lembar ini
-    const pass1Parts = [{ text: selectedPrompt }];
-    const match = compressed.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
-    if (match) {
-      pass1Parts.push({
-        inlineData: { mimeType: match[1], data: match[2] }
-      });
-    }
-
-    // 3. FRESH MODEL FALLBACK CANDIDATES SETIAP FILE
-    // Setiap lembar dokumen SELALU memulai pencarian dari model utama teratas (Fresh Fallback)
-    let freshModelCandidates = await getAiModelCandidates();
-    if (!freshModelCandidates || freshModelCandidates.length === 0) {
-      freshModelCandidates = [aiCfg.selectedModel || 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
-    }
-    // Pastikan hanya Gemini 2.0+ (bebas dari versi 1.x dan non-existent 2.5/3.5)
-    freshModelCandidates = freshModelCandidates.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
-
-    notify(
-      2,
-      Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.35)),
-      totalSheets > 1
-        ? `[Lembar ${sheetNum}/${totalSheets}] Menghubungkan ke Google AI (Fresh Fallback #${sheetNum})...`
-        : 'Menghubungkan ke Google AI...'
-    );
-
-    const pass1Execution = await executeGeminiWithFallback({
-      parts: pass1Parts,
-      apiKey,
-      modelCandidates: freshModelCandidates,
-      generationConfig: { temperature: 0.0, responseMimeType: 'application/json' },
-      notify: (s, p, d) => {
-        const adjustedP = Math.min(95, baseProgress + Math.round(sheetProgressChunk * (p / 100)));
-        notify(s, adjustedP, totalSheets > 1 ? `[Lembar ${sheetNum}/${totalSheets}] ${d}` : d);
-      },
-      stepIndex: 3,
-      stepBasePercent: 50
-    });
-
-    lastUsedModel = pass1Execution.modelUsed || lastUsedModel;
-    const pass1Text = pass1Execution.text;
-    if (!pass1Text) throw new Error(`Tidak ada respon teks dari model AI Google pada Lembar ${sheetNum}.`);
-
-    let cleanJsonText = pass1Text.replace(/```json\s*|```/g, '').trim();
-    const firstBrace = cleanJsonText.indexOf('{');
-    const lastBrace = cleanJsonText.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      cleanJsonText = cleanJsonText.substring(firstBrace, lastBrace + 1);
-    }
-
-    notify(
-      5,
-      Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.85)),
-      totalSheets > 1
-        ? `[Lembar ${sheetNum}/${totalSheets}] Memvalidasi neraca material balance & master data...`
-        : 'Memvalidasi neraca material balance & master data...'
-    );
-
-    let rawParsedData;
     try {
-      rawParsedData = JSON.parse(cleanJsonText);
-    } catch (parseErr) {
-      console.warn(`[AI Service] Percobaan pertama JSON.parse gagal pada Lembar ${sheetNum}, memperbaiki format...`, parseErr);
-      try {
-        const repairedJson = cleanJsonText
-          .replace(/,\s*([\]}])/g, '$1')
-          .replace(/([{,]\s*)(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '$1"$3":');
-        rawParsedData = JSON.parse(repairedJson);
-      } catch (retryErr) {
-        console.error(`Gagal mem-parse respon AI Lembar ${sheetNum}:`, cleanJsonText);
-        throw new Error(`AI mengembalikan format teks yang tidak valid pada Lembar ${sheetNum}. Pastikan foto jelas dan coba lagi.`);
-      }
-    }
+      // 1. Kompresi gambar lembar ini secara individual
+      notify(
+        1,
+        Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.15)),
+        totalSheets > 1 
+          ? `[Lembar ${sheetNum}/${totalSheets}] Mengompresi resolusi lembar gambar...` 
+          : 'Mengompresi resolusi lembar gambar...'
+      );
 
-    const parsedSheetSession = await postProcessMultiShiftData(rawParsedData, machineType);
-    if (parsedSheetSession) {
-      extractedSessions.push(parsedSheetSession);
+      const compressed = await compressBase64ForOCR(rawImagesArray[idx], 2048, 0.85);
+
+      // 2. Siapkan payload inline data hanya untuk lembar ini
+      const pass1Parts = [{ text: selectedPrompt }];
+      const match = compressed.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+      if (match) {
+        pass1Parts.push({
+          inlineData: { mimeType: match[1], data: match[2] }
+        });
+      }
+
+      // 3. FRESH MODEL FALLBACK CANDIDATES SETIAP FILE
+      // Setiap lembar dokumen SELALU memulai pencarian dari model utama teratas (Fresh Fallback)
+      let freshModelCandidates = await getAiModelCandidates();
+      if (!freshModelCandidates || freshModelCandidates.length === 0) {
+        freshModelCandidates = [aiCfg.selectedModel || 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
+      }
+      // Pastikan hanya Gemini 2.0+ (bebas dari versi 1.x dan non-existent 2.5/3.5)
+      freshModelCandidates = freshModelCandidates.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
+
+      notify(
+        2,
+        Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.35)),
+        totalSheets > 1
+          ? `[Lembar ${sheetNum}/${totalSheets}] Menghubungkan ke Google AI (Fresh Fallback #${sheetNum})...`
+          : 'Menghubungkan ke Google AI...'
+      );
+
+      const pass1Execution = await executeGeminiWithFallback({
+        parts: pass1Parts,
+        apiKey,
+        modelCandidates: freshModelCandidates,
+        generationConfig: { temperature: 0.0, responseMimeType: 'application/json' },
+        notify: (s, p, d) => {
+          const adjustedP = Math.min(95, baseProgress + Math.round(sheetProgressChunk * (p / 100)));
+          notify(s, adjustedP, totalSheets > 1 ? `[Lembar ${sheetNum}/${totalSheets}] ${d}` : d);
+        },
+        stepIndex: 3,
+        stepBasePercent: 50
+      });
+
+      lastUsedModel = pass1Execution.modelUsed || lastUsedModel;
+      const pass1Text = pass1Execution.text;
+      if (!pass1Text) throw new Error(`Tidak ada respon teks dari model AI Google pada Lembar ${sheetNum}.`);
+
+      let cleanJsonText = pass1Text.replace(/```json\s*|```/g, '').trim();
+      const firstBrace = cleanJsonText.indexOf('{');
+      const lastBrace = cleanJsonText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        cleanJsonText = cleanJsonText.substring(firstBrace, lastBrace + 1);
+      }
+
+      notify(
+        5,
+        Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.85)),
+        totalSheets > 1
+          ? `[Lembar ${sheetNum}/${totalSheets}] Memvalidasi neraca material balance & master data...`
+          : 'Memvalidasi neraca material balance & master data...'
+      );
+
+      let rawParsedData;
+      try {
+        rawParsedData = JSON.parse(cleanJsonText);
+      } catch (parseErr) {
+        console.warn(`[AI Service] Percobaan pertama JSON.parse gagal pada Lembar ${sheetNum}, memperbaiki format...`, parseErr);
+        try {
+          const repairedJson = cleanJsonText
+            .replace(/,\s*([\]}])/g, '$1')
+            .replace(/([{,]\s*)(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '$1"$3":');
+          rawParsedData = JSON.parse(repairedJson);
+        } catch (retryErr) {
+          console.error(`Gagal mem-parse respon AI Lembar ${sheetNum}:`, cleanJsonText);
+          throw new Error(`Format teks JSON tidak valid pada Lembar ${sheetNum}.`);
+        }
+      }
+
+      const parsedSheetSession = await postProcessMultiShiftData(rawParsedData, machineType);
+      if (parsedSheetSession) {
+        extractedSessions.push(parsedSheetSession);
+        sheetResults.push({
+          index: idx,
+          sheetNumber: sheetNum,
+          success: true,
+          session: parsedSheetSession,
+          modelUsed: pass1Execution.modelUsed
+        });
+      }
+    } catch (sheetErr) {
+      console.error(`[AI Service] Lembar ${sheetNum} mengalami kendala:`, sheetErr);
+      failedSheets.push({
+        index: idx,
+        sheetNumber: sheetNum,
+        preview: rawImagesArray[idx],
+        error: sheetErr.message || 'Kendala koneksi atau kuota AI'
+      });
+      sheetResults.push({
+        index: idx,
+        sheetNumber: sheetNum,
+        success: false,
+        error: sheetErr.message || 'Kendala koneksi atau kuota AI'
+      });
+      notify(
+        3,
+        Math.min(95, baseProgress + sheetProgressChunk),
+        `[Lembar ${sheetNum}/${totalSheets}] Terkendala (${sheetErr.message}). Melanjutkan lembar lainnya...`
+      );
     }
 
     // 4. JEDA KEAMANAN (PACING COOLDOWN) ANTAR LEMBAR
@@ -794,17 +824,35 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
       notify(
         4,
         Math.min(95, baseProgress + sheetProgressChunk),
-        `[Lembar ${sheetNum}/${totalSheets} Selesai] Jeda 1.8 detik untuk stabilitas kuota AI sebelum Lembar ${sheetNum + 1}...`
+        `[Lembar ${sheetNum}/${totalSheets}] Jeda aman 2.5 detik untuk stabilitas kuota AI sebelum Lembar ${sheetNum + 1}...`
       );
-      await new Promise(resolve => setTimeout(resolve, 1800));
+      await new Promise(resolve => setTimeout(resolve, 2500));
     }
   }
 
-  // 5. GABUNGKAN & URUTKAN KETAT SEMUA LEMBAR BERDASARKAN SHIFT & KRONOLOGI ROLL
-  notify(5, 96, 'Menggabungkan & mengurutkan seluruh shift dan roll secara presisi...');
+  // JIKA SELURUH LEMBAR GAGAL:
+  if (extractedSessions.length === 0) {
+    const errorDetails = failedSheets.map(f => `Lembar #${f.sheetNumber}: ${f.error}`).join(' | ');
+    throw new Error(`Seluruh dokumen (${totalSheets} lembar) gagal diekstrak: ${errorDetails}`);
+  }
+
+  // JIKA ADA LEMBAR YANG BERHASIL (SEBAGIAN MAUPUN SELURUHNYA):
+  notify(5, 96, 'Menggabungkan & mengurutkan seluruh shift dan roll dari lembar yang berhasil...');
   const consolidatedSession = consolidateAndSortSessions(extractedSessions, machineType);
 
-  notify(5, 100, `Selesai (${lastUsedModel})! Membuka verifikasi spreadsheet...`);
+  // Sematkan metadata status lembar agar pemanggil (UI) dapat menyajikan lembar yang berhasil dan memberi aksi coba ulang lembar yang gagal
+  consolidatedSession.sheetResults = sheetResults;
+  consolidatedSession.failedSheets = failedSheets;
+  consolidatedSession.successCount = extractedSessions.length;
+  consolidatedSession.failedCount = failedSheets.length;
+  consolidatedSession.totalSheets = totalSheets;
+
+  if (failedSheets.length > 0) {
+    notify(5, 100, `Selesai Parsial! ${extractedSessions.length} lembar berhasil, ${failedSheets.length} lembar terkendala. Membuka spreadsheet...`);
+  } else {
+    notify(5, 100, `Selesai (${lastUsedModel})! Seluruh ${totalSheets} lembar berhasil diproses. Membuka spreadsheet...`);
+  }
+
   return consolidatedSession;
 }
 
@@ -891,8 +939,9 @@ async function executeGeminiWithFallback({
 
         // Jika 503 / 429 dan masih ada percobaan ulang untuk model ini
         if ((response.status === 503 || response.status === 429) && attempt < MAX_RETRIES) {
-          console.warn(`[AI Service] ${currentModel} sibuk (${response.status}), retry dalam 1s...`);
-          await new Promise(r => setTimeout(r, 1000));
+          const delayMs = response.status === 429 ? 3500 : 1500;
+          console.warn(`[AI Service] ${currentModel} sibuk (${response.status}), retry dalam ${delayMs}ms...`);
+          await new Promise(r => setTimeout(r, delayMs));
           continue;
         }
 
