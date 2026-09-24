@@ -5,44 +5,81 @@ import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, broadcastRealtimeEvent } from '@/services/syncService';
-import { extractCleanParentLot } from '@/services/dataRollParserService';
+import { extractCleanParentLot, parseDateToIso } from '@/services/dataRollParserService';
 import { supabase } from '@/services/supabaseClient';
 
 export function getBatchDateMatchingWindow(batch) {
-  if (!batch || !batch.tanggal) return null;
+  if (!batch) return null;
 
-  const raw = String(batch.tanggal).trim();
-  const isoDates = raw.match(/\d{4}-\d{2}-\d{2}/g);
   let startDate = null;
   let endDate = null;
 
-  if (isoDates && isoDates.length >= 2) {
-    startDate = new Date(isoDates[0]);
-    endDate = new Date(isoDates[isoDates.length - 1]);
-  } else if (isoDates && isoDates.length === 1) {
-    startDate = new Date(isoDates[0]);
-    endDate = new Date(isoDates[0]);
-  } else {
-    const rangeMatch = raw.match(/(\d{1,2})\s*-\s*(\d{1,2})\s*([A-Za-z]+)\s*(\d{4})/);
-    if (rangeMatch) {
-      const dStart = parseInt(rangeMatch[1], 10);
-      const dEnd = parseInt(rangeMatch[2], 10);
-      const mStr = rangeMatch[3].toLowerCase();
-      const yr = parseInt(rangeMatch[4], 10);
-      const monthMap = { jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4, jun: 5, jul: 6, agu: 7, aug: 7, sep: 8, okt: 9, oct: 9, nov: 10, des: 11, dec: 11 };
-      const mIdx = monthMap[mStr.slice(0, 3)] ?? 8;
-      startDate = new Date(yr, mIdx, dStart);
-      endDate = new Date(yr, mIdx, dEnd);
+  // 1. Explicit properties if provided
+  if (batch.tanggalMulai) {
+    const sMatch = String(batch.tanggalMulai).match(/\d{4}-\d{2}-\d{2}/);
+    if (sMatch) {
+      const [y, m, d] = sMatch[0].split('-').map(Number);
+      startDate = new Date(y, m - 1, d);
+    }
+  }
+  if (batch.tanggalSelesai) {
+    const eMatch = String(batch.tanggalSelesai).match(/\d{4}-\d{2}-\d{2}/);
+    if (eMatch) {
+      const [y, m, d] = eMatch[0].split('-').map(Number);
+      endDate = new Date(y, m - 1, d);
+    }
+  }
+
+  // 2. Parse from batch.tanggal or batch.tanggalBerlaku if not fully set
+  if (!startDate || !endDate) {
+    const raw = String(batch.tanggal || batch.tanggalBerlaku || '').trim();
+    const isoDates = raw.match(/\d{4}-\d{2}-\d{2}/g);
+
+    if (isoDates && isoDates.length >= 2) {
+      const [y1, m1, d1] = isoDates[0].split('-').map(Number);
+      const [y2, m2, d2] = isoDates[isoDates.length - 1].split('-').map(Number);
+      startDate = new Date(y1, m1 - 1, d1);
+      endDate = new Date(y2, m2 - 1, d2);
+    } else if (isoDates && isoDates.length === 1) {
+      const [y1, m1, d1] = isoDates[0].split('-').map(Number);
+      startDate = new Date(y1, m1 - 1, d1);
+      // Aturan H+2: SPK tanggal 23 berlaku untuk tanggal 23 dan 24
+      endDate = new Date(y1, m1 - 1, d1 + 1);
     } else {
-      startDate = new Date(batch.createdAt || Date.now());
-      endDate = new Date(startDate);
+      const rangeMatch = raw.match(/(\d{1,2})\s*-\s*(\d{1,2})\s*([A-Za-z]+)\s*(\d{4})/);
+      if (rangeMatch) {
+        const dStart = parseInt(rangeMatch[1], 10);
+        const dEnd = parseInt(rangeMatch[2], 10);
+        const mStr = rangeMatch[3].toLowerCase();
+        const yr = parseInt(rangeMatch[4], 10);
+        const monthMap = { jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4, jun: 5, jul: 6, agu: 7, aug: 7, sep: 8, okt: 9, oct: 9, nov: 10, des: 11, dec: 11 };
+        const mIdx = monthMap[mStr.slice(0, 3)] ?? 8;
+        startDate = new Date(yr, mIdx, dStart);
+        endDate = new Date(yr, mIdx, dEnd);
+      } else {
+        const singleIdMatch = raw.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+        if (singleIdMatch) {
+          const dStart = parseInt(singleIdMatch[1], 10);
+          const mStr = singleIdMatch[2].toLowerCase();
+          const yr = parseInt(singleIdMatch[3], 10);
+          const monthMap = { jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4, jun: 5, jul: 6, agu: 7, aug: 7, sep: 8, okt: 9, oct: 9, nov: 10, des: 11, dec: 11 };
+          const mIdx = monthMap[mStr.slice(0, 3)] ?? 8;
+          startDate = new Date(yr, mIdx, dStart);
+          endDate = new Date(yr, mIdx, dStart + 1);
+        } else {
+          startDate = new Date(batch.createdAt || Date.now());
+          endDate = new Date(startDate.getTime() + 86400000);
+        }
+      }
     }
   }
 
   startDate.setHours(0, 0, 0, 0);
   const limitDate = new Date(endDate);
-  limitDate.setDate(limitDate.getDate() + 1); // H+1 aturan user
   limitDate.setHours(23, 59, 59, 999);
+
+  const startFormatted = startDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  const endFormatted = limitDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return {
     startDate,
@@ -50,7 +87,7 @@ export function getBatchDateMatchingWindow(batch) {
     limitDate,
     startDateMs: startDate.getTime(),
     limitDateMs: limitDate.getTime(),
-    label: `${startDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} s/d ${limitDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} (H+1)`
+    label: `${startFormatted} s/d ${endFormatted} (H+2)`
   };
 }
 
@@ -148,6 +185,109 @@ export function calculateBeratTeori(thickness, width, length, density = 0.91) {
   if (t <= 0 || w <= 0 || m <= 0 || d <= 0) return 0;
   // Rumus: (Tebal * Lebar * Panjang * Density) / 1,000,000
   return parseFloat(((t * w * m * d) / 1000000).toFixed(2));
+}
+
+// ── MESIN SLITTING ROLL FILTER (SPK HANYA FOKUS KE DATA MESIN SLITTING) ──
+export function isSlittingRoll(item) {
+  if (!item) return false;
+  // 1. Cek jika terdata sebagai REWIND
+  if (item.rewind === 1 || item.rewind === true) return false;
+  const mach = String(item.machineName || item.mesin || item.noMesin || '').toUpperCase().trim();
+  if (mach.includes('REWIND') || mach.includes('REW')) return false;
+
+  // 2. Cek jika terdata sebagai CASTING / SML
+  if (item.sml === 1 || item.sml === true) return false;
+  if (mach.includes('SML') || mach.includes('CASTING') || mach.includes('CAST')) return false;
+
+  // 3. Cek jika eksplisit SLITTING
+  if (item.slitting === 1 || item.slitting === true) return true;
+  if (mach.includes('SLIT') || mach === 'SLITTING') return true;
+
+  // 4. Default: Jika bukan Rewind dan bukan Casting, roll ini berasal dari proses Slitting
+  return true;
+}
+
+// ── CANONICAL SPK NUMBER PARSER & MATCHER ──
+export function parseSpkTokens(str) {
+  if (!str) return [];
+  return String(str)
+    .split(/[&,+]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+export function parseSpkCanonical(rawSpk) {
+  if (!rawSpk) return '';
+  const s = String(rawSpk).trim().toUpperCase();
+  if (!s || s === '-' || s === 'UNKNOWN') return '';
+
+  // 1. Eksternal / Maklon (misal PANVERTA)
+  if (s.includes('PANVERTA')) {
+    const romMatch = s.match(/\b(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)\b/);
+    const numMatch = s.match(/\b(\d{1,2})\b/);
+    const rom = romMatch ? romMatch[1] : '';
+    return `PANVERTA_${rom || (numMatch ? numMatch[1] : '')}`;
+  }
+
+  // 2. Inhouse format: <nomor>/<romawi>... e.g. "04/IX/SPK/2026", "4/IX", "04/IX", "4/IX/SPK"
+  const inhouseMatch = s.match(/(?:^|[^\d])0*(\d{1,3})\s*[\/\-_]\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)\b/i);
+  if (inhouseMatch) {
+    const num = parseInt(inhouseMatch[1], 10);
+    const rom = inhouseMatch[2].toUpperCase();
+    return `INHOUSE_${num}_${rom}`;
+  }
+
+  // Format kebalikan: <romawi>/<nomor> e.g. "IX/04"
+  const revMatch = s.match(/\b(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)\s*[\/\-_]\s*0*(\d{1,3})\b/i);
+  if (revMatch) {
+    const rom = revMatch[1].toUpperCase();
+    const num = parseInt(revMatch[2], 10);
+    return `INHOUSE_${num}_${rom}`;
+  }
+
+  // Fallback: hapus karakter non alfanumerik
+  return s.replace(/[^A-Z0-9]/g, '');
+}
+
+export function isSpkMatch(spk1, spk2) {
+  if (!spk1 || !spk2) return false;
+  const s1 = String(spk1).trim().toUpperCase();
+  const s2 = String(spk2).trim().toUpperCase();
+  if (s1 === s2) return true;
+
+  // Split tokens if multiple SPK (e.g. "04/IX & 05/IX")
+  const tokens1 = parseSpkTokens(s1);
+  const tokens2 = parseSpkTokens(s2);
+
+  for (const t1 of tokens1) {
+    const c1 = parseSpkCanonical(t1);
+    if (!c1) continue;
+    for (const t2 of tokens2) {
+      const c2 = parseSpkCanonical(t2);
+      if (!c2) continue;
+      if (c1 === c2) return true;
+    }
+  }
+
+  // Fallback: perbandingan langsung
+  const can1 = parseSpkCanonical(s1);
+  const can2 = parseSpkCanonical(s2);
+  if (can1 && can2 && can1 === can2) return true;
+
+  return false;
+}
+
+// Helper parsing timestamp tanggal dari berbagai format (DMY, YMD, dsb)
+export function getItemDateTimestamp(rawDate) {
+  if (!rawDate) return 0;
+  if (rawDate instanceof Date) return isNaN(rawDate.getTime()) ? 0 : rawDate.getTime();
+  const isoStr = parseDateToIso(rawDate);
+  if (isoStr) {
+    const t = new Date(isoStr).getTime();
+    if (!isNaN(t)) return t;
+  }
+  const direct = new Date(rawDate).getTime();
+  return isNaN(direct) ? 0 : direct;
 }
 
 export const evaluateTargetStatus = (actualRoll, planRoll, isSkipped = false) => {
@@ -512,6 +652,35 @@ export const useSpkStore = defineStore('spk', () => {
     } catch (e) {}
   };
 
+  // Update Batch Metadata (e.g. Tanggal Berlaku, Nama Batch, Acuan)
+  const updateBatch = async (batchUuid, updateData) => {
+    if (!batchUuid || !updateData) return;
+    const now = new Date().toISOString();
+    const cleanUpdate = { ...updateData, updatedAt: now };
+
+    const bIdx = batches.value.findIndex(b => b.uuid === batchUuid);
+    if (bIdx !== -1) {
+      batches.value[bIdx] = { ...batches.value[bIdx], ...cleanUpdate };
+      batches.value = sortSpkBatches([...batches.value]);
+    }
+
+    if (db.spk_batches) {
+      try {
+        const b = await db.spk_batches.where('uuid').equals(batchUuid).first();
+        if (b && b.id) {
+          await db.spk_batches.update(b.id, cleanUpdate);
+        }
+      } catch (err) {
+        console.warn('Failed updating batch in Dexie:', err);
+      }
+    }
+
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('spk_broadcast', { action: 'update_batch', batchUuid, data: cleanUpdate });
+    } catch (e) {}
+  };
+
   // Add New Plan
   const addPlan = async (planData) => {
     const now = new Date().toISOString();
@@ -724,15 +893,19 @@ export const useSpkStore = defineStore('spk', () => {
       const l = labels[i];
       if (!l || !l.spk) continue;
 
-      // Filter tanggal aktual: data masa lampau diabaikan, hanya berlaku [startDate ... H+1]
-      const rawDateStr = l.tanggal || l.createdAt;
-      if (wnd && rawDateStr) {
-        const itemTime = new Date(rawDateStr).getTime();
-        if (!isNaN(itemTime)) {
-          if (itemTime < minTime || itemTime > maxTime) continue;
-        }
-      }
+      // KHUSUS MESIN SLITTING (Rewind & Casting diabaikan)
+      if (!isSlittingRoll(l)) continue;
+
       const s = String(l.spk).trim().toUpperCase();
+      if (!s || s === '-' || s === 'UNKNOWN' || s === 'NULL' || s === 'UNDEFINED' || s === '0' || !parseSpkCanonical(s)) continue;
+
+      // Filter tanggal aktual: data masa lampau diabaikan, hanya berlaku [startDate ... limitDate]
+      const rawDateStr = l.tanggal || l.createdAt;
+      if (wnd) {
+        if (!rawDateStr) continue;
+        const itemTime = getItemDateTimestamp(rawDateStr);
+        if (itemTime <= 0 || itemTime < minTime || itemTime > maxTime) continue;
+      }
       const rawLot = String(l.lot || '').trim();
       const turunan = String(l.turunan || '').trim();
       const cleanParentLot = extractCleanParentLot(rawLot, turunan) || rawLot.split('/')[0] || rawLot;
@@ -818,10 +991,15 @@ export const useSpkStore = defineStore('spk', () => {
       const r = rolls[i];
       if (!r || !r.spk) continue;
 
+      // KHUSUS MESIN SLITTING (Rewind & Casting diabaikan)
+      if (!isSlittingRoll(r)) continue;
+
       if (r.uuid && processedRollUuids.has(String(r.uuid))) continue;
       if (r.id && processedRollIds.has(String(r.id))) continue;
 
       const s = String(r.spk).trim().toUpperCase();
+      if (!s || s === '-' || s === 'UNKNOWN' || s === 'NULL' || s === 'UNDEFINED' || s === '0' || !parseSpkCanonical(s)) continue;
+
       const rawLot = String(r.lot || '').trim();
       const turunan = String(r.turunan || '').trim();
       const cleanParentLot = extractCleanParentLot(rawLot, turunan) || rawLot.split('/')[0] || rawLot;
@@ -830,13 +1008,12 @@ export const useSpkStore = defineStore('spk', () => {
         continue;
       }
 
-      // Filter tanggal aktual: data masa lampau diabaikan, hanya berlaku [startDate ... H+1]
+      // Filter tanggal aktual: data masa lampau diabaikan, hanya berlaku [startDate ... limitDate]
       const rawDateStr = r.tanggal || r.tanggalFormatted || r.createdAt;
-      if (wnd && rawDateStr) {
-        const itemTime = new Date(rawDateStr).getTime();
-        if (!isNaN(itemTime)) {
-          if (itemTime < minTime || itemTime > maxTime) continue;
-        }
+      if (wnd) {
+        if (!rawDateStr) continue;
+        const itemTime = getItemDateTimestamp(rawDateStr);
+        if (itemTime <= 0 || itemTime < minTime || itemTime > maxTime) continue;
       }
 
       const spkObj = getOrInitSpk(s);
@@ -917,7 +1094,7 @@ export const useSpkStore = defineStore('spk', () => {
     if (!cleanSpk) return null;
 
     const dataMap = spkRealtimeDataMap.value || new Map();
-    const subSpkTokens = cleanSpk.split('&').map(s => s.trim()).filter(Boolean);
+    const subSpkTokens = parseSpkTokens(cleanSpk);
 
     let totalRealRolls = 0;
     let totalRealMeter = 0;
@@ -927,10 +1104,6 @@ export const useSpkStore = defineStore('spk', () => {
     let rejectCount = 0;
     const allLots = [];
     const aggregatedWidthMap = new Map();
-
-    const normalizeKey = (str) => String(str || '').toUpperCase().replace(/[\s\-_/]/g, '');
-    const targetNorm = normalizeKey(cleanSpk);
-    const subNorms = subSpkTokens.map(normalizeKey).filter(Boolean);
 
     const matchedSpkDataList = [];
     const matchedKeys = new Set();
@@ -943,15 +1116,12 @@ export const useSpkStore = defineStore('spk', () => {
       }
     }
 
-    // 2. Normalized fallback if exact match wasn't found
-    if (matchedSpkDataList.length === 0) {
-      for (const [mapKey, spkData] of dataMap.entries()) {
-        if (matchedKeys.has(mapKey)) continue;
-        const normKey = normalizeKey(mapKey);
-        if (normKey === targetNorm || subNorms.some(sn => normKey === sn || (sn.length >= 4 && normKey.includes(sn)))) {
-          matchedSpkDataList.push(spkData);
-          matchedKeys.add(mapKey);
-        }
+    // 2. Canonical matching via isSpkMatch (mencocokkan 04/IX/SPK/2026 dengan 4/IX, dsb)
+    for (const [mapKey, spkData] of dataMap.entries()) {
+      if (matchedKeys.has(mapKey)) continue;
+      if (isSpkMatch(cleanSpk, mapKey)) {
+        matchedSpkDataList.push(spkData);
+        matchedKeys.add(mapKey);
       }
     }
 
@@ -982,6 +1152,8 @@ export const useSpkStore = defineStore('spk', () => {
 
     // Extract dynamic dates, year, month, formula, thickness, supplier
     let latestTimestamp = 0;
+    let firstLabelTime = Infinity;
+    let lastLabelTime = 0;
     let detectedFormula = '';
     let detectedThickness = 0;
     let detectedSupplier = 'INHOUSE (PT. SWC)';
@@ -989,12 +1161,18 @@ export const useSpkStore = defineStore('spk', () => {
     for (const lt of allLots) {
       if (lt.date) {
         const t = new Date(lt.date).getTime();
+        if (t > 0 && t < firstLabelTime) firstLabelTime = t;
+        if (t > lastLabelTime) lastLabelTime = t;
         if (t > latestTimestamp) latestTimestamp = t;
       }
       if (!detectedFormula && lt.formula) detectedFormula = lt.formula;
       if (!detectedThickness && lt.thickness) detectedThickness = lt.thickness;
       if (lt.supplier && lt.supplier !== 'INHOUSE') detectedSupplier = lt.supplier;
     }
+
+    const actualDurationMinutes = (lastLabelTime > 0 && firstLabelTime < Infinity)
+      ? Math.max(1, Math.round((lastLabelTime - firstLabelTime) / 60000))
+      : 30;
 
     if (plan && plan.tanggal) {
       const pt = new Date(plan.tanggal).getTime();
@@ -1055,13 +1233,13 @@ export const useSpkStore = defineStore('spk', () => {
     const diffChild = actualChildRolls - plannedChildRolls;
     const diffMeter = Math.round(totalRealMeter - plannedMeter);
     const achievementPercent = plannedChildRolls > 0 
-      ? Math.min(100, Math.round((actualChildRolls / plannedChildRolls) * 100)) 
-      : 0;
+      ? Math.round((actualChildRolls / plannedChildRolls) * 100) 
+      : (actualChildRolls > 0 ? 100 : 0);
 
     // Parent Metrics & Status
     const parentAchievementPercent = plannedParentRolls > 0
-      ? Math.min(100, Math.round((actualParentCut / plannedParentRolls) * 100))
-      : 0;
+      ? Math.round((actualParentCut / plannedParentRolls) * 100)
+      : (actualParentCut > 0 ? 100 : 0);
     const parentStatus = evaluateTargetStatus(actualParentCut, plannedParentRolls, plan?.status === 'SKIPPED');
 
     const jenisFilm = plan?.jenis || 'CPP';
@@ -1090,7 +1268,7 @@ export const useSpkStore = defineStore('spk', () => {
       const holdCount = matchingLots.filter(lt => lt.status === 'HOLD').length;
       const rejectCount = matchingLots.filter(lt => lt.status === 'REJECT' || lt.status === 'NG').length;
 
-      const percent = targetRolls > 0 ? Math.min(100, Math.round((actualRolls / targetRolls) * 100)) : (actualRolls > 0 ? 100 : 0);
+      const percent = targetRolls > 0 ? Math.round((actualRolls / targetRolls) * 100) : (actualRolls > 0 ? 100 : 0);
       const status = evaluateTargetStatus(actualRolls, targetRolls, plan?.status === 'SKIPPED');
 
       return {
@@ -1112,19 +1290,29 @@ export const useSpkStore = defineStore('spk', () => {
       };
     });
 
-    // Durasi pengerjaan aktual dari selisih waktu label
-    let firstLabelTime = Infinity;
-    let lastLabelTime = 0;
-    for (const lt of allLots) {
-      if (lt.date) {
-        const t = new Date(lt.date).getTime();
-        if (t > 0 && t < firstLabelTime) firstLabelTime = t;
-        if (t > lastLabelTime) lastLabelTime = t;
-      }
-    }
-    const actualDurationMinutes = (lastLabelTime > 0 && firstLabelTime < Infinity && lastLabelTime > firstLabelTime)
-      ? Math.round((lastLabelTime - firstLabelTime) / 60000)
-      : (actualChildRolls > 0 ? Math.max(5, Math.round(timeEst.totalMinutes * Math.min(1, actualChildRolls / plannedChildRolls))) : 0);
+    // Deteksi roll deviasi (di luar target charting)
+    const unmappedLots = allLots.filter(lt => {
+      const w = parseFloat(lt.width) || 0;
+      return !validUps.some(u => Math.abs((parseFloat(u.lebar) || 0) - w) <= 5);
+    });
+    const isChartingFullyMatched = unmappedLots.length === 0;
+    const chartingDeviationRolls = unmappedLots.length;
+    const deviatedWidths = [...new Set(unmappedLots.map(l => Math.round(parseFloat(l.width) || 0)))].filter(w => w > 0);
+    const chartingDeviationMessage = chartingDeviationRolls > 0
+      ? `Ditemukan ${chartingDeviationRolls} roll (${deviatedWidths.map(w => w + 'mm').join(', ')}) di luar pola charting plan.`
+      : '';
+
+    // Deteksi ketimpangan antar pisau (blade imbalance)
+    const bladeRollCounts = childAnalytics.map(c => c.actualRolls);
+    const minBladeRolls = bladeRollCounts.length > 0 ? Math.min(...bladeRollCounts) : 0;
+    const maxBladeRolls = bladeRollCounts.length > 0 ? Math.max(...bladeRollCounts) : 0;
+    const isBladeImbalance = (maxBladeRolls - minBladeRolls) > 0 && actualChildRolls > 0;
+    const bladeImbalanceMessage = isBladeImbalance
+      ? `Selisih hasil ${maxBladeRolls - minBladeRolls} roll antar pisau potong.`
+      : '';
+
+    // Summary Pola Potong Charting
+    const chartingSummary = validUps.length > 0 ? validUps.map(u => `${u.lebar}mm`).join(' + ') : `${plan?.lebarParent || 0}mm`;
 
     return {
       spkNo: cleanSpk,
@@ -1163,6 +1351,14 @@ export const useSpkStore = defineStore('spk', () => {
       plannedChildRolls,
       actualChildRolls,
       childAnalytics,
+      unmappedLots,
+      isChartingFullyMatched,
+      chartingDeviationRolls,
+      deviatedWidths,
+      chartingDeviationMessage,
+      isBladeImbalance,
+      bladeImbalanceMessage,
+      chartingSummary,
       diffParent,
       diffChild,
       diffMeter,
@@ -1232,6 +1428,7 @@ export const useSpkStore = defineStore('spk', () => {
     for (let i = 0; i < rolls.length; i++) {
       const r = rolls[i];
       if (!r || !r.spk) continue;
+      if (!isSlittingRoll(r)) continue; // KHUSUS MESIN SLITTING
 
       // UUID/ID-based dedup: skip if already processed from labels
       if (r.uuid && processedRollUuids.has(String(r.uuid))) continue;
@@ -1329,6 +1526,7 @@ export const useSpkStore = defineStore('spk', () => {
     for (let i = 0; i < labels.length; i++) {
       const l = labels[i];
       if (!l || !l.spk) continue;
+      if (!isSlittingRoll(l)) continue; // KHUSUS MESIN SLITTING
 
       // UUID/ID-based dedup: skip if already processed from data_rolls
       if (l.uniqId && processedRollUuids.has(String(l.uniqId))) continue;
@@ -1436,7 +1634,7 @@ export const useSpkStore = defineStore('spk', () => {
       const totalJumbo = item.plan?.jumlahJumbo || Math.max(1, Math.ceil(item.totalRealRolls / 2));
       const plannedMeter = item.plan ? (item.plan.totalPlannedMeter || (item.plan.panjangParent * totalJumbo)) : item.totalRealMeter;
       const plannedRolls = item.plan?.totalPlannedRolls || item.totalRealRolls;
-      const achievementPercent = plannedMeter > 0 ? Math.min(100, Math.round((item.totalRealMeter / plannedMeter) * 100)) : 100;
+      const achievementPercent = plannedMeter > 0 ? Math.round((item.totalRealMeter / plannedMeter) * 100) : (item.totalRealMeter > 0 ? 100 : 0);
 
       resultList.push({
         spkNo: item.spkNo,
@@ -1495,6 +1693,7 @@ export const useSpkStore = defineStore('spk', () => {
     updatePlan,
     deletePlan,
     deleteBatch,
+    updateBatch,
     getSlittingSpeed,
     calculateEstimateMinutes,
     calculateTrim,

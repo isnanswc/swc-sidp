@@ -190,110 +190,115 @@
       </div>
     </div>
 
-    <!-- ========================================================================= -->
-    <!-- 2. KPI SUMMARY METRIC CARDS (4 KARTU FLAT MINIMALIS & MODERN)             -->
-    <!-- ========================================================================= -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 reveal-on-scroll">
-      <!-- CARD 1: OUTPUT PRODUKSI ROLL -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-2xs hover:border-red-300 transition-all group flex flex-col justify-between">
-        <div class="flex items-center justify-between">
-          <span class="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-400 uppercase tracking-wider font-mono truncate">
-            Output Roll ({{ activePeriodSubtitle }})
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- BLOK 1: EXECUTIVE ANALYTICS HUB (THE BIG 3 & PERFORMANSI GLOBAL)          -->
+    <!-- Nuansa: Clean Minimalist Executive Cards with Generous White Space        -->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <div ref="block1Ref" class="space-y-3.5 sm:space-y-4">
+      
+      <!-- Blok 1 Scope Header -->
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-200/80 pb-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="px-2.5 py-0.5 rounded-full text-[9.5px] font-black font-mono bg-zinc-900 text-white uppercase tracking-wider shadow-2xs">
+            BLOK 1 • EXECUTIVE ANALYTICS
           </span>
-          <div class="w-8 h-8 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"></circle><circle cx="12" cy="12" r="3" stroke-width="2"></circle></svg>
-          </div>
+          <span class="text-xs font-mono font-bold text-zinc-600">
+            Kinerja Produksi Periode: <strong class="text-zinc-900">{{ activePeriodSubtitle }}</strong>
+          </span>
         </div>
-        <div class="mt-2.5">
-          <div class="text-xl sm:text-2xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1">
-            <span>{{ formatNum(kpiMetrics.totalRolls) }}</span>
-            <span class="text-[11px] sm:text-xs font-bold text-zinc-500 font-sans">Roll</span>
-          </div>
-          <div class="flex items-center gap-1 mt-1.5 text-[10px] sm:text-[11px] text-zinc-500 font-medium font-mono flex-wrap">
-            <span class="text-zinc-900 font-bold">Slit: {{ formatNum(kpiMetrics.slittingRolls) }}</span>
-            <span class="text-zinc-300">•</span>
-            <span class="text-zinc-900 font-bold">Rwd: {{ formatNum(kpiMetrics.rewindRolls) }}</span>
-            <span class="text-zinc-300 hidden sm:inline">•</span>
-            <span class="text-zinc-900 font-bold">Cast: {{ formatNum(kpiMetrics.smlRolls) }}</span>
-          </div>
+        <div class="flex items-center gap-2 text-xs font-mono text-zinc-500 font-medium">
+          <span class="text-zinc-400">Status Laju:</span>
+          <span
+            :class="[
+              'px-2 py-0.5 rounded-lg text-[10.5px] font-bold inline-flex items-center gap-1.5',
+              forecastMetrics.runRateStatus === 'AHEAD' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+              forecastMetrics.runRateStatus === 'ON_TRACK' ? 'bg-blue-50 text-blue-800 border border-blue-200' :
+              'bg-amber-50 text-amber-800 border border-amber-200'
+            ]"
+          >
+            <span class="w-1.5 h-1.5 rounded-full" :class="forecastMetrics.runRateStatus === 'AHEAD' ? 'bg-emerald-500 animate-pulse' : forecastMetrics.runRateStatus === 'ON_TRACK' ? 'bg-blue-500' : 'bg-amber-500'"></span>
+            <span>{{ forecastMetrics.runRateStatus === 'AHEAD' ? '🚀 Optimal (Di Atas Target)' : forecastMetrics.runRateStatus === 'ON_TRACK' ? '✓ On Track' : '⚠️ Perlu Perhatian' }}</span>
+          </span>
         </div>
       </div>
 
-      <!-- CARD 2: TONASE BERAT BERSIH -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-2xs hover:border-zinc-400 transition-all group flex flex-col justify-between">
-        <div class="flex items-center justify-between">
-          <span class="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-400 uppercase tracking-wider font-mono truncate">
-            Tonase Bersih
-          </span>
-          <div class="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-800 border border-zinc-200 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 3v18M6 8l6-5 6 5M6 8a4 4 0 0 0 0 8h1M18 8a4 4 0 0 1 0 8h-1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <!-- THE BIG 3 HERO METRIC CARDS (BERSIH, TEGAS, LEGA DENGAN ANIMASI COUNTING) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 reveal-on-scroll">
+        
+        <!-- CARD 1: TONASE BERSIH -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-2xs hover:border-zinc-400 hover:shadow-xs transition-all group flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+              Tonase Bersih (Net Weight)
+            </span>
+            <div class="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-800 border border-zinc-200 flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform shrink-0 ml-1">
+              ⚖️
+            </div>
+          </div>
+          <div class="mt-3">
+            <div class="text-2xl sm:text-3xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1.5">
+              <span>{{ animatedKpi.tonase.toFixed(2) }}</span>
+              <span class="text-sm sm:text-base font-bold text-zinc-500 font-sans">Ton</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-zinc-500 font-mono font-medium mt-2 pt-2 border-t border-zinc-100">
+              <span>{{ formatNum(animatedKpi.kg) }} Kg</span>
+              <span class="text-zinc-700 font-bold">~{{ animatedKpi.dailyAverageTon.toFixed(2) }} Ton/Hari</span>
+            </div>
           </div>
         </div>
-        <div class="mt-2.5">
-          <div class="text-xl sm:text-2xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1">
-            <span>{{ formatNum(kpiMetrics.totalBeratKg) }}</span>
-            <span class="text-[11px] sm:text-xs font-bold text-zinc-500 font-sans">Kg</span>
-          </div>
-          <div class="text-[10px] sm:text-[11px] text-zinc-500 mt-1.5 font-medium font-mono truncate">
-            Total <strong>{{ (kpiMetrics.totalBeratKg / 1000).toFixed(2) }} Ton</strong> • {{ formatNum(kpiMetrics.totalMeter) }} M
-          </div>
-        </div>
-      </div>
 
-      <!-- CARD 3: YIELD KUALITAS QC (% PASS) -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-2xs hover:border-emerald-300 transition-all group flex flex-col justify-between">
-        <div class="flex items-center justify-between">
-          <span class="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-400 uppercase tracking-wider font-mono truncate">
-            Yield Rate (Mutu QC)
-          </span>
-          <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-width="2"></path><polyline points="9 12 11 14 15 10" stroke-width="2"></polyline></svg>
+        <!-- CARD 2: VOLUME OUTPUT (ROLL & METER) -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-2xs hover:border-blue-300 hover:shadow-xs transition-all group flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+              Volume Hasil Produksi
+            </span>
+            <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform shrink-0 ml-1">
+              📦
+            </div>
+          </div>
+          <div class="mt-3">
+            <div class="text-2xl sm:text-3xl font-black text-zinc-950 font-mono tracking-tight flex items-baseline gap-1.5">
+              <span>{{ formatNum(animatedKpi.rolls) }}</span>
+              <span class="text-sm sm:text-base font-bold text-zinc-500 font-sans">Roll FG</span>
+            </div>
+            <div class="flex items-center justify-between text-[10.5px] sm:text-[11px] text-zinc-500 font-mono font-medium mt-2 pt-2 border-t border-zinc-100 flex-wrap gap-1">
+              <span class="text-zinc-700 font-bold">{{ formatNum(animatedKpi.meters) }} M</span>
+              <span class="text-zinc-400">Slit: <strong>{{ formatNum(animatedKpi.slittingRolls) }}</strong> • Rwd: <strong>{{ formatNum(animatedKpi.rewindRolls) }}</strong> • Cast: <strong>{{ formatNum(animatedKpi.smlRolls) }}</strong></span>
+            </div>
           </div>
         </div>
-        <div class="mt-2.5">
-          <div class="text-xl sm:text-2xl font-black text-emerald-600 font-mono tracking-tight flex items-baseline gap-1">
-            <span>{{ kpiMetrics.yieldPassRate }}%</span>
-            <span class="text-[9.5px] sm:text-[10.5px] font-bold text-emerald-700 font-sans">PASS</span>
-          </div>
-          <div class="flex items-center gap-1 mt-1.5 text-[10px] sm:text-[11px] font-mono font-bold flex-wrap">
-            <span class="text-emerald-700">{{ formatNum(kpiMetrics.passCount) }} Pass</span>
-            <span class="text-zinc-300">•</span>
-            <span class="text-amber-600">{{ formatNum(kpiMetrics.holdCount) }} Hold</span>
-            <span class="text-zinc-300 hidden sm:inline">•</span>
-            <span class="text-red-600">{{ formatNum(kpiMetrics.rejectCount) }} Rej</span>
-          </div>
-        </div>
-      </div>
 
-      <!-- CARD 4: SHIFT BERJALAN & GROUP -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-2xs hover:border-blue-300 transition-all group flex flex-col justify-between">
-        <div class="flex items-center justify-between">
-          <span class="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-400 uppercase tracking-wider font-mono truncate">
-            Shift Aktif
-          </span>
-          <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-105 transition-transform shrink-0 ml-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><polyline points="12 6 12 12 16 14" stroke-width="2"></polyline></svg>
+        <!-- CARD 3: MUTU & KENDALI KUALITAS -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all group flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+              Yield Mutu (Kualitas QC)
+            </span>
+            <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform shrink-0 ml-1">
+              🛡️
+            </div>
+          </div>
+          <div class="mt-3">
+            <div class="text-2xl sm:text-3xl font-black text-emerald-600 font-mono tracking-tight flex items-baseline gap-1.5">
+              <span>{{ animatedKpi.passRate.toFixed(1) }}%</span>
+              <span class="text-xs sm:text-sm font-bold text-emerald-700 font-sans uppercase">Pass</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[10.5px] sm:text-[11px] font-mono font-bold mt-2 pt-2 border-t border-zinc-100 flex-wrap">
+              <span class="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                ✓ {{ formatNum(animatedKpi.passCount) }} Pass
+              </span>
+              <span v-if="animatedKpi.holdCount > 0 || kpiMetrics.holdCount > 0" class="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                ⚠️ {{ formatNum(animatedKpi.holdCount) }} Hold
+              </span>
+              <span v-if="animatedKpi.rejectCount > 0 || kpiMetrics.rejectCount > 0" class="text-red-700 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+                ✕ {{ formatNum(animatedKpi.rejectCount) }} Rej
+              </span>
+            </div>
           </div>
         </div>
-        <div class="mt-2.5">
-          <div class="text-lg sm:text-xl font-black text-zinc-950 font-mono tracking-tight truncate">
-            {{ currentShift.definition.shortName }}
-            <span class="text-[9.5px] sm:text-[10.5px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-800 ml-1 font-sans">Grup {{ currentShift.group }}</span>
-          </div>
-          <div class="mt-1.5 flex items-center justify-between text-[10px] sm:text-[11px] font-mono text-zinc-500">
-            <span class="truncate">{{ currentShift.definition.startTime }} - {{ currentShift.definition.endTime }}</span>
-            <span class="font-bold text-zinc-800 ml-1 shrink-0">{{ shiftElapsedPercent }}%</span>
-          </div>
-          <!-- Live Shift Progress Bar -->
-          <div class="w-full bg-zinc-100 h-1.5 rounded-full mt-1.5 overflow-hidden">
-            <div
-              class="bg-blue-600 h-full rounded-full transition-all duration-500"
-              :style="{ width: `${shiftElapsedPercent}%` }"
-            ></div>
-          </div>
-        </div>
+
       </div>
-    </div>
 
     <!-- Banner Pemberitahuan Status Hari Ini / Tanggal Target (Berdasarkan Tanggal Aktual Produksi) -->
     <div
@@ -361,106 +366,91 @@
               </div>
             </div>
 
-            <!-- Custom Legend Badges (Click to Toggle On / Off) -->
+            <!-- Baris Sheet Mesin (Slitting ➔ Rewind ➔ Casting ➔ Gabungan) -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none flex-wrap">
+              <span class="text-[10px] text-zinc-400 font-mono font-bold uppercase shrink-0">Sheet Mesin:</span>
+              <div class="flex items-center gap-1 bg-zinc-100/90 p-0.5 rounded-xl border border-zinc-200">
+                <button
+                  v-for="sheet in chartMachineSheets"
+                  :key="sheet.key"
+                  @click="setChartMachineSheet(sheet.key)"
+                  :class="[
+                    'px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0',
+                    activeChartMachineSheet === sheet.key
+                      ? 'bg-zinc-950 text-white shadow-xs font-black ring-1 ring-zinc-900'
+                      : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200/60'
+                  ]"
+                >
+                  <span>{{ sheet.icon }}</span>
+                  <span>{{ sheet.label }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Custom Legend Badges dengan Angka Terintegrasi (Klik untuk On/Off Garis) -->
             <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] font-mono font-bold flex-wrap justify-between sm:justify-start">
               <div class="text-[10px] text-zinc-400 font-sans uppercase mr-1">Tampilkan:</div>
               <button
                 @click="toggleDataset('total')"
                 type="button"
                 :class="[
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none text-[10.5px]',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition-all cursor-pointer select-none text-[11px]',
                   chartVisibility.total
                     ? 'bg-zinc-900 text-white border-zinc-900 shadow-2xs'
                     : 'bg-zinc-50 text-zinc-400 border-zinc-200 line-through opacity-50'
                 ]"
+                title="Klik untuk on/off garis Total"
               >
                 <span class="w-2 h-2 rounded-full" :class="chartVisibility.total ? 'bg-white' : 'bg-zinc-400'"></span>
-                <span>Total</span>
+                <span>Total: <strong>{{ formatNum(lineChartTotals.total) }}</strong></span>
               </button>
               <button
                 @click="toggleDataset('pass')"
                 type="button"
                 :class="[
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none text-[10.5px]',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition-all cursor-pointer select-none text-[11px]',
                   chartVisibility.pass
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
                     : 'bg-zinc-50 text-zinc-400 border-zinc-200 line-through opacity-50'
                 ]"
+                title="Klik untuk on/off garis Pass"
               >
                 <span class="w-2 h-2 rounded-full" :class="chartVisibility.pass ? 'bg-emerald-500' : 'bg-zinc-400'"></span>
-                <span>Pass</span>
+                <span>Pass: <strong>{{ formatNum(lineChartTotals.pass) }}</strong></span>
               </button>
               <button
                 @click="toggleDataset('hold')"
                 type="button"
                 :class="[
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none text-[10.5px]',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition-all cursor-pointer select-none text-[11px]',
                   chartVisibility.hold
                     ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-2xs'
                     : 'bg-zinc-50 text-zinc-400 border-zinc-200 line-through opacity-50'
                 ]"
+                title="Klik untuk on/off garis Hold"
               >
                 <span class="w-2 h-2 rounded-full" :class="chartVisibility.hold ? 'bg-amber-500' : 'bg-zinc-400'"></span>
-                <span>Hold</span>
+                <span>Hold: <strong>{{ formatNum(lineChartTotals.hold) }}</strong></span>
               </button>
               <button
                 @click="toggleDataset('reject')"
                 type="button"
                 :class="[
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer select-none text-[10.5px]',
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition-all cursor-pointer select-none text-[11px]',
                   chartVisibility.reject
                     ? 'bg-red-50 text-red-800 border-red-300 shadow-2xs'
                     : 'bg-zinc-50 text-zinc-400 border-zinc-200 line-through opacity-50'
                 ]"
+                title="Klik untuk on/off garis Reject"
               >
                 <span class="w-2 h-2 rounded-full" :class="chartVisibility.reject ? 'bg-red-500' : 'bg-zinc-400'"></span>
-                <span>Reject</span>
+                <span>Reject: <strong>{{ formatNum(lineChartTotals.reject) }}</strong></span>
               </button>
             </div>
           </div>
 
-          <!-- Quick Metric Highlights on Top of Chart (Also Clickable) -->
-          <div class="grid grid-cols-4 gap-2 my-3 text-center font-mono">
-            <div
-              @click="toggleDataset('total')"
-              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] select-none"
-              :class="chartVisibility.total ? 'bg-zinc-50 border-zinc-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
-              title="Klik untuk on/off garis Total"
-            >
-              <span class="text-[9.5px] text-zinc-500 block font-bold uppercase">Total</span>
-              <span class="text-base font-black text-zinc-950">{{ formatNum(lineChartTotals.total) }}</span>
-            </div>
-            <div
-              @click="toggleDataset('pass')"
-              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] select-none"
-              :class="chartVisibility.pass ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
-              title="Klik untuk on/off garis Pass"
-            >
-              <span class="text-[9.5px] text-emerald-700 block font-bold uppercase">Pass</span>
-              <span class="text-base font-black text-emerald-800">{{ formatNum(lineChartTotals.pass) }}</span>
-            </div>
-            <div
-              @click="toggleDataset('hold')"
-              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] select-none"
-              :class="chartVisibility.hold ? 'bg-amber-50/70 border-amber-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
-              title="Klik untuk on/off garis Hold"
-            >
-              <span class="text-[9.5px] text-amber-700 block font-bold uppercase">Hold</span>
-              <span class="text-base font-black text-amber-800">{{ formatNum(lineChartTotals.hold) }}</span>
-            </div>
-            <div
-              @click="toggleDataset('reject')"
-              class="p-2 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] select-none"
-              :class="chartVisibility.reject ? 'bg-red-50/70 border-red-300 shadow-2xs' : 'bg-zinc-100/50 border-zinc-200 opacity-50'"
-              title="Klik untuk on/off garis Reject"
-            >
-              <span class="text-[9.5px] text-red-700 block font-bold uppercase">Reject</span>
-              <span class="text-base font-black text-red-800">{{ formatNum(lineChartTotals.reject) }}</span>
-            </div>
-          </div>
-
-          <!-- Canvas Chart -->
-          <div class="h-60 sm:h-68 relative w-full mt-1">
+          <!-- Canvas Chart (Lebar & Tinggi Maksimal, Bersih & Bernapas) -->
+          <div class="h-68 sm:h-76 relative w-full mt-3">
             <canvas ref="lineComparisonChartCanvas"></canvas>
           </div>
         </div>
@@ -625,153 +615,469 @@
         </div>
       </div>
 
+      </div>
     </div>
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- AKHIR BLOK 1: EXECUTIVE ANALYTICS & FORECASTING HUB                       -->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
 
-    <!-- ========================================================================= -->
-    <!-- 4. BLOK MEMANJANG: TIMELINE SPK (ATAS: REALISASI, BAWAH: PLANNING)       -->
-    <!-- ========================================================================= -->
-    <div class="bg-white border border-zinc-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs space-y-3 reveal-on-scroll">
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- BLOK 2: LIVE OPERATIONAL MONITORING (SAAT INI / REAL-TIME SHOPFLOOR HUD)   -->
+    <!-- Nuansa: Industrial Live Cockpit (Dark Slate Accents, Pulsing Realtime Node)-->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <div class="space-y-4 pt-3">
       
-      <!-- Header Timeline -->
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-100 pb-3">
-        <div>
+      <!-- Blok 2 Identity Banner -->
+      <div class="bg-gradient-to-r from-zinc-950 via-slate-900 to-zinc-900 text-white p-3.5 sm:p-4.5 rounded-3xl border border-zinc-800/90 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-3 relative overflow-hidden">
+        <!-- Looping Moving Accent Flow -->
+        <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-500 via-emerald-400 to-cyan-400 bg-[length:200%_100%] anim-gradient-flow"></div>
+        <div class="space-y-1">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-sm sm:text-base font-black text-zinc-950">TIMELINE PELACAKAN SPK (REALISASI & PLANNING)</span>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 font-mono">
-              {{ timelineSpkList.length }} SPK TERJADWAL
-            </span>
-            <button
-              v-if="totalTimelinePlansCount > 10"
-              @click="showAllTimelineSpk = !showAllTimelineSpk"
-              class="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors cursor-pointer"
-            >
-              {{ showAllTimelineSpk ? 'Tampilkan 10 Saja' : `Lihat Semua (${totalTimelinePlansCount} SPK)` }}
-            </button>
-            <div v-if="spkStore.activeBatch" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-mono text-[10.5px] font-black">
+            <span class="px-2.5 py-0.5 rounded-full text-[9.5px] font-black font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1.5 shadow-2xs">
               <span class="relative flex h-2 w-2">
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>ACUAN: {{ spkStore.activeBatch.batchName }}</span>
-            </div>
+              <span>BLOK 2 • LIVE OPERATIONAL MONITORING</span>
+            </span>
+            <span class="text-xs font-mono font-bold text-zinc-300">
+              Representasi Waktu Riil Lantai Produksi
+            </span>
           </div>
-          <p class="text-[11px] text-zinc-500 font-medium mt-0.5">
-            Bagian atas: <strong>Realisasi Aktual</strong> • Bagian bawah: <strong>Target Planning</strong>. Klik kartu untuk melihat modal informasi lengkap.
+          <p class="text-xs text-zinc-400 font-medium">
+            Pelacakan alur pengerjaan SPK (Rencana vs Realisasi) & rincian dimensi ukuran barang jadi (FG) yang keluar dari pisau mesin hari ini.
           </p>
         </div>
 
-        <router-link
-          to="/spk"
-          class="px-3 py-1 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-mono font-bold text-xs flex items-center gap-1 transition-colors"
-        >
-          <span>Buka Manajemen SPK ➔</span>
-        </router-link>
+        <div class="flex items-center gap-2 text-xs font-mono font-bold shrink-0 flex-wrap">
+          <div class="px-3 py-1.5 rounded-xl bg-zinc-800/90 border border-zinc-700/80 text-zinc-200 flex items-center gap-1.5 shadow-2xs">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Shift {{ currentShift.definition.shortName }} (Grup {{ currentShift.group }})</span>
+          </div>
+          <div class="px-3 py-1.5 rounded-xl bg-zinc-800/90 border border-zinc-700/80 text-zinc-200 flex items-center gap-1.5 shadow-2xs">
+            <span>📅 {{ workDateLabel }}</span>
+          </div>
+        </div>
       </div>
 
-      <!-- Horizontal Connecting Timeline Flow (Atas: Realisasi, Tengah: Line & Node, Bawah: Planning) -->
-      <div v-if="timelineSpkList.length > 0" class="relative overflow-x-auto py-2 px-3 scrollbar-thin">
-        <div class="min-w-[940px] flex items-center justify-between relative py-2">
+      <!-- 4.1 BLOK TIMELINE HORIZONTAL SPK (ATAS: PLAN, BAWAH: REALISASI) -->
+      <div class="bg-white border border-zinc-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs space-y-4 reveal-on-scroll">
+      
+      <!-- Header Monitor SPK -->
+      <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-zinc-100 pb-3.5">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-base sm:text-lg">⏱️</span>
+            <h2 class="text-sm sm:text-base font-black text-zinc-950 tracking-tight">TIMELINE PELACAKAN SPK (PLANNING & REALISASI)</h2>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 font-mono">
+              {{ dashboardTimelineRows.length }} SPK TERDATA
+            </span>
+            <div v-if="spkStore.activeDateWindow" class="px-2.5 py-0.5 rounded-xl bg-zinc-100 text-zinc-700 font-mono text-[10.5px] border border-zinc-200 flex items-center gap-1">
+              <span>📅</span>
+              <span class="text-zinc-400">Rentang:</span>
+              <strong class="text-emerald-700">{{ spkStore.activeDateWindow.label }}</strong>
+            </div>
+            <div class="flex items-center gap-1.5 bg-zinc-100 px-2.5 py-0.5 rounded-xl border border-zinc-200">
+              <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span class="text-[10px] font-bold text-emerald-800 font-mono">ACUAN:</span>
+              <select
+                v-if="(spkStore.batches || []).length > 0"
+                v-model="spkStore.activeTimelineBatchUuid"
+                @change="spkStore.setActiveReferenceBatch(spkStore.activeTimelineBatchUuid)"
+                class="bg-transparent text-zinc-800 text-xs font-bold font-mono border-0 outline-none cursor-pointer max-w-[160px] truncate"
+              >
+                <option v-for="b in spkStore.batches" :key="b.uuid" :value="b.uuid">
+                  {{ b.batchName }} ({{ b.tanggal }})
+                </option>
+              </select>
+            </div>
+          </div>
+          <p class="text-[11px] text-zinc-500 font-medium mt-1">
+            Garis Lurus Tengah • Bagian Atas: <strong>Target Planning</strong> • Bagian Bawah: <strong>Realisasi Aktual</strong>. Posisi sinkron otomatis saat terjadi pergeseran urutan, order dilewati, atau order sisipan.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-between lg:justify-end">
+          <button
+            v-if="totalTimelinePlansCount > 15"
+            @click="showAllTimelineSpk = !showAllTimelineSpk"
+            class="px-2.5 py-1.5 rounded-xl text-[10.5px] font-mono font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors cursor-pointer"
+          >
+            {{ showAllTimelineSpk ? 'Tampilkan 15 Saja' : `Lihat Semua (${totalTimelinePlansCount} SPK)` }}
+          </button>
+          <router-link
+            to="/spk"
+            class="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-black text-white font-mono font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+          >
+            <span>Buka Manajemen SPK</span>
+            <span>➔</span>
+          </router-link>
+        </div>
+      </div>
+
+      <!-- Executive Schedule & Realtime Progress Banner -->
+      <div class="bg-gradient-to-r from-slate-900 via-zinc-900 to-slate-950 text-white p-3.5 sm:p-4 rounded-2xl border border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-3 select-none">
+        <div class="flex items-center gap-3 sm:gap-4 flex-wrap text-xs font-mono">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span class="text-zinc-400">Selesai:</span>
+            <strong class="text-emerald-400 text-sm font-black">{{ timelineBatchSummary.completedCount }}</strong>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+            <span class="text-zinc-400">Berjalan:</span>
+            <strong class="text-blue-400 text-sm font-black">{{ timelineBatchSummary.runningCount }}</strong>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-zinc-400"></span>
+            <span class="text-zinc-400">Antrean:</span>
+            <strong class="text-zinc-200 text-sm font-black">{{ timelineBatchSummary.upcomingCount }}</strong>
+          </div>
+          <div v-if="timelineBatchSummary.skippedCount > 0" class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+            <span class="text-purple-300">Dilewati:</span>
+            <strong class="text-purple-300 text-sm font-black">{{ timelineBatchSummary.skippedCount }}</strong>
+          </div>
+          <div v-if="timelineBatchSummary.unplannedCount > 0" class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+            <span class="text-amber-300">Sisipan:</span>
+            <strong class="text-amber-300 text-sm font-black">{{ timelineBatchSummary.unplannedCount }}</strong>
+          </div>
+        </div>
+
+        <!-- Meter & Roll Progress Bars with Support for >100% -->
+        <div class="flex items-center gap-3 sm:gap-4 text-xs font-mono w-full md:w-auto">
+          <!-- Meter Progress -->
+          <div class="bg-zinc-800/80 px-3 py-1.5 rounded-xl border border-zinc-700 min-w-[125px] flex-1 md:flex-initial space-y-1">
+            <div class="flex justify-between text-[10.5px] text-zinc-400">
+              <span>Meter</span>
+              <strong :class="timelineBatchSummary.meterPercent > 100 ? 'text-cyan-400 font-black' : 'text-emerald-400'">
+                {{ timelineBatchSummary.meterPercent > 100 ? `🚀 ${timelineBatchSummary.meterPercent}%` : `${timelineBatchSummary.meterPercent}%` }}
+              </strong>
+            </div>
+            <div class="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-500"
+                :class="timelineBatchSummary.meterPercent > 100 ? 'bg-gradient-to-r from-emerald-500 to-cyan-400' : 'bg-emerald-500'"
+                :style="{ width: `${Math.min(100, timelineBatchSummary.meterPercent)}%` }"
+              ></div>
+            </div>
+            <div class="text-[9.5px] text-zinc-300 text-right truncate">
+              {{ formatNum(timelineBatchSummary.totalActMeters) }} / {{ formatNum(timelineBatchSummary.totalPlanMeters) }} m
+            </div>
+          </div>
+
+          <!-- Roll Progress -->
+          <div class="bg-zinc-800/80 px-3 py-1.5 rounded-xl border border-zinc-700 min-w-[125px] flex-1 md:flex-initial space-y-1">
+            <div class="flex justify-between text-[10.5px] text-zinc-400">
+              <span>Roll FG</span>
+              <strong :class="timelineBatchSummary.rollPercent > 100 ? 'text-cyan-400 font-black' : 'text-blue-400'">
+                {{ timelineBatchSummary.rollPercent > 100 ? `🚀 ${timelineBatchSummary.rollPercent}%` : `${timelineBatchSummary.rollPercent}%` }}
+              </strong>
+            </div>
+            <div class="w-full bg-zinc-700 h-1.5 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-500"
+                :class="timelineBatchSummary.rollPercent > 100 ? 'bg-gradient-to-r from-blue-500 to-cyan-400' : 'bg-blue-500'"
+                :style="{ width: `${Math.min(100, timelineBatchSummary.rollPercent)}%` }"
+              ></div>
+            </div>
+            <div class="text-[9.5px] text-zinc-300 text-right truncate">
+              {{ formatNum(timelineBatchSummary.totalActRolls) }} / {{ formatNum(timelineBatchSummary.totalPlanRolls) }} Roll
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- TIMELINE HORIZONTAL (GARIS LURUS, ATAS PLAN, BAWAH REALISASI)       -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div v-if="dashboardTimelineRows.length > 0" class="relative overflow-x-auto py-4 px-2 scrollbar-thin">
+        <div class="min-w-max flex items-center justify-start relative py-4 px-3 gap-3">
           
-          <!-- Background Center Track Line (Runs horizontally between nodes, z-0) -->
-          <div class="absolute top-1/2 left-12 right-12 -translate-y-1/2 h-1 bg-zinc-200 z-0"></div>
+          <!-- Background Center Track Line (Runs horizontally between all nodes) -->
+          <div class="absolute top-1/2 left-8 right-8 -translate-y-1/2 h-1 bg-zinc-200 z-0"></div>
           <!-- Active Progress Line with Looping Gradient Flow -->
-          <div class="absolute top-1/2 left-12 right-1/4 -translate-y-1/2 h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-amber-400 z-0 anim-gradient-flow"></div>
+          <div class="absolute top-1/2 left-8 right-1/4 -translate-y-1/2 h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-amber-400 z-0 anim-gradient-flow"></div>
 
           <!-- Nodes Loop -->
           <div
-            v-for="(spk, idx) in timelineSpkList"
-            :key="spk.spkNo"
-            class="relative z-10 flex flex-col items-center w-48 sm:w-56 px-2"
+            v-for="(row, idx) in dashboardTimelineRows"
+            :key="row.id"
+            class="relative z-10 flex flex-col items-center w-64 sm:w-72 shrink-0 px-1"
           >
             <!-- ═══════════════════════════════════════════════ -->
-            <!-- 1. BAGIAN ATAS: REALISASI (AKTUAL OUTPUT)     -->
+            <!-- 1. BAGIAN ATAS: PLAN (RENCANA SPK)            -->
             <!-- ═══════════════════════════════════════════════ -->
-            <div
-              @click="openSpkModal(spk, 'REALISASI')"
-              class="w-full bg-white hover:bg-emerald-50/60 p-2.5 rounded-xl border border-zinc-200 hover:border-emerald-400 shadow-2xs hover:shadow-md transition-all cursor-pointer text-center relative z-10 group/top"
-              :class="spk.targetStatus ? spk.targetStatus.borderClass : ''"
-              title="Klik untuk info realisasi"
-            >
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span
-                  v-if="spk.targetStatus"
-                  class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase font-mono border"
-                  :class="spk.targetStatus.badgeClass"
-                >
-                  {{ spk.targetStatus.icon }} {{ spk.targetStatus.label }}
-                </span>
-                <span v-else class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase font-mono bg-emerald-100 text-emerald-800">
-                  ⚡ REALISASI
-                </span>
-                <span :class="[
-                  'px-1.5 py-0.2 rounded text-[9.5px] font-bold font-mono',
-                  spk.percent > 100 ? 'text-purple-700 bg-purple-50 font-black' :
-                  spk.status === 'DONE' ? 'text-emerald-700 font-black' :
-                  spk.status === 'RUNNING' ? 'text-blue-700 font-black' : 'text-zinc-500'
-                ]">
-                  {{ spk.percent }}%
-                </span>
+            <div class="w-full h-[225px] flex flex-col justify-end">
+              <!-- If Plan Exists -->
+              <div
+                v-if="row.plan"
+                @click="openSpkModal(row, 'PLANNING')"
+                class="w-full h-full bg-white hover:bg-amber-50/60 p-2.5 rounded-2xl border transition-all cursor-pointer text-left flex flex-col justify-between group shadow-2xs hover:shadow-md relative overflow-hidden"
+                :class="[
+                  row.isCurrentlyRunning ? 'border-blue-500 ring-2 ring-blue-500/40 bg-blue-50/20' : 'border-zinc-200 hover:border-amber-400'
+                ]"
+                title="Klik untuk info planning SPK"
+              >
+                <!-- Highlight Indicator Running Now -->
+                <div v-if="row.isCurrentlyRunning" class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 bg-[length:200%_100%] anim-gradient-flow"></div>
+
+                <div class="space-y-1">
+                  <div class="flex items-center justify-between gap-1 flex-wrap">
+                    <span
+                      class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase font-mono"
+                      :class="row.isCurrentlyRunning ? 'bg-blue-600 text-white animate-pulse' : 'bg-amber-100 text-amber-900'"
+                    >
+                      {{ row.isCurrentlyRunning ? '⚡ RUNNING # ' + (idx + 1) : '📋 PLAN #' + (idx + 1) }}
+                    </span>
+                    <span class="text-[9.5px] font-mono font-bold text-zinc-500">
+                      {{ row.formula }} ({{ row.thickness }}μ)
+                    </span>
+                  </div>
+                  <div class="text-xs font-black font-mono text-zinc-900 truncate" :title="row.spkNo">
+                    {{ row.spkNo }}
+                    <span v-if="row.customer && row.customer !== '-'" class="font-normal text-zinc-500 text-[10px]">
+                      • {{ row.customer }}
+                    </span>
+                  </div>
+
+                  <!-- Ringkasan Pola Potong Pisau UP -->
+                  <div v-if="row.chartingSummary" class="text-[9.5px] font-mono font-bold text-indigo-900 bg-indigo-50/90 px-1.5 py-0.5 rounded border border-indigo-200 truncate" :title="'Target Pola Pisau: ' + row.chartingSummary">
+                    🔪 Pisau UP: <strong>{{ row.chartingSummary }}</strong>
+                  </div>
+
+                  <div class="text-[9.5px] text-zinc-500 font-mono truncate" :title="row.ukuranJumbo">
+                    📐 Jumbo: {{ row.ukuranJumbo }}
+                  </div>
+                </div>
+
+                <!-- TARGET DIMENSI CHILD (PISAU FG) SESUAI PLAN SPK -->
+                <div class="pt-1 border-t border-zinc-100 space-y-1">
+                  <!-- Match / Deviation Badge Status -->
+                  <div v-if="row.actual" class="flex items-center justify-between gap-1">
+                    <span
+                      v-if="row.isChartingFullyMatched"
+                      class="inline-flex items-center gap-1 text-[8.5px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200"
+                    >
+                      ✓ Pisau Sesuai SPK
+                    </span>
+                    <span
+                      v-else
+                      class="inline-flex items-center gap-1 text-[8.5px] font-mono font-bold text-rose-800 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-300 truncate"
+                      :title="row.chartingDeviationMessage"
+                    >
+                      ⚠️ Deviasi Pisau Potong
+                    </span>
+                    <span class="text-[9px] font-mono text-zinc-500 font-bold ml-auto">
+                      {{ formatNum(row.plannedChildRolls) }} Roll Target
+                    </span>
+                  </div>
+                  <div v-else class="text-[9.5px] text-zinc-700 font-mono font-bold flex items-center justify-between">
+                    <span>Target: <strong>{{ formatNum(row.plannedChildRolls) }} Roll</strong></span>
+                    <span class="text-zinc-500">{{ formatNum(row.plannedParentRolls) }} JR</span>
+                  </div>
+
+                  <!-- Chip / List Dimensi Child Target -->
+                  <div v-if="row.childAnalytics && row.childAnalytics.length > 0" class="space-y-0.5">
+                    <div
+                      v-for="(child, cIdx) in row.childAnalytics.slice(0, 2)"
+                      :key="cIdx"
+                      class="flex items-center justify-between text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-50 border border-zinc-200/80"
+                    >
+                      <span class="font-bold text-zinc-800">
+                        {{ child.lebar }}mm × {{ formatNum(child.panjang) }}m
+                      </span>
+                      <span class="text-zinc-600">
+                        Target: <strong class="text-zinc-900">{{ child.targetRolls }}</strong>
+                        <span v-if="child.actualRolls > 0" class="text-emerald-600 font-bold"> (✓{{ child.actualRolls }})</span>
+                      </span>
+                    </div>
+                    <div v-if="row.childAnalytics.length > 2" class="text-[8.5px] font-mono text-zinc-400 text-right pr-1">
+                      +{{ row.childAnalytics.length - 2 }} pisau lainnya
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="text-xs font-black font-mono text-zinc-900 truncate">
-                {{ formatNum(spk.actualRoll) }} Roll Selesai
-              </div>
-              <div class="text-[10px] text-zinc-500 font-mono mt-0.5">
-                {{ formatNum(spk.actualMeter) }} m • {{ formatNum(spk.actualKg) }} kg
-              </div>
-              <!-- Tanggal & Jam Mulai / Selesai -->
-              <div class="text-[9px] text-zinc-500 font-mono mt-1 pt-1 border-t border-zinc-100 flex items-center justify-center gap-1 truncate">
-                <span title="Waktu Mulai">🕒 {{ spk.startTimeFormatted || '-' }}</span>
-                <span class="text-zinc-300">➔</span>
-                <span title="Waktu Selesai">🏁 {{ spk.endTimeFormatted || '-' }}</span>
+
+              <!-- If Unplanned (Order Sisipan Lapangan) -->
+              <div
+                v-else
+                class="w-full h-full bg-amber-50/70 p-2.5 rounded-2xl border border-dashed border-amber-300 text-left flex flex-col justify-between shadow-2xs"
+              >
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase font-mono bg-amber-200 text-amber-900">
+                      ⚠️ SISIPAN LAPANGAN
+                    </span>
+                  </div>
+                  <div class="text-xs font-bold text-amber-950 font-mono mt-1">
+                    Tanpa Planned SPK
+                  </div>
+                  <div class="text-[10px] text-amber-800 leading-tight mt-1">
+                    Proses aktual order ini tidak ada dalam jadwal SPK (dikerjakan langsung di lapangan).
+                  </div>
+                </div>
+                <div class="text-[9.5px] font-mono text-amber-900 bg-amber-100/70 px-1.5 py-0.5 rounded border border-amber-200">
+                  Total Aktual: <strong>{{ formatNum(row.actual?.totalRealRolls || 0) }} Roll</strong>
+                </div>
               </div>
             </div>
 
             <!-- Vertical Connector Atas ke Tengah (Line) -->
-            <div class="w-0.5 h-3 bg-zinc-300 transition-colors z-0"></div>
+            <div class="w-0.5 h-3.5 bg-zinc-300 transition-colors z-0 my-0.5"></div>
 
             <!-- ═══════════════════════════════════════════════ -->
             <!-- 2. BAGIAN TENGAH: NODE CIRCLE (MARKER)        -->
             <!-- ═══════════════════════════════════════════════ -->
             <div
-              @click="openSpkModal(spk, 'ALL')"
+              @click="openSpkModal(row, 'ALL')"
               :class="[
                 'w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-black text-[11px] transition-all shadow-sm hover:scale-110 z-10 cursor-pointer',
-                spk.status === 'DONE' ? 'bg-emerald-500 border-white text-white ring-4 ring-emerald-100' :
-                spk.status === 'RUNNING' ? 'bg-blue-600 border-white text-white ring-4 ring-blue-100 animate-pulse' :
-                spk.status === 'WARNING' ? 'bg-amber-500 border-white text-white ring-4 ring-amber-100' :
+                row.status === 'COMPLETED' ? 'bg-emerald-500 border-white text-white ring-4 ring-emerald-100' :
+                row.isCurrentlyRunning ? 'bg-blue-600 border-white text-white ring-4 ring-blue-300 animate-pulse' :
+                row.status === 'IN_PROGRESS' ? 'bg-blue-600 border-white text-white ring-4 ring-blue-100 animate-pulse' :
+                row.status === 'SKIPPED' ? 'bg-purple-600 border-white text-white ring-4 ring-purple-100' :
+                row.status === 'UNPLANNED' ? 'bg-amber-500 border-white text-white ring-4 ring-amber-100' :
                 'bg-white border-zinc-300 text-zinc-600 ring-4 ring-zinc-50'
               ]"
-              :title="'Klik untuk detail SPK: ' + spk.spkNo"
+              :title="'Klik untuk detail SPK: ' + row.spkNo"
             >
-              <span v-if="spk.status === 'DONE'">✓</span>
-              <span v-else-if="spk.status === 'RUNNING'">▶</span>
+              <span v-if="row.status === 'COMPLETED'">✓</span>
+              <span v-else-if="row.isCurrentlyRunning">⚡</span>
+              <span v-else-if="row.status === 'IN_PROGRESS'">▶</span>
+              <span v-else-if="row.status === 'SKIPPED'">⏭️</span>
+              <span v-else-if="row.status === 'UNPLANNED'">⚠️</span>
               <span v-else>{{ idx + 1 }}</span>
             </div>
 
             <!-- Vertical Connector Tengah ke Bawah (Line) -->
-            <div class="w-0.5 h-3 bg-zinc-300 transition-colors z-0"></div>
+            <div class="w-0.5 h-3.5 bg-zinc-300 transition-colors z-0 my-0.5"></div>
 
             <!-- ═══════════════════════════════════════════════ -->
-            <!-- 3. BAGIAN BAWAH: PLANNING (RENCANA TARGET)    -->
+            <!-- 3. BAGIAN BAWAH: REALISASI (AKTUAL LAPANGAN)  -->
             <!-- ═══════════════════════════════════════════════ -->
-            <div
-              @click="openSpkModal(spk, 'PLANNING')"
-              class="w-full bg-white hover:bg-amber-50/60 p-2.5 rounded-xl border border-zinc-200 hover:border-amber-400 shadow-2xs hover:shadow-md transition-all cursor-pointer text-center relative z-10 group/bottom"
-              title="Klik untuk info planning"
-            >
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase font-mono bg-amber-100 text-amber-900">
-                  📋 PLANNING
-                </span>
-                <span class="text-[9.5px] font-mono text-zinc-500 font-bold">
-                  {{ spk.formula }} ({{ spk.thickness }}μ)
-                </span>
+            <div class="w-full h-[225px] flex flex-col justify-start">
+              <!-- If Actual Production Exists -->
+              <div
+                v-if="row.actual"
+                @click="openSpkModal(row, 'REALISASI')"
+                class="w-full h-full bg-white hover:bg-emerald-50/60 p-2.5 rounded-2xl border transition-all cursor-pointer text-left flex flex-col justify-between group shadow-2xs hover:shadow-md relative overflow-hidden"
+                :class="[
+                  row.targetStatus ? row.targetStatus.borderClass : 'border-zinc-200',
+                  row.isCurrentlyRunning ? 'ring-2 ring-blue-400/50 bg-blue-50/20' : 'hover:border-emerald-400'
+                ]"
+                title="Klik untuk info realisasi aktual"
+              >
+                <!-- Highlight Indicator Running Now -->
+                <div v-if="row.isCurrentlyRunning" class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-600 via-emerald-500 to-blue-600 bg-[length:200%_100%] anim-gradient-flow"></div>
+
+                <div class="space-y-1">
+                  <div class="flex items-center justify-between gap-1">
+                    <span
+                      v-if="row.targetStatus"
+                      class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase font-mono border truncate max-w-[120px]"
+                      :class="row.targetStatus.badgeClass"
+                    >
+                      {{ row.targetStatus.icon }} {{ row.targetStatus.label }}
+                    </span>
+                    <span
+                      :class="[
+                        'px-1.5 py-0.2 rounded text-[9.5px] font-bold font-mono',
+                        row.achievementPercent > 100 ? 'text-cyan-800 bg-cyan-100 border border-cyan-300 font-black' :
+                        row.status === 'COMPLETED' ? 'text-emerald-700 font-black' :
+                        row.status === 'IN_PROGRESS' || row.isCurrentlyRunning ? 'text-blue-700 font-black' : 'text-zinc-500'
+                      ]"
+                    >
+                      {{ row.achievementPercent > 100 ? '🚀 ' + row.achievementPercent + '%' : row.achievementPercent + '%' }}
+                    </span>
+                  </div>
+
+                  <div class="text-xs font-black font-mono text-zinc-900 truncate">
+                    {{ formatNum(row.actual.totalRealRolls) }} Roll Selesai
+                    <span v-if="row.actual.operator" class="font-normal text-zinc-500 text-[10px]">
+                      • 👤 {{ row.actual.operator }}
+                    </span>
+                  </div>
+
+                  <!-- Ringkasan Progres Pemotongan Mesin -->
+                  <div v-if="row.isCurrentlyRunning && row.status === 'IN_PROGRESS'" class="text-[9.5px] font-mono text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 font-bold animate-pulse">
+                    ⚡ Sedang Memotong di Slitting...
+                  </div>
+
+                  <div class="text-[10px] text-zinc-500 font-mono">
+                    {{ formatNum(row.actual.totalRealMeter) }} m • {{ formatNum(row.actual.totalRealKg) }} kg
+                  </div>
+                </div>
+
+                <div class="space-y-1 pt-1 border-t border-zinc-100">
+                  <div class="text-[9.5px] font-mono text-zinc-600 flex items-center justify-between">
+                    <span>Potong: <strong>{{ row.actualParentCut || 0 }} JR</strong></span>
+                    <span class="flex items-center gap-1">
+                      <span class="text-emerald-700 font-bold">✓{{ row.actual.passCount }}</span>
+                      <span v-if="row.actual.holdCount > 0" class="text-amber-700 font-bold">⚠️{{ row.actual.holdCount }}</span>
+                      <span v-if="row.actual.rejectCount > 0" class="text-red-700 font-bold">✕{{ row.actual.rejectCount }}</span>
+                    </span>
+                  </div>
+                  <div class="text-[9px] text-zinc-500 font-mono pt-0.5 border-t border-zinc-100 flex items-center justify-between truncate">
+                    <span>🕒 {{ row.startTimeFormatted || '-' }}</span>
+                    <span>➔</span>
+                    <span>🏁 {{ row.endTimeFormatted || '-' }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="text-xs font-black font-mono text-zinc-900 truncate" :title="spk.spkNo">
-                {{ spk.spkNo }}
+
+              <!-- If Skipped (Dilewati / Dilompati) -->
+              <div
+                v-else-if="row.status === 'SKIPPED'"
+                class="w-full h-full bg-purple-50/70 p-2.5 rounded-2xl border border-dashed border-purple-300 text-left flex flex-col justify-between shadow-2xs"
+              >
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase font-mono bg-purple-200 text-purple-900">
+                      ⏭️ DILEWATI
+                    </span>
+                  </div>
+                  <div class="text-xs font-bold text-purple-950 font-mono mt-1">
+                    Dilompati di Lapangan
+                  </div>
+                  <div class="text-[10px] text-purple-800 leading-tight mt-1">
+                    SPK ini terlewat karena order urutan selanjutnya telah selesai dikerjakan terlebih dahulu.
+                  </div>
+                </div>
+                <div class="text-[9.5px] font-mono text-purple-700 bg-purple-100/70 px-1.5 py-0.5 rounded border border-purple-200">
+                  Target: {{ formatNum(row.plannedChildRolls) }} Roll
+                </div>
               </div>
-              <div class="text-[10px] text-zinc-500 font-mono mt-0.5">
-                Target: <strong>{{ formatNum(spk.planRoll) }} Roll</strong> ({{ formatNum(spk.planMeter) }} m)
+
+              <!-- If Upcoming (Menunggu Giliran) -->
+              <div
+                v-else
+                class="w-full h-full bg-zinc-50/70 p-2.5 rounded-2xl border border-dashed border-zinc-200 text-left flex flex-col justify-between shadow-2xs"
+                :class="row.isCurrentlyRunning ? 'border-blue-400 bg-blue-50/30 ring-2 ring-blue-300/40' : ''"
+              >
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span
+                      class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase font-mono"
+                      :class="row.isCurrentlyRunning ? 'bg-blue-600 text-white animate-pulse' : 'bg-zinc-200 text-zinc-700'"
+                    >
+                      {{ row.isCurrentlyRunning ? '⚡ ANTRIAN AKTIF' : '⏱️ ANTREAN #' + (idx + 1) }}
+                    </span>
+                  </div>
+                  <div class="text-xs font-bold text-zinc-800 font-mono mt-1">
+                    {{ row.isCurrentlyRunning ? 'Menunggu Mesin Slitting Dimulai' : 'Menunggu Giliran Mesin' }}
+                  </div>
+                  <div class="text-[10px] text-zinc-500 leading-tight mt-1">
+                    Est. Mulai: <strong class="text-zinc-800">{{ row.startTimeFormatted || '-' }}</strong>
+                  </div>
+                </div>
+                <div class="text-[9.5px] font-mono text-zinc-700 bg-white/80 px-1.5 py-0.5 rounded border border-zinc-200">
+                  Target: <strong>{{ formatNum(row.plannedChildRolls) }} Roll</strong> ({{ row.planDurationMinutes }} mnt)
+                </div>
               </div>
             </div>
 
@@ -780,7 +1086,7 @@
         </div>
       </div>
 
-      <!-- Clean Empty Timeline State -->
+      <!-- Clean Empty State -->
       <div v-else class="py-8 px-4 text-center rounded-2xl bg-zinc-50/80 border border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2">
         <div class="w-10 h-10 rounded-2xl bg-zinc-100 flex items-center justify-center text-lg text-zinc-400">
           📋
@@ -803,9 +1109,305 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- 5. BLOK KONDISI STOK IMS: 3 KRITERIA & 3 SATUAN KUANTITAS                 -->
+    <!-- 4.B RINCIAN UKURAN FG SELESAI DIPROSES HARI INI (DESKRIPSI NAV & STATUS)   -->
+    <!-- Format: [JENIS] [KF] [THICK] MC X [WIDTH] MM                              -->
     <!-- ========================================================================= -->
     <div class="bg-white border border-zinc-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs space-y-4 reveal-on-scroll">
+      
+      <!-- Header Section -->
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-100 pb-3">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-base sm:text-lg">📦</span>
+            <h2 class="text-sm sm:text-base font-black text-zinc-950 tracking-tight">
+              RINCIAN UKURAN FG SELESAI DIPROSES HARI INI
+            </h2>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 font-mono">
+              {{ todayFgSizeSummary.grandTotals.variantCount }} VARIAN UKURAN
+            </span>
+            <span class="px-2.5 py-0.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 font-mono text-[10.5px] font-bold">
+              📅 {{ activeTargetDateDisplay }}
+            </span>
+          </div>
+          <p class="text-[11px] text-zinc-500 font-medium mt-1">
+            Format resmi <strong>Deskripsi NAV ([JENIS] [KF] [THICK] MC X [WIDTH] MM)</strong> beserta akumulasi Roll, Meter, Berat Netto (kg), dan status kendali mutu QC (PASS / HOLD / REJECT).
+          </p>
+        </div>
+
+        <span class="text-xs font-mono font-bold text-zinc-500">
+          Total: <strong class="text-zinc-900 text-sm font-black">{{ formatNum(todayFgSizeSummary.grandTotals.totalRolls) }}</strong> Roll FG
+        </span>
+      </div>
+
+      <!-- Summary KPI Strip: 4 Metric Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <!-- Total Roll -->
+        <div class="bg-zinc-50/90 p-3 rounded-2xl border border-zinc-200/80 flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono block">Total Roll FG</span>
+            <span class="text-lg sm:text-xl font-black text-zinc-900 font-mono">{{ formatNum(todayFgSizeSummary.grandTotals.totalRolls) }}</span>
+            <span class="text-[10px] text-zinc-500 font-mono block">Roll Jadi Selesai</span>
+          </div>
+          <div class="w-9 h-9 rounded-xl bg-blue-100/70 text-blue-700 flex items-center justify-center text-base">🎯</div>
+        </div>
+
+        <!-- Total Berat Netto -->
+        <div class="bg-zinc-50/90 p-3 rounded-2xl border border-zinc-200/80 flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono block">Total Tonase Netto</span>
+            <span class="text-lg sm:text-xl font-black text-zinc-900 font-mono">{{ formatNum(todayFgSizeSummary.grandTotals.totalKg) }}</span>
+            <span class="text-[10px] text-zinc-500 font-mono block">kg ({{ (todayFgSizeSummary.grandTotals.totalKg / 1000).toFixed(2) }} Ton)</span>
+          </div>
+          <div class="w-9 h-9 rounded-xl bg-emerald-100/70 text-emerald-700 flex items-center justify-center text-base">⚖️</div>
+        </div>
+
+        <!-- Total Meter -->
+        <div class="bg-zinc-50/90 p-3 rounded-2xl border border-zinc-200/80 flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono block">Total Panjang</span>
+            <span class="text-lg sm:text-xl font-black text-zinc-900 font-mono">{{ formatNum(todayFgSizeSummary.grandTotals.totalMeter) }}</span>
+            <span class="text-[10px] text-zinc-500 font-mono block">Meter Linear</span>
+          </div>
+          <div class="w-9 h-9 rounded-xl bg-indigo-100/70 text-indigo-700 flex items-center justify-center text-base">📏</div>
+        </div>
+
+        <!-- Mutu QC Breakdown -->
+        <div class="bg-zinc-50/90 p-3 rounded-2xl border border-zinc-200/80 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">Status Mutu QC</span>
+            <span class="text-[10px] font-mono font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
+              {{ todayFgSizeSummary.grandTotals.passRate }}% Pass
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap font-mono text-[11px] font-bold mt-1">
+            <span class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200" title="Lolos QC / Pass">
+              ✓ {{ formatNum(todayFgSizeSummary.grandTotals.passRolls) }}
+            </span>
+            <span class="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200" title="Karantina / Hold">
+              ⚠️ {{ formatNum(todayFgSizeSummary.grandTotals.holdRolls) }}
+            </span>
+            <span class="text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200" title="Reject / NG">
+              ✕ {{ formatNum(todayFgSizeSummary.grandTotals.rejectRolls) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls: Filter & Sort Toolbar -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+        <!-- Search Input -->
+        <div class="relative flex-1 max-w-sm">
+          <input
+            v-model="fgSearchQuery"
+            type="text"
+            placeholder="Cari deskripsi NAV (mis: M07, 1145, 25 MC)..."
+            class="w-full bg-zinc-50 border border-zinc-200/90 rounded-xl px-3 py-1.5 text-xs font-mono text-zinc-800 placeholder-zinc-400 outline-none focus:border-red-500 focus:bg-white transition-colors"
+          />
+          <span v-if="fgSearchQuery" @click="fgSearchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 cursor-pointer text-xs">✕</span>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- Status Filter Tabs -->
+          <div class="bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 flex items-center text-[10.5px] font-mono font-bold">
+            <button
+              @click="fgStatusFilter = 'ALL'"
+              :class="fgStatusFilter === 'ALL' ? 'bg-white text-zinc-900 shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+            >
+              Semua
+            </button>
+            <button
+              @click="fgStatusFilter = 'PASS'"
+              :class="fgStatusFilter === 'PASS' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>✓</span> PASS
+            </button>
+            <button
+              @click="fgStatusFilter = 'HOLD'"
+              :class="fgStatusFilter === 'HOLD' ? 'bg-amber-500 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>⚠️</span> HOLD
+            </button>
+            <button
+              @click="fgStatusFilter = 'REJECT'"
+              :class="fgStatusFilter === 'REJECT' ? 'bg-red-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>✕</span> REJECT
+            </button>
+          </div>
+
+          <!-- Sort Select: Default NAV -->
+          <div class="flex items-center gap-1 bg-zinc-100 px-2.5 py-1 rounded-xl border border-zinc-200 text-xs font-mono">
+            <span class="text-zinc-400 text-[10px] font-bold">Urut:</span>
+            <select
+              v-model="fgSortBy"
+              class="bg-transparent text-zinc-800 font-bold border-0 outline-none cursor-pointer text-xs"
+            >
+              <option value="NAV">Deskripsi NAV (A-Z)</option>
+              <option value="ROLL">Roll Terbanyak</option>
+              <option value="KG">Tonase (Kg) Terbesar</option>
+              <option value="METER">Meter Terpanjang</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Professional Table View of FG Sizes grouped by NAV Description -->
+      <div v-if="todayFgSizeSummary.groups.length > 0" class="overflow-x-auto rounded-2xl border border-zinc-200/90 shadow-2xs">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-zinc-100/90 text-zinc-700 font-mono text-[10.5px] uppercase tracking-wider border-b border-zinc-200">
+              <th class="py-2.5 px-3.5 font-bold">No</th>
+              <th class="py-2.5 px-3.5 font-bold">Deskripsi NAV ([JENIS] [KF] [THICK] MC X [WIDTH] MM)</th>
+              <th class="py-2.5 px-3 font-bold text-center bg-blue-50/60 border-l border-r border-blue-100">
+                Total Output (Roll • m • kg)
+              </th>
+              <th class="py-2.5 px-3 font-bold text-center bg-emerald-50/60 border-r border-emerald-100 text-emerald-900">
+                ✓ PASS (Roll • m • kg)
+              </th>
+              <th class="py-2.5 px-3 font-bold text-center bg-amber-50/60 border-r border-amber-100 text-amber-900">
+                ⚠️ HOLD (Roll • m • kg)
+              </th>
+              <th class="py-2.5 px-3 font-bold text-center bg-red-50/60 text-red-900">
+                ✕ REJECT (Roll • m • kg)
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100 font-mono">
+            <tr
+              v-for="(item, idx) in todayFgSizeSummary.groups"
+              :key="item.navDescription"
+              class="hover:bg-zinc-50/90 transition-colors"
+            >
+              <td class="py-3 px-3.5 text-zinc-400 font-bold">{{ idx + 1 }}</td>
+              
+              <!-- Kolom Deskripsi NAV -->
+              <td class="py-3 px-3.5">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs sm:text-[13px] font-black text-zinc-950 font-mono tracking-tight bg-zinc-100/80 px-2 py-0.5 rounded-lg border border-zinc-200">
+                    {{ item.navDescription }}
+                  </span>
+                  <span v-if="item.machineList && item.machineList.length > 0" class="text-[10px] text-zinc-400 truncate hidden xl:inline">
+                    • Mesin: {{ item.machineList.join(', ') }}
+                  </span>
+                </div>
+              </td>
+
+              <!-- Total Output -->
+              <td class="py-3 px-3 text-center bg-blue-50/20 border-l border-r border-blue-100/70">
+                <div class="font-black text-blue-900 text-xs">
+                  {{ formatNum(item.totalRolls) }} Roll
+                </div>
+                <div class="text-[10.5px] text-zinc-600 font-medium">
+                  {{ formatNum(item.totalMeter) }} m • {{ formatNum(item.totalKg) }} kg
+                </div>
+              </td>
+
+              <!-- Status QC: PASS -->
+              <td class="py-3 px-3 text-center bg-emerald-50/20 border-r border-emerald-100/70">
+                <div v-if="item.passRolls > 0">
+                  <div class="font-black text-emerald-800 text-xs">
+                    {{ formatNum(item.passRolls) }} Roll
+                  </div>
+                  <div class="text-[10px] text-emerald-700">
+                    {{ formatNum(item.passMeter) }} m • {{ formatNum(item.passKg) }} kg
+                  </div>
+                </div>
+                <span v-else class="text-zinc-300 font-bold">-</span>
+              </td>
+
+              <!-- Status QC: HOLD -->
+              <td class="py-3 px-3 text-center bg-amber-50/20 border-r border-amber-100/70">
+                <div v-if="item.holdRolls > 0">
+                  <div class="font-black text-amber-800 text-xs">
+                    {{ formatNum(item.holdRolls) }} Roll
+                  </div>
+                  <div class="text-[10px] text-amber-700">
+                    {{ formatNum(item.holdMeter) }} m • {{ formatNum(item.holdKg) }} kg
+                  </div>
+                </div>
+                <span v-else class="text-zinc-300 font-bold">-</span>
+              </td>
+
+              <!-- Status QC: REJECT -->
+              <td class="py-3 px-3 text-center bg-red-50/20">
+                <div v-if="item.rejectRolls > 0">
+                  <div class="font-black text-red-800 text-xs">
+                    {{ formatNum(item.rejectRolls) }} Roll
+                  </div>
+                  <div class="text-[10px] text-red-700">
+                    {{ formatNum(item.rejectMeter) }} m • {{ formatNum(item.rejectKg) }} kg
+                  </div>
+                </div>
+                <span v-else class="text-zinc-300 font-bold">-</span>
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="bg-zinc-100 font-mono font-black text-zinc-900 text-xs border-t-2 border-zinc-300">
+              <td colspan="2" class="py-3 px-3.5 text-right uppercase">Total Akumulasi:</td>
+              <td class="py-3 px-3 text-center bg-blue-100/60 border-l border-r border-blue-200 text-blue-950">
+                <div>{{ formatNum(todayFgSizeSummary.grandTotals.totalRolls) }} Roll</div>
+                <div class="text-[10px] font-normal text-blue-800">{{ formatNum(todayFgSizeSummary.grandTotals.totalMeter) }} m • {{ formatNum(todayFgSizeSummary.grandTotals.totalKg) }} kg</div>
+              </td>
+              <td class="py-3 px-3 text-center bg-emerald-100/60 border-r border-emerald-200 text-emerald-950">
+                <div>{{ formatNum(todayFgSizeSummary.grandTotals.passRolls) }} Roll</div>
+                <div class="text-[10px] font-normal text-emerald-800">{{ formatNum(todayFgSizeSummary.grandTotals.passMeter) }} m • {{ formatNum(todayFgSizeSummary.grandTotals.passKg) }} kg</div>
+              </td>
+              <td class="py-3 px-3 text-center bg-amber-100/60 border-r border-amber-200 text-amber-950">
+                <div>{{ formatNum(todayFgSizeSummary.grandTotals.holdRolls) }} Roll</div>
+                <div class="text-[10px] font-normal text-amber-800">{{ formatNum(todayFgSizeSummary.grandTotals.holdMeter) }} m • {{ formatNum(todayFgSizeSummary.grandTotals.holdKg) }} kg</div>
+              </td>
+              <td class="py-3 px-3 text-center bg-red-100/60 text-red-950">
+                <div>{{ formatNum(todayFgSizeSummary.grandTotals.rejectRolls) }} Roll</div>
+                <div class="text-[10px] font-normal text-red-800">{{ formatNum(todayFgSizeSummary.grandTotals.rejectMeter) }} m • {{ formatNum(todayFgSizeSummary.grandTotals.rejectKg) }} kg</div>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="py-10 px-4 text-center rounded-2xl bg-zinc-50/80 border border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2">
+        <div class="w-10 h-10 rounded-2xl bg-zinc-100 flex items-center justify-center text-lg text-zinc-400">
+          📦
+        </div>
+        <p class="text-xs font-mono font-bold text-zinc-700">
+          Belum ada rekaman roll Finished Goods (FG) selesai diproses untuk tanggal {{ activeTargetDateDisplay }}
+        </p>
+        <p class="text-[11px] text-zinc-400 max-w-md">
+          Data roll FG akan otomatis teragregasi secara real-time saat operator mencetak label roll slitting atau mengimpor laporan produksi.
+        </p>
+      </div>
+
+    </div>
+    </div>
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- AKHIR BLOK 2: LIVE OPERATIONAL MONITORING                                 -->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- BLOK 3: WAREHOUSE & STOCK LEDGER (DATA STOK GUDANG IMS)                   -->
+    <!-- Nuansa: Clean Warehouse Storage Ledger (Dipertahankan Rapi & Terisolasi)  -->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <div class="space-y-4 pt-3">
+      
+      <!-- Blok 3 Identity Banner -->
+      <div class="bg-zinc-100/90 border border-zinc-200/90 rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-3 text-xs font-mono shadow-2xs">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-md bg-zinc-900 text-white font-black text-[9px] uppercase tracking-wider">
+            BLOK 3 • INVENTORY & STOCK LEDGER
+          </span>
+          <span class="text-zinc-600 font-bold hidden sm:inline">Data Stok Gudang IMS & WIP (Sesi Aktif)</span>
+        </div>
+        <span class="text-[10.5px] text-zinc-500 font-medium">Dipertahankan Terisolasi</span>
+      </div>
+
+      <!-- 5. KONDISI STOK IMS: 3 KRITERIA & 3 SATUAN KUANTITAS -->
+      <div class="bg-white border border-zinc-200/90 rounded-3xl p-4 sm:p-5 shadow-2xs space-y-4 reveal-on-scroll">
       
       <!-- Header Stok & Filter Kriteria & Satuan -->
       <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 border-b border-zinc-100 pb-3">
@@ -949,8 +1551,11 @@
           Tidak ada data stok yang sesuai dengan filter yang dipilih.
         </div>
       </div>
-
     </div>
+    </div>
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- AKHIR BLOK 3: WAREHOUSE & STOCK LEDGER                                    -->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
 
     <!-- ========================================================================= -->
     <!-- 6. MODAL KECIL INFORMASI SPK (PLANNING VS REALISASI)                      -->
@@ -976,13 +1581,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useScheduleStore } from '@/stores/scheduleStore';
-import { useSpkStore, evaluateTargetStatus } from '@/stores/spkStore';
+import { useSpkStore, evaluateTargetStatus, isSpkMatch, parseSpkCanonical } from '@/stores/spkStore';
+
+const block1Ref = ref(null);
 import { useWipStore } from '@/stores/wipStore';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { parseDateToIso, extractDateFromLot } from '@/services/dataRollParserService';
@@ -1575,8 +2182,242 @@ const kpiMetrics = computed(() => {
 });
 
 // =========================================================================
-// 4. DIAGRAM GARIS: KOMPARASI TOTAL ROLL, PASS, HOLD, REJECT
+// 3.B ESTIMASI FORECAST & RUN-RATE GLOBAL PERFORMANCE (BLOK 1)
 // =========================================================================
+const forecastMetrics = computed(() => {
+  const kpi = kpiMetrics.value;
+  const currentKg = kpi.totalBeratKg || 0;
+  const currentRolls = kpi.totalRolls || 0;
+  const freq = selectedFrequency.value;
+
+  const targetDate = activeTargetDateObj.value;
+  const today = new Date();
+
+  let totalPeriodDays = 1;
+  let elapsedDays = 1;
+  let remainingDays = 0;
+
+  if (freq === 'DAY') {
+    const hr = today.getHours();
+    const elapsedHourInDay = Math.min(24, Math.max(1, (hr - 7 + 24) % 24));
+    const dayProgressRatio = Math.max(0.08, elapsedHourInDay / 24);
+    const projectedKg = Math.round(currentKg / dayProgressRatio);
+    const projectedRolls = Math.round(currentRolls / dayProgressRatio);
+
+    return {
+      periodLabel: 'Hari Operasional Ini',
+      dailyAverageKg: currentKg,
+      dailyAverageTon: (currentKg / 1000).toFixed(2),
+      dailyAverageRolls: currentRolls,
+      projectedTotalKg: projectedKg,
+      projectedTotalTon: (projectedKg / 1000).toFixed(2),
+      projectedTotalRolls: projectedRolls,
+      remainingDays: 0,
+      runRateStatus: kpi.yieldPassRate >= 95 ? 'AHEAD' : 'ON_TRACK',
+      runRateLabel: kpi.yieldPassRate >= 95 ? 'Laju Kerja Optimal (Yield > 95%)' : 'Laju Kerja Berjalan Normal',
+      velocityTrend: 'STABLE',
+      velocityPercent: '+0.0%'
+    };
+  } else if (freq === 'WEEK') {
+    totalPeriodDays = 7;
+    const dayOfWeek = (today.getDay() + 6) % 7; // 0 = Senin, 6 = Minggu
+    elapsedDays = Math.max(1, dayOfWeek + 1);
+    remainingDays = Math.max(0, totalPeriodDays - elapsedDays);
+  } else if (freq === 'MONTH') {
+    const yr = targetDate.getFullYear();
+    const mo = targetDate.getMonth();
+    totalPeriodDays = new Date(yr, mo + 1, 0).getDate();
+    if (yr === today.getFullYear() && mo === today.getMonth()) {
+      elapsedDays = Math.max(1, today.getDate());
+    } else {
+      elapsedDays = totalPeriodDays;
+    }
+    remainingDays = Math.max(0, totalPeriodDays - elapsedDays);
+  } else if (freq === 'YEAR') {
+    totalPeriodDays = 365;
+    if (targetDate.getFullYear() === today.getFullYear()) {
+      const startOfYear = new Date(today.getFullYear(), 0, 1);
+      elapsedDays = Math.max(1, Math.round((today - startOfYear) / 86400000));
+    } else {
+      elapsedDays = 365;
+    }
+    remainingDays = Math.max(0, totalPeriodDays - elapsedDays);
+  } else {
+    const r = currentPeriodRange.value;
+    if (r.startDate && r.endDate) {
+      totalPeriodDays = Math.max(1, Math.round((r.endDate - r.startDate) / 86400000) + 1);
+      if (today >= r.startDate && today <= r.endDate) {
+        elapsedDays = Math.max(1, Math.round((today - r.startDate) / 86400000) + 1);
+      } else if (today > r.endDate) {
+        elapsedDays = totalPeriodDays;
+      } else {
+        elapsedDays = 1;
+      }
+      remainingDays = Math.max(0, totalPeriodDays - elapsedDays);
+    }
+  }
+
+  const dailyAverageKg = elapsedDays > 0 ? (currentKg / elapsedDays) : 0;
+  const dailyAverageRolls = elapsedDays > 0 ? (currentRolls / elapsedDays) : 0;
+  const projectedTotalKg = Math.round(currentKg + (dailyAverageKg * remainingDays));
+  const projectedTotalRolls = Math.round(currentRolls + (dailyAverageRolls * remainingDays));
+
+  let runRateStatus = 'ON_TRACK';
+  let runRateLabel = 'Sesuai Target Laju Kerja Pabrik';
+  if (kpi.yieldPassRate >= 96 && dailyAverageKg > 0) {
+    runRateStatus = 'AHEAD';
+    runRateLabel = 'Performa Tinggi (Yield & Kecepatan Di Atas Rata-rata)';
+  } else if (kpi.yieldPassRate < 92) {
+    runRateStatus = 'ATTENTION';
+    runRateLabel = 'Peringatan: Tingkat Afval / Hold Meningkat';
+  }
+
+  return {
+    periodLabel: activePeriodSubtitle.value,
+    totalPeriodDays,
+    elapsedDays,
+    remainingDays,
+    dailyAverageKg: Math.round(dailyAverageKg),
+    dailyAverageTon: (dailyAverageKg / 1000).toFixed(2),
+    dailyAverageRolls: Math.round(dailyAverageRolls),
+    projectedTotalKg,
+    projectedTotalTon: (projectedTotalKg / 1000).toFixed(2),
+    projectedTotalRolls,
+    runRateStatus,
+    runRateLabel,
+    velocityTrend: dailyAverageKg > 3000 ? 'UP' : 'STABLE',
+    velocityPercent: dailyAverageKg > 3000 ? '+8.5%' : '+0.0%'
+  };
+});
+
+// =========================================================================
+// 3.C ANIMASI ROLLING COUNTING (COUNTUP) BLOK 1
+// =========================================================================
+const animatedKpi = reactive({
+  tonase: 0,
+  kg: 0,
+  dailyAverageTon: 0,
+  rolls: 0,
+  meters: 0,
+  slittingRolls: 0,
+  rewindRolls: 0,
+  smlRolls: 0,
+  passRate: 0,
+  passCount: 0,
+  holdCount: 0,
+  rejectCount: 0
+});
+
+const easeOutExpo = (x) => (x === 1 ? 1 : 1 - Math.pow(2, -10 * x));
+let animFrameId = null;
+
+const runKpiCountAnimation = () => {
+  if (animFrameId) cancelAnimationFrame(animFrameId);
+
+  const startValues = { ...animatedKpi };
+  const targetValues = {
+    tonase: Number((kpiMetrics.value.totalBeratKg / 1000).toFixed(2)) || 0,
+    kg: Math.round(kpiMetrics.value.totalBeratKg) || 0,
+    dailyAverageTon: Number(forecastMetrics.value.dailyAverageTon) || 0,
+    rolls: Math.round(kpiMetrics.value.totalRolls) || 0,
+    meters: Math.round(kpiMetrics.value.totalMeter) || 0,
+    slittingRolls: Math.round(kpiMetrics.value.slittingRolls) || 0,
+    rewindRolls: Math.round(kpiMetrics.value.rewindRolls) || 0,
+    smlRolls: Math.round(kpiMetrics.value.smlRolls) || 0,
+    passRate: Number(kpiMetrics.value.yieldPassRate) || 0,
+    passCount: Math.round(kpiMetrics.value.passCount) || 0,
+    holdCount: Math.round(kpiMetrics.value.holdCount) || 0,
+    rejectCount: Math.round(kpiMetrics.value.rejectCount) || 0
+  };
+
+  const duration = 900;
+  const startTime = performance.now();
+
+  const step = (now) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, Math.max(0, elapsed / duration));
+    const factor = easeOutExpo(progress);
+
+    animatedKpi.tonase = Number((startValues.tonase + (targetValues.tonase - startValues.tonase) * factor).toFixed(2));
+    animatedKpi.kg = Math.round(startValues.kg + (targetValues.kg - startValues.kg) * factor);
+    animatedKpi.dailyAverageTon = Number((startValues.dailyAverageTon + (targetValues.dailyAverageTon - startValues.dailyAverageTon) * factor).toFixed(2));
+    animatedKpi.rolls = Math.round(startValues.rolls + (targetValues.rolls - startValues.rolls) * factor);
+    animatedKpi.meters = Math.round(startValues.meters + (targetValues.meters - startValues.meters) * factor);
+    animatedKpi.slittingRolls = Math.round(startValues.slittingRolls + (targetValues.slittingRolls - startValues.slittingRolls) * factor);
+    animatedKpi.rewindRolls = Math.round(startValues.rewindRolls + (targetValues.rewindRolls - startValues.rewindRolls) * factor);
+    animatedKpi.smlRolls = Math.round(startValues.smlRolls + (targetValues.smlRolls - startValues.smlRolls) * factor);
+    animatedKpi.passRate = Number((startValues.passRate + (targetValues.passRate - startValues.passRate) * factor).toFixed(1));
+    animatedKpi.passCount = Math.round(startValues.passCount + (targetValues.passCount - startValues.passCount) * factor);
+    animatedKpi.holdCount = Math.round(startValues.holdCount + (targetValues.holdCount - startValues.holdCount) * factor);
+    animatedKpi.rejectCount = Math.round(startValues.rejectCount + (targetValues.rejectCount - startValues.rejectCount) * factor);
+
+    if (progress < 1) {
+      animFrameId = requestAnimationFrame(step);
+    } else {
+      Object.assign(animatedKpi, targetValues);
+      animFrameId = null;
+    }
+  };
+
+  animFrameId = requestAnimationFrame(step);
+};
+
+// Re-run counting animation whenever filter range or KPI metrics change
+watch(
+  () => [
+    kpiMetrics.value.totalBeratKg,
+    kpiMetrics.value.totalRolls,
+    kpiMetrics.value.yieldPassRate,
+    selectedFrequency.value,
+    dayOffset.value,
+    customStartDate.value,
+    customEndDate.value
+  ],
+  () => {
+    runKpiCountAnimation();
+  },
+  { deep: true }
+);
+
+// =========================================================================
+// 4. DIAGRAM GARIS: MULTI-SHEET MESIN (SLITTING, REWIND, CASTING, TOTAL)
+// =========================================================================
+const chartMachineSheets = [
+  { key: 'SLITTING', label: 'Slitting', icon: '✂️' },
+  { key: 'REWIND', label: 'Rewind', icon: '🔄' },
+  { key: 'CASTING', label: 'Casting / SML', icon: '🏭' },
+  { key: 'TOTAL', label: 'Gabungan Mesin', icon: '🌐' }
+];
+
+const activeChartMachineSheet = ref('SLITTING'); // Default Slitting sesuai instruksi
+
+const filterByMachine = (items, targetMachine) => {
+  if (!items || items.length === 0) return [];
+  if (targetMachine === 'TOTAL') return items;
+  return items.filter(item => {
+    const mesin = String(item.machineName || item.mesin || (item.slitting ? 'SLITTING' : item.rewind ? 'REWIND' : 'CASTING')).toUpperCase();
+    if (targetMachine === 'REWIND') {
+      return mesin.includes('REWIND') || item.rewind;
+    }
+    if (targetMachine === 'CASTING') {
+      return mesin.includes('CASTING') || mesin.includes('SML') || item.sml;
+    }
+    if (targetMachine === 'SLITTING') {
+      return !mesin.includes('REWIND') && !mesin.includes('CASTING') && !mesin.includes('SML');
+    }
+    return true;
+  });
+};
+
+const setChartMachineSheet = (key) => {
+  activeChartMachineSheet.value = key;
+  // Sinkronkan panel operator kanan agar selaras jika bukan TOTAL
+  if (key !== 'TOTAL') {
+    selectedMachineTab.value = key;
+  }
+  updateLineChart();
+};
+
 const lineComparisonChartCanvas = ref(null);
 let lineComparisonChartInstance = null;
 
@@ -1590,7 +2431,8 @@ const lineChartTotals = ref({
 });
 
 const generateLineChartData = () => {
-  const list = filteredLabels.value;
+  const rawList = filteredLabels.value;
+  const list = filterByMachine(rawList, activeChartMachineSheet.value);
   let labels = [];
   let totalData = [];
   let passData = [];
@@ -1912,7 +2754,7 @@ const generateLineChartData = () => {
 
       chartScopeLabel = `Mingguan (${buckets.length} Minggu)`;
       const sourceList = (selectedFrequency.value === 'ALL' || !range.startDate)
-        ? allProductionRolls.value
+        ? filterByMachine(allProductionRolls.value, activeChartMachineSheet.value)
         : list;
 
       for (const item of sourceList) {
@@ -2022,7 +2864,7 @@ const generateLineChartData = () => {
       reject: 0
     }));
 
-    const sourceList = (selectedFrequency.value === 'ALL') ? allProductionRolls.value : list;
+    const sourceList = filterByMachine((selectedFrequency.value === 'ALL') ? allProductionRolls.value : rawList, activeChartMachineSheet.value);
 
     for (const item of sourceList) {
       const prodDate = getRealProductionDate(item);
@@ -2054,12 +2896,13 @@ const generateLineChartData = () => {
   const holdSum = holdData.reduce((a, b) => a + b, 0);
   const rejectSum = rejectData.reduce((a, b) => a + b, 0);
 
+  const sheetMeta = chartMachineSheets.find(s => s.key === activeChartMachineSheet.value);
   lineChartTotals.value = {
     total: totalSum,
     pass: passSum,
     hold: holdSum,
     reject: rejectSum,
-    periodLabel: chartScopeLabel || activePeriodSubtitle.value
+    periodLabel: `${chartScopeLabel || activePeriodSubtitle.value} (${sheetMeta?.label || 'Semua Mesin'})`
   };
 
   return { labels, totalData, passData, holdData, rejectData };
@@ -2152,7 +2995,10 @@ const initLineChart = () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 250 },
+        animation: {
+          duration: 900,
+          easing: 'easeOutQuart'
+        },
         interaction: {
           mode: 'index',
           intersect: false
@@ -2194,8 +3040,8 @@ const updateLineChart = () => {
   initLineChart();
 };
 
-// Reaktif re-render diagram garis saat data roll / label selesai dimuat dari IndexedDB
-watch([filteredLabels, allProductionRolls], () => {
+// Reaktif re-render diagram garis saat data roll / label selesai dimuat atau sheet mesin berganti
+watch([filteredLabels, allProductionRolls, activeChartMachineSheet], () => {
   nextTick(() => {
     if (!lineComparisonChartInstance) {
       initLineChart();
@@ -2349,82 +3195,583 @@ const showSpkModal = ref(false);
 const selectedSpkModal = ref(null);
 const showAllTimelineSpk = ref(false);
 
-const openSpkModal = (spk, activeView = 'ALL') => {
-  selectedSpkModal.value = { ...spk, activeView };
+const openSpkModal = (row, activeView = 'ALL') => {
+  selectedSpkModal.value = {
+    ...(row.plan || row.actual || row),
+    ...row,
+    activeView
+  };
   showSpkModal.value = true;
 };
 
-const activeTimelinePlans = computed(() => {
-  let plans = spkStore.plans || [];
-  if (spkStore.activeBatch && spkStore.activeBatch.uuid) {
-    const batchPlans = plans
-      .filter(p => p.batchId === spkStore.activeBatch.uuid)
-      .sort((a, b) => {
-        const seqA = a.seq !== undefined && a.seq !== null ? a.seq : (a.no || a.id || 0);
-        const seqB = b.seq !== undefined && b.seq !== null ? b.seq : (b.no || b.id || 0);
-        return seqA - seqB;
+// Aligned Timeline Rows: Mendukung urutan kerja, plan dilewati, dan order sisipan (unplanned)
+const dashboardTimelineRows = computed(() => {
+  const batch = spkStore.activeBatch;
+  const rawPlans = batch ? (spkStore.plans || []).filter(p => p.batchId === batch.uuid) : (spkStore.plans || []);
+  
+  // 1. Urutkan rencana strictly sesuai urutan pengerjaan & bersihkan dari string kosong / - / UNKNOWN
+  const plannedList = [...rawPlans]
+    .filter(p => {
+      const s = String(p.spkNo || '').trim();
+      const canon = parseSpkCanonical(s);
+      return canon !== '' && s !== '-' && s.toUpperCase() !== 'UNKNOWN' && s.toUpperCase() !== 'NULL' && s !== '0';
+    })
+    .sort((a, b) => (a.seq !== undefined && a.seq !== null ? a.seq : (a.no || a.id || 0)) - (b.seq !== undefined && b.seq !== null ? b.seq : (b.no || b.id || 0)));
+
+  // 2. Kumpulkan grup produksi aktual dari spkRealtimeDataMap (terfilter jendela waktu acuan H+2)
+  const dataMap = spkStore.spkRealtimeDataMap || new Map();
+  const actualRuns = [];
+
+  for (const [spkKey, spkData] of dataMap.entries()) {
+    const cleanKey = String(spkKey || '').trim();
+    const canon = parseSpkCanonical(cleanKey);
+    if (!cleanKey || !canon || cleanKey === '-' || cleanKey.toUpperCase() === 'UNKNOWN' || cleanKey.toUpperCase() === 'NULL' || cleanKey === '0') continue;
+
+    if (spkData && spkData.totalRealRolls > 0) {
+      let firstTime = Infinity;
+      let lastTime = 0;
+      let latestLot = '';
+      let operator = '';
+      for (const lt of spkData.lots.values()) {
+        const t = lt.date ? new Date(lt.date).getTime() : 0;
+        if (t > 0 && t < firstTime) firstTime = t;
+        if (t > lastTime) {
+          lastTime = t;
+          latestLot = lt.lot;
+          operator = lt.operator;
+        }
+      }
+      actualRuns.push({
+        spkNo: cleanKey,
+        totalRealRolls: spkData.totalRealRolls,
+        totalRealMeter: spkData.totalRealMeter,
+        totalRealKg: spkData.totalRealKg,
+        passCount: spkData.passCount,
+        holdCount: spkData.holdCount,
+        rejectCount: spkData.rejectCount,
+        firstTime: firstTime === Infinity ? 0 : firstTime,
+        lastTime,
+        latestLot,
+        operator,
+        latestTimeFormatted: lastTime > 0 ? new Date(lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : ''
       });
-    if (batchPlans.length > 0) {
-      plans = batchPlans;
     }
   }
-  return plans;
+
+  // Urutkan produksi aktual kronologis
+  actualRuns.sort((a, b) => a.firstTime - b.firstTime);
+
+  // Gunakan Canonical SPK Matcher terpadu
+  const isMatch = (s1, s2) => isSpkMatch(s1, s2);
+
+  // Zero seed fallback jika belum ada plan
+  if (plannedList.length === 0) {
+    const validActuals = actualRuns.filter(a => {
+      const canon = parseSpkCanonical(a.spkNo);
+      return canon !== '' && a.spkNo && a.spkNo !== '-' && a.spkNo.toUpperCase() !== 'UNKNOWN' && a.totalRealRolls > 0;
+    });
+    const sortedActuals = [...validActuals].sort((a, b) => b.lastTime - a.lastTime);
+    return sortedActuals.map((act, idx) => {
+      const plannedChildRolls = act.totalRealRolls;
+      const actualChildRolls = act.totalRealRolls;
+      const targetStatus = evaluateTargetStatus(actualChildRolls, plannedChildRolls, false);
+      const startTimeFormatted = act.firstTime > 0
+        ? new Date(act.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-';
+      const endTimeFormatted = act.lastTime > 0
+        ? new Date(act.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : '-';
+      return {
+        id: `fallback_${act.spkNo}_${idx}`,
+        type: 'UNPLANNED',
+        plan: null,
+        actual: act,
+        status: 'COMPLETED',
+        spkNo: act.spkNo,
+        startTimeFormatted,
+        endTimeFormatted,
+        targetStatus,
+        achievementPercent: 100,
+        plannedParentRolls: Math.max(1, Math.ceil(act.totalRealRolls / 2)),
+        actualParentCut: Math.max(1, Math.ceil(act.totalRealRolls / 2)),
+        diffParent: 0,
+        plannedChildRolls,
+        actualChildRolls,
+        diffChild: 0,
+        childAnalytics: [],
+        chartingSummary: '',
+        isChartingFullyMatched: true,
+        chartingDeviationRolls: 0,
+        chartingDeviationMessage: '',
+        isBladeImbalance: false,
+        bladeImbalanceMessage: '',
+        ukuranJumbo: 'ORDER AKTUAL LAPANGAN',
+        warning: 'Order Sisipan Lapangan',
+        isCurrentlyRunning: idx === 0,
+        isNextInQueue: false
+      };
+    });
+  }
+
+  const rows = [];
+  const handledActualIndices = new Set();
+  let timelineClock = new Date();
+  if (actualRuns.length > 0 && actualRuns[0].firstTime > 0) {
+    timelineClock = new Date(actualRuns[0].firstTime);
+  }
+
+  // Iterasi seluruh rencana SPK secara konsisten
+  for (let pIdx = 0; pIdx < plannedList.length; pIdx++) {
+    const plan = plannedList[pIdx];
+    const planAnalytics = spkStore.getSpkRealtimeAnalytics(plan.spkNo, plan) || {};
+
+    // Pasangkan dengan pengerjaan aktual jika ada
+    let matchedActual = null;
+    for (let aIdx = 0; aIdx < actualRuns.length; aIdx++) {
+      if (handledActualIndices.has(aIdx)) continue;
+      const act = actualRuns[aIdx];
+      if (isMatch(act.spkNo, plan.spkNo)) {
+        matchedActual = act;
+        handledActualIndices.add(aIdx);
+        break;
+      }
+    }
+
+    const durMinutes = planAnalytics.totalMinutes || 45;
+    const plannedTargetRolls = planAnalytics.plannedChildRolls || plan.totalPlannedRolls || (plan.jumlahJumbo * 2) || 2;
+
+    let status = 'UPCOMING';
+    let estStartTime = '';
+    let estEndTime = '';
+    let warning = '';
+
+    if (matchedActual) {
+      const isDone = matchedActual.totalRealRolls >= plannedTargetRolls;
+      status = isDone ? 'COMPLETED' : 'IN_PROGRESS';
+
+      if (matchedActual.firstTime > 0) {
+        estStartTime = new Date(matchedActual.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      } else {
+        estStartTime = timelineClock.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      if (status === 'COMPLETED') {
+        const finishTime = matchedActual.lastTime > 0 ? matchedActual.lastTime : (matchedActual.firstTime + durMinutes * 60000);
+        estEndTime = new Date(finishTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        timelineClock = new Date(finishTime);
+      } else {
+        const rollsLeft = Math.max(1, plannedTargetRolls - matchedActual.totalRealRolls);
+        const remainingFraction = Math.max(0.1, rollsLeft / plannedTargetRolls);
+        const remainingMins = Math.round(durMinutes * remainingFraction);
+        const projectedFinish = Date.now() + remainingMins * 60000;
+        estEndTime = new Date(projectedFinish).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        timelineClock = new Date(projectedFinish);
+      }
+    } else {
+      if (plan.status === 'SKIPPED' || plan.isSkipped) {
+        status = 'SKIPPED';
+        estStartTime = '-';
+        estEndTime = '-';
+        warning = 'Dilewati / Dilompati Sesuai Instruksi';
+      } else {
+        // Cek apakah urutan selanjutnya sudah ada yang mulai dikerjakan
+        const subsequentPlans = plannedList.slice(pIdx + 1);
+        const hasLaterStarted = subsequentPlans.some(sp => actualRuns.some(act => isMatch(act.spkNo, sp.spkNo)));
+
+        status = 'UPCOMING';
+        if (hasLaterStarted) {
+          warning = 'Urutan Pengerjaan Terlewati (Menunggu Giliran)';
+        }
+        const startMs = timelineClock.getTime();
+        const endMs = startMs + durMinutes * 60000;
+        estStartTime = new Date(startMs).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        estEndTime = new Date(endMs).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        timelineClock = new Date(endMs);
+      }
+    }
+
+    const actualChildRolls = matchedActual ? matchedActual.totalRealRolls : 0;
+    const targetStatus = evaluateTargetStatus(actualChildRolls, plannedTargetRolls, status === 'SKIPPED');
+    const startTimeFormatted = matchedActual && matchedActual.firstTime > 0
+      ? new Date(matchedActual.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : (status === 'SKIPPED' ? '-' : (estStartTime || '-'));
+    const endTimeFormatted = matchedActual && matchedActual.lastTime > 0
+      ? new Date(matchedActual.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : (status === 'SKIPPED' ? '-' : (estEndTime || '-'));
+
+    rows.push({
+      id: `plan_${plan.id || pIdx}`,
+      type: 'PLANNED',
+      plan,
+      actual: matchedActual,
+      status,
+      spkNo: plan.spkNo,
+      formula: plan.formula || planAnalytics.formula || 'M01',
+      thickness: plan.thickness || planAnalytics.thickness || 20,
+      jenis: plan.jenis || 'CPP',
+      customer: plan.customer || plan.namaCustomer || '-',
+      planDurationMinutes: durMinutes,
+      estStartTime,
+      estEndTime,
+      startTimeFormatted,
+      endTimeFormatted,
+      targetStatus,
+      achievementPercent: planAnalytics.achievementPercent || 0,
+      plannedParentRolls: planAnalytics.plannedParentRolls || plan.jumlahJumbo || 1,
+      actualParentCut: planAnalytics.actualParentCut || 0,
+      parentStatus: planAnalytics.parentStatus || null,
+      parentAchievementPercent: planAnalytics.parentAchievementPercent || 0,
+      ukuranJumbo: planAnalytics.ukuranJumbo || plan.ukuranJumbo || `${plan.jenis || 'CPP'} ${plan.formula || ''} ${plan.thickness || ''}μ x ${plan.lebarParent || ''}mm`,
+      childAnalytics: planAnalytics.childAnalytics || [],
+      chartingSummary: planAnalytics.chartingSummary || '',
+      isChartingFullyMatched: planAnalytics.isChartingFullyMatched !== false,
+      chartingDeviationRolls: planAnalytics.chartingDeviationRolls || 0,
+      chartingDeviationMessage: planAnalytics.chartingDeviationMessage || '',
+      isBladeImbalance: planAnalytics.isBladeImbalance || false,
+      bladeImbalanceMessage: planAnalytics.bladeImbalanceMessage || '',
+      diffParent: planAnalytics.diffParent || 0,
+      plannedChildRolls: plannedTargetRolls,
+      actualChildRolls,
+      diffChild: planAnalytics.diffChild || 0,
+      diffMeter: planAnalytics.diffMeter || 0,
+      speed: planAnalytics.speed || 600,
+      warning,
+      isCurrentlyRunning: false,
+      isNextInQueue: false
+    });
+  }
+
+  // Tambahkan Order Sisipan Lapangan (aktual yang tidak cocok dengan plan manapun)
+  for (let aIdx = 0; aIdx < actualRuns.length; aIdx++) {
+    if (handledActualIndices.has(aIdx)) continue;
+    const act = actualRuns[aIdx];
+    const canon = parseSpkCanonical(act.spkNo);
+    if (!act.spkNo || !canon || act.spkNo === '-' || act.spkNo.toUpperCase() === 'UNKNOWN' || act.spkNo.toUpperCase() === 'NULL' || act.spkNo === '0') continue;
+    if (!act.totalRealRolls || act.totalRealRolls <= 0) continue;
+
+    const actTargetStatus = evaluateTargetStatus(act.totalRealRolls, act.totalRealRolls, false);
+    const actStartFormatted = act.firstTime > 0
+      ? new Date(act.firstTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : '-';
+    const actEndFormatted = act.lastTime > 0
+      ? new Date(act.lastTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : '-';
+
+    rows.push({
+      id: `unplanned_${act.spkNo}_${aIdx}`,
+      type: 'UNPLANNED',
+      plan: null,
+      actual: act,
+      status: 'UNPLANNED',
+      spkNo: act.spkNo,
+      startTimeFormatted: actStartFormatted,
+      endTimeFormatted: actEndFormatted,
+      targetStatus: actTargetStatus,
+      achievementPercent: 100,
+      plannedParentRolls: Math.max(1, Math.ceil(act.totalRealRolls / 2)),
+      actualParentCut: Math.max(1, Math.ceil(act.totalRealRolls / 2)),
+      diffParent: 0,
+      plannedChildRolls: act.totalRealRolls,
+      actualChildRolls: act.totalRealRolls,
+      diffChild: 0,
+      childAnalytics: [],
+      chartingSummary: '',
+      isChartingFullyMatched: true,
+      chartingDeviationRolls: 0,
+      chartingDeviationMessage: '',
+      isBladeImbalance: false,
+      bladeImbalanceMessage: '',
+      ukuranJumbo: 'ORDER SISIPAN LAPANGAN',
+      warning: 'Order Sisipan Lapangan (Tidak Ada dalam Plan SPK)',
+      isCurrentlyRunning: false,
+      isNextInQueue: false
+    });
+    handledActualIndices.add(aIdx);
+  }
+
+  // Tentukan urutan mana yang saat ini sedang jalan di mesin Slitting
+  let runningFound = false;
+  for (const row of rows) {
+    if (row.status === 'IN_PROGRESS') {
+      row.isCurrentlyRunning = true;
+      runningFound = true;
+      break;
+    }
+  }
+  // Jika tidak ada IN_PROGRESS, tandai urutan terdepan yang UPCOMING sebagai antrean berjalan
+  if (!runningFound && rows.length > 0) {
+    const firstUpcoming = rows.find(r => r.status === 'UPCOMING');
+    if (firstUpcoming) {
+      firstUpcoming.isCurrentlyRunning = true;
+      firstUpcoming.isNextInQueue = true;
+    }
+  }
+
+  return rows;
 });
 
-const totalTimelinePlansCount = computed(() => activeTimelinePlans.value.length);
-
+// Alias timelineSpkList untuk menjaga kompatibilitas komponen
 const timelineSpkList = computed(() => {
-  const plans = activeTimelinePlans.value;
-  const list = [];
-  const maxItems = showAllTimelineSpk.value ? plans.length : Math.min(10, plans.length);
+  const rows = dashboardTimelineRows.value;
+  if (!showAllTimelineSpk.value) {
+    return rows.slice(0, 15);
+  }
+  return rows;
+});
 
-  if (plans.length > 0) {
-    for (let i = 0; i < maxItems; i++) {
-      const p = plans[i];
-      const analytics = spkStore.getSpkRealtimeAnalytics(p.spkNo, p) || {};
-      const planRoll = analytics.plannedChildRolls || p.totalPlannedRolls || (p.jumlahJumbo ? p.jumlahJumbo * 2 : 0);
-      const planMeter = analytics.plannedMeter || (p.totalPlannedMeter || (p.panjangParent && p.jumlahJumbo ? p.panjangParent * p.jumlahJumbo : 0));
-      const actualRoll = analytics.totalRealRolls || 0;
-      const actualMeter = analytics.totalRealMeter || 0;
-      const actualKg = analytics.totalRealKg || 0;
-      const percent = planRoll > 0 ? Math.round((actualRoll / planRoll) * 100) : 0;
+const totalTimelinePlansCount = computed(() => dashboardTimelineRows.value.length);
 
-      let status = 'SCHEDULED';
-      if (percent >= 100) status = 'DONE';
-      else if (actualRoll > 0) status = 'RUNNING';
+// Executive Summary Batch SPK di Dashboard
+const timelineBatchSummary = computed(() => {
+  const list = dashboardTimelineRows.value;
+  let totalPlanRolls = 0;
+  let totalActRolls = 0;
+  let totalPlanMeters = 0;
+  let totalActMeters = 0;
+  let completedCount = 0;
+  let runningCount = 0;
+  let upcomingCount = 0;
+  let skippedCount = 0;
+  let unplannedCount = 0;
 
-      const targetStatus = analytics.targetStatus || evaluateTargetStatus(actualRoll, planRoll, p.status === 'SKIPPED');
+  for (const it of list) {
+    totalPlanRolls += (it.plannedChildRolls || 0);
+    totalActRolls += (it.actualChildRolls || (it.actual?.totalRealRolls || 0));
+    totalPlanMeters += (it.plan?.totalPlannedMeter || (it.plan?.panjangParent * it.plannedParentRolls) || 0);
+    totalActMeters += (it.actual?.totalRealMeter || 0);
 
-      list.push({
-        spkNo: p.spkNo,
-        docNo: p.docNo || '3B-PROD',
-        formula: p.formula || analytics.formula || 'CPP',
-        thickness: p.thickness || analytics.thickness || 20,
-        jenis: p.jenis || 'CPP',
-        customer: p.customer || p.namaCustomer || '-',
-        planRoll,
-        planMeter,
-        planJumbo: p.jumlahJumbo || 0,
-        speed: analytics.speed || 0,
-        actualRoll,
-        actualMeter,
-        actualKg,
-        actualJumbo: analytics.actualParentCut || 0,
-        passCount: analytics.passCount || 0,
-        holdCount: analytics.holdCount || 0,
-        rejectCount: analytics.rejectCount || 0,
-        percent,
-        status,
-        startTimeFormatted: analytics.startTimeFormatted || '-',
-        endTimeFormatted: analytics.endTimeFormatted || '-',
-        targetStatus,
-        diffRoll: actualRoll - planRoll,
-        diffMeter: Math.round(actualMeter - planMeter)
-      });
-    }
+    if (it.status === 'COMPLETED') completedCount++;
+    else if (it.status === 'IN_PROGRESS') runningCount++;
+    else if (it.status === 'SKIPPED') skippedCount++;
+    else if (it.status === 'UNPLANNED') unplannedCount++;
+    else upcomingCount++;
   }
 
-  return list;
+  const rollPercent = totalPlanRolls > 0 ? Math.round((totalActRolls / totalPlanRolls) * 100) : (totalActRolls > 0 ? 100 : 0);
+  const meterPercent = totalPlanMeters > 0 ? Math.round((totalActMeters / totalPlanMeters) * 100) : (totalActMeters > 0 ? 100 : 0);
+
+  return {
+    totalPlanRolls,
+    totalActRolls,
+    totalPlanMeters,
+    totalActMeters,
+    completedCount,
+    runningCount,
+    upcomingCount,
+    skippedCount,
+    unplannedCount,
+    rollPercent,
+    meterPercent
+  };
+});
+
+// =========================================================================
+// REKAP RINCIAN UKURAN FG SELESAI DIPROSES HARI INI (ROLL, METER, KG, STATUS)
+// Format Deskripsi NAV: [JENIS] [KF] [THICK] MC X [WIDTH] MM
+// =========================================================================
+const fgStatusFilter = ref('ALL'); // 'ALL' | 'PASS' | 'HOLD' | 'REJECT'
+const fgSearchQuery = ref('');
+const fgSortBy = ref('NAV'); // 'NAV' (default) | 'ROLL' | 'KG' | 'METER'
+
+const todayFgSizeSummary = computed(() => {
+  const sourceRolls = filteredLabels.value || [];
+  if (!sourceRolls || sourceRolls.length === 0) {
+    return {
+      groups: [],
+      grandTotals: {
+        totalRolls: 0,
+        totalMeter: 0,
+        totalKg: 0,
+        passRolls: 0,
+        passKg: 0,
+        passMeter: 0,
+        holdRolls: 0,
+        holdKg: 0,
+        holdMeter: 0,
+        rejectRolls: 0,
+        rejectKg: 0,
+        rejectMeter: 0,
+        passRate: 0,
+        variantCount: 0
+      }
+    };
+  }
+
+  const groupMap = new Map();
+  let grandRolls = 0;
+  let grandMeter = 0;
+  let grandKg = 0;
+  let grandPassRolls = 0;
+  let grandPassKg = 0;
+  let grandPassMeter = 0;
+  let grandHoldRolls = 0;
+  let grandHoldKg = 0;
+  let grandHoldMeter = 0;
+  let grandRejectRolls = 0;
+  let grandRejectKg = 0;
+  let grandRejectMeter = 0;
+
+  for (const it of sourceRolls) {
+    // Saring agar hanya Finished Goods (FG) roll
+    const jenisPrint = String(it.jenisPrint || '').toUpperCase();
+    const tipe = String(it.tipe || it.tipe_roll || '').toUpperCase();
+    const isWip = tipe.includes('WIP') || jenisPrint.includes('WIP') || String(it.mesin || '').toUpperCase().includes('CAST');
+    if (isWip) continue;
+
+    const jenis = String(it.jenisFilm || it.jenis_film || it.jenis || 'CPP').toUpperCase().trim();
+    const formula = String(it.kodeFormula || it.kode_formula || it.formula || it.kode || (it.lot ? it.lot.slice(0, 3) : '') || '-').toUpperCase().trim();
+    const thickness = parseFloat(it.thickness || it.tebal || it.thick || it.micron || 0) || 0;
+    const width = parseFloat(it.width || it.lebar || 0) || 0;
+    const length = parseFloat(it.length || it.panjang || it.meter || 0) || 0;
+
+    const kg = parseFloat(it.netto || it.beratNetto || it.berat || 0) || 0;
+    const m = length;
+
+    // Format Deskripsi NAV resmi: [JENIS] [KF] [THICK] MC X [WIDTH] MM
+    const navDescription = `${jenis} ${formula} ${thickness > 0 ? thickness + ' MC' : 'MC'} X ${width > 0 ? width + ' MM' : 'MM'}`.toUpperCase();
+
+    // Normalisasi Status QC (PASS / HOLD / REJECT)
+    const rawSt = String(it.qualityStatus || it.status || 'PASS').toUpperCase().trim();
+    let normSt = 'PASS';
+    if (rawSt === 'HOLD') normSt = 'HOLD';
+    else if (rawSt === 'REJECT' || rawSt === 'NG') normSt = 'REJECT';
+    else normSt = 'PASS';
+
+    grandRolls++;
+    grandMeter += m;
+    grandKg += kg;
+
+    if (normSt === 'PASS') {
+      grandPassRolls++;
+      grandPassKg += kg;
+      grandPassMeter += m;
+    } else if (normSt === 'HOLD') {
+      grandHoldRolls++;
+      grandHoldKg += kg;
+      grandHoldMeter += m;
+    } else {
+      grandRejectRolls++;
+      grandRejectKg += kg;
+      grandRejectMeter += m;
+    }
+
+    if (!groupMap.has(navDescription)) {
+      groupMap.set(navDescription, {
+        navDescription,
+        jenis,
+        formula,
+        thickness,
+        width,
+        length,
+        totalRolls: 0,
+        totalMeter: 0,
+        totalKg: 0,
+        passRolls: 0,
+        passMeter: 0,
+        passKg: 0,
+        holdRolls: 0,
+        holdMeter: 0,
+        holdKg: 0,
+        rejectRolls: 0,
+        rejectMeter: 0,
+        rejectKg: 0,
+        machines: new Set(),
+        shifts: new Set(),
+        lots: new Set()
+      });
+    }
+
+    const g = groupMap.get(navDescription);
+    g.totalRolls++;
+    g.totalMeter += m;
+    g.totalKg += kg;
+
+    if (normSt === 'PASS') {
+      g.passRolls++;
+      g.passMeter += m;
+      g.passKg += kg;
+    } else if (normSt === 'HOLD') {
+      g.holdRolls++;
+      g.holdMeter += m;
+      g.holdKg += kg;
+    } else {
+      g.rejectRolls++;
+      g.rejectMeter += m;
+      g.rejectKg += kg;
+    }
+
+    if (it.mesin || it.machineName) g.machines.add(it.mesin || it.machineName);
+    if (it.shift) g.shifts.add(`Shift ${it.shift}`);
+    if (it.lot || it.no_lot) g.lots.add(it.lot || it.no_lot);
+  }
+
+  let list = Array.from(groupMap.values()).map(g => ({
+    ...g,
+    totalKg: Math.round(g.totalKg * 10) / 10,
+    totalMeter: Math.round(g.totalMeter),
+    passKg: Math.round(g.passKg * 10) / 10,
+    passMeter: Math.round(g.passMeter),
+    holdKg: Math.round(g.holdKg * 10) / 10,
+    holdMeter: Math.round(g.holdMeter),
+    rejectKg: Math.round(g.rejectKg * 10) / 10,
+    rejectMeter: Math.round(g.rejectMeter),
+    passRate: g.totalRolls > 0 ? Math.round((g.passRolls / g.totalRolls) * 100) : 0,
+    machineList: Array.from(g.machines),
+    shiftList: Array.from(g.shifts)
+  }));
+
+  // Filter Pencarian
+  if (fgSearchQuery.value.trim()) {
+    const q = fgSearchQuery.value.trim().toUpperCase();
+    list = list.filter(item => 
+      item.navDescription.includes(q) ||
+      String(item.width).includes(q) ||
+      String(item.thickness).includes(q) ||
+      item.formula.includes(q)
+    );
+  }
+
+  // Filter Kategori Mutu
+  if (fgStatusFilter.value === 'PASS') {
+    list = list.filter(item => item.passRolls > 0);
+  } else if (fgStatusFilter.value === 'HOLD') {
+    list = list.filter(item => item.holdRolls > 0);
+  } else if (fgStatusFilter.value === 'REJECT') {
+    list = list.filter(item => item.rejectRolls > 0);
+  }
+
+  // Sorting: Default SESUAI DESKRIPSI NAV (A-Z)
+  if (fgSortBy.value === 'NAV') {
+    list.sort((a, b) => a.navDescription.localeCompare(b.navDescription, undefined, { numeric: true, sensitivity: 'base' }));
+  } else if (fgSortBy.value === 'ROLL') {
+    list.sort((a, b) => b.totalRolls - a.totalRolls);
+  } else if (fgSortBy.value === 'KG') {
+    list.sort((a, b) => b.totalKg - a.totalKg);
+  } else if (fgSortBy.value === 'METER') {
+    list.sort((a, b) => b.totalMeter - a.totalMeter);
+  }
+
+  const grandPassRate = grandRolls > 0 ? Math.round((grandPassRolls / grandRolls) * 100) : 0;
+
+  return {
+    groups: list,
+    grandTotals: {
+      totalRolls: grandRolls,
+      totalMeter: Math.round(grandMeter),
+      totalKg: Math.round(grandKg * 10) / 10,
+      passRolls: grandPassRolls,
+      passKg: Math.round(grandPassKg * 10) / 10,
+      passMeter: Math.round(grandPassMeter),
+      holdRolls: grandHoldRolls,
+      holdKg: Math.round(grandHoldKg * 10) / 10,
+      holdMeter: Math.round(grandHoldMeter),
+      rejectRolls: grandRejectRolls,
+      rejectKg: Math.round(grandRejectKg * 10) / 10,
+      rejectMeter: Math.round(grandRejectMeter),
+      passRate: grandPassRate,
+      variantCount: groupMap.size
+    }
+  };
 });
 
 // =========================================================================
@@ -2486,16 +3833,16 @@ const allStockItems = computed(() => {
   });
 
   const wipStocks = (wipStore.activeWipRolls || []).map(j => {
-    const length = Number(j.panjangAktual || j.panjang || 0) || 0;
-    const kg = Number(j.beratAktual || j.berat || 0) || 0;
+    const length = Number(j.length || j.panjangAktual || j.panjang || 0) || 0;
+    const kg = Number(j.beratAktual || j.berat || j.beratTeori || 0) || 0;
     const jenis = String(j.jenis || 'CPP').toUpperCase().trim();
-    const formula = String(j.formula || j.kodeFormula || 'G01').toUpperCase().trim();
-    const thick = String(j.thick || j.tebal || '20').trim();
+    const formula = String(j.kodeFormula || j.formula || (j.lot ? j.lot.slice(0, 3) : '') || 'M07').toUpperCase().trim();
+    const thick = String(j.thickness || j.thick || j.tebal || '20').trim();
     const width = String(j.width || j.lebar || '1000').trim();
     const nav = j.descriptionNav || `${jenis} ${formula} ${thick} MC X ${width} MM`;
 
     return {
-      id: j.id || j.rollNo || `JUMBO_${j.rollNo || 'NA'}_${jenis}_${formula}_${thick}_${width}`,
+      id: j.id || j.uuid || `JUMBO_${j.lot || 'NA'}_${jenis}_${formula}_${thick}_${width}`,
       stockType: 'JUMBO',
       isJumbo: true,
       jenis,
@@ -2504,11 +3851,11 @@ const allStockItems = computed(() => {
       width,
       length,
       descNav: nav,
-      sourceNo: j.rollNo || '-',
+      sourceNo: j.lot || j.rollNo || '-',
       totalRoll: 1,
       totalPanjang: length,
       totalKg: kg,
-      listRak: j.lokasiAktif || '-'
+      listRak: j.lokasiAktif ? `${j.lokasiAktif} (${j.posisiAktif || 'BAWAH'})` : '-'
     };
   });
 
@@ -2637,12 +3984,16 @@ const formatNum = (val) => {
 // 9. SCROLL ANIMATION (REPEATING ANIMATE IN & OUT)
 // =========================================================================
 let scrollObserver = null;
+let block1Observer = null;
 
 const initScrollAnimations = () => {
   if (typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
   
   if (scrollObserver) {
     scrollObserver.disconnect();
+  }
+  if (block1Observer) {
+    block1Observer.disconnect();
   }
 
   scrollObserver = new IntersectionObserver((entries) => {
@@ -2661,6 +4012,25 @@ const initScrollAnimations = () => {
 
   const targets = document.querySelectorAll('.reveal-on-scroll');
   targets.forEach((el) => scrollObserver.observe(el));
+
+  // Observer khusus untuk Blok 1: Rolling Counting dipicu saat scroll kembali ke Blok 1
+  if (block1Ref.value) {
+    let hasLeftBlock1 = false;
+    block1Observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          if (hasLeftBlock1) {
+            runKpiCountAnimation();
+          }
+        } else {
+          hasLeftBlock1 = true;
+        }
+      });
+    }, {
+      threshold: 0.15
+    });
+    block1Observer.observe(block1Ref.value);
+  }
 };
 
 // =========================================================================
@@ -2687,16 +4057,22 @@ onMounted(async () => {
   }
 
   await nextTick();
+  runKpiCountAnimation();
   initLineChart();
   initScrollAnimations();
 });
 
 onUnmounted(() => {
   if (liveTimer) clearInterval(liveTimer);
+  if (animFrameId) cancelAnimationFrame(animFrameId);
   if (lineComparisonChartInstance) lineComparisonChartInstance.destroy();
   if (scrollObserver) {
     scrollObserver.disconnect();
     scrollObserver = null;
+  }
+  if (block1Observer) {
+    block1Observer.disconnect();
+    block1Observer = null;
   }
 });
 </script>

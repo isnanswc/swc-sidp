@@ -3327,16 +3327,23 @@ const executeImportWip = async () => {
     const uniqueLocations = [...new Set(parsedPreviewRolls.value.map(r => r.lokasiAktif).filter(Boolean))];
     await configStore.autoRegisterDiscoveredLocations(uniqueLocations, 'WIP JUMBO');
 
+    const shouldMakeActive = importMakeActive.value !== false;
     const newBatch = await wipStore.createWipUpdate({
       title: importTitle.value.trim() || `Update Stok WIP ${new Date().toLocaleDateString('id-ID')}`,
       tanggal: importTanggal.value,
       fileName: uploadedFileName.value || (importMode.value === 'copas' ? 'Copas_Excel_Table' : 'Upload_WIP.xlsx'),
       rawRollsList: parsedPreviewRolls.value,
-      makeActive: importMakeActive.value
+      makeActive: shouldMakeActive
     });
 
+    if (newBatch && shouldMakeActive) {
+      await wipStore.setActiveUpdate(newBatch);
+      activeWipTab.value = 'stock';
+      wipStore.selectedUpdateId = newBatch.uuid || newBatch.id;
+    }
+
     showImportModal.value = false;
-    alert(`⚡ Sukses: Berhasil membuat sesi update "${newBatch.title}" berisi ${newBatch.totalRolls} roll.`);
+    alert(`⚡ Sukses: Berhasil mengimpor ${newBatch.totalRolls} roll data WIP dan langsung ditetapkan sebagai Acuan Utama Stok Aktif.`);
   } catch (err) {
     alert('Gagal menyimpan import WIP: ' + (err.message || 'Terjadi kesalahan'));
   } finally {

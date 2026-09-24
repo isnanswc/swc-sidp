@@ -1075,7 +1075,8 @@ import {
   saveAiConfig,
   deleteAiConfig,
   DEFAULT_AI_MODELS,
-  DEFAULT_FALLBACK_MODELS
+  DEFAULT_FALLBACK_MODELS,
+  isObsoleteModel
 } from '@/services/geminiService';
 
 const configStore = useConfigStore();
@@ -1155,11 +1156,7 @@ const isFetchingModels = ref(false);
 const fallbackModels = ref([...DEFAULT_FALLBACK_MODELS]);
 const draggedFallbackIndex = ref(null);
 
-const DEFAULT_MODELS = [
-  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash (Rekomendasi Utama)', description: 'Generasi 2.0 Flash mutakhir — multimodal ultra cepat, presisi tinggi, dan sangat stabil.' },
-  { id: 'gemini-2.0-flash-lite', displayName: 'Gemini 2.0 Flash Lite', description: 'Generasi 2.0 Flash Lite hemat kuota dan responsif.' },
-  { id: 'gemini-2.0-pro-exp-02-05', displayName: 'Gemini 2.0 Pro', description: 'Model penalaran tingkat tinggi generasi 2.0 untuk analisis dokumen industri kompleks.' }
-];
+const DEFAULT_MODELS = [...DEFAULT_AI_MODELS];
 
 const availableModels = ref([...DEFAULT_MODELS]);
 
@@ -1254,13 +1251,20 @@ onMounted(async () => {
   const aiCfg = await getAiConfig();
   apiKey.value = aiCfg.apiKey || '';
   if (aiCfg.availableModels && aiCfg.availableModels.length > 0) {
-    availableModels.value = aiCfg.availableModels;
+    const cleaned = aiCfg.availableModels.filter(m => !isObsoleteModel(m.id));
+    availableModels.value = cleaned.length > 0 ? cleaned : [...DEFAULT_AI_MODELS];
+  } else {
+    availableModels.value = [...DEFAULT_AI_MODELS];
   }
   if (Array.isArray(aiCfg.fallbackModels)) {
-    fallbackModels.value = [...aiCfg.fallbackModels];
+    const cleanedFallback = aiCfg.fallbackModels.filter(m => !isObsoleteModel(m));
+    fallbackModels.value = cleanedFallback.length > 0 ? cleanedFallback : [...DEFAULT_FALLBACK_MODELS];
   }
 
-  const savedModel = aiCfg.selectedModel || 'gemini-2.0-flash';
+  let savedModel = aiCfg.selectedModel || 'gemini-2.0-flash';
+  if (isObsoleteModel(savedModel)) {
+    savedModel = 'gemini-2.0-flash';
+  }
   const isPreset = availableModels.value.some(m => m.id === savedModel);
   if (isPreset) {
     selectedModel.value = savedModel;
@@ -1304,7 +1308,8 @@ const fetchModelsRealtime = async () => {
           .filter(m => {
             const hasGenerate = m.supportedGenerationMethods?.includes('generateContent');
             const isGemini = m.name?.includes('gemini');
-            return hasGenerate && isGemini;
+            const isNotObsolete = !isObsoleteModel(m.name);
+            return hasGenerate && isGemini && isNotObsolete;
           })
           .map(m => ({
             id: m.name.replace(/^models\//, ''),
@@ -1366,8 +1371,8 @@ const testApiConnection = async () => {
   testStatusText.value = `Menguji model ${modelTarget}...`;
   testSuccess.value = null;
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelTarget}:generateContent`;
+    const targetClean = String(modelTarget).replace(/^models\//, '').trim();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetClean}:generateContent`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {

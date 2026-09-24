@@ -239,15 +239,21 @@ export async function parseSpkDocumentImage(fileOrBase64, isCamera = false, film
 async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/jpeg', filmConfigs = [], scheduleDate = null, onProgress = null, aiCfg = {}) {
   let modelCandidates = await getAiModelCandidates();
   if (!modelCandidates || modelCandidates.length === 0) {
-    modelCandidates = [
-      aiCfg.selectedModel || 'gemini-2.0-flash',
+    const rawFallbacks = [
+      aiCfg.selectedModel,
+      ...(Array.isArray(aiCfg.fallbackModels) ? aiCfg.fallbackModels : []),
+      'gemini-2.0-flash',
       'gemini-2.0-flash-lite',
-      'gemini-2.0-pro-exp-02-05'
-    ].filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
+      'gemini-1.5-flash',
+      'gemini-1.5-pro'
+    ];
+    modelCandidates = rawFallbacks.map(m => String(m || '').replace(/^models\//, '').trim()).filter(Boolean);
   }
 
-  // Pastikan modelCandidates tidak ada duplikasi
-  modelCandidates = modelCandidates.filter((m, i, arr) => arr.indexOf(m) === i);
+  // Pastikan modelCandidates bersih dan tidak ada duplikasi
+  modelCandidates = modelCandidates
+    .map(m => String(m || '').replace(/^models\//, '').trim())
+    .filter((m, i, arr) => m && m !== '__custom__' && arr.indexOf(m) === i);
 
   const prompt = `
 Analisis dokumen formulir fisik PT. Saptawarna Cemerlang "JADWAL SLITTING (Kode: 3B-PROD)".
@@ -318,7 +324,8 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
       onProgress('analyzing', pct, `Menganalisis dokumen dengan ${modelTarget}...`);
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelTarget}:generateContent`;
+    const cleanModel = String(modelTarget).replace(/^models\//, '').trim();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent`;
 
     const abortCtrl = new AbortController();
     const timeoutId = setTimeout(() => abortCtrl.abort(), 35000); // 35s timeout per candidate

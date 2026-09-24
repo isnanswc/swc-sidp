@@ -1,16 +1,30 @@
 import { getSetting, saveSetting, deleteSetting } from '@/db';
 import { supabase } from '@/services/supabaseClient';
 
+export function cleanModelId(modelId) {
+  if (!modelId) return '';
+  return String(modelId).trim().replace(/^models\//, '');
+}
+
+export function isObsoleteModel(modelId) {
+  if (!modelId) return true;
+  const m = cleanModelId(modelId).toLowerCase();
+  // Hanya filter model eksperimental lawas yang terbukti 404 (sudah dinonaktifkan Google secara permanen)
+  return m === 'gemini-2.0-pro-exp-02-05' || m === 'gemini-1.0-pro' || m === 'gemini-pro-vision';
+}
+
 export const DEFAULT_AI_MODELS = [
   { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash (Rekomendasi Utama)', description: 'Model multimodal generasi 2.0 — performa ultra cepat, akurasi visual tinggi, dan stabil.' },
   { id: 'gemini-2.0-flash-lite', displayName: 'Gemini 2.0 Flash Lite', description: 'Model generasi 2.0 hemat kuota, efisien, dan responsif.' },
-  { id: 'gemini-2.0-pro-exp-02-05', displayName: 'Gemini 2.0 Pro', description: 'Model penalaran tingkat tinggi generasi 2.0 untuk analisis dokumen industri kompleks.' }
+  { id: 'gemini-1.5-flash', displayName: 'Gemini 1.5 Flash (Super Stabil)', description: 'Model multimodal standar Google yang sangat stabil untuk pembacaan dokumen dan tabel industri.' },
+  { id: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', description: 'Model penalaran analitik mendalam untuk dokumen industri kompleks.' }
 ];
 
 export const DEFAULT_FALLBACK_MODELS = [
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
-  'gemini-2.0-pro-exp-02-05'
+  'gemini-1.5-flash',
+  'gemini-1.5-pro'
 ];
 
 export const HEALTH_REGISTRY_KEY = 'google_ai_health_registry';
@@ -71,14 +85,14 @@ export async function getAiHealthRegistry(forceRefresh = false) {
   }
   if (!registry.cooldowns) registry.cooldowns = {};
 
-  // Bersihkan cooldown yang sudah kedaluwarsa atau model obsolete (1.x, 2.5, 3.5) secara otomatis
+  // Bersihkan model obsolete (seperti model eksperimental yang sudah ditutup) atau cooldown kadaluwarsa secara otomatis
   let hasExpired = false;
-  if (registry.winner && (registry.winner.includes('1.') || registry.winner.includes('2.5') || registry.winner.includes('3.5'))) {
+  if (registry.winner && isObsoleteModel(registry.winner)) {
     registry.winner = 'gemini-2.0-flash';
     hasExpired = true;
   }
   for (const [model, info] of Object.entries(registry.cooldowns)) {
-    if (model.includes('1.') || model.includes('2.5') || model.includes('3.5') || (info && info.until && now >= info.until)) {
+    if (isObsoleteModel(model) || (info && info.until && now >= info.until)) {
       delete registry.cooldowns[model];
       hasExpired = true;
     }
@@ -253,21 +267,21 @@ export async function getAiConfig() {
 
   const apiKey = (cloudApiKey || localApiKey || '').trim();
   let selectedModel = cloudSelectedModel || localModel || 'gemini-2.0-flash';
-  // Filter out any legacy Gemini 1.x or non-existent 2.5/3.5 models
-  if (!selectedModel || selectedModel.includes('1.') || selectedModel.includes('2.5') || selectedModel.includes('3.5')) {
+  // Filter out any obsolete models (seperti model eksperimental yang sudah kadaluwarsa)
+  if (isObsoleteModel(selectedModel)) {
     selectedModel = 'gemini-2.0-flash';
   }
 
   const rawFallbacks = cloudFallbacks || localFallbacks;
   let fallbackModels = Array.isArray(rawFallbacks) ? rawFallbacks : [...DEFAULT_FALLBACK_MODELS];
-  fallbackModels = fallbackModels.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
+  fallbackModels = fallbackModels.filter(m => m && !isObsoleteModel(m));
   if (fallbackModels.length === 0) {
     fallbackModels = [...DEFAULT_FALLBACK_MODELS];
   }
 
   const rawAvailable = cloudAvailable || localAvailable;
   let availableModels = (Array.isArray(rawAvailable) && rawAvailable.length > 0) ? rawAvailable : [...DEFAULT_AI_MODELS];
-  availableModels = availableModels.filter(m => m && m.id && !m.id.includes('1.') && !m.id.includes('2.5') && !m.id.includes('3.5'));
+  availableModels = availableModels.filter(m => m && m.id && !isObsoleteModel(m.id));
   if (availableModels.length === 0) {
     availableModels = [...DEFAULT_AI_MODELS];
   }
@@ -286,13 +300,13 @@ export async function getAiConfig() {
 export async function saveAiConfig({ apiKey, selectedModel, fallbackModels, availableModels }) {
   const cleanKey = (apiKey || '').trim();
   let cleanModel = (selectedModel || '').trim() || 'gemini-2.0-flash';
-  if (cleanModel.includes('1.') || cleanModel.includes('2.5') || cleanModel.includes('3.5')) cleanModel = 'gemini-2.0-flash';
+  if (isObsoleteModel(cleanModel)) cleanModel = 'gemini-2.0-flash';
   const cleanFallbacks = (Array.isArray(fallbackModels) ? fallbackModels : [])
-    .filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'))
+    .filter(m => m && !isObsoleteModel(m))
     .slice(0, 5);
 
   const cleanAvailable = (Array.isArray(availableModels) && availableModels.length > 0)
-    ? availableModels.filter(m => m && m.id && !m.id.includes('1.') && !m.id.includes('2.5') && !m.id.includes('3.5'))
+    ? availableModels.filter(m => m && m.id && !isObsoleteModel(m.id))
     : [...DEFAULT_AI_MODELS];
 
   // 1. Simpan ke IndexedDB lokal
@@ -370,17 +384,20 @@ export async function deleteAiConfig() {
  */
 export async function getAiModelCandidates() {
   const config = await getAiConfig();
-  const baseCandidates = [
+  const rawList = [
     config.selectedModel,
-    ...(config.fallbackModels || []),
+    ...(Array.isArray(config.fallbackModels) ? config.fallbackModels : []),
+    ...(Array.isArray(config.availableModels) ? config.availableModels.map(a => a.id || a) : []),
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
-    'gemini-2.0-pro-exp-02-05'
+    'gemini-1.5-flash',
+    'gemini-1.5-pro'
   ];
-  const configuredCandidates = baseCandidates
-    .filter((m, idx, arr) => m && m !== '__custom__' && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5') && arr.indexOf(m) === idx);
+  const configuredCandidates = rawList
+    .map(m => cleanModelId(m))
+    .filter((m, idx, arr) => m && m !== '__custom__' && !isObsoleteModel(m) && arr.indexOf(m) === idx);
 
-  if (configuredCandidates.length === 0) return [];
+  if (configuredCandidates.length === 0) return ['gemini-2.0-flash'];
 
   try {
     const health = await getAiHealthRegistry();
@@ -426,7 +443,7 @@ export async function testGeminiModel(modelId, customApiKey = null) {
     };
   }
 
-  const cleanModel = (modelId || '').trim();
+  const cleanModel = cleanModelId(modelId);
   if (!cleanModel || cleanModel === '__custom__') {
     return {
       success: false,

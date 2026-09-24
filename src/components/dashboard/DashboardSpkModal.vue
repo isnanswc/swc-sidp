@@ -124,6 +124,45 @@
               </div>
             </div>
 
+            <!-- Target Dimensi Child (Pisau Potong / UP) Sesuai Plan SPK -->
+            <div v-if="spk.childAnalytics && spk.childAnalytics.length > 0" class="space-y-1.5 p-3 rounded-2xl bg-zinc-50 border border-zinc-200">
+              <div class="flex items-center justify-between text-xs font-mono font-bold text-zinc-700">
+                <span class="flex items-center gap-1.5">
+                  <span>🎯</span>
+                  <span>Target Dimensi Child (Pisau Potong / UP):</span>
+                </span>
+                <span class="text-[10px] text-zinc-400 font-normal">{{ spk.childAnalytics.length }} Ukuran Terdaftar</span>
+              </div>
+              <div class="space-y-1.5 max-h-40 overflow-y-auto pr-0.5 custom-scrollbar-x">
+                <div
+                  v-for="(child, cIdx) in spk.childAnalytics"
+                  :key="cIdx"
+                  class="p-2 rounded-xl bg-white border border-zinc-200/90 text-[11px] font-mono flex items-center justify-between gap-2 shadow-2xs"
+                >
+                  <div class="flex items-center gap-2">
+                    <span class="font-black text-blue-900 bg-blue-100/90 px-1.5 py-0.2 rounded text-[10px]">UP{{ child.upNo }}</span>
+                    <strong class="text-zinc-900">{{ child.lebar }} mm</strong>
+                    <span class="text-zinc-400 text-[10px]">({{ formatNum(child.panjang) }}m)</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-zinc-600">
+                      <strong class="text-emerald-700 font-black">{{ formatNum(child.actualRolls) }}</strong> / {{ formatNum(child.targetRolls) }} Roll
+                    </span>
+                    <span
+                      class="px-1.5 py-0.2 rounded border text-[10px] font-bold"
+                      :class="[
+                        (child.percent || 0) > 100 ? 'bg-cyan-100 text-cyan-900 border-cyan-300 font-black' :
+                        (child.status?.badgeClass || 'bg-zinc-100 text-zinc-600'),
+                        child.status?.borderClass
+                      ]"
+                    >
+                      {{ child.percent }}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- QC Mutu Rincian -->
             <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between text-[11px] font-mono">
               <span class="text-zinc-500 font-bold">Kualitas Hasil (QC):</span>

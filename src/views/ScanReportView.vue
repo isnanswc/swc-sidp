@@ -526,9 +526,15 @@
 
             <!-- Upload Drop Area -->
             <div
-              class="mt-4 border-2 border-dashed border-zinc-200 hover:border-red-500 hover:bg-red-50/5 rounded-xl p-6 text-center cursor-pointer transition-all bg-zinc-50/40 min-h-[250px] flex flex-col items-center justify-center space-y-2.5 group"
+              class="mt-4 border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all min-h-[250px] flex flex-col items-center justify-center space-y-2.5 group select-none"
+              :class="[
+                isDraggingReport
+                  ? 'border-red-500 bg-red-50/90 scale-[1.01] ring-4 ring-red-200 shadow-md'
+                  : 'border-zinc-200 hover:border-red-500 hover:bg-red-50/10 bg-zinc-50/50'
+              ]"
               @click="$refs.multiFileInputRef.click()"
-              @dragover.prevent
+              @dragover.prevent="isDraggingReport = true"
+              @dragleave.prevent="isDraggingReport = false"
               @drop.prevent="handleMultiFileDrop"
             >
               <input
@@ -540,16 +546,21 @@
                 @change="handleMultiFileSelect"
               />
 
-              <div class="w-12 h-12 rounded-2xl bg-zinc-100 group-hover:bg-red-50 text-zinc-500 group-hover:text-red-600 transition-colors flex items-center justify-center">
-                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <div
+                class="w-14 h-14 rounded-2xl transition-all flex items-center justify-center shadow-2xs"
+                :class="isDraggingReport ? 'bg-red-600 text-white animate-bounce' : 'bg-zinc-100 group-hover:bg-red-50 text-zinc-500 group-hover:text-red-600'"
+              >
+                <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                   <polyline points="14 2 14 8 20 8"></polyline>
                   <line x1="12" y1="18" x2="12" y2="12"></line>
                   <line x1="9" y1="15" x2="12" y2="12"></line>
                   <line x1="15" y1="15" x2="12" y2="12"></line>
                 </svg>
               </div>
-              <p class="text-xs font-bold text-zinc-800 group-hover:text-red-600 transition-colors">Klik atau Tarik File Gambar ke Sini</p>
+              <p class="text-xs sm:text-sm font-bold text-zinc-800 group-hover:text-red-600 transition-colors">
+                {{ isDraggingReport ? 'Lepaskan Berkas Laporan Di Sini...' : 'Klik atau Tarik File Gambar / PDF ke Sini' }}
+              </p>
               <p class="text-[11px] text-zinc-400 max-w-xs">Mendukung format JPG, PNG, atau scan PDF untuk shift 1, 2, dan 3</p>
             </div>
           </div>
@@ -2607,8 +2618,11 @@ const handleMultiFileSelect = async (e) => {
   if (e.target) e.target.value = '';
 };
 
+const isDraggingReport = ref(false);
+
 const handleMultiFileDrop = async (e) => {
-  const files = Array.from(e.dataTransfer.files || []);
+  isDraggingReport.value = false;
+  const files = Array.from(e.dataTransfer?.files || []);
   if (files.length === 0) return;
   const initialLen = queuedImages.value.length;
   await loadMultipleFilesToQueue(files, 'main');
@@ -2634,7 +2648,9 @@ const loadMultipleFilesToQueue = (files, target = 'main') => {
       alert(`Berkas "${file.name}" melebihi batas 15MB (${(file.size / (1024 * 1024)).toFixed(1)}MB). Silakan gunakan resolusi standar.`);
       continue;
     }
-    if (file.type && file.type.startsWith('image/')) {
+    const isImage = file.type && file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    if (isImage || isPdf) {
       validFiles.push(file);
     }
   }

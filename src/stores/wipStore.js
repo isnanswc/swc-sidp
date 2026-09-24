@@ -313,10 +313,17 @@ export const useWipStore = defineStore('wip', () => {
 
     // Save individual rolls
     await db.wip_rolls.bulkAdd(formattedRecords);
-    wipRolls.value.unshift(...formattedRecords);
 
-    // Ensure the new batch is strictly the sole active anchor
-    await reconcileWipActiveBatch(batchUuid);
+    // Muat ulang rolls dari DB agar seluruh record memiliki ID unik auto-increment
+    const freshRolls = await db.wip_rolls.orderBy('id').reverse().toArray();
+    wipRolls.value = freshRolls || [];
+
+    // Pastikan batch baru langsung ditetapkan sebagai acuan utama
+    if (makeActive) {
+      await setActiveUpdate(newBatch);
+    } else {
+      await reconcileWipActiveBatch();
+    }
 
     try {
       await pushLocalToSupabase();
@@ -325,7 +332,11 @@ export const useWipStore = defineStore('wip', () => {
       console.warn('Push WIP to Supabase notice:', pushErr);
     }
 
-      return newBatch;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sync:wip-update-activated', { detail: { batchUuid } }));
+    }
+
+    return newBatch;
     } finally {
       isProcessingWipUpdate = false;
     }
