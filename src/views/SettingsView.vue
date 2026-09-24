@@ -1371,6 +1371,7 @@ const testApiConnection = async () => {
   testStatusText.value = `Menguji model ${modelTarget}...`;
   testSuccess.value = null;
 
+  try {
     const targetClean = String(modelTarget).replace(/^models\//, '').trim();
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetClean}:generateContent`;
     const res = await fetch(url, {
@@ -1392,7 +1393,7 @@ const testApiConnection = async () => {
       testSuccess.value = false;
       testStatusText.value = `Gagal (${res.status}): ${errData.error?.message || 'Unauthorized'}`;
     }
-  } catch {
+  } catch (err) {
     testSuccess.value = false;
     testStatusText.value = 'Gagal: Koneksi jaringan terputus';
   } finally {
