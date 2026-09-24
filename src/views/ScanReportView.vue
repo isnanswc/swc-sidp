@@ -2886,10 +2886,42 @@ const processAppendScan = async () => {
         if (currentActiveShift.value) {
           const firstExtracted = extracted.shifts[0];
           if (firstExtracted.tabel_1_rolls && firstExtracted.tabel_1_rolls.length > 0) {
-            currentActiveShift.value.tabel_1_rolls.push(...firstExtracted.tabel_1_rolls);
+            // Zero-out startup & bekuan pada roll sambungan
+            const cleanedRolls = firstExtracted.tabel_1_rolls.map(r => ({
+              ...r,
+              start_up: 0,
+              bekuan: 0
+            }));
+            currentActiveShift.value.tabel_1_rolls.push(...cleanedRolls);
+            // Urutkan kronologis
+            currentActiveShift.value.tabel_1_rolls.sort((a, b) => {
+              if (a.start_time && b.start_time && a.start_time !== b.start_time) {
+                return String(a.start_time).localeCompare(String(b.start_time));
+              }
+              return (Number(a.id) || 0) - (Number(b.id) || 0);
+            });
+            // Re-index ID
+            currentActiveShift.value.tabel_1_rolls.forEach((r, idx) => { r.id = idx + 1; });
+          }
+          if (firstExtracted.tabel_metalize && firstExtracted.tabel_metalize.length > 0) {
+            currentActiveShift.value.tabel_metalize.push(...firstExtracted.tabel_metalize);
+            currentActiveShift.value.tabel_metalize.sort((a, b) => {
+              if (a.start_time && b.start_time && a.start_time !== b.start_time) {
+                return String(a.start_time).localeCompare(String(b.start_time));
+              }
+              return (Number(a.id) || 0) - (Number(b.id) || 0);
+            });
+            currentActiveShift.value.tabel_metalize.forEach((r, idx) => { r.id = idx + 1; });
           }
           if (firstExtracted.tabel_2_resin && firstExtracted.tabel_2_resin.length > 0) {
-            currentActiveShift.value.tabel_2_resin.push(...firstExtracted.tabel_2_resin);
+            for (const r of firstExtracted.tabel_2_resin) {
+              const isDup = currentActiveShift.value.tabel_2_resin.some(ex =>
+                ex.nama_resin === r.nama_resin && Math.abs((Number(ex.pemakaian_kg) || 0) - (Number(r.pemakaian_kg) || 0)) < 0.1
+              );
+              if (!isDup) {
+                currentActiveShift.value.tabel_2_resin.push({ ...r, id: currentActiveShift.value.tabel_2_resin.length + 1 });
+              }
+            }
           }
         }
       }

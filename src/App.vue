@@ -34,8 +34,8 @@
       </main>
     </div>
 
-    <!-- Floating Global AI Copilot Widget -->
-    <AiCopilotWidget />
+    <!-- Floating Global AI Copilot Widget (Disembunyikan di halaman Scan Laporan agar tidak menghalangi) -->
+    <AiCopilotWidget v-if="route.name !== 'ScanReport' && !route.path.includes('/scan-report')" />
   </div>
 
   <!-- Global Lock Screen & User Profile Modal Teleports -->

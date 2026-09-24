@@ -1,5 +1,5 @@
 <template>
-  <div v-if="authStore.canUseAiChat" class="fixed z-50 font-sans print:hidden">
+  <div v-if="authStore.canUseAiChat && !isScanReportRoute" class="fixed z-50 font-sans print:hidden">
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <!-- 1. FLOATING DRAGGABLE BUBBLE (COLLAPSED STATE)                          -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -555,7 +555,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useConfigStore } from '@/stores/configStore';
@@ -566,6 +566,10 @@ import { processAiQueryAsync } from '@/services/aiQueryService';
 import { getAiConfig, testGeminiModel, getAiHealthRegistry, DEFAULT_AI_MODELS } from '@/services/geminiService';
 
 const router = useRouter();
+const route = useRoute();
+const isScanReportRoute = computed(() => {
+  return route?.name === 'ScanReport' || Boolean(route?.path && route.path.includes('/scan-report'));
+});
 const authStore = useAuthStore();
 const dataRollStore = useDataRollStore();
 const labelStore = useLabelStore();

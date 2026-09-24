@@ -468,7 +468,206 @@ export function compressBase64ForOCR(base64Str, maxDimension = 2048, quality = 0
 }
 
 /**
- * Ekstraksi Multi-Pass dengan Optimasi Kecepatan Transmisi & Notifikasi Progress Realtime
+ * Helper: Ekstrak angka urutan shift (1, 2, 3) dari teks shift untuk pengurutan ketat
+ */
+export function extractShiftNumber(shift) {
+  if (!shift) return 1;
+  const s = `${shift.shift_id || ''} ${shift.shift_name || ''} ${shift.header?.shift_group || ''}`.toUpperCase();
+  if (/\b1\b|SHIFT\s*1|[A-Z]1\b/.test(s)) return 1;
+  if (/\b2\b|SHIFT\s*2|[A-Z]2\b/.test(s)) return 2;
+  if (/\b3\b|SHIFT\s*3|[A-Z]3\b/.test(s)) return 3;
+  const m = s.match(/\d+/);
+  return m ? parseInt(m[0], 10) : 99;
+}
+
+/**
+ * Helper: Urutkan roll secara kronologis jam mulai (start_time) atau urutan baris id
+ */
+export function compareRollsChronological(rA, rB) {
+  if (rA.start_time && rB.start_time && rA.start_time !== rB.start_time) {
+    return String(rA.start_time).localeCompare(String(rB.start_time));
+  }
+  return (Number(rA.id) || 0) - (Number(rB.id) || 0);
+}
+
+/**
+ * Helper: Mengurutkan shift (1 -> 2 -> 3) dan roll dalam satu sesi
+ */
+export function sortSessionShiftsAndRolls(session, machineType = 'CASTING') {
+  if (!session || !Array.isArray(session.shifts)) return;
+  session.shifts.sort((a, b) => extractShiftNumber(a) - extractShiftNumber(b));
+  session.shifts.forEach(shift => {
+    if (machineType === 'METALIZE') {
+      if (Array.isArray(shift.tabel_metalize)) {
+        shift.tabel_metalize.sort(compareRollsChronological);
+        shift.tabel_metalize.forEach((r, idx) => { r.id = idx + 1; });
+      }
+    } else {
+      if (Array.isArray(shift.tabel_1_rolls)) {
+        shift.tabel_1_rolls.sort(compareRollsChronological);
+        shift.tabel_1_rolls.forEach((r, idx) => { r.id = idx + 1; });
+      }
+      if (Array.isArray(shift.tabel_2_resin)) {
+        shift.tabel_2_resin.forEach((res, idx) => { res.id = idx + 1; });
+      }
+    }
+  });
+}
+
+/**
+ * Menggabungkan dan mengurutkan secara ketat seluruh sesi dari hasil scan multi-lembar dokumen
+ * - Urutan Shift: Shift 1 -> Shift 2 -> Shift 3
+ * - Urutan Roll: Kronologis jam mulai / urutan baris fisik
+ * - Deduplikasi Waste: Startup dan Bekuan shift hanya dihitung 1x pada baris pertama
+ */
+export function consolidateAndSortSessions(sessionList, machineType = 'CASTING') {
+  if (!Array.isArray(sessionList) || sessionList.length === 0) return null;
+  if (sessionList.length === 1) {
+    const singleSession = sessionList[0];
+    sortSessionShiftsAndRolls(singleSession, machineType);
+    return singleSession;
+  }
+
+  const firstSession = sessionList[0];
+  const commonTanggal = firstSession.tanggal || formatToIndonesianDate(new Date().toISOString());
+  const mergedShiftsMap = new Map();
+
+  for (const session of sessionList) {
+    const shifts = Array.isArray(session.shifts) ? session.shifts : [];
+    for (const shift of shifts) {
+      const shiftNum = extractShiftNumber(shift);
+      const shiftKey = `Shift_${shiftNum}`;
+
+      if (!mergedShiftsMap.has(shiftKey)) {
+        // Shift baru ditemukan
+        mergedShiftsMap.set(shiftKey, {
+          shift_id: shift.shift_id || `Shift ${shiftNum}`,
+          shift_name: shift.shift_name || `Shift ${shiftNum}`,
+          header: { ...(shift.header || {}) },
+          tabel_1_rolls: Array.isArray(shift.tabel_1_rolls) ? [...shift.tabel_1_rolls] : [],
+          tabel_metalize: Array.isArray(shift.tabel_metalize) ? [...shift.tabel_metalize] : [],
+          tabel_2_resin: Array.isArray(shift.tabel_2_resin) ? [...shift.tabel_2_resin] : [],
+          anomali_rekomendasi: Array.isArray(shift.anomali_rekomendasi) ? [...shift.anomali_rekomendasi] : []
+        });
+      } else {
+        // Shift sudah ada (misal Halaman 2 dari Shift yang sama) -> Gabungkan data secara cerdas!
+        const existing = mergedShiftsMap.get(shiftKey);
+
+        // Lengkapi header jika sebelumnya kosong
+        if (shift.header) {
+          for (const [k, v] of Object.entries(shift.header)) {
+            if (!existing.header[k] && v) {
+              existing.header[k] = v;
+            }
+          }
+        }
+
+        // Gabungkan tabel rolls (Casting)
+        if (Array.isArray(shift.tabel_1_rolls) && shift.tabel_1_rolls.length > 0) {
+          // Zero-out startup & bekuan pada roll lembar lanjutan agar tidak terhitung ganda
+          const rollsToAppend = shift.tabel_1_rolls.map(r => ({
+            ...r,
+            start_up: 0,
+            bekuan: 0
+          }));
+          existing.tabel_1_rolls.push(...rollsToAppend);
+        }
+
+        // Gabungkan tabel metalize (Metalize)
+        if (Array.isArray(shift.tabel_metalize) && shift.tabel_metalize.length > 0) {
+          existing.tabel_metalize.push(...shift.tabel_metalize);
+        }
+
+        // Gabungkan tabel resin (Casting) tanpa duplikasi nama resin identik
+        if (Array.isArray(shift.tabel_2_resin) && shift.tabel_2_resin.length > 0) {
+          for (const r of shift.tabel_2_resin) {
+            const isDup = existing.tabel_2_resin.some(ex =>
+              ex.nama_resin === r.nama_resin && Math.abs((Number(ex.pemakaian_kg) || 0) - (Number(r.pemakaian_kg) || 0)) < 0.1
+            );
+            if (!isDup) {
+              existing.tabel_2_resin.push({ ...r });
+            }
+          }
+        }
+
+        // Gabungkan rekomendasi anomali
+        if (Array.isArray(shift.anomali_rekomendasi) && shift.anomali_rekomendasi.length > 0) {
+          existing.anomali_rekomendasi.push(...shift.anomali_rekomendasi);
+        }
+      }
+    }
+  }
+
+  // Ubah map kembali ke array dan urutkan shift secara ketat: Shift 1 -> Shift 2 -> Shift 3
+  const mergedShifts = Array.from(mergedShiftsMap.values());
+  mergedShifts.sort((a, b) => extractShiftNumber(a) - extractShiftNumber(b));
+
+  // Urutkan roll dan reset indeks ID secara berurutan rapi
+  mergedShifts.forEach(shift => {
+    if (machineType === 'METALIZE') {
+      shift.tabel_metalize.sort(compareRollsChronological);
+      shift.tabel_metalize.forEach((r, idx) => { r.id = idx + 1; });
+    } else {
+      shift.tabel_1_rolls.sort(compareRollsChronological);
+      shift.tabel_1_rolls.forEach((r, idx) => { r.id = idx + 1; });
+      shift.tabel_2_resin.forEach((res, idx) => { res.id = idx + 1; });
+    }
+  });
+
+  // Hitung ulang akumulasi metrik seluruh shift yang sudah digabung
+  let totalRolls = 0;
+  let totalResinKg = 0;
+  let totalRollsKg = 0;
+  let totalWasteKg = 0;
+
+  if (machineType === 'METALIZE') {
+    let totalBahanMasukKg = 0;
+    mergedShifts.forEach(s => {
+      totalRolls += s.tabel_metalize.length;
+      totalBahanMasukKg += s.tabel_metalize.reduce((acc, r) => acc + (parseFloat(r.berat_bahan) || 0), 0);
+      totalRollsKg += s.tabel_metalize.reduce((acc, r) => acc + (parseFloat(r.berat_hasil) || 0), 0);
+      totalWasteKg += (parseFloat(s.header?.waste_polos) || 0) + (parseFloat(s.header?.waste_metal) || 0);
+    });
+    return {
+      name: `Laporan_METALIZE_${commonTanggal.replace(/[\s\/]/g, '_')}_(${sessionList.length}_Lembar)`,
+      tanggal: commonTanggal,
+      machine: 'METALIZE',
+      totalShifts: mergedShifts.length,
+      totalRolls,
+      totalResinKg: Number(totalBahanMasukKg.toFixed(2)),
+      totalRollsKg: Number(totalRollsKg.toFixed(2)),
+      totalWasteKg: Number(totalWasteKg.toFixed(2)),
+      balanceDiffKg: Number((totalRollsKg + totalWasteKg - totalBahanMasukKg).toFixed(2)),
+      shifts: mergedShifts
+    };
+  } else {
+    mergedShifts.forEach(s => {
+      totalRolls += s.tabel_1_rolls.length;
+      totalResinKg += s.tabel_2_resin.reduce((acc, r) => acc + (parseFloat(r.pemakaian_kg) || 0), 0);
+      totalRollsKg += s.tabel_1_rolls.reduce((acc, r) => acc + (parseFloat(r.berat_aktual) || 0), 0);
+      totalWasteKg += s.tabel_1_rolls.reduce((acc, r) => {
+        return acc + (parseFloat(r.sample_qc) || 0) + (parseFloat(r.start_up) || 0) +
+          (parseFloat(r.transisi) || 0) + (parseFloat(r.bekuan) || 0) + (parseFloat(r.sesetan) || 0);
+      }, 0);
+    });
+    return {
+      name: `Laporan_CASTING_${commonTanggal.replace(/[\s\/]/g, '_')}_(${sessionList.length}_Lembar)`,
+      tanggal: commonTanggal,
+      machine: 'CASTING',
+      totalShifts: mergedShifts.length,
+      totalRolls,
+      totalResinKg: Number(totalResinKg.toFixed(2)),
+      totalRollsKg: Number(totalRollsKg.toFixed(2)),
+      totalWasteKg: Number(totalWasteKg.toFixed(2)),
+      balanceDiffKg: Number((totalRollsKg + totalWasteKg - totalResinKg).toFixed(2)),
+      shifts: mergedShifts
+    };
+  }
+}
+
+/**
+ * Ekstraksi Multi-Pass dengan Pemrosesan Sekuensial per Lembar, Pacing Delay (Jeda Aman Antar Lembar),
+ * Fresh Fallback per File (Mengulang dari model utama setiap file baru), dan Pengurutan Berurutan Sesuai Shift.
  */
 export async function extractReportFromImage(base64Images, machineType = 'CASTING', onProgress = null) {
   const notify = (step, percent, detail = '') => {
@@ -477,7 +676,10 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
     }
   };
 
-  notify(1, 10, 'Mengompresi & mengoptimalkan resolusi lembar gambar...');
+  const rawImagesArray = Array.isArray(base64Images) ? base64Images : [base64Images];
+  if (rawImagesArray.length === 0) {
+    throw new Error('Tidak ada gambar dokumen laporan yang dipilih.');
+  }
 
   const aiCfg = await getAiConfig();
   const apiKey = aiCfg.apiKey || (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
@@ -486,98 +688,124 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
     throw new Error('API Key Google AI belum dikonfigurasi. Buka menu Pengaturan & AI untuk memasukkan API Key.');
   }
 
-  let modelCandidates = await getAiModelCandidates();
-  if (!modelCandidates || modelCandidates.length === 0) {
-    modelCandidates = [aiCfg.selectedModel || 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
-  }
-  modelCandidates = modelCandidates.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
-
-  const rawImagesArray = Array.isArray(base64Images) ? base64Images : [base64Images];
-  if (rawImagesArray.length === 0) {
-    throw new Error('Tidak ada gambar dokumen laporan yang dipilih.');
-  }
-
-  // 1. Kompresi seluruh gambar untuk mempercepat upload secara dramatis
-  notify(1, 20, `Mengompresi ${rawImagesArray.length} lembar dokumen untuk transmisi instan...`);
-  const compressedImages = await Promise.all(
-    rawImagesArray.map(img => compressBase64ForOCR(img, 2048, 0.85))
-  );
-
-  // 2. Siapkan payload inline data
-  notify(2, 35, 'Menghubungkan ke Google AI & mengunggah data lembar...');
+  const totalSheets = rawImagesArray.length;
+  const extractedSessions = [];
   const selectedPrompt = (machineType === 'METALIZE') ? METALIZE_MULTI_PAGE_PROMPT : CASTING_MULTI_PAGE_PROMPT;
-  const pass1Parts = [{ text: selectedPrompt }];
-  for (let i = 0; i < compressedImages.length; i++) {
-    const match = compressedImages[i].match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+  let lastUsedModel = '';
+
+  for (let idx = 0; idx < totalSheets; idx++) {
+    const sheetNum = idx + 1;
+    const baseProgress = Math.round((idx / totalSheets) * 90);
+    const sheetProgressChunk = Math.max(10, Math.round(90 / totalSheets));
+
+    // 1. Kompresi gambar lembar ini secara individual
+    notify(
+      1,
+      Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.15)),
+      totalSheets > 1 
+        ? `[Lembar ${sheetNum}/${totalSheets}] Mengompresi resolusi lembar gambar...` 
+        : 'Mengompresi resolusi lembar gambar...'
+    );
+
+    const compressed = await compressBase64ForOCR(rawImagesArray[idx], 2048, 0.85);
+
+    // 2. Siapkan payload inline data hanya untuk lembar ini
+    const pass1Parts = [{ text: selectedPrompt }];
+    const match = compressed.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
     if (match) {
-      // Skema standar resmi Google Gemini REST API v1beta (inlineData dengan mimeType)
       pass1Parts.push({
         inlineData: { mimeType: match[1], data: match[2] }
       });
     }
-  }
 
-  notify(3, 50, 'AI menganalisis struktur formulir & header laporan...');
+    // 3. FRESH MODEL FALLBACK CANDIDATES SETIAP FILE
+    // Setiap lembar dokumen SELALU memulai pencarian dari model utama teratas (Fresh Fallback)
+    let freshModelCandidates = await getAiModelCandidates();
+    if (!freshModelCandidates || freshModelCandidates.length === 0) {
+      freshModelCandidates = [aiCfg.selectedModel || 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
+    }
+    // Pastikan hanya Gemini 2.0+ (bebas dari versi 1.x dan non-existent 2.5/3.5)
+    freshModelCandidates = freshModelCandidates.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
 
-  const pass1Execution = await executeGeminiWithFallback({
-    parts: pass1Parts,
-    apiKey,
-    modelCandidates,
-    generationConfig: { temperature: 0.0, responseMimeType: 'application/json' },
-    notify,
-    stepIndex: 3,
-    stepBasePercent: 50
-  });
+    notify(
+      2,
+      Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.35)),
+      totalSheets > 1
+        ? `[Lembar ${sheetNum}/${totalSheets}] Menghubungkan ke Google AI (Fresh Fallback #${sheetNum})...`
+        : 'Menghubungkan ke Google AI...'
+    );
 
-  notify(4, 75, machineType === 'METALIZE' ? 'Membaca tabel produksi Metalize, Lot Metal, dan Waste...' : 'Membaca data roll produksi, netto kilogram, dan waste...');
+    const pass1Execution = await executeGeminiWithFallback({
+      parts: pass1Parts,
+      apiKey,
+      modelCandidates: freshModelCandidates,
+      generationConfig: { temperature: 0.0, responseMimeType: 'application/json' },
+      notify: (s, p, d) => {
+        const adjustedP = Math.min(95, baseProgress + Math.round(sheetProgressChunk * (p / 100)));
+        notify(s, adjustedP, totalSheets > 1 ? `[Lembar ${sheetNum}/${totalSheets}] ${d}` : d);
+      },
+      stepIndex: 3,
+      stepBasePercent: 50
+    });
 
-  const pass1Text = pass1Execution.text;
-  if (!pass1Text) throw new Error('Tidak ada respon teks dari model AI Google pada Pass 1.');
+    lastUsedModel = pass1Execution.modelUsed || lastUsedModel;
+    const pass1Text = pass1Execution.text;
+    if (!pass1Text) throw new Error(`Tidak ada respon teks dari model AI Google pada Lembar ${sheetNum}.`);
 
-  let cleanJsonText = pass1Text.replace(/```json\s*|```/g, '').trim();
-  const firstBrace = cleanJsonText.indexOf('{');
-  const lastBrace = cleanJsonText.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    cleanJsonText = cleanJsonText.substring(firstBrace, lastBrace + 1);
-  }
-  notify(5, 85, 'Memvalidasi neraca material balance & master data...');
+    let cleanJsonText = pass1Text.replace(/```json\s*|```/g, '').trim();
+    const firstBrace = cleanJsonText.indexOf('{');
+    const lastBrace = cleanJsonText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleanJsonText = cleanJsonText.substring(firstBrace, lastBrace + 1);
+    }
 
-  let rawParsedData;
-  try {
-    rawParsedData = JSON.parse(cleanJsonText);
-  } catch (parseErr) {
-    console.warn('Percobaan pertama JSON.parse gagal, mencoba perbaikan otomatis format...', parseErr);
+    notify(
+      5,
+      Math.min(95, baseProgress + Math.round(sheetProgressChunk * 0.85)),
+      totalSheets > 1
+        ? `[Lembar ${sheetNum}/${totalSheets}] Memvalidasi neraca material balance & master data...`
+        : 'Memvalidasi neraca material balance & master data...'
+    );
+
+    let rawParsedData;
     try {
-      const repairedJson = cleanJsonText
-        .replace(/,\s*([\]}])/g, '$1')
-        .replace(/([{,]\s*)(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '$1"$3":');
-      rawParsedData = JSON.parse(repairedJson);
-    } catch (retryErr) {
-      console.error('Gagal mem-parse respon AI:', cleanJsonText);
-      throw new Error('AI mengembalikan format teks yang tidak dapat diurai (JSON tidak valid). Silakan pastikan foto laporan jelas dan coba pindai ulang.');
+      rawParsedData = JSON.parse(cleanJsonText);
+    } catch (parseErr) {
+      console.warn(`[AI Service] Percobaan pertama JSON.parse gagal pada Lembar ${sheetNum}, memperbaiki format...`, parseErr);
+      try {
+        const repairedJson = cleanJsonText
+          .replace(/,\s*([\]}])/g, '$1')
+          .replace(/([{,]\s*)(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '$1"$3":');
+        rawParsedData = JSON.parse(repairedJson);
+      } catch (retryErr) {
+        console.error(`Gagal mem-parse respon AI Lembar ${sheetNum}:`, cleanJsonText);
+        throw new Error(`AI mengembalikan format teks yang tidak valid pada Lembar ${sheetNum}. Pastikan foto jelas dan coba lagi.`);
+      }
+    }
+
+    const parsedSheetSession = await postProcessMultiShiftData(rawParsedData, machineType);
+    if (parsedSheetSession) {
+      extractedSessions.push(parsedSheetSession);
+    }
+
+    // 4. JEDA KEAMANAN (PACING COOLDOWN) ANTAR LEMBAR
+    // Menghindari HTTP 429 (Resource Exhausted / Rate Limit) dan server overload dari Google API
+    if (idx < totalSheets - 1) {
+      notify(
+        4,
+        Math.min(95, baseProgress + sheetProgressChunk),
+        `[Lembar ${sheetNum}/${totalSheets} Selesai] Jeda 1.8 detik untuk stabilitas kuota AI sebelum Lembar ${sheetNum + 1}...`
+      );
+      await new Promise(resolve => setTimeout(resolve, 1800));
     }
   }
 
-  let parsedSession = await postProcessMultiShiftData(rawParsedData, machineType);
+  // 5. GABUNGKAN & URUTKAN KETAT SEMUA LEMBAR BERDASARKAN SHIFT & KRONOLOGI ROLL
+  notify(5, 96, 'Menggabungkan & mengurutkan seluruh shift dan roll secara presisi...');
+  const consolidatedSession = consolidateAndSortSessions(extractedSessions, machineType);
 
-  // 3. PASS 2: DEEP HANDWRITING ANOMALY AUDIT (jika ada nilai meragukan)
-  try {
-    notify(5, 92, 'Melakukan audit ketajaman tulisan tangan pada angka...');
-    const anomalies = await performDeepHandwritingAudit(compressedImages, apiKey, modelCandidates);
-    if (anomalies && anomalies.length > 0 && parsedSession.shifts && parsedSession.shifts.length > 0) {
-      const validAnomalies = anomalies.filter(a => {
-        if (!a.nilai_rekomendasi || a.nilai_rekomendasi === a.nilai_terbaca) return false;
-        const diff = Math.abs(Number(a.nilai_rekomendasi) - Number(a.nilai_terbaca));
-        return diff >= 5;
-      });
-      parsedSession.shifts[0].anomali_rekomendasi = validAnomalies;
-    }
-  } catch (auditErr) {
-    console.warn('Pass 2 Handwriting Audit skipped/failed:', auditErr.message);
-  }
-
-  notify(5, 100, `Selesai (${pass1Execution.modelUsed})! Membuka verifikasi spreadsheet...`);
-  return parsedSession;
+  notify(5, 100, `Selesai (${lastUsedModel})! Membuka verifikasi spreadsheet...`);
+  return consolidatedSession;
 }
 
 /**
@@ -677,6 +905,9 @@ async function executeGeminiWithFallback({
         recordModelFailure(currentModel, reason, isTimeout ? 408 : null).catch(() => {});
         lastError = err;
         if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
       }
     }
 
