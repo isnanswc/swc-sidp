@@ -2,18 +2,15 @@ import { getSetting, saveSetting, deleteSetting } from '@/db';
 import { supabase } from '@/services/supabaseClient';
 
 export const DEFAULT_AI_MODELS = [
-  { id: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash (Rekomendasi)', description: 'Model generasi 2.5 Flash — cepat, akurat, dan stabil.' },
-  { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', description: 'Model penalaran tinggi untuk analisis dokumen kompleks.' },
-  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', description: 'Generasi 2.0 Flash berkecepatan tinggi.' },
-  { id: 'gemini-1.5-flash', displayName: 'Gemini 1.5 Flash', description: 'Model cepat hemat kuota generasi 1.5.' },
-  { id: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', description: 'Model presisi tinggi generasi 1.5.' }
+  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash (Rekomendasi Utama)', description: 'Model multimodal generasi 2.0 — performa ultra cepat, akurasi visual tinggi, dan stabil.' },
+  { id: 'gemini-2.0-flash-lite', displayName: 'Gemini 2.0 Flash Lite', description: 'Model generasi 2.0 hemat kuota, efisien, dan responsif.' },
+  { id: 'gemini-2.0-pro-exp-02-05', displayName: 'Gemini 2.0 Pro', description: 'Model penalaran tingkat tinggi generasi 2.0 untuk analisis dokumen industri kompleks.' }
 ];
 
 export const DEFAULT_FALLBACK_MODELS = [
   'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
-  'gemini-2.5-pro'
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-pro-exp-02-05'
 ];
 
 export const HEALTH_REGISTRY_KEY = 'google_ai_health_registry';
@@ -74,10 +71,14 @@ export async function getAiHealthRegistry(forceRefresh = false) {
   }
   if (!registry.cooldowns) registry.cooldowns = {};
 
-  // Bersihkan cooldown yang sudah kedaluwarsa secara otomatis
+  // Bersihkan cooldown yang sudah kedaluwarsa atau model obsolete (1.x, 2.5, 3.5) secara otomatis
   let hasExpired = false;
+  if (registry.winner && (registry.winner.includes('1.') || registry.winner.includes('2.5') || registry.winner.includes('3.5'))) {
+    registry.winner = 'gemini-2.0-flash';
+    hasExpired = true;
+  }
   for (const [model, info] of Object.entries(registry.cooldowns)) {
-    if (info && info.until && now >= info.until) {
+    if (model.includes('1.') || model.includes('2.5') || model.includes('3.5') || (info && info.until && now >= info.until)) {
       delete registry.cooldowns[model];
       hasExpired = true;
     }
@@ -203,16 +204,77 @@ export async function recordModelFailure(modelId, reason = 'Error', status = nul
  * Mendapatkan konfigurasi AI lengkap dari IndexedDB / LocalStorage / Cloud
  */
 export async function getAiConfig() {
-  const apiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
-  const selectedModel = (await getSetting('google_ai_model', '')) || (await getSetting('gemini_model', 'gemini-2.5-flash'));
-  const rawFallbacks = await getSetting('google_ai_fallback_models', null);
-  const fallbackModels = Array.isArray(rawFallbacks) ? rawFallbacks : [...DEFAULT_FALLBACK_MODELS];
-  const rawAvailable = await getSetting('google_ai_available_models', null);
-  const availableModels = (Array.isArray(rawAvailable) && rawAvailable.length > 0) ? rawAvailable : [...DEFAULT_AI_MODELS];
+  let cloudApiKey = null;
+  let cloudSelectedModel = null;
+  let cloudFallbacks = null;
+  let cloudAvailable = null;
+
+  // 1. Ambil langsung dari Supabase Cloud Database (lintas device & user)
+  try {
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', [
+          'google_ai_model',
+          'gemini_model',
+          'google_ai_fallback_models',
+          'google_ai_available_models',
+          'google_ai_api_key',
+          'gemini_api_key'
+        ]);
+
+      if (!error && Array.isArray(data)) {
+        for (const row of data) {
+          if ((row.key === 'google_ai_model' || row.key === 'gemini_model') && row.value) {
+            cloudSelectedModel = typeof row.value === 'string' ? row.value.replace(/['"]/g, '') : row.value;
+          }
+          if (row.key === 'google_ai_fallback_models' && row.value) {
+            cloudFallbacks = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+          }
+          if (row.key === 'google_ai_available_models' && row.value) {
+            cloudAvailable = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+          }
+          if ((row.key === 'google_ai_api_key' || row.key === 'gemini_api_key') && row.value) {
+            cloudApiKey = typeof row.value === 'string' ? row.value.replace(/['"]/g, '') : row.value;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[SmartAI] Cloud settings fetch notice:', e);
+  }
+
+  // 2. Fallback ke IndexedDB lokal jika offline atau cloud kosong
+  const localApiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
+  const localModel = (await getSetting('google_ai_model', '')) || (await getSetting('gemini_model', 'gemini-2.0-flash'));
+  const localFallbacks = await getSetting('google_ai_fallback_models', null);
+  const localAvailable = await getSetting('google_ai_available_models', null);
+
+  const apiKey = (cloudApiKey || localApiKey || '').trim();
+  let selectedModel = cloudSelectedModel || localModel || 'gemini-2.0-flash';
+  // Filter out any legacy Gemini 1.x or non-existent 2.5/3.5 models
+  if (!selectedModel || selectedModel.includes('1.') || selectedModel.includes('2.5') || selectedModel.includes('3.5')) {
+    selectedModel = 'gemini-2.0-flash';
+  }
+
+  const rawFallbacks = cloudFallbacks || localFallbacks;
+  let fallbackModels = Array.isArray(rawFallbacks) ? rawFallbacks : [...DEFAULT_FALLBACK_MODELS];
+  fallbackModels = fallbackModels.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
+  if (fallbackModels.length === 0) {
+    fallbackModels = [...DEFAULT_FALLBACK_MODELS];
+  }
+
+  const rawAvailable = cloudAvailable || localAvailable;
+  let availableModels = (Array.isArray(rawAvailable) && rawAvailable.length > 0) ? rawAvailable : [...DEFAULT_AI_MODELS];
+  availableModels = availableModels.filter(m => m && m.id && !m.id.includes('1.') && !m.id.includes('2.5') && !m.id.includes('3.5'));
+  if (availableModels.length === 0) {
+    availableModels = [...DEFAULT_AI_MODELS];
+  }
 
   return {
-    apiKey: (apiKey || '').trim(),
-    selectedModel: selectedModel || 'gemini-2.5-flash',
+    apiKey,
+    selectedModel,
     fallbackModels: fallbackModels.slice(0, 5),
     availableModels
   };
@@ -223,17 +285,44 @@ export async function getAiConfig() {
  */
 export async function saveAiConfig({ apiKey, selectedModel, fallbackModels, availableModels }) {
   const cleanKey = (apiKey || '').trim();
-  const cleanModel = (selectedModel || '').trim() || 'gemini-2.5-flash';
-  const cleanFallbacks = (Array.isArray(fallbackModels) ? fallbackModels : []).filter(Boolean).slice(0, 5);
+  let cleanModel = (selectedModel || '').trim() || 'gemini-2.0-flash';
+  if (cleanModel.includes('1.') || cleanModel.includes('2.5') || cleanModel.includes('3.5')) cleanModel = 'gemini-2.0-flash';
+  const cleanFallbacks = (Array.isArray(fallbackModels) ? fallbackModels : [])
+    .filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'))
+    .slice(0, 5);
 
+  const cleanAvailable = (Array.isArray(availableModels) && availableModels.length > 0)
+    ? availableModels.filter(m => m && m.id && !m.id.includes('1.') && !m.id.includes('2.5') && !m.id.includes('3.5'))
+    : [...DEFAULT_AI_MODELS];
+
+  // 1. Simpan ke IndexedDB lokal
   await saveSetting('google_ai_api_key', cleanKey);
   await saveSetting('gemini_api_key', cleanKey);
   await saveSetting('google_ai_model', cleanModel);
   await saveSetting('gemini_model', cleanModel);
   await saveSetting('google_ai_fallback_models', cleanFallbacks);
+  await saveSetting('google_ai_available_models', cleanAvailable);
 
-  if (Array.isArray(availableModels) && availableModels.length > 0) {
-    await saveSetting('google_ai_available_models', availableModels);
+  // 2. Simpan langsung ke Supabase Cloud (Background sync)
+  try {
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      const nowIso = new Date().toISOString();
+      const rowsToUpsert = [
+        { key: 'google_ai_model', value: cleanModel, updated_at: nowIso },
+        { key: 'gemini_model', value: cleanModel, updated_at: nowIso },
+        { key: 'google_ai_fallback_models', value: JSON.stringify(cleanFallbacks), updated_at: nowIso },
+        { key: 'google_ai_available_models', value: JSON.stringify(cleanAvailable), updated_at: nowIso }
+      ];
+      if (cleanKey) {
+        rowsToUpsert.push({ key: 'google_ai_api_key', value: cleanKey, updated_at: nowIso });
+        rowsToUpsert.push({ key: 'gemini_api_key', value: cleanKey, updated_at: nowIso });
+      }
+      supabase.from('settings').upsert(rowsToUpsert, { onConflict: 'key' }).then(({ error }) => {
+        if (error) console.warn('[SmartAI] Cloud upsert notice:', error.message);
+      }).catch(err => console.warn('[SmartAI] Push error:', err));
+    }
+  } catch (e) {
+    console.warn('[SmartAI] Cloud save notice:', e);
   }
 
   // Kirim event agar komponen UI (seperti Copilot Chat & Settings) langsung reaktif
@@ -256,9 +345,17 @@ export async function deleteAiConfig() {
   await deleteSetting('gemini_model');
   await deleteSetting('google_ai_fallback_models');
 
+  try {
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      supabase.from('settings').delete().in('key', [
+        'google_ai_api_key', 'gemini_api_key', 'google_ai_model', 'gemini_model', 'google_ai_fallback_models'
+      ]).catch(() => {});
+    }
+  } catch (e) {}
+
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sync:ai-config-updated', {
-      detail: { apiKey: '', selectedModel: 'gemini-2.5-flash', fallbackModels: [] }
+      detail: { apiKey: '', selectedModel: 'gemini-2.0-flash', fallbackModels: [] }
     }));
   }
 
@@ -276,13 +373,12 @@ export async function getAiModelCandidates() {
   const baseCandidates = [
     config.selectedModel,
     ...(config.fallbackModels || []),
-    'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro'
+    'gemini-2.0-flash-lite',
+    'gemini-2.0-pro-exp-02-05'
   ];
   const configuredCandidates = baseCandidates
-    .filter((m, idx, arr) => m && m !== '__custom__' && arr.indexOf(m) === idx);
+    .filter((m, idx, arr) => m && m !== '__custom__' && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5') && arr.indexOf(m) === idx);
 
   if (configuredCandidates.length === 0) return [];
 

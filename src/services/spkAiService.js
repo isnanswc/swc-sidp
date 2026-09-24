@@ -241,10 +241,9 @@ async function callGeminiVisionSpkParser(base64Data, apiKey, mimeType = 'image/j
   if (!modelCandidates || modelCandidates.length === 0) {
     modelCandidates = [
       aiCfg.selectedModel || 'gemini-2.0-flash',
-      'gemini-2.5-flash',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro'
-    ].filter(Boolean);
+      'gemini-2.0-flash-lite',
+      'gemini-2.0-pro-exp-02-05'
+    ].filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
   }
 
   // Pastikan modelCandidates tidak ada duplikasi
@@ -317,12 +316,12 @@ ATURAN WAJIB & MUTLAK PPIC SLITTING:
           contents: [{
             parts: [
               { text: prompt },
-              { inline_data: { mime_type: mimeType, data: base64Data } }
+              { inlineData: { mimeType, data: base64Data } }
             ]
           }],
           generationConfig: {
             temperature: 0.1,
-            response_mime_type: 'application/json'
+            responseMimeType: 'application/json'
           }
         })
       });

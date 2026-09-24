@@ -1253,10 +1253,10 @@ Gunakan format Markdown terstruktur, profesional, dan lengkap tanpa terpotong:
 Gunakan bahasa Indonesia baku pabrik industri yang lugas, jelas, dan tuntas. Berikan analisis menyeluruh tanpa memotong teks di tengah jalan.`;
 
   let rawCandidates = await getAiModelCandidates();
-  const validKnownModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  const validKnownModels = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
   let modelCandidates = (rawCandidates || []).filter(m => validKnownModels.includes(m));
   if (modelCandidates.length === 0) {
-    modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    modelCandidates = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
   }
 
   let success = false;

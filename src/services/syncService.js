@@ -479,11 +479,9 @@ export async function pushLocalToSupabase() {
           const { error } = await supabase.from('labels').upsert(payload, { onConflict: 'uniq_id' });
           if (error) throw error;
 
-          await db.transaction('rw', db.labels, async () => {
-            for (const l of unsyncedLabels) {
-              await db.labels.update(l.id, { synced: 1 });
-            }
-          });
+          for (const l of unsyncedLabels) {
+            await db.labels.update(l.id, { synced: 1 });
+          }
         }
       })());
     }
@@ -547,11 +545,9 @@ export async function pushLocalToSupabase() {
           }
 
           // Tandai sebagai synced: 1 agar tidak di-push ulang di sesi berikutnya
-          await db.transaction('rw', db.data_rolls, async () => {
-            for (const r of unsyncedRolls) {
-              await db.data_rolls.update(r.id, { synced: 1 });
-            }
-          });
+          for (const r of unsyncedRolls) {
+            await db.data_rolls.update(r.id, { synced: 1 });
+          }
         }
       })());
     }
@@ -563,7 +559,9 @@ export async function pushLocalToSupabase() {
           const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
           if (tombstones.size > 0) {
             for (const deadName of tombstones) {
-              await supabase.from('operator_list').delete().ilike('nama', deadName).catch(() => {});
+              try {
+                await supabase.from('operator_list').delete().ilike('nama', deadName);
+              } catch (_) {}
             }
           }
 
@@ -572,48 +570,16 @@ export async function pushLocalToSupabase() {
 
           if (validOperators.length > 0) {
             const payload = validOperators.map(o => ({
-              nama: o.nama,
-              mesin: o.mesin || '',
-              kode_grup: o.kodeGrup || '',
-              kode_operator: o.kodeOperator || '',
-              berlaku_mulai: o.berlakuMulai || '2020-01-01',
-              berlaku_sampai: o.berlakuSampai || null,
+              nama: (o.nama || '').trim().toUpperCase(),
+              mesin: (o.mesin || '').trim().toUpperCase(),
+              kode_grup: (o.kodeGrup || 'A').trim().toUpperCase(),
+              kode_operator: (o.kodeOperator || '').trim().toUpperCase(),
               active: o.active !== false,
               created_at: o.createdAt || new Date().toISOString(),
               updated_at: o.updatedAt || new Date().toISOString()
             }));
 
-            let { error } = await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
-            if (error && (error.message?.includes('berlaku') || error.code === '42703')) {
-              // Jika kolom masa jabatan belum ada di Supabase remote, fallback tanpa kolom tersebut
-              const strippedPayload = payload.map(({ berlaku_mulai, berlaku_sampai, ...rest }) => rest);
-              const res = await supabase.from('operator_list').upsert(strippedPayload, { onConflict: 'nama' });
-              error = res.error;
-            }
-
-            // Jika upsert gagal (misal tidak ada constraint unique nama di Supabase), jalankan fallback update/insert per baris
-            if (error) {
-              console.warn('operator_list upsert fallback per-item:', error.message);
-              const { data: existing } = await supabase.from('operator_list').select('nama');
-              const existingSet = new Set((existing || []).map(e => (e.nama || '').trim().toUpperCase()));
-
-              for (const p of payload) {
-                const isExisting = existingSet.has((p.nama || '').trim().toUpperCase());
-                if (isExisting) {
-                  let { error: uErr } = await supabase.from('operator_list').update(p).ilike('nama', p.nama);
-                  if (uErr && (uErr.message?.includes('berlaku') || uErr.code === '42703')) {
-                    const { berlaku_mulai, berlaku_sampai, ...rest } = p;
-                    await supabase.from('operator_list').update(rest).ilike('nama', p.nama);
-                  }
-                } else {
-                  let { error: iErr } = await supabase.from('operator_list').insert([p]);
-                  if (iErr && (iErr.message?.includes('berlaku') || iErr.code === '42703')) {
-                    const { berlaku_mulai, berlaku_sampai, ...rest } = p;
-                    await supabase.from('operator_list').insert([rest]);
-                  }
-                }
-              }
-            }
+            await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
           }
         } catch (e) {
           console.warn('operator_list push error:', e);
@@ -828,30 +794,33 @@ export async function pushLocalToSupabase() {
                 break;
               }
             }
-            await db.transaction('rw', db.wip_rolls, async () => {
-              for (const w of unsyncedWips) {
-                await db.wip_rolls.update(w.id, { synced: 1 });
-              }
-            });
+            for (const w of unsyncedWips) {
+              await db.wip_rolls.update(w.id, { synced: 1 });
+            }
           }
 
           // Sinkronkan registry batch upload WIP (wip_updates)
           if (db.wip_updates) {
             const updates = await db.wip_updates.toArray();
             if (updates.length > 0) {
+              const activeUpdate = updates.find(u => u.isActive === 1 || u.isActive === true) || updates[0];
+              const activeUuid = activeUpdate?.uuid || (typeof window !== 'undefined' ? localStorage.getItem('m_label_active_wip_batch_uuid') : null) || null;
               const payload = {
                 key: 'ims_wip_updates_registry',
-                value: JSON.stringify(updates.map(u => ({
-                  uuid: u.uuid,
-                  title: u.title,
-                  tanggal: u.tanggal,
-                  fileName: u.fileName,
-                  totalRolls: u.totalRolls,
-                  totalKg: u.totalKg,
-                  isActive: u.isActive,
-                  createdAt: u.createdAt,
-                  updatedAt: u.updatedAt
-                }))),
+                value: JSON.stringify({
+                  activeWipBatchUuid: activeUuid,
+                  updates: updates.map(u => ({
+                    uuid: u.uuid,
+                    title: u.title,
+                    tanggal: u.tanggal,
+                    fileName: u.fileName,
+                    totalRolls: u.totalRolls,
+                    totalKg: u.totalKg,
+                    isActive: u.isActive,
+                    createdAt: u.createdAt,
+                    updatedAt: u.updatedAt
+                  }))
+                }),
                 updated_at: new Date().toISOString()
               };
               await supabase.from('settings').upsert([payload], { onConflict: 'key' });
@@ -885,19 +854,21 @@ export async function pushLocalToSupabase() {
           const currentStocks = db.inventory_current_stocks ? await db.inventory_current_stocks.toArray() : [];
           if (uploads.length > 0 || currentStocks.length > 0) {
             const activeId = localStorage.getItem('m_label_active_fg_upload_id');
+            const activeUuid = localStorage.getItem('m_label_active_fg_upload_uuid');
             const payload = {
               key: 'ims_inventory_stocks_registry',
               value: JSON.stringify({
                 activeUploadId: activeId ? parseInt(activeId, 10) : null,
+                activeUploadUuid: activeUuid || null,
                 uploads: uploads.map(u => ({
                   id: u.id,
+                  uuid: u.uuid || (`fg_upload_${u.id}`),
                   uploadDate: u.uploadDate,
                   fileName: u.fileName,
                   totalSku: u.totalSku,
                   totalRoll: u.totalRoll,
                   uploadedBy: u.uploadedBy,
-                  createdAt: u.createdAt,
-                  itemsJson: u.itemsJson
+                  createdAt: u.createdAt
                 })),
                 currentStocks
               }),
@@ -986,6 +957,10 @@ export async function pushLocalToSupabase() {
 // 2. PULL: Ambil data terbaru dari Supabase ke lokal Dexie (PARALLEL & BULK UPSERT)
 export async function pullFromSupabase(forceFull = false) {
   if (!navigator.onLine) return;
+  if (syncState.isSyncing) {
+    console.log('[SyncPull] Sinkronisasi sedang berlangsung di latar belakang, abaikan panggilan paralel.');
+    return;
+  }
   syncState.isSyncing = true;
   syncState.lastError = null;
 
@@ -1274,10 +1249,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.spk_batches, async () => {
-            if (toUpdate.length > 0) await db.spk_batches.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.spk_batches.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.spk_batches.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.spk_batches.bulkAdd(toAdd);
         }
       })());
     }
@@ -1314,10 +1287,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.spk_plans, async () => {
-            if (toUpdate.length > 0) await db.spk_plans.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.spk_plans.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.spk_plans.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.spk_plans.bulkAdd(toAdd);
         }
       })());
     }
@@ -1508,14 +1479,62 @@ export async function pullFromSupabase(forceFull = false) {
       }
     } catch (e) {}
 
-    // Pull Operators
+    // Pull Operators (Cloud as Single Source of Truth)
     if (db.operator_list) {
       pullTasks.push((async () => {
-        const { data: cloudOps } = await supabase.from('operator_list').select('*');
+        const [opsRes, tenureRes] = await Promise.all([
+          supabase.from('operator_list').select('*'),
+          supabase.from('settings').select('value').eq('key', 'operator_tenure_registry').single()
+        ]);
+
+        const cloudOps = opsRes.data;
         if (cloudOps && cloudOps.length > 0) {
           const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
           const existing = await db.operator_list.toArray();
           const localMap = new Map(existing.map(o => [(o.nama || '').trim().toUpperCase(), o]));
+          const cloudNamesSet = new Set(cloudOps.map(co => (co.nama || '').trim().toUpperCase()));
+          const today = new Date().toISOString().slice(0, 10);
+
+          let tenureMap = {};
+          if (tenureRes.data && tenureRes.data.value) {
+            try {
+              tenureMap = typeof tenureRes.data.value === 'string'
+                ? JSON.parse(tenureRes.data.value)
+                : tenureRes.data.value;
+            } catch (eT) {
+              tenureMap = {};
+            }
+          }
+
+          // Bersihkan record lokal yang tidak ada di Cloud (ZOMBIE PURGE)
+          // Kecuali record yang baru saja dibuat di lokal (< 2 menit) untuk mencegah race condition
+          const nowMs = Date.now();
+          const zombieIds = [];
+          for (const o of existing) {
+            const opName = (o.nama || '').trim().toUpperCase();
+            if (!opName) continue;
+            if (!cloudNamesSet.has(opName)) {
+              const ageMs = nowMs - new Date(o.createdAt || 0).getTime();
+              if (ageMs >= 120000) {
+                zombieIds.push(o.id);
+              } else {
+                // Record baru dibuat di lokal: segera push ke Cloud!
+                supabase.from('operator_list').upsert({
+                  nama: opName,
+                  mesin: (o.mesin || '').trim().toUpperCase(),
+                  kode_grup: (o.kodeGrup || 'A').trim().toUpperCase(),
+                  kode_operator: (o.kodeOperator || '').trim().toUpperCase(),
+                  active: o.active !== false,
+                  created_at: o.createdAt || new Date().toISOString(),
+                  updated_at: o.updatedAt || new Date().toISOString()
+                }, { onConflict: 'nama' }).then(() => {});
+              }
+            }
+          }
+          if (zombieIds.length > 0) {
+            await db.operator_list.bulkDelete(zombieIds);
+          }
+
           const toUpdate = [];
           const toAdd = [];
           const cloudDeadNames = [];
@@ -1524,44 +1543,39 @@ export async function pullFromSupabase(forceFull = false) {
             const nameUpper = (co.nama || '').trim().toUpperCase();
             if (!nameUpper) continue;
 
-            // Jika operator ini pernah dihapus/direname (ada di tombstone):
             if (tombstones.has(nameUpper)) {
               cloudDeadNames.push(co.nama);
               continue;
             }
 
             const localOp = localMap.get(nameUpper);
+            const tInfo = tenureMap[nameUpper] || {};
             const cloudTime = co.updated_at ? new Date(co.updated_at).getTime() : 0;
             const localTime = localOp?.updatedAt ? new Date(localOp.updatedAt).getTime() : 0;
             const isLocalFresher = localOp && (localTime > cloudTime);
 
             const today = new Date().toISOString().slice(0, 10);
-            let finalBerlakuMulai = localOp?.berlakuMulai || '2020-01-01';
-            let finalBerlakuSampai = localOp?.berlakuSampai ?? null;
+            let finalBerlakuMulai = co.berlaku_mulai || tInfo.berlakuMulai || localOp?.berlakuMulai || '2020-01-01';
+            let finalBerlakuSampai = (co.berlaku_sampai !== undefined && co.berlaku_sampai !== null)
+              ? co.berlaku_sampai
+              : ((tInfo.berlakuSampai !== undefined) ? tInfo.berlakuSampai : (localOp?.berlakuSampai ?? null));
 
             if (isLocalFresher) {
-              finalBerlakuMulai = localOp.berlakuMulai || '2020-01-01';
-              finalBerlakuSampai = localOp.berlakuSampai ?? null;
-            } else {
-              if (co.berlaku_mulai !== undefined && co.berlaku_mulai !== null && co.berlaku_mulai !== '') {
-                finalBerlakuMulai = co.berlaku_mulai;
-              }
-              if (co.berlaku_sampai !== undefined) {
-                finalBerlakuSampai = co.berlaku_sampai || null;
-              }
+              finalBerlakuMulai = localOp.berlakuMulai || finalBerlakuMulai;
+              finalBerlakuSampai = localOp.berlakuSampai ?? finalBerlakuSampai;
             }
 
             const isExpired = Boolean(finalBerlakuSampai && finalBerlakuSampai <= today);
             let finalActive = isLocalFresher ? (localOp.active !== false) : (co.active !== false);
-            if (isExpired) {
+            if (co.active === false || tInfo.active === false || isExpired) {
               finalActive = false;
             }
 
             const rec = {
-              nama: co.nama,
-              mesin: co.mesin || localOp?.mesin || '',
-              kodeGrup: co.kode_grup || localOp?.kodeGrup || '',
-              kodeOperator: co.kode_operator || localOp?.kodeOperator || '',
+              nama: nameUpper,
+              mesin: (co.mesin || tInfo.mesin || localOp?.mesin || '').trim().toUpperCase(),
+              kodeGrup: (co.kode_grup || tInfo.kodeGrup || localOp?.kodeGrup || 'A').trim().toUpperCase(),
+              kodeOperator: (co.kode_operator || tInfo.kodeOperator || localOp?.kodeOperator || '').trim().toUpperCase(),
               berlakuMulai: finalBerlakuMulai,
               berlakuSampai: finalBerlakuSampai,
               active: finalActive,
@@ -1576,10 +1590,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.operator_list, async () => {
-            if (toUpdate.length > 0) await db.operator_list.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.operator_list.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.operator_list.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.operator_list.bulkAdd(toAdd);
 
           // Pemicu reaktif agar pinia store & UI seketika memuat perubahan operator terbaru
           if (typeof window !== 'undefined') {
@@ -1589,7 +1601,9 @@ export async function pullFromSupabase(forceFull = false) {
           // Purge sisa-sisa baris terhapus di Supabase jika ada
           if (cloudDeadNames.length > 0) {
             for (const deadName of cloudDeadNames) {
-              await supabase.from('operator_list').delete().ilike('nama', deadName).catch(() => {});
+              try {
+                await supabase.from('operator_list').delete().ilike('nama', deadName);
+              } catch (_) {}
             }
           }
         }
@@ -1621,10 +1635,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.mesin_list, async () => {
-            if (toUpdate.length > 0) await db.mesin_list.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.mesin_list.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.mesin_list.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.mesin_list.bulkAdd(toAdd);
         }
       })());
     }
@@ -1663,10 +1675,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.film_configs, async () => {
-            if (toUpdate.length > 0) await db.film_configs.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.film_configs.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.film_configs.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.film_configs.bulkAdd(toAdd);
         }
       })());
     }
@@ -1698,10 +1708,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.resin_items, async () => {
-            if (toUpdate.length > 0) await db.resin_items.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.resin_items.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.resin_items.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.resin_items.bulkAdd(toAdd);
         }
       })());
     }
@@ -1734,10 +1742,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.bom_formulas, async () => {
-            if (toUpdate.length > 0) await db.bom_formulas.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.bom_formulas.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.bom_formulas.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.bom_formulas.bulkAdd(toAdd);
         }
       })());
     }
@@ -1771,10 +1777,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.location_list, async () => {
-            if (toUpdate.length > 0) await db.location_list.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.location_list.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.location_list.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.location_list.bulkAdd(toAdd);
         }
       })());
     }
@@ -1806,10 +1810,8 @@ export async function pullFromSupabase(forceFull = false) {
             }
           }
 
-          await db.transaction('rw', db.standard_lengths, async () => {
-            if (toUpdate.length > 0) await db.standard_lengths.bulkPut(toUpdate);
-            if (toAdd.length > 0) await db.standard_lengths.bulkAdd(toAdd);
-          });
+          if (toUpdate.length > 0) await db.standard_lengths.bulkPut(toUpdate);
+          if (toAdd.length > 0) await db.standard_lengths.bulkAdd(toAdd);
         }
       })());
     }
@@ -1857,17 +1859,37 @@ export async function pullFromSupabase(forceFull = false) {
                 }
               }
 
+              // SPK Active Reference Batch Sync
+              if (cs.key === 'spk_active_reference_batch_uuid') {
+                const refUuid = typeof parsedVal === 'string' ? parsedVal : String(cs.value || '');
+                if (refUuid && typeof window !== 'undefined') {
+                  const currentStored = localStorage.getItem('spk_active_reference_batch_uuid');
+                  if (currentStored !== refUuid) {
+                    localStorage.setItem('spk_active_reference_batch_uuid', refUuid);
+                    window.dispatchEvent(new CustomEvent('sync:spk-reference-updated', { detail: { batchUuid: refUuid } }));
+                  }
+                }
+              }
+
               // Jika ini registry batch update WIP, sinkronkan ke db.wip_updates
-              if (cs.key === 'ims_wip_updates_registry' && db.wip_updates && Array.isArray(parsedVal)) {
+              if (cs.key === 'ims_wip_updates_registry' && db.wip_updates) {
                 try {
+                  const updatesList = Array.isArray(parsedVal) ? parsedVal : (parsedVal?.updates || []);
+                  const activeWipUuid = (!Array.isArray(parsedVal) && parsedVal?.activeWipBatchUuid) ? parsedVal.activeWipBatchUuid : null;
+                  if (activeWipUuid && typeof window !== 'undefined') {
+                    localStorage.setItem('m_label_active_wip_batch_uuid', activeWipUuid);
+                  }
+
                   const existingBatches = await db.wip_updates.toArray();
                   const batchMap = new Map(existingBatches.map(b => [b.uuid, b.id]));
-                  for (const cb of parsedVal) {
+                  for (const cb of updatesList) {
                     const localId = batchMap.get(cb.uuid);
+                    const shouldBeActive = activeWipUuid ? (cb.uuid === activeWipUuid ? 1 : 0) : cb.isActive;
+                    const batchData = { ...cb, isActive: shouldBeActive };
                     if (localId) {
-                      await db.wip_updates.update(localId, { ...cb, id: localId });
+                      await db.wip_updates.update(localId, { ...batchData, id: localId });
                     } else {
-                      const { id, ...newBatch } = cb;
+                      const { id, ...newBatch } = batchData;
                       await db.wip_updates.add(newBatch);
                     }
                   }
@@ -1899,15 +1921,26 @@ export async function pullFromSupabase(forceFull = false) {
               // Jika ini registry stok FG, sinkronkan upload & current stock
               if (cs.key === 'ims_inventory_stocks_registry' && parsedVal && typeof parsedVal === 'object') {
                 try {
+                  if (parsedVal.activeUploadUuid && typeof window !== 'undefined') {
+                    localStorage.setItem('m_label_active_fg_upload_uuid', parsedVal.activeUploadUuid);
+                  }
                   if (parsedVal.activeUploadId && typeof window !== 'undefined') {
                     localStorage.setItem('m_label_active_fg_upload_id', String(parsedVal.activeUploadId));
                   }
                   if (db.inventory_stock_uploads && Array.isArray(parsedVal.uploads)) {
                     for (const up of parsedVal.uploads) {
-                      const exist = await db.inventory_stock_uploads.where('uploadDate').equals(up.uploadDate).first();
+                      let exist = null;
+                      if (up.uuid) {
+                        exist = await db.inventory_stock_uploads.where('uuid').equals(up.uuid).first();
+                      }
+                      if (!exist && up.uploadDate) {
+                        exist = await db.inventory_stock_uploads.where('uploadDate').equals(up.uploadDate).first();
+                      }
                       if (!exist) {
                         const { id, ...newUp } = up;
                         await db.inventory_stock_uploads.add(newUp);
+                      } else if (up.uuid && !exist.uuid) {
+                        await db.inventory_stock_uploads.update(exist.id, { uuid: up.uuid });
                       }
                     }
                   }
@@ -2061,6 +2094,7 @@ export async function pullFromSupabase(forceFull = false) {
       window.dispatchEvent(new CustomEvent('sync:labels-updated'));
       window.dispatchEvent(new CustomEvent('sync:wip-updated'));
       window.dispatchEvent(new CustomEvent('sync:inventory-updated'));
+      window.dispatchEvent(new CustomEvent('sync:spk-plans-updated'));
     }
 
     syncState.lastSyncTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -2101,37 +2135,101 @@ export async function forceFullSync() {
   return syncAll(true);
 }
 
-// 5. Broadcast helper antar device (misal ketika Hapus Semua Data Roll ditekan)
-export async function broadcastClearAllRolls() {
+// 5. Broadcast helper antar device (sub-100ms real-time event sync)
+export async function broadcastRealtimeEvent(event, payload = {}) {
   try {
-    if (realtimeChannel) {
+    if (realtimeChannel && syncState.realtimeConnected) {
       await realtimeChannel.send({
         type: 'broadcast',
-        event: 'clear_all_data_rolls',
-        payload: { timestamp: Date.now() }
+        event,
+        payload: { ...payload, timestamp: Date.now() }
       });
     }
   } catch (err) {
-    console.warn('broadcastClearAllRolls notice:', err);
+    console.warn(`broadcastRealtimeEvent (${event}) notice:`, err);
   }
+}
+
+export async function broadcastClearAllRolls() {
+  return broadcastRealtimeEvent('clear_all_data_rolls', { timestamp: Date.now() });
 }
 
 // 6. REALTIME LISTENER: Menerima perubahan langsung dari Supabase saat user lain menginput
 let realtimeChannel = null;
 let debounceConfigPullTimer = null;
+let reconnectTimer = null;
+let backgroundSyncInterval = null;
+let isIntentionallyClosingChannel = false;
+let reconnectAttempts = 0;
 
 function debouncedPull(callback, table) {
   if (debounceConfigPullTimer) clearTimeout(debounceConfigPullTimer);
   debounceConfigPullTimer = setTimeout(async () => {
-    await pullFromSupabase(false);
+    if (!syncState.isSyncing) {
+      await pullFromSupabase(false);
+    }
     if (callback) callback(table);
   }, 1000);
+}
+
+function scheduleRealtimeReconnect(callback) {
+  if (reconnectTimer) return;
+  const delay = Math.min(30000, 4000 * Math.pow(1.5, Math.min(reconnectAttempts, 5)));
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    reconnectAttempts++;
+    if (realtimeChannel) {
+      try {
+        isIntentionallyClosingChannel = true;
+        await supabase.removeChannel(realtimeChannel);
+      } catch (e) {
+      } finally {
+        isIntentionallyClosingChannel = false;
+      }
+      realtimeChannel = null;
+    }
+    console.log(`🔄 Reconnecting Supabase Realtime channel (percobaan ke-${reconnectAttempts})...`);
+    startRealtimeSync(callback);
+    if (!syncState.isSyncing) {
+      pullFromSupabase(false).catch(() => {});
+    }
+  }, delay);
+}
+
+function startBackgroundSyncPoller() {
+  if (backgroundSyncInterval) return;
+  backgroundSyncInterval = setInterval(async () => {
+    if (navigator.onLine && !syncState.isSyncing) {
+      try {
+        await pullFromSupabase(false);
+      } catch (e) {
+        console.warn('[BackgroundPoller] Delta sync error:', e);
+      }
+    }
+  }, 45000);
+}
+
+// Tambahkan auto-reconnect saat tab kembali aktif atau device online
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    if (!syncState.realtimeConnected) {
+      scheduleRealtimeReconnect();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (!syncState.realtimeConnected) {
+      scheduleRealtimeReconnect();
+    }
+  });
 }
 
 export function startRealtimeSync(onDataChangeCallback) {
   if (realtimeChannel) return;
 
+  startBackgroundSyncPoller();
+
   realtimeChannel = supabase.channel('m_label_realtime_stream')
+    // 1. Labels
     .on('postgres_changes', { event: '*', schema: 'public', table: 'labels' }, async (payload) => {
       console.log('⚡ Realtime Label event received:', payload.eventType);
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
@@ -2143,7 +2241,6 @@ export function startRealtimeSync(onDataChangeCallback) {
           existing = await db.labels.filter(l => l.uniqId === item.uniqId || l.uuid === item.uniqId).first();
         }
         if (existing) {
-          // Non-destructive merge: pertahankan mesin dan keterangan lokal jika data cloud kosong
           const merged = {
             ...existing,
             ...item,
@@ -2175,6 +2272,7 @@ export function startRealtimeSync(onDataChangeCallback) {
       }
       if (onDataChangeCallback) onDataChangeCallback('labels');
     })
+    // 2. SPK Plans
     .on('postgres_changes', { event: '*', schema: 'public', table: 'spk_plans' }, async (payload) => {
       console.log('⚡ Realtime SPK Plan event received:', payload.eventType);
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
@@ -2197,6 +2295,12 @@ export function startRealtimeSync(onDataChangeCallback) {
       }
       if (onDataChangeCallback) onDataChangeCallback('spk_plans');
     })
+    // 3. SPK Batches
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'spk_batches' }, async (payload) => {
+      console.log('⚡ Realtime SPK Batches event received:', payload.eventType);
+      debouncedPull(onDataChangeCallback, 'spk_batches');
+    })
+    // 4. Data Rolls
     .on('postgres_changes', { event: '*', schema: 'public', table: 'data_rolls' }, async (payload) => {
       console.log('⚡ Realtime data_rolls event received:', payload.eventType);
       if (payload.eventType === 'DELETE') {
@@ -2208,7 +2312,6 @@ export function startRealtimeSync(onDataChangeCallback) {
             await db.data_rolls.delete(existing.id);
           }
         }
-        // Tarik perubahan terbaru dari cloud secara debounced
         debouncedPull(onDataChangeCallback, 'data_rolls');
       } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const item = mapDataRollFromSupabase(payload.new);
@@ -2216,7 +2319,6 @@ export function startRealtimeSync(onDataChangeCallback) {
         if (!deletedRollSet.has(item.uuid)) {
           const existing = await db.data_rolls.where('uuid').equals(item.uuid).first();
           if (existing) {
-            // Non-destructive merge untuk data_rolls
             const merged = {
               ...existing,
               ...item,
@@ -2236,6 +2338,79 @@ export function startRealtimeSync(onDataChangeCallback) {
       }
       if (onDataChangeCallback) onDataChangeCallback('data_rolls');
     })
+    // 5. WIP Rolls
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'wip_rolls' }, async (payload) => {
+      console.log('⚡ Realtime wip_rolls event received:', payload.eventType);
+      if (payload.eventType === 'DELETE') {
+        const targetUuid = payload.old ? (payload.old.uuid || payload.old.id) : null;
+        if (targetUuid && db.wip_rolls) {
+          const existing = await db.wip_rolls.where('uuid').equals(targetUuid).first();
+          if (existing) await db.wip_rolls.delete(existing.id);
+        }
+      } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        if (payload.new && db.wip_rolls) {
+          const mapped = mapWipRollFromSupabase(payload.new);
+          const existing = await db.wip_rolls.where('uuid').equals(mapped.uuid).first();
+          if (existing) {
+            await db.wip_rolls.update(existing.id, mapped);
+          } else {
+            await db.wip_rolls.add(mapped);
+          }
+        }
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:wip-updated'));
+      }
+      if (onDataChangeCallback) onDataChangeCallback('wip_rolls');
+    })
+    // 6. Broadcast Events (Sub-100ms ultra fast device-to-device sync)
+    .on('broadcast', { event: 'wip_broadcast' }, async (payload) => {
+      console.log('⚡ [Realtime] Received WIP broadcast from another device', payload);
+      const wUuid = payload?.payload?.targetUuid || payload?.payload?.batchUuid || payload?.payload?.newActiveUuid;
+      if (wUuid && typeof window !== 'undefined') {
+        localStorage.setItem('m_label_active_wip_batch_uuid', wUuid);
+      }
+      await pullFromSupabase(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:wip-updated'));
+      }
+      if (onDataChangeCallback) onDataChangeCallback('wip');
+    })
+    .on('broadcast', { event: 'inventory_broadcast' }, async (payload) => {
+      console.log('⚡ [Realtime] Received Inventory broadcast from another device', payload);
+      const upUuid = payload?.payload?.uploadUuid;
+      const upId = payload?.payload?.uploadId;
+      if (typeof window !== 'undefined') {
+        if (upUuid) localStorage.setItem('m_label_active_fg_upload_uuid', upUuid);
+        if (upId) localStorage.setItem('m_label_active_fg_upload_id', String(upId));
+      }
+      await pullFromSupabase(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:inventory-updated'));
+      }
+      if (onDataChangeCallback) onDataChangeCallback('inventory');
+    })
+    .on('broadcast', { event: 'spk_broadcast' }, async (payload) => {
+      console.log('⚡ [Realtime] Received SPK broadcast from another device', payload);
+      const bUuid = payload?.payload?.batchUuid;
+      if (bUuid && typeof window !== 'undefined') {
+        localStorage.setItem('spk_active_reference_batch_uuid', bUuid);
+        window.dispatchEvent(new CustomEvent('sync:spk-reference-updated', { detail: { batchUuid: bUuid } }));
+      }
+      await pullFromSupabase(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:spk-plans-updated'));
+      }
+      if (onDataChangeCallback) onDataChangeCallback('spk_plans');
+    })
+    .on('broadcast', { event: 'labels_broadcast' }, async () => {
+      console.log('⚡ [Realtime] Received Labels broadcast from another device');
+      await pullFromSupabase(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:labels-updated'));
+      }
+      if (onDataChangeCallback) onDataChangeCallback('labels');
+    })
     .on('broadcast', { event: 'clear_all_data_rolls' }, async () => {
       console.log('⚡ [Realtime] Menerima broadcast Hapus Semua Data Roll dari perangkat lain');
       if (db.data_rolls) {
@@ -2252,6 +2427,7 @@ export function startRealtimeSync(onDataChangeCallback) {
       }
       if (onDataChangeCallback) onDataChangeCallback('data_rolls');
     })
+    // 7. Master Config Tables
     .on('postgres_changes', { event: '*', schema: 'public', table: 'film_configs' }, () => {
       debouncedPull(onDataChangeCallback, 'film_configs');
     })
@@ -2264,6 +2440,28 @@ export function startRealtimeSync(onDataChangeCallback) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'operator_list' }, () => {
       debouncedPull(onDataChangeCallback, 'operator_list');
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
+      const key = payload?.new?.key || payload?.old?.key;
+      console.log('⚡ Realtime settings event received for key:', key);
+      if (key === 'operator_tenure_registry') {
+        debouncedPull(onDataChangeCallback, 'operator_list');
+      } else if (key === 'ims_wip_updates_registry' || key === 'ims_wip_active_batch_uuid') {
+        debouncedPull(onDataChangeCallback, 'wip');
+      } else if (key === 'ims_inventory_stocks_registry' || key === 'ims_inventory_master_items') {
+        debouncedPull(onDataChangeCallback, 'inventory');
+      } else if (key === 'spk_active_reference_batch_uuid') {
+        const newBatchUuid = payload?.new?.value;
+        if (newBatchUuid && typeof window !== 'undefined') {
+          localStorage.setItem('spk_active_reference_batch_uuid', newBatchUuid);
+          window.dispatchEvent(new CustomEvent('sync:spk-reference-updated', { detail: { batchUuid: newBatchUuid } }));
+        }
+        debouncedPull(onDataChangeCallback, 'spk_reference');
+      } else if (key === 'system_users_registry') {
+        debouncedPull(onDataChangeCallback, 'users');
+      } else if (key === 'data_roll_uploads_registry') {
+        debouncedPull(onDataChangeCallback, 'data_roll_uploads');
+      }
+    })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'mesin_list' }, () => {
       debouncedPull(onDataChangeCallback, 'mesin_list');
     })
@@ -2273,10 +2471,21 @@ export function startRealtimeSync(onDataChangeCallback) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'standard_lengths' }, () => {
       debouncedPull(onDataChangeCallback, 'standard_lengths');
     })
-    .subscribe((status) => {
+    .subscribe((status, err) => {
       if (status === 'SUBSCRIBED') {
         syncState.realtimeConnected = true;
+        reconnectAttempts = 0;
         console.log('🟢 Supabase Realtime channel connected successfully!');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        syncState.realtimeConnected = false;
+        console.warn(`⚠️ Supabase Realtime channel status: ${status}. Scheduling reconnect...`, err);
+        scheduleRealtimeReconnect(onDataChangeCallback);
+      } else if (status === 'CLOSED') {
+        syncState.realtimeConnected = false;
+        if (!isIntentionallyClosingChannel) {
+          console.warn(`⚠️ Supabase Realtime channel status: CLOSED. Scheduling reconnect...`);
+          scheduleRealtimeReconnect(onDataChangeCallback);
+        }
       } else {
         syncState.realtimeConnected = false;
       }

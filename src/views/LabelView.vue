@@ -1077,15 +1077,49 @@
                           </svg>
                         </span>
 
-                        <!-- Stacked No Lot & SPK (Menghemat tempat horizontal) -->
+                        <!-- Stacked No Lot & SPK (Dengan Dukungan Multi-Parent Joint Estetik) -->
                         <div class="flex flex-col min-w-0 justify-center">
-                        <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate" :title="`No. Lot Induk: ${lotNode.lot}`">
-                          🏷️ {{ lotNode.lot }}
-                        </span>
-                        <span class="text-[10px] font-mono text-zinc-500 font-semibold tracking-tight leading-none mt-0.5" :title="`SPK: ${lotNode.spk}`">
-                          SPK: <strong class="text-zinc-700 font-bold">{{ lotNode.spk }}</strong>
-                        </span>
-                      </div>
+                          <!-- Single Parent Normal -->
+                          <div v-if="getLotParentRolls(lotNode).length <= 1" class="flex items-center gap-1.5 min-w-0">
+                            <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate" :title="`No. Lot Induk: ${lotNode.lot}`">
+                              🏷️ {{ lotNode.lot }}
+                            </span>
+                          </div>
+
+                          <!-- Multi-Parent Joint (Parent Utama + Sambungan) -->
+                          <div v-else class="flex items-center gap-1.5 flex-wrap min-w-0 py-0.5">
+                            <div
+                              v-for="(p, pIdx) in getLotParentRolls(lotNode)"
+                              :key="pIdx"
+                              class="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-lg border text-[10.5px] sm:text-[11px] font-mono transition-all shadow-2xs select-none"
+                              :class="[
+                                p.isPrimary
+                                  ? 'bg-amber-100/90 border-amber-300 text-amber-950 font-black ring-1 ring-amber-400/40'
+                                  : 'bg-indigo-50/90 border-indigo-200 text-indigo-900 font-bold'
+                              ]"
+                              :title="p.isPrimary ? `👑 Parent Utama (Jumbo Awal): ${p.lotNo}` : `🔗 Roll Sambungan #${pIdx}: ${p.lotNo}`"
+                            >
+                              <span class="text-[10px]">{{ p.isPrimary ? '👑' : '🔗' }}</span>
+                              <span
+                                class="text-[8.5px] font-black uppercase px-1 py-0.2 rounded"
+                                :class="p.isPrimary ? 'bg-amber-600 text-white shadow-2xs' : 'bg-indigo-200/90 text-indigo-800'"
+                              >
+                                {{ p.isPrimary ? 'UTAMA' : `JOIN #${pIdx}` }}
+                              </span>
+                              <span class="font-black tracking-wide">{{ p.lotNo }}</span>
+                              <span v-if="p.meter || p.berat" class="text-[9px] opacity-75 font-sans font-semibold border-l pl-1 border-current/20 hidden md:inline">
+                                {{ [p.meter ? `${p.meter}M` : '', p.berat ? `${p.berat}kg` : ''].filter(Boolean).join(' • ') }}
+                              </span>
+                            </div>
+                            <span class="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200/60 hidden lg:inline">
+                              {{ getLotParentRolls(lotNode).length }} Joint
+                            </span>
+                          </div>
+
+                          <span class="text-[10px] font-mono text-zinc-500 font-semibold tracking-tight leading-none mt-0.5" :title="`SPK: ${lotNode.spk}`">
+                            SPK: <strong class="text-zinc-700 font-bold">{{ lotNode.spk }}</strong>
+                          </span>
+                        </div>
 
                       <!-- Subtitle Dimensi Induk & Inline Edit Width & Length (Desktop & Tablet) -->
                       <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono" @click.stop>
@@ -1741,7 +1775,8 @@
           </div>
           <button
             @click="showShiftModal = false"
-            class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer"
+            :disabled="isSavingShift"
+            class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             ✕
           </button>
@@ -2081,7 +2116,25 @@
                   </thead>
                   <tbody class="divide-y divide-zinc-100">
                     <tr v-for="l in currentEditingShiftNode?.lots || []" :key="l.uniqueKey" class="hover:bg-zinc-50">
-                      <td class="p-2 font-bold text-zinc-900">🏷️ {{ l.lot }}</td>
+                      <td class="p-2 font-bold text-zinc-900">
+                        <div v-if="getLotParentRolls(l).length <= 1" class="flex items-center gap-1">
+                          <span>🏷️ {{ l.lot }}</span>
+                        </div>
+                        <div v-else class="flex flex-col gap-1 py-0.5">
+                          <div class="flex items-center gap-1 flex-wrap">
+                            <span
+                              v-for="(p, pIdx) in getLotParentRolls(l)"
+                              :key="pIdx"
+                              class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-mono border"
+                              :class="p.isPrimary ? 'bg-amber-100 text-amber-900 border-amber-300 font-black' : 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold'"
+                              :title="p.isPrimary ? '👑 Parent Utama' : `🔗 Sambungan #${pIdx}`"
+                            >
+                              <span>{{ p.isPrimary ? '👑' : '🔗' }}</span>
+                              <span>{{ p.lotNo }}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </td>
                       <td class="p-2 text-zinc-600">{{ l.spk }}</td>
                       <td class="p-2 text-zinc-700">{{ l.parentWidth }}mm × {{ l.parentMeter }}M</td>
                       <td class="p-2 text-right font-bold" :class="l.lotTrimKg > 0 ? 'text-emerald-700' : 'text-zinc-400'">
@@ -2119,16 +2172,22 @@
               <button
                 type="button"
                 @click="showShiftModal = false"
-                class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer"
+                :disabled="isSavingShift"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Batal
               </button>
               <button
                 type="submit"
-                class="px-5 py-2 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                :disabled="isSavingShift"
+                class="px-5 py-2 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                <span>Simpan Data Shift & Waste</span>
+                <svg v-if="isSavingShift" class="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                <span>{{ isSavingShift ? 'Menyimpan...' : 'Simpan Data Shift & Waste' }}</span>
               </button>
             </div>
           </div>
@@ -2176,7 +2235,8 @@
 
           <button
             @click="showParentLotModal = false"
-            class="p-2 rounded-xl text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer"
+            :disabled="isSavingParentLot"
+            class="p-2 rounded-xl text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="Tutup Modal"
           >
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -2709,20 +2769,31 @@
               </p>
             </div>
 
-            <!-- Card: Dimensi Induk & Trim Slitting -->
+            <!-- Card: Dimensi Induk & Trim Slitting / Rewind -->
             <div class="p-4 bg-zinc-50/80 border border-zinc-200/90 rounded-xl space-y-3">
               <div class="flex items-center justify-between border-b border-zinc-200 pb-2">
                 <span class="font-bold text-zinc-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
                   <svg class="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                  <span>Dimensi Induk & Kalkulasi Pisau Slitting</span>
+                  <span>{{ parentLotForm.mesin === 'REWIND' ? 'Dimensi Induk Roll Rewind (Roll Utuh 1:1)' : 'Dimensi Induk & Kalkulasi Pisau Slitting' }}</span>
                 </span>
-                <span class="text-xs font-mono text-zinc-600 bg-zinc-200/60 px-2 py-0.5 rounded">
+                <span v-if="parentLotForm.mesin === 'REWIND'" class="text-xs font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-bold">
+                  Lebar Roll: <strong>{{ parentLotForm.parentWidth }} mm</strong> (Tanpa Chart / Trim)
+                </span>
+                <span v-else class="text-xs font-mono text-zinc-600 bg-zinc-200/60 px-2 py-0.5 rounded">
                   Base: <strong>{{ parentLotForm.chartinganBaseWidth }} mm</strong> + Trim: <strong>{{ parentLotForm.trim || 0 }} mm</strong> = <strong>{{ parentLotForm.parentWidth }} mm</strong>
                 </span>
               </div>
 
-              <!-- Visual Formula Bar -->
-              <div class="p-3 bg-white rounded-lg border border-zinc-200 flex items-center justify-between flex-wrap gap-2 text-xs">
+              <!-- Visual Formula Bar (Slitting vs Rewind) -->
+              <div v-if="parentLotForm.mesin === 'REWIND'" class="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 flex items-center justify-between flex-wrap gap-2 text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="text-indigo-900 font-bold">Sifat Mesin Rewind:</span>
+                  <span class="px-2 py-1 bg-white border border-indigo-200 text-indigo-950 rounded font-mono font-bold">Proses Roll Utuh (Tanpa Potong Pisau Charting)</span>
+                  <span class="text-zinc-400 font-bold">•</span>
+                  <span class="text-indigo-800 text-[11px]">Lebar parent sama persis dengan lebar roll child (Trim = 0 mm)</span>
+                </div>
+              </div>
+              <div v-else class="p-3 bg-white rounded-lg border border-zinc-200 flex items-center justify-between flex-wrap gap-2 text-xs">
                 <div class="flex items-center gap-2">
                   <span class="text-zinc-500 font-bold">Rumus Lebar:</span>
                   <span class="px-2 py-1 bg-zinc-100 rounded font-mono font-bold text-zinc-800">Total Pisau: {{ parentLotForm.chartinganBaseWidth }} mm</span>
@@ -2736,8 +2807,8 @@
                 </div>
               </div>
 
-              <!-- Breakdown Positions & Sequences -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+              <!-- Breakdown Positions & Sequences (Hanya jika Slitting / lebih dari 1 posisi) -->
+              <div v-if="parentLotForm.mesin !== 'REWIND'" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
                 <div class="p-3 bg-white rounded-lg border border-zinc-200 space-y-1.5">
                   <div class="font-bold text-zinc-700 text-[11px] flex items-center justify-between">
                     <span>Posisi Pisau Charting (Lebar Sisi):</span>
@@ -2761,7 +2832,7 @@
 
               <!-- Inputs: Trim, Lebar Parent, Panjang Parent -->
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200">
-                <div>
+                <div v-if="parentLotForm.mesin !== 'REWIND'">
                   <label class="block font-bold text-zinc-700 mb-1 text-xs">Trim Sisi (mm)</label>
                   <input
                     v-model="parentLotForm.trim"
@@ -2772,6 +2843,16 @@
                     placeholder="20"
                   />
                   <span class="text-[10px] text-zinc-400 mt-0.5 block">Trim terbuang di sisi roll</span>
+                </div>
+                <div v-else>
+                  <label class="block font-bold text-zinc-500 mb-1 text-xs">Trim Sisi (mm)</label>
+                  <input
+                    disabled
+                    value="0"
+                    type="text"
+                    class="w-full px-3 py-2 border border-zinc-200 rounded-lg font-mono font-bold text-zinc-400 bg-zinc-100 cursor-not-allowed text-xs"
+                  />
+                  <span class="text-[10px] text-zinc-400 mt-0.5 block">Mesin Rewind tanpa trim potong (0 mm)</span>
                 </div>
 
                 <div>
@@ -3099,16 +3180,22 @@
             <button
               type="button"
               @click="showParentLotModal = false"
-              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer"
+              :disabled="isSavingParentLot"
+              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Batal
             </button>
             <button
               type="submit"
-              class="px-6 py-2 rounded-xl text-xs font-black text-white bg-zinc-900 hover:bg-zinc-800 shadow-md shadow-zinc-900/10 transition-all flex items-center gap-2 cursor-pointer"
+              :disabled="isSavingParentLot"
+              class="px-6 py-2 rounded-xl text-xs font-black text-white bg-zinc-900 hover:bg-zinc-800 shadow-md shadow-zinc-900/10 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              <span>Simpan Perubahan Parent Lot</span>
+              <svg v-if="isSavingParentLot" class="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span>{{ isSavingParentLot ? 'Menyimpan...' : 'Simpan Perubahan Parent Lot' }}</span>
             </button>
           </div>
         </form>
@@ -4681,10 +4768,11 @@ const extractRewindSourceParts = (roll) => {
 
   let slittingTurunan = '';
   if (turunan) {
-    if (turunan.includes('/')) {
-      slittingTurunan = turunan.split('/')[0].trim().toUpperCase();
+    const norm = normalizeTurunan(turunan);
+    if (norm.includes('/')) {
+      slittingTurunan = norm.split('/')[0].trim().toUpperCase();
     } else {
-      slittingTurunan = turunan.toUpperCase();
+      slittingTurunan = norm.toUpperCase();
     }
   }
 
@@ -4718,14 +4806,18 @@ const selectWipRoll = (roll) => {
   if (isRewind) {
     const rParts = extractRewindSourceParts(roll);
     form.lot = rParts.parentLot || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
-    if (rParts.slittingTurunan) {
-      form.turunan = `${rParts.slittingTurunan}/`;
-    }
     const activeOp = getActiveShiftOperator('REWIND');
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator;
     }
+    const opCode = activeOp?.kodeOperator || form.kodeOperator || 'J';
+    form.turunan = getSmartNextRewindTurunan({
+      lot: form.lot,
+      parentTurunan: rParts.slittingTurunan || '',
+      shift: form.shift,
+      kodeOperator: opCode
+    });
   } else {
     form.lot = (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
   }
@@ -4753,6 +4845,13 @@ const selectWipRoll = (roll) => {
   showWipModal.value = false;
   userDismissedWipModal.value = true;
   updateAutoFields();
+  if (!isEditing.value && (!form.subKodeNumeric || form.subKode === '0000')) {
+    const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+    form.subKodeType = 'numeric';
+    form.subKodeNumeric = String(nextSubNum);
+    form.subKode = String(nextSubNum).padStart(4, '0');
+    form.status = 'PASS';
+  }
 
   nextTick(() => {
     if (isRewind && turunanInputRef.value) {
@@ -4771,14 +4870,18 @@ const selectDataRoll = (roll) => {
   if (isRewind) {
     const rParts = extractRewindSourceParts(roll);
     form.lot = rParts.parentLot || extractCleanParentLot(roll.lot, roll.turunan) || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
-    if (rParts.slittingTurunan) {
-      form.turunan = `${rParts.slittingTurunan}/`;
-    }
     const activeOp = getActiveShiftOperator('REWIND');
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator;
     }
+    const opCode = activeOp?.kodeOperator || form.kodeOperator || 'J';
+    form.turunan = getSmartNextRewindTurunan({
+      lot: form.lot,
+      parentTurunan: rParts.slittingTurunan || '',
+      shift: form.shift,
+      kodeOperator: opCode
+    });
   } else {
     const cleanLot = extractCleanParentLot(roll.lot, roll.turunan);
     form.lot = (cleanLot || roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
@@ -4813,6 +4916,13 @@ const selectDataRoll = (roll) => {
   showWipModal.value = false;
   userDismissedWipModal.value = true;
   updateAutoFields();
+  if (!isEditing.value && (!form.subKodeNumeric || form.subKode === '0000')) {
+    const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+    form.subKodeType = 'numeric';
+    form.subKodeNumeric = String(nextSubNum);
+    form.subKode = String(nextSubNum).padStart(4, '0');
+    form.status = 'PASS';
+  }
 
   nextTick(() => {
     if (isRewind && turunanInputRef.value) {
@@ -4949,6 +5059,8 @@ const showModal = ref(false);
 const showPreviewModal = ref(false);
 const isEditing = ref(false);
 const isSubmittingLabel = ref(false);
+const isSavingShift = ref(false);
+const isSavingParentLot = ref(false);
 const previewItems = ref([]);
 
 const toggleSortOrder = () => {
@@ -5292,23 +5404,28 @@ function resolveOperator(item) {
     if (rewindDefault) return rewindDefault;
   }
 
-  // 1. Direct match by kodeOperator & Machine dengan timeline masa jabatan
-  if (rawCode) {
+  // 1. PRIORITAS UTAMA: Ekstrak kode operator sah (dari kodeOperator atau dari Turunan) dan cocokkan Masa Jabatan
+  let effectiveCode = rawCode;
+  if (!effectiveCode && item.turunan) {
+    effectiveCode = getOperatorCodeFromTurunan(item.turunan, machine) || '';
+  }
+
+  if (effectiveCode) {
     if (typeof configStore.getOperatorByDate === 'function') {
-      const byDate = configStore.getOperatorByDate(rawCode, machine, targetDate);
+      const byDate = configStore.getOperatorByDate(effectiveCode, machine, targetDate);
       if (byDate) return byDate;
     }
 
-    const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
-      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
+    const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === effectiveCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
+      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === effectiveCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
     if (byCodeMachine) return byCodeMachine;
 
-    const byCode = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase() && o.active !== false)
-      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === rawCode.toUpperCase());
+    const byCode = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === effectiveCode.toUpperCase() && o.active !== false)
+      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === effectiveCode.toUpperCase());
     if (byCode) return byCode;
   }
 
-  // 2. Direct match by nama or code in item.operator
+  // 2. Match by nama or bracketed in item.operator
   if (rawOp) {
     let cleanedOp = rawOp;
     if (cleanedOp.toUpperCase().startsWith('OPERATOR ')) {
@@ -5337,40 +5454,6 @@ function resolveOperator(item) {
 
       const byName = list.find(o => o.nama && o.nama.toUpperCase() === cleanedOp.toUpperCase());
       if (byName) return byName;
-
-      // Check if cleanedOp matches operator's kodeOperator (e.g. "G", "H", "W")
-      if (typeof configStore.getOperatorByDate === 'function') {
-        const byDate = configStore.getOperatorByDate(cleanedOp, machine, targetDate);
-        if (byDate) return byDate;
-      }
-
-      const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === cleanedOp.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
-      if (byCodeMachine) return byCodeMachine;
-
-      const byCode = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === cleanedOp.toUpperCase());
-      if (byCode) return byCode;
-    }
-  }
-
-  // 3. Fallback: Parse from Turunan
-  if (item.turunan) {
-    const parsed = parseTurunan(item.turunan);
-    if (parsed) {
-      const opPrefix = (parsed.isCasting && parsed.op) ? parsed.op : parsed.prefix;
-      if (opPrefix) {
-        if (typeof configStore.getOperatorByDate === 'function') {
-          const byDate = configStore.getOperatorByDate(opPrefix, machine, targetDate);
-          if (byDate) return byDate;
-        }
-
-        const byTurunanMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
-          || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
-        if (byTurunanMachine) return byTurunanMachine;
-
-        const byTurunan = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase() && o.active !== false)
-          || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opPrefix.toUpperCase());
-        if (byTurunan) return byTurunan;
-      }
     }
   }
 
@@ -5662,6 +5745,13 @@ const findWipRollForLot = (lotStr, spkNo) => {
 const getSumChildWidthForLot = (items, spkPlan) => {
   if (!items || items.length === 0) return 0;
   
+  // 1. PRIORITAS UTAMA: Akumulasi pisau fisik aktual dari roll-roll yang ada pada lot ini (misal A: 910mm + C: 1220mm = 2130mm)
+  const chartSummary = calculateChartinganWidthSummary(items);
+  if (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1) {
+    return chartSummary.baseChartWidth;
+  }
+
+  // 2. Jika baru terdata 1 posisi atau pisau belum lengkap, gunakan acuan rencana SPK jika ada
   if (spkPlan) {
     if (Array.isArray(spkPlan.upList) && spkPlan.upList.length > 0) {
       const sumUp = spkPlan.upList.reduce((acc, u) => acc + (parseFloat(u.lebar) || 0), 0);
@@ -5672,11 +5762,6 @@ const getSumChildWidthForLot = (items, spkPlan) => {
       const sumChart = chartJson.reduce((acc, c) => acc + (parseFloat(c.lebar || c.width) || 0), 0);
       if (sumChart > 0) return sumChart;
     }
-  }
-
-  const chartSummary = calculateChartinganWidthSummary(items);
-  if (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1) {
-    return chartSummary.baseChartWidth;
   }
 
   const firstSeqRolls = items.filter(i => {
@@ -5833,33 +5918,51 @@ const hierarchyTree = computed(() => {
 
         const spkPlan = findSpkPlanForLot(firstItem.spk);
         const wipRoll = findWipRollForLot(pureLot, firstItem.spk);
+        const machine = String(firstItem.mesin || shiftData.machine || '').toUpperCase();
+        const isRewindMachine = machine === 'REWIND';
         const sumChildWidth = getSumChildWidthForLot(sortedTurunan, spkPlan);
 
-        // 1. Tentukan Lebar Teori Parent (Parent Width)
-        // Default akumulasi pisau child (sumChildWidth) ditambah standar trimming 30mm (misal 1160+1160=2320 + 30 = 2350mm)
+        // 1. Tentukan Lebar Teori Parent (Parent Width) & Trim
+        // KHUSUS MESIN REWIND: Tidak ada charting / pisau slitting dan tidak ada trim potong (lebar parent = lebar roll = 1:1)
+        let chartWidth = 0;
+        let parentTrim = 0;
         let parentWidth = 0;
-        if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) > 0) {
-          const pW = parseFloat(firstItem.parentWidth);
-          // Jika tersimpan sama persis dengan lebar child tanpa trim (bug data lama), sesuaikan dengan standar +30mm
-          if (sumChildWidth > 0 && pW === sumChildWidth && (!firstItem.parentTrim || parseFloat(firstItem.parentTrim) === 0)) {
-            parentWidth = sumChildWidth + 30;
+
+        if (isRewindMachine) {
+          // Rewind: Lebar roll anak adalah lebar parent roll (tanpa chart & tanpa trim)
+          const primaryWidth = parseFloat(firstItem.width) || (sortedTurunan.find(it => parseFloat(it.width) > 0)?.width ? parseFloat(sortedTurunan.find(it => parseFloat(it.width) > 0).width) : 0);
+          chartWidth = primaryWidth;
+          parentTrim = 0;
+          if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) > 0) {
+            parentWidth = Math.round(parseFloat(firstItem.parentWidth));
+          } else if (wipRoll && parseFloat(wipRoll.width) > 0) {
+            parentWidth = Math.round(parseFloat(wipRoll.width));
           } else {
-            parentWidth = pW;
+            parentWidth = primaryWidth > 0 ? Math.round(primaryWidth) : 1000;
           }
-        } else if (sumChildWidth > 0) {
-          parentWidth = (spkPlan && parseFloat(spkPlan.lebarParent) >= sumChildWidth + 10)
-            ? parseFloat(spkPlan.lebarParent)
-            : (sumChildWidth + 30);
-        } else if (spkPlan && parseFloat(spkPlan.lebarParent) > 0) {
-          parentWidth = parseFloat(spkPlan.lebarParent);
-        } else if (wipRoll && parseFloat(wipRoll.width) > 0) {
-          parentWidth = parseFloat(wipRoll.width);
         } else {
-          parentWidth = 2350;
+          // MESIN SLITTING & LAINNYA: Aturan Standar = Chart (sumChildWidth) + Estimasi Trim (30mm)
+          chartWidth = sumChildWidth > 0 ? sumChildWidth : (parseFloat(firstItem.width) || 0);
+          parentTrim = 30; // Default standar estimasi trim 30mm
+
+          // Jika user pernah menyimpan trim secara eksplisit (batas wajar <= 100mm)
+          if (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '' && parseFloat(firstItem.parentTrim) > 0 && parseFloat(firstItem.parentTrim) <= 100) {
+            parentTrim = parseFloat(firstItem.parentTrim);
+          } else if (firstItem.parentWidth && parseFloat(firstItem.parentWidth) >= chartWidth) {
+            const diff = parseFloat(firstItem.parentWidth) - chartWidth;
+            // Hanya gunakan parentWidth tersimpan jika selisihnya wajar (5mm s/d 100mm) untuk memfilter anomali data lama
+            if (diff >= 5 && diff <= 100) {
+              parentTrim = Math.round(diff);
+            }
+          } else if (spkPlan && parseFloat(spkPlan.lebarParent) >= chartWidth) {
+            const spkTrim = parseFloat(spkPlan.lebarParent) - chartWidth;
+            if (spkTrim >= 10 && spkTrim <= 80) {
+              parentTrim = Math.round(spkTrim);
+            }
+          }
+
+          parentWidth = chartWidth > 0 ? Math.round(chartWidth + parentTrim) : 2350;
         }
-        const parentTrim = (firstItem.parentTrim !== undefined && firstItem.parentTrim !== null && firstItem.parentTrim !== '' && parseFloat(firstItem.parentTrim) > 0)
-          ? parseFloat(firstItem.parentTrim)
-          : Math.max(0, parentWidth - sumChildWidth);
 
         // 2. Tentukan Panjang Teori Parent (Parent Meter) - Mengikuti estimasi berdasarkan child, tapi bisa di-input manual
         const seqSummary = calculateSequenceLengthSummary(sortedTurunan);
@@ -5920,6 +6023,9 @@ const hierarchyTree = computed(() => {
           parentWidth,
           parentTrim,
           parentMeter,
+          parentRollsJoint: (Array.isArray(firstItem.parentRollsJoint) && firstItem.parentRollsJoint.length > 0)
+            ? firstItem.parentRollsJoint
+            : (sortedTurunan.find(it => Array.isArray(it.parentRollsJoint) && it.parentRollsJoint.length > 0)?.parentRollsJoint || null),
           sumChildLength,
           parentSisaMeter,
           parentSisaKg: parentSisaKg > 0 ? parseFloat(parentSisaKg.toFixed(2)) : 0,
@@ -6192,50 +6298,59 @@ const openShiftModal = (shiftNode) => {
 };
 
 const saveShiftData = async () => {
+  if (isSavingShift.value) return;
   if (!currentEditingShiftNode.value || !currentEditingShiftNode.value.items) return;
+  isSavingShift.value = true;
 
-  const items = currentEditingShiftNode.value.items;
-  const newShift = String(shiftForm.shift || '1').trim();
-  const newOperator = (shiftForm.operator || '').trim().toUpperCase();
+  try {
+    const items = currentEditingShiftNode.value.items;
+    const newShift = String(shiftForm.shift || '1').trim();
+    const newOperator = (shiftForm.operator || '').trim().toUpperCase();
 
-  // Filter dan normalisasi multi-waste list
-  const validWasteList = (shiftForm.wasteList || []).filter(w => (parseFloat(w.berat) > 0 || (w.catatan || '').trim() !== '')).map(w => {
-    const finalJenis = (w.jenis === 'LAINNYA' && w.customJenis) ? w.customJenis.trim().toUpperCase() : (w.jenis || 'TRIM').trim().toUpperCase();
-    return {
-      id: w.id,
-      jenis: finalJenis,
-      berat: parseFloat(parseFloat(w.berat || 0).toFixed(2)),
-      catatan: (w.catatan || '').trim()
-    };
-  });
+    // Filter dan normalisasi multi-waste list
+    const validWasteList = (shiftForm.wasteList || []).filter(w => (parseFloat(w.berat) > 0 || (w.catatan || '').trim() !== '')).map(w => {
+      const finalJenis = (w.jenis === 'LAINNYA' && w.customJenis) ? w.customJenis.trim().toUpperCase() : (w.jenis || 'TRIM').trim().toUpperCase();
+      return {
+        id: w.id,
+        jenis: finalJenis,
+        berat: parseFloat(parseFloat(w.berat || 0).toFixed(2)),
+        catatan: (w.catatan || '').trim()
+      };
+    });
 
-  const totalWasteKg = parseFloat(validWasteList.reduce((acc, w) => acc + (w.berat || 0), 0).toFixed(2));
-  const summaryNotes = validWasteList.map(w => `${w.jenis}: ${w.berat} kg${w.catatan ? ` (${w.catatan})` : ''}`).join(', ');
+    const totalWasteKg = parseFloat(validWasteList.reduce((acc, w) => acc + (w.berat || 0), 0).toFixed(2));
+    const summaryNotes = validWasteList.map(w => `${w.jenis}: ${w.berat} kg${w.catatan ? ` (${w.catatan})` : ''}`).join(', ');
 
-  for (const item of items) {
-    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
-    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
+    for (const item of items) {
+      const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+      const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
 
-    const payload = {
-      ...(newShift ? { shift: newShift } : {}),
-      ...(newOperator ? { operator: newOperator } : {}),
-      shiftWaste: totalWasteKg,
-      shiftWasteNote: summaryNotes,
-      shiftWasteDetails: validWasteList,
-      synced: 0,
-      updatedAt: new Date().toISOString()
-    };
+      const payload = {
+        ...(newShift ? { shift: newShift } : {}),
+        ...(newOperator ? { operator: newOperator } : {}),
+        shiftWaste: totalWasteKg,
+        shiftWasteNote: summaryNotes,
+        shiftWasteDetails: validWasteList,
+        synced: 0,
+        updatedAt: new Date().toISOString()
+      };
 
-    if (isRoll && rollId && db.data_rolls) {
-      await db.data_rolls.update(rollId, payload);
-    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
-      await db.labels.update(item.id, payload);
+      if (isRoll && rollId && db.data_rolls) {
+        await db.data_rolls.update(rollId, payload);
+      } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+        await db.labels.update(item.id, payload);
+      }
     }
-  }
 
-  await labelStore.loadLabels(true);
-  pushLocalToSupabase().catch(() => {});
-  showShiftModal.value = false;
+    await labelStore.loadLabels(true);
+    pushLocalToSupabase().catch(() => {});
+    showShiftModal.value = false;
+  } catch (err) {
+    console.error('Failed to save shift data:', err);
+    alert('Gagal menyimpan data shift: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    isSavingShift.value = false;
+  }
 };
 
 // ── PARENT LOT EDIT MODAL STATE & HANDLERS ────────────────────────────────────
@@ -6459,12 +6574,23 @@ const selectJointRollRecommendation = (rec) => {
 };
 
 const onTrimChange = () => {
+  const isRewind = String(parentLotForm.mesin || '').toUpperCase() === 'REWIND';
   const base = parseFloat(parentLotForm.chartinganBaseWidth) || 0;
+  if (isRewind) {
+    parentLotForm.parentWidth = Math.round(base);
+    parentLotForm.trim = 0;
+    return;
+  }
   const trimVal = parseFloat(parentLotForm.trim) || 0;
   parentLotForm.parentWidth = Math.round(base + trimVal);
 };
 
 const onParentWidthChange = () => {
+  const isRewind = String(parentLotForm.mesin || '').toUpperCase() === 'REWIND';
+  if (isRewind) {
+    parentLotForm.trim = 0;
+    return;
+  }
   const base = parseFloat(parentLotForm.chartinganBaseWidth) || 0;
   const pWidth = parseFloat(parentLotForm.parentWidth) || 0;
   parentLotForm.trim = Math.max(0, Math.round(pWidth - base));
@@ -6757,9 +6883,10 @@ const openParentLotModal = (lotNode) => {
 
   const chartSummary = calculateChartinganWidthSummary(items);
   parentLotForm.uniqueChartList = chartSummary.uniquePositions;
-  parentLotForm.chartinganBaseWidth = (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1)
+  const chartBase = (chartSummary.baseChartWidth > 0 && chartSummary.uniquePositions.length > 1)
     ? chartSummary.baseChartWidth
-    : (parseFloat(lotNode.sumChildWidth) || chartSummary.baseChartWidth || parseFloat(first.width) || 0);
+    : (parseFloat(lotNode.sumChildWidth) > 0 ? parseFloat(lotNode.sumChildWidth) : (chartSummary.baseChartWidth || parseFloat(first.width) || 0));
+  parentLotForm.chartinganBaseWidth = chartBase;
 
   const seqSummary = calculateSequenceLengthSummary(items);
   parentLotForm.uniqueSeqList = seqSummary.uniqueSequences;
@@ -6772,28 +6899,42 @@ const openParentLotModal = (lotNode) => {
   parentLotForm.jenis = lotNode.jenis || first.jenis || 'CPP';
   parentLotForm.kode = lotNode.kode || first.kode || '';
   parentLotForm.thickness = lotNode.thickness || first.thickness || '';
+
+  const isRewindModal = String(parentLotForm.mesin || '').toUpperCase() === 'REWIND';
   
-  if (first.parentWidth && parseFloat(first.parentWidth) > 0) {
-    const pW = parseFloat(first.parentWidth);
-    if (parentLotForm.chartinganBaseWidth > 0 && pW === parentLotForm.chartinganBaseWidth && (!first.parentTrim || parseFloat(first.parentTrim) === 0)) {
-      parentLotForm.parentWidth = parentLotForm.chartinganBaseWidth + 30;
-      parentLotForm.trim = 30;
+  if (isRewindModal) {
+    // KHUSUS MESIN REWIND: Tidak ada konsep chartingan dan tidak ada trim potong (1:1)
+    const childRollWidth = parseFloat(first.width) || (items.find(it => parseFloat(it.width) > 0)?.width ? parseFloat(items.find(it => parseFloat(it.width) > 0).width) : 0);
+    parentLotForm.chartinganBaseWidth = childRollWidth;
+    parentLotForm.trim = 0;
+    if (first.parentWidth && parseFloat(first.parentWidth) > 0) {
+      parentLotForm.parentWidth = Math.round(parseFloat(first.parentWidth));
+    } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) > 0) {
+      parentLotForm.parentWidth = Math.round(parseFloat(lotNode.parentWidth));
     } else {
-      parentLotForm.parentWidth = pW;
-      if (first.parentTrim !== undefined && first.parentTrim !== null && first.parentTrim !== '' && parseFloat(first.parentTrim) > 0) {
-        parentLotForm.trim = parseFloat(first.parentTrim);
-      } else {
-        onParentWidthChange();
+      parentLotForm.parentWidth = childRollWidth > 0 ? Math.round(childRollWidth) : 1000;
+    }
+  } else {
+    // Evaluasi Trim & Lebar Parent SLITTING & Lainnya: Standar = Chart (Base) + Estimasi Trim (30mm)
+    let initialTrim = 30;
+    if (first.parentTrim !== undefined && first.parentTrim !== null && first.parentTrim !== '' && parseFloat(first.parentTrim) > 0 && parseFloat(first.parentTrim) <= 100) {
+      initialTrim = parseFloat(first.parentTrim);
+    } else if (lotNode.parentTrim !== undefined && lotNode.parentTrim !== null && lotNode.parentTrim !== '' && parseFloat(lotNode.parentTrim) > 0 && parseFloat(lotNode.parentTrim) <= 100) {
+      initialTrim = parseFloat(lotNode.parentTrim);
+    } else if (first.parentWidth && parseFloat(first.parentWidth) >= chartBase) {
+      const diff = parseFloat(first.parentWidth) - chartBase;
+      if (diff >= 5 && diff <= 100) {
+        initialTrim = Math.round(diff);
+      }
+    } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) >= chartBase) {
+      const diff = parseFloat(lotNode.parentWidth) - chartBase;
+      if (diff >= 5 && diff <= 100) {
+        initialTrim = Math.round(diff);
       }
     }
-  } else if (lotNode.parentWidth && parseFloat(lotNode.parentWidth) > 0) {
-    parentLotForm.parentWidth = parseFloat(lotNode.parentWidth);
-    parentLotForm.trim = (lotNode.parentTrim !== undefined && lotNode.parentTrim !== null && lotNode.parentTrim !== '' && parseFloat(lotNode.parentTrim) > 0)
-      ? parseFloat(lotNode.parentTrim)
-      : Math.max(0, parentLotForm.parentWidth - parentLotForm.chartinganBaseWidth);
-  } else {
-    parentLotForm.parentWidth = parentLotForm.chartinganBaseWidth > 0 ? parentLotForm.chartinganBaseWidth + 30 : 2350;
-    parentLotForm.trim = 30;
+
+    parentLotForm.trim = initialTrim;
+    parentLotForm.parentWidth = chartBase > 0 ? Math.round(chartBase + initialTrim) : 2350;
   }
 
   if (first.parentMeter && parseFloat(first.parentMeter) > 0) {
@@ -6892,6 +7033,7 @@ const openParentLotModal = (lotNode) => {
 };
 
 const saveParentLotData = async () => {
+  if (isSavingParentLot.value) return;
   if (!currentEditingLotNode.value || !currentEditingLotNode.value.items) return;
 
   const newLot = (parentLotForm.newLot || '').trim().toUpperCase();
@@ -6899,53 +7041,72 @@ const saveParentLotData = async () => {
     alert('No Lot Induk tidak boleh kosong!');
     return;
   }
+  isSavingParentLot.value = true;
 
-  const items = currentEditingLotNode.value.items;
-  const beratTeori = computedParentBeratTeori.value;
-  const beratMasukVal = parseFloat(computedParentBeratMasuk.value.toFixed(2));
-  const bAktualVal = (parentLotForm.parentBeratAktual !== '' && parentLotForm.parentBeratAktual !== null)
-    ? parseFloat(parentLotForm.parentBeratAktual)
-    : null;
-  const sisaMeterVal = parseFloat(parentLotForm.sisaMeter) || 0;
-  const sisaKgVal = parseFloat(computedBeratSisaJumbo.value.toFixed(2));
+  try {
+    const items = currentEditingLotNode.value.items;
+    const beratTeori = computedParentBeratTeori.value;
+    const beratMasukVal = parseFloat(computedParentBeratMasuk.value.toFixed(2));
+    const bAktualVal = (parentLotForm.parentBeratAktual !== '' && parentLotForm.parentBeratAktual !== null)
+      ? parseFloat(parentLotForm.parentBeratAktual)
+      : null;
+    const sisaMeterVal = parseFloat(parentLotForm.sisaMeter) || 0;
+    const sisaKgVal = parseFloat(computedBeratSisaJumbo.value.toFixed(2));
 
-  for (const item of items) {
-    const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
-    const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
+    // Bersihkan daftar parentRollsJoint: hanya roll dengan nomor lot yang terisi
+    const cleanedJointRolls = parentLotForm.isMultiParent && Array.isArray(parentLotForm.multiParents)
+      ? parentLotForm.multiParents
+          .filter(p => p && (p.lotNo || p.lot) && String(p.lotNo || p.lot).trim() !== '')
+          .map(p => ({
+            ...p,
+            lotNo: String(p.lotNo || p.lot).trim().toUpperCase()
+          }))
+      : [];
+    const savedParentRollsJoint = cleanedJointRolls.length > 1 ? cleanedJointRolls : null;
 
-    const payload = {
-      lot: newLot,
-      ...(parentLotForm.spk ? { spk: parentLotForm.spk } : {}),
-      ...(parentLotForm.jenis ? { jenis: parentLotForm.jenis } : {}),
-      ...(parentLotForm.kode !== undefined ? { kode: parentLotForm.kode } : {}),
-      ...(parentLotForm.thickness ? { thickness: parseFloat(parentLotForm.thickness) || 0 } : {}),
-      parentWidth: parseFloat(parentLotForm.parentWidth) || '',
-      parentTrim: parseFloat(parentLotForm.trim) || 0,
-      parentMeter: parseFloat(parentLotForm.parentMeter) || '',
-      parentSisaMeter: sisaMeterVal,
-      parentSisaKg: sisaKgVal,
-      parentDensity: parseFloat(parentLotForm.parentDensity) || 0.91,
-      parentBeratTeori: parseFloat(beratTeori.toFixed(2)),
-      parentBeratAktual: bAktualVal,
-      parentBeratMasuk: beratMasukVal,
-      parentRollsJoint: (parentLotForm.isMultiParent && parentLotForm.multiParents.length > 1) ? JSON.parse(JSON.stringify(parentLotForm.multiParents)) : null,
-      resinConsumptions: parentLotForm.isResinMode ? JSON.parse(JSON.stringify(parentLotForm.resinConsumptions)) : null,
-      synced: 0,
-      updatedAt: new Date().toISOString()
-    };
+    for (const item of items) {
+      const isRoll = item.isDataRoll || (typeof item.id === 'string' && item.id.startsWith('roll_'));
+      const rollId = isRoll ? (item.originalRollId || parseInt(String(item.id).replace('roll_', ''), 10)) : null;
 
-    if (isRoll && rollId && db.data_rolls) {
-      await db.data_rolls.update(rollId, payload);
-    } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
-      const turunan = (item.turunan || '').trim().toUpperCase();
-      payload.lotAkhir = turunan ? `${newLot}/${turunan}` : newLot;
-      await db.labels.update(item.id, payload);
+      const payload = {
+        lot: newLot,
+        ...(parentLotForm.spk ? { spk: parentLotForm.spk } : {}),
+        ...(parentLotForm.jenis ? { jenis: parentLotForm.jenis } : {}),
+        ...(parentLotForm.kode !== undefined ? { kode: parentLotForm.kode } : {}),
+        ...(parentLotForm.thickness ? { thickness: parseFloat(parentLotForm.thickness) || 0 } : {}),
+        parentWidth: parseFloat(parentLotForm.parentWidth) || '',
+        parentTrim: parseFloat(parentLotForm.trim) || 0,
+        parentMeter: parseFloat(parentLotForm.parentMeter) || '',
+        parentSisaMeter: sisaMeterVal,
+        parentSisaKg: sisaKgVal,
+        parentDensity: parseFloat(parentLotForm.parentDensity) || 0.91,
+        parentBeratTeori: parseFloat(beratTeori.toFixed(2)),
+        parentBeratAktual: bAktualVal,
+        parentBeratMasuk: beratMasukVal,
+        parentRollsJoint: savedParentRollsJoint,
+        resinConsumptions: parentLotForm.isResinMode ? JSON.parse(JSON.stringify(parentLotForm.resinConsumptions)) : null,
+        synced: 0,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (isRoll && rollId && db.data_rolls) {
+        await db.data_rolls.update(rollId, payload);
+      } else if (typeof item.id === 'number' || (typeof item.id === 'string' && !item.id.startsWith('roll_'))) {
+        const turunan = (item.turunan || '').trim().toUpperCase();
+        payload.lotAkhir = turunan ? `${newLot}/${turunan}` : newLot;
+        await db.labels.update(item.id, payload);
+      }
     }
-  }
 
-  await labelStore.loadLabels(true);
-  pushLocalToSupabase().catch(() => {});
-  showParentLotModal.value = false;
+    await labelStore.loadLabels(true);
+    pushLocalToSupabase().catch(() => {});
+    showParentLotModal.value = false;
+  } catch (err) {
+    console.error('Failed to save parent lot data:', err);
+    alert('Gagal menyimpan data parent lot: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    isSavingParentLot.value = false;
+  }
 };
 
 // ── INLINE PARENT LOT EDITING (HIERARCHY VIEW) ──
@@ -6955,10 +7116,58 @@ const inlineParentWidthVal = ref('');
 const inlineParentLengthVal = ref('');
 const inlineParentBeratVal = ref('');
 
+// Helper: Ekstraksi daftar roll induk (Parent Utama & Parent Sambungan/Joint) untuk tampilan row hierarki
+const getLotParentRolls = (lotNode) => {
+  if (!lotNode) return [];
+
+  const lotStr = String(lotNode.lot || '').trim();
+
+  // Sumber HANYA dari data parentRollsJoint yang diinput/disimpan pada form rekonsiliasi material / parent lot
+  // Abaikan slash pada nomor lot anak ataupun informasi join yang melekat pada label child
+  const jointList = Array.isArray(lotNode.parentRollsJoint) && lotNode.parentRollsJoint.length > 0
+    ? lotNode.parentRollsJoint
+    : (Array.isArray(lotNode.items?.[0]?.parentRollsJoint) && lotNode.items[0].parentRollsJoint.length > 0
+      ? lotNode.items[0].parentRollsJoint
+      : null);
+
+  if (jointList && jointList.length > 1) {
+    const validRolls = jointList
+      .filter(p => p && (p.lotNo || p.lot) && String(p.lotNo || p.lot).trim() !== '')
+      .map((p, idx) => ({
+        lotNo: String(p.lotNo || p.lot || '').trim().toUpperCase(),
+        isPrimary: idx === 0,
+        meter: p.meter ? parseFloat(p.meter) : null,
+        berat: p.berat ? parseFloat(p.berat) : null,
+        width: p.width ? parseFloat(p.width) : null,
+        spk: p.spk || null,
+        note: p.note || (idx === 0 ? 'Parent Utama' : `Joint #${idx}`)
+      }));
+
+    if (validRolls.length > 1) {
+      return validRolls;
+    }
+  }
+
+  // Single parent roll (default normal)
+  return [
+    {
+      lotNo: lotStr || 'Tanpa Lot',
+      isPrimary: true,
+      meter: lotNode.parentMeter || null,
+      berat: lotNode.parentBeratAktual || null,
+      width: lotNode.parentWidth || null,
+      spk: lotNode.spk || null,
+      note: 'Parent Utama'
+    }
+  ];
+};
+
 // Helper: Evaluasi status lebar parent terhadap estimasi lebar (sumChildWidth)
 const getParentWidthStatus = (lotNode) => {
   const currentW = parseFloat(lotNode.parentWidth) || 0;
   const estimatedW = parseFloat(lotNode.sumChildWidth) || 0;
+  const isRewind = String(lotNode.mesin || '').toUpperCase() === 'REWIND';
+
   if (!currentW || !estimatedW) {
     return {
       status: 'normal',
@@ -6972,6 +7181,31 @@ const getParentWidthStatus = (lotNode) => {
   }
 
   const diff = currentW - estimatedW; // Positif jika parent lebih lebar, negatif jika kurang dari child
+
+  if (isRewind) {
+    // Pada Mesin REWIND: Tidak ada chart dan trim, lebar parent harus sama dengan lebar roll child (1:1)
+    if (diff === 0) {
+      return {
+        status: 'exact',
+        diff: 0,
+        estimatedW,
+        currentW,
+        bgClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300',
+        textClass: 'text-emerald-900 font-black',
+        tooltip: `✓ REWIND PAS (1:1): Lebar Parent ${currentW} mm sama dengan roll child (${estimatedW} mm). Tanpa trim/chart.`
+      };
+    } else {
+      return {
+        status: 'diff',
+        diff,
+        estimatedW,
+        currentW,
+        bgClass: 'bg-amber-100/90 text-amber-900 border border-amber-300 ring-1 ring-amber-300/60',
+        textClass: 'text-amber-900 font-black',
+        tooltip: `⚠️ REWIND SELISIH: Lebar parent (${currentW} mm) berbeda dengan lebar roll child (${estimatedW} mm). Selisih: ${diff > 0 ? '+' : ''}${diff} mm.`
+      };
+    }
+  }
 
   if (diff < 0) {
     // Width kurang dari estimasi child -> Kuning tipis + info float
@@ -7616,9 +7850,9 @@ const subKodeValidation = computed(() => {
     if (currentId && l.id === currentId) return false;
     const lKodePack = (l.kodePack || '').trim().toUpperCase();
     const lMesin = (l.mesin || '').trim().toUpperCase();
-    if (targetKodePack && lKodePack) return lKodePack === targetKodePack;
-    if (targetMesin && lMesin) return lMesin === targetMesin;
-    return true;
+    const mesinMatches = !targetMesin || isMachineMatch(lMesin, targetMesin);
+    const kodePackMatches = !targetKodePack || lKodePack === targetKodePack;
+    return mesinMatches && kodePackMatches;
   });
 
   // 1. Cek DUPLIKAT (Double)
@@ -7709,13 +7943,33 @@ const onMachineChange = () => {
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator;
-      form.turunan = `${activeOp.kodeOperator}A01`;
     } else {
       form.operator = '';
       form.kodeOperator = '';
     }
+    const opPrefix = form.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
+    if (form.mesin === 'REWIND') {
+      lotSearchSource.value = 'DATA_ROLL';
+      const currentParentT = parseTurunan(form.turunan)?.parentTurunan || '';
+      form.turunan = getSmartNextRewindTurunan({
+        lot: form.lot,
+        parentTurunan: currentParentT,
+        shift: form.shift,
+        kodeOperator: opPrefix
+      });
+    } else {
+      lotSearchSource.value = 'WIP';
+      form.turunan = `${opPrefix}A01`;
+    }
+    updateAutoFields();
+    const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+    form.subKodeType = 'numeric';
+    form.subKodeNumeric = String(nextSubNum);
+    form.subKode = String(nextSubNum).padStart(4, '0');
+    form.status = 'PASS';
+  } else {
+    updateAutoFields();
   }
-  updateAutoFields();
 };
 
 // ── TURUNAN & CHARTINGAN AUTO-COMPLETE (KHUSUS SLITTING) ─────────────────────
@@ -7901,7 +8155,7 @@ function parseTurunan(turunanStr) {
     const digits = matchSimple[2].length;
     if (letters === 'J' || letters === 'K' || digits >= 3) {
       // Format khusus single rewind (e.g. J101, K101, J01, K02): huruf tersebut adalah kode operator rewind!
-      result = { prefix: letters, chartingan: 'A', noUrut: num, numDigits: digits };
+      result = { prefix: letters, chartingan: '', noUrut: num, numDigits: digits, isSingleRewind: true };
     } else if (letters.length >= 2) {
       result = {
         prefix: letters.substring(0, letters.length - 1),
@@ -7954,6 +8208,24 @@ function getNextTurunan(prevTurunan, lot = '', forcePrefix = null) {
       return `${parentT}/${opPrefix}${parsed.chartingan || 'A'}${formattedNum}`;
     }
     return `${parentT}/${opPrefix}${formattedNum}`;
+  }
+
+  // Kasus Khusus: Single Rewind Format (e.g. J101 -> J102, K201 -> K202)
+  if (parsed.isSingleRewind || (!parsed.isCompoundRewind && !parsed.isCasting && !parsed.chartingan && parsed.numDigits >= 3)) {
+    const opPrefix = forcePrefix !== null ? forcePrefix : (parsed.prefix || 'J');
+    let maxUrut = parsed.noUrut || 0;
+    const relatedLabels = labelStore.labels.filter(l => {
+      if (!l.turunan) return false;
+      if (lot && l.lot && l.lot.trim().toUpperCase() !== lot.trim().toUpperCase()) return false;
+      const p = parseTurunan(l.turunan);
+      return !p.isCompoundRewind && (p.prefix === opPrefix || p.prefix === parsed.prefix);
+    });
+    for (const l of relatedLabels) {
+      const p = parseTurunan(l.turunan);
+      if (p.noUrut > maxUrut) maxUrut = p.noUrut;
+    }
+    const nextNo = maxUrut > 0 ? maxUrut + 1 : (parsed.noUrut > 0 ? parsed.noUrut + 1 : 101);
+    return `${opPrefix}${String(nextNo).padStart(parsed.numDigits || 3, '0')}`;
   }
 
   // Kasus Khusus: Casting Turunan Format (e.g. L04270826B1A27 -> L04270826B1A28)
@@ -8010,24 +8282,101 @@ function getNextTurunan(prevTurunan, lot = '', forcePrefix = null) {
   return `${prefix}${chartingan}${formattedNum}`;
 }
 
-function getSmartNextSubKode(item, mesinOverride = '', kodePackOverride = '') {
-  if (!item) return 1;
-  const targetMesin = (mesinOverride || item.mesin || '').trim().toUpperCase();
-  const targetKodePack = (kodePackOverride || item.kodePack || '').trim().toUpperCase();
-  const rawCurrent = parseInt(item.subKodeNumeric || item.subKode || '0', 10);
+function getSmartNextRewindTurunan({ lot = '', parentTurunan = '', shift = '1', kodeOperator = 'J' } = {}) {
+  const cleanParentT = (parentTurunan || '').trim().toUpperCase();
+  const cleanLot = (lot || '').trim().toUpperCase();
+  const op = (kodeOperator || 'J').trim().toUpperCase();
+
+  // Ambil angka shift (misal '1', '2', '3', 'LS1' -> '1', 'LS2' -> '2')
+  let shiftDigit = '1';
+  const shiftStr = String(shift || '1').trim();
+  if (shiftStr.includes('3')) shiftDigit = '3';
+  else if (shiftStr.includes('2')) shiftDigit = '2';
+  else shiftDigit = '1';
+
+  const shiftBase = parseInt(shiftDigit, 10) * 100;
+
+  // Filter label mesin REWIND yang valid (abaikan reject / hold)
+  const rewindLabels = (labelStore.labels || []).filter(l => {
+    if (!isMachineMatch(l.mesin, 'REWIND')) return false;
+    if (l.status === 'HOLD' || l.status === 'REJECT' || l.subKode === '0000' || l.subKode === 'REJECT') return false;
+    return true;
+  });
+
+  let maxSeq = 0;
+
+  if (cleanParentT) {
+    // Skenario roll turunan slitting parent sudah ada (misal 'IB02')
+    for (const l of rewindLabels) {
+      if (!l.turunan) continue;
+      const p = parseTurunan(l.turunan);
+      if (p.isCompoundRewind && p.parentTurunan === cleanParentT) {
+        const num = p.noUrut || 0;
+        if (num >= shiftBase && num < shiftBase + 100) {
+          const seq = num - shiftBase;
+          if (seq > maxSeq) maxSeq = seq;
+        } else if (num > 0 && num < 100) {
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+    }
+  } else if (cleanLot) {
+    // Skenario ada lot tapi tidak ada parent turunan
+    for (const l of rewindLabels) {
+      if (!l.turunan) continue;
+      const lLot = (l.lot || '').trim().toUpperCase();
+      if (lLot === cleanLot) {
+        const p = parseTurunan(l.turunan);
+        const num = p.noUrut || 0;
+        if (num >= shiftBase && num < shiftBase + 100) {
+          const seq = num - shiftBase;
+          if (seq > maxSeq) maxSeq = seq;
+        } else if (num > 0 && num < 100) {
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+    }
+  } else {
+    // Skenario ketik manual murni tanpa lot (awal buka form)
+    for (const l of rewindLabels) {
+      if (!l.turunan) continue;
+      const p = parseTurunan(l.turunan);
+      if (p.prefix === op) {
+        const num = p.noUrut || 0;
+        if (num >= shiftBase && num < shiftBase + 100) {
+          const seq = num - shiftBase;
+          if (seq > maxSeq) maxSeq = seq;
+        } else if (num > 0 && num < 100) {
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+    }
+  }
+
+  const nextSeq = maxSeq > 0 ? maxSeq + 1 : 1;
+  const fullNum = shiftBase + nextSeq;
+  const rewindChild = `${op}${fullNum}`;
+
+  if (cleanParentT) {
+    return `${cleanParentT}/${rewindChild}`;
+  }
+  return rewindChild;
+}
+
+function getSmartNextSubKode(item = null, mesinOverride = '', kodePackOverride = '') {
+  const targetMesin = (mesinOverride || item?.mesin || form?.mesin || '').trim().toUpperCase();
+  const targetKodePack = (kodePackOverride || item?.kodePack || form?.kodePack || '').trim().toUpperCase();
+  const rawCurrent = item ? parseInt(item.subKodeNumeric || item.subKode || '0', 10) : 0;
   const isCustomCode = !isNaN(rawCurrent) && rawCurrent >= 5000 && rawCurrent <= 9999;
 
   // Filter SELURUH label berdasarkan Mesin dan/atau Kode Pack yang sama (Unik keseluruhan per mesin, bukan per lot)
-  const relatedLabels = labelStore.labels.filter(l => {
+  const relatedLabels = (labelStore.labels || []).filter(l => {
+    if (l.status === 'HOLD' || l.status === 'REJECT' || l.subKode === '0000' || l.subKode === 'REJECT') return false;
     const lKodePack = (l.kodePack || '').trim().toUpperCase();
     const lMesin = (l.mesin || '').trim().toUpperCase();
-    if (targetKodePack && lKodePack) {
-      return lKodePack === targetKodePack;
-    }
-    if (targetMesin && lMesin) {
-      return lMesin === targetMesin;
-    }
-    return true;
+    const mesinMatches = !targetMesin || isMachineMatch(lMesin, targetMesin);
+    const kodePackMatches = !targetKodePack || lKodePack === targetKodePack;
+    return mesinMatches && kodePackMatches;
   });
 
   if (isCustomCode) {
@@ -8278,7 +8627,7 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
     updateAutoFields();
     if (newMesin === 'REWIND') {
       lotSearchSource.value = 'DATA_ROLL';
-    } else if (newMesin === 'SLITTING') {
+    } else {
       lotSearchSource.value = 'WIP';
     }
     if (!isEditing.value) {
@@ -8286,18 +8635,28 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
       if (activeOp) {
         form.operator = activeOp.nama;
         form.kodeOperator = activeOp.kodeOperator;
-        const parsed = parseTurunan(form.turunan);
-        const formattedNum = String(parsed.noUrut || 1).padStart(parsed.numDigits || 2, '0');
-        if (parsed.isCompoundRewind) {
-          const childPart = parsed.hasChildLetter ? `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}` : `${activeOp.kodeOperator}${formattedNum}`;
-          form.turunan = `${parsed.parentTurunan}/${childPart}`;
-        } else {
-          form.turunan = `${activeOp.kodeOperator}${parsed.chartingan || 'A'}${formattedNum}`;
-        }
       } else {
         form.operator = '';
         form.kodeOperator = '';
       }
+      const opPrefix = form.kodeOperator || (newMesin === 'REWIND' ? 'J' : 'H');
+      if (newMesin === 'REWIND') {
+        const currentParentT = parseTurunan(form.turunan)?.parentTurunan || '';
+        form.turunan = getSmartNextRewindTurunan({
+          lot: form.lot,
+          parentTurunan: currentParentT,
+          shift: form.shift,
+          kodeOperator: opPrefix
+        });
+      } else {
+        form.turunan = `${opPrefix}A01`;
+      }
+      // Otomatis terisi urutan kodePack mesin baru
+      const nextSubNum = getSmartNextSubKode(null, newMesin, form.kodePack);
+      form.subKodeType = 'numeric';
+      form.subKodeNumeric = String(nextSubNum);
+      form.subKode = String(nextSubNum).padStart(4, '0');
+      form.status = 'PASS';
     }
   }
 });
@@ -8422,19 +8781,32 @@ const openModal = async (item = -1) => {
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator || '';
-      const opPrefix = activeOp.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
-      form.turunan = form.mesin === 'REWIND' ? `${opPrefix}101` : `${opPrefix}A01`;
     } else {
       form.operator = '';
       form.kodeOperator = '';
-      form.turunan = form.mesin === 'REWIND' ? 'J101' : 'HA01';
     }
+    const opPrefix = form.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
     if (form.mesin === 'REWIND') {
+      form.turunan = getSmartNextRewindTurunan({
+        lot: form.lot,
+        parentTurunan: '',
+        shift: form.shift,
+        kodeOperator: opPrefix
+      });
       lotSearchSource.value = 'DATA_ROLL';
     } else {
+      form.turunan = `${opPrefix}A01`;
       lotSearchSource.value = 'WIP';
     }
     updateAutoFields();
+    // Otomatis terisi urutan kodePack masing-masing mesin
+    const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+    form.subKodeType = 'numeric';
+    form.subKodeNumeric = String(nextSubNum);
+    form.subKode = String(nextSubNum).padStart(4, '0');
+    form.status = 'PASS';
+    previousInfo.initialSuggestedTurunan = form.turunan;
+    previousInfo.initialSuggestedSubKode = form.subKodeNumeric;
   }
   if (!dataRollStore.rolls || dataRollStore.rolls.length === 0) {
     dataRollStore.loadRolls().catch(console.error);
@@ -8686,7 +9058,13 @@ const triggerPrint = () => {
   window.print();
 };
 
+const handleLabelsSync = async () => {
+  await labelStore.loadLabels(true);
+  refreshQuickTags();
+};
+
 onMounted(async () => {
+  window.addEventListener('sync:labels-updated', handleLabelsSync);
   await Promise.all([
     labelStore.loadLabels(),
     configStore.loadAll(),
@@ -8713,6 +9091,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateControlBarOffset);
+  window.removeEventListener('sync:labels-updated', handleLabelsSync);
 });
 
 // ── CONFIG-DRIVEN COMPUTED & MACHINE SHEETS ───────────────────────────────────

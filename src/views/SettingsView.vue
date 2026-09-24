@@ -1142,7 +1142,7 @@ const formatTriggerTypeName = (type) => {
 
 // Gemini Tab State
 const apiKey = ref('');
-const selectedModel = ref('gemini-3.5-flash');
+const selectedModel = ref('gemini-2.0-flash');
 const customModelName = ref('');
 const showApiKey = ref(false);
 
@@ -1156,12 +1156,9 @@ const fallbackModels = ref([...DEFAULT_FALLBACK_MODELS]);
 const draggedFallbackIndex = ref(null);
 
 const DEFAULT_MODELS = [
-  { id: 'gemini-3.5-flash', displayName: 'Gemini 3.5 Flash (Rekomendasi Utama)', description: 'Generasi 3.5 Flash mutakhir — kapasitas token besar, pemrosesan cepat & akurasi analitis tertinggi.' },
-  { id: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', description: 'Generasi 2.5 Flash.' },
-  { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', description: 'Generasi 2.5 Pro untuk dokumen kompleks.' },
-  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', description: 'Generasi 2.0 Flash.' },
-  { id: 'gemini-1.5-flash', displayName: 'Gemini 1.5 Flash', description: 'Generasi 1.5 Flash legacy.' },
-  { id: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', description: 'Generasi 1.5 Pro legacy.' }
+  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash (Rekomendasi Utama)', description: 'Generasi 2.0 Flash mutakhir — multimodal ultra cepat, presisi tinggi, dan sangat stabil.' },
+  { id: 'gemini-2.0-flash-lite', displayName: 'Gemini 2.0 Flash Lite', description: 'Generasi 2.0 Flash Lite hemat kuota dan responsif.' },
+  { id: 'gemini-2.0-pro-exp-02-05', displayName: 'Gemini 2.0 Pro', description: 'Model penalaran tingkat tinggi generasi 2.0 untuk analisis dokumen industri kompleks.' }
 ];
 
 const availableModels = ref([...DEFAULT_MODELS]);
@@ -1171,7 +1168,7 @@ const isCustomModel = computed(() => selectedModel.value === '__custom__');
 
 const activeModelId = computed(() => {
   if (selectedModel.value === '__custom__') {
-    return customModelName.value.trim() || 'gemini-3.5-flash';
+    return customModelName.value.trim() || 'gemini-2.0-flash';
   }
   return selectedModel.value;
 });
@@ -1263,7 +1260,7 @@ onMounted(async () => {
     fallbackModels.value = [...aiCfg.fallbackModels];
   }
 
-  const savedModel = aiCfg.selectedModel || 'gemini-3.5-flash';
+  const savedModel = aiCfg.selectedModel || 'gemini-2.0-flash';
   const isPreset = availableModels.value.some(m => m.id === savedModel);
   if (isPreset) {
     selectedModel.value = savedModel;
@@ -1350,7 +1347,7 @@ const handleDeleteAiConfig = async () => {
   try {
     await deleteAiConfig();
     apiKey.value = '';
-    selectedModel.value = 'gemini-2.5-flash';
+    selectedModel.value = 'gemini-2.0-flash';
     customModelName.value = '';
     fallbackModels.value = [];
     testStatusText.value = 'Konfigurasi telah dihapus';

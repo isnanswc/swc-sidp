@@ -314,8 +314,9 @@ export async function runDefectTagAnalysis(force = false) {
     const apiKey = (await getSetting('google_ai_api_key', '')) || (await getSetting('gemini_api_key', ''));
     let candidates = await getAiModelCandidates();
     if (!candidates || candidates.length === 0) {
-      candidates = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+      candidates = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
     }
+    candidates = candidates.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
 
     let extractedTags = [];
     let methodUsed = 'Analisis Pola Lokal NLP';

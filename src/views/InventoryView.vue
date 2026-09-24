@@ -604,10 +604,10 @@
               <tbody class="divide-y divide-zinc-100 font-medium">
                 <tr
                   v-for="(u, idx) in stockUploads"
-                  :key="u.id"
+                  :key="u.uuid || u.id"
                   :class="[
                     'transition-colors',
-                    activeUploadId === u.id
+                    isUploadActive(u)
                       ? 'bg-emerald-50/60 font-bold border-l-4 border-emerald-500'
                       : 'hover:bg-zinc-50'
                   ]"
@@ -617,7 +617,7 @@
                   <!-- Status Acuan Badge -->
                   <td class="p-3">
                     <span
-                      v-if="activeUploadId === u.id"
+                      v-if="isUploadActive(u)"
                       class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white border border-emerald-700 shadow-xs flex items-center gap-1 w-max"
                     >
                       <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
@@ -625,7 +625,7 @@
                     </span>
                     <button
                       v-else
-                      @click="inventoryStore.setActiveUpload(u.id)"
+                      @click="inventoryStore.setActiveUpload(u.uuid || u.id)"
                       class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-100 hover:bg-emerald-100 text-zinc-700 hover:text-emerald-800 border border-zinc-300 transition-colors cursor-pointer"
                     >
                       ☆ Jadikan Stok Aktif
@@ -1143,7 +1143,7 @@
                 Tempelkan baris dari Excel atau upload file <code>.xlsx</code> dengan 27 kolom lengkap.
               </p>
             </div>
-            <button @click="showUploadModal = false" class="p-1 text-zinc-400 hover:text-zinc-700 font-bold text-base cursor-pointer">✕</button>
+            <button @click="showUploadModal = false" :disabled="isCommittingStock" class="p-1 text-zinc-400 hover:text-zinc-700 font-bold text-base cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
           </div>
 
           <!-- Parameters -->
@@ -1258,15 +1258,23 @@
 
           <!-- Dialog Actions -->
           <div class="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
-            <button @click="showUploadModal = false" class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 cursor-pointer">
+            <button
+              @click="showUploadModal = false"
+              :disabled="isCommittingStock"
+              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
               Batal
             </button>
             <button
               @click="commitStockUpload"
-              :disabled="parsedStockRows.length === 0"
-              class="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 shadow-md shadow-blue-600/20 cursor-pointer transition-all"
+              :disabled="parsedStockRows.length === 0 || isCommittingStock"
+              class="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-blue-600/20 cursor-pointer transition-all flex items-center gap-2"
             >
-              ✓ Simpan & Jadikan Stok Aktif ({{ parsedStockRows.length }} Item)
+              <svg v-if="isCommittingStock" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>{{ isCommittingStock ? 'Menyimpan & Menyinkronkan ke Cloud...' : `✓ Simpan & Jadikan Stok Aktif (${parsedStockRows.length} Item)` }}</span>
             </button>
           </div>
         </div>
@@ -1294,6 +1302,14 @@ const currentStocksList = computed(() => inventoryStore?.currentStocks || []);
 const activeUpload = computed(() => inventoryStore?.activeUpload || null);
 const activeUploadId = computed(() => inventoryStore?.activeUploadId || null);
 const lastUploadDate = computed(() => inventoryStore?.lastUploadDate || '-');
+
+const isUploadActive = (upload) => {
+  if (!upload || !activeUpload.value) return false;
+  if (upload.uuid && activeUpload.value.uuid) {
+    return upload.uuid === activeUpload.value.uuid;
+  }
+  return upload.id === activeUpload.value.id;
+};
 
 // Sub-Sheet Navigation Tabs for FG Roll: 'stock' | 'updates' | 'location'
 const activeFgTab = ref('stock');
@@ -1378,6 +1394,7 @@ const resetColumnsToAll = () => {
 
 // Upload Modal & Form
 const showUploadModal = ref(false);
+const isCommittingStock = ref(false);
 const stockPasteRaw = ref('');
 const parsedStockRows = ref([]);
 
@@ -1776,20 +1793,28 @@ const parseStockPaste = () => {
 };
 
 const commitStockUpload = async () => {
-  if (parsedStockRows.value.length === 0) return;
+  if (isCommittingStock.value || parsedStockRows.value.length === 0) return;
+  isCommittingStock.value = true;
 
-  await inventoryStore.processStockUpload({
-    uploadDate: stockUploadForm.date,
-    fileName: stockUploadForm.fileName,
-    uploadedBy: stockUploadForm.uploadedBy,
-    items: parsedStockRows.value
-  });
+  try {
+    await inventoryStore.processStockUpload({
+      uploadDate: stockUploadForm.date,
+      fileName: stockUploadForm.fileName,
+      uploadedBy: stockUploadForm.uploadedBy,
+      items: parsedStockRows.value
+    });
 
-  showUploadModal.value = false;
-  stockPasteRaw.value = '';
-  parsedStockRows.value = [];
-  alert(`⚡ Sukses: Berhasil memperbarui stok gudang Roll FG (${inventoryStore.currentStocks.length} SKU).`);
-  activeFgTab.value = 'stock';
+    showUploadModal.value = false;
+    stockPasteRaw.value = '';
+    parsedStockRows.value = [];
+    alert(`⚡ Sukses: Berhasil memperbarui stok gudang Roll FG (${inventoryStore.currentStocks.length} SKU).`);
+    activeFgTab.value = 'stock';
+  } catch (err) {
+    console.error('Failed to commit stock upload:', err);
+    alert(`Gagal menyimpan stok FG: ${err.message || 'Terjadi kesalahan sistem'}`);
+  } finally {
+    isCommittingStock.value = false;
+  }
 };
 
 const deleteUpload = async (upload) => {

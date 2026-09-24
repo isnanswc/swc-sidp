@@ -1915,7 +1915,7 @@
 
 <script setup>
 import { ref, computed, reactive, watch, nextTick, onMounted, onUnmounted } from 'vue';
-import { useLabelStore } from '@/stores/labelStore';
+import { useLabelStore, compareHierarkiLabel, computeLabelSortKeys } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
 import { useConfigStore } from '@/stores/configStore';
 import { db, generateUniqID } from '@/db';
@@ -2018,30 +2018,45 @@ const formatDateNice = (dateStr) => {
 // UNIFIED DATA SOURCES WITH CLEAN BATCH SEPARATION
 // =========================================================================
 const allSourceItems = computed(() => {
-  const manualItems = (labelStore.labels || []).map(l => ({
-    ...l,
-    sourceType: 'MANUAL',
-    sourceLabel: 'Data Label (Input Manual)',
-    batchTitle: l.batchName || `DE Report ${l.mesin || 'SLITTING'} (${l.tanggal || 'Harian'})`
-  }));
+  const manualItems = (labelStore.labels || []).map(l => {
+    const comb = l.shiftCombined || getShiftCombined(l);
+    const enriched = { ...l, shiftCombined: comb };
+    const keys = computeLabelSortKeys(enriched, enriched.mesin || 'SLITTING');
+    return {
+      ...enriched,
+      ...keys,
+      sourceType: 'MANUAL',
+      sourceLabel: 'Data Label (Input Manual)',
+      batchTitle: l.batchName || `DE Report ${l.mesin || 'SLITTING'} (${l.tanggal || 'Harian'})`
+    };
+  });
 
   const dataRollItems = (dataRollStore.rolls || [])
     .filter(r => !String(r.id || '').startsWith('de_label') && !r.originalLabelId)
-    .map(r => ({
-      ...r,
-      sourceType: 'DATA_ROLL',
-      sourceLabel: 'Export Excel Data Roll',
-      batchTitle: r.uploadId || `Upload Excel ${r.machineName || 'SLITTING'} (${r.tanggal || 'Harian'})`,
-      mesin: r.machineName || (r.slitting ? 'SLITTING' : (r.rewind ? 'REWIND' : 'CASTING'))
-    }));
+    .map(r => {
+      const mesin = r.machineName || (r.slitting ? 'SLITTING' : (r.rewind ? 'REWIND' : 'CASTING'));
+      const comb = r.shiftCombined || getShiftCombined(r);
+      const enriched = { ...r, shiftCombined: comb, mesin };
+      const keys = computeLabelSortKeys(enriched, mesin);
+      return {
+        ...enriched,
+        ...keys,
+        sourceType: 'DATA_ROLL',
+        sourceLabel: 'Export Excel Data Roll',
+        batchTitle: r.uploadId || `Upload Excel ${mesin} (${r.tanggal || 'Harian'})`
+      };
+    });
 
+  let rawList;
   if (portalSourceFilter.value === 'MANUAL') {
-    return manualItems;
+    rawList = manualItems;
   } else if (portalSourceFilter.value === 'DATA_ROLL') {
-    return dataRollItems;
+    rawList = dataRollItems;
   } else {
-    return [...manualItems, ...dataRollItems];
+    rawList = [...manualItems, ...dataRollItems];
   }
+
+  return [...rawList].sort((a, b) => compareHierarkiLabel(a, b, 'asc'));
 });
 
 // Available Dates & Machines
@@ -2156,11 +2171,14 @@ const groupedSessions = computed(() => {
   let result = Object.values(groups).map(g => ({
     ...g,
     totalKg: parseFloat(g.totalKg.toFixed(2)),
-    machinesList: Object.values(g.machines).map(m => ({
-      ...m,
-      totalKg: parseFloat(m.totalKg.toFixed(2)),
-      operatorsList: Array.from(m.operators)
-    }))
+    machinesList: Object.values(g.machines).map(m => {
+      m.rolls.sort((a, b) => compareHierarkiLabel(a, b, 'asc'));
+      return {
+        ...m,
+        totalKg: parseFloat(m.totalKg.toFixed(2)),
+        operatorsList: Array.from(m.operators)
+      };
+    })
   })).sort((a, b) => {
     if (a.date === 'Tanpa Tanggal') return 1;
     if (b.date === 'Tanpa Tanggal') return -1;
@@ -2566,17 +2584,19 @@ const editInputValue = ref('');
 
 // STORE DATA COMPUTED (Berdasarkan Tanggal & Mesin Terpilih & Sumber Batch)
 const unverifiedList = computed(() => {
-  return allSourceItems.value.filter(l => (!l.verified || l.verified === 0) && (
+  const filtered = allSourceItems.value.filter(l => (!l.verified || l.verified === 0) && (
     (selectedDate.value === 'ALL' || l.tanggal === selectedDate.value) &&
     (selectedMachine.value === 'ALL' || l.mesin === selectedMachine.value || (!l.mesin && selectedMachine.value === 'SLITTING'))
   ));
+  return [...filtered].sort((a, b) => compareHierarkiLabel(a, b, 'asc'));
 });
 
 const verifiedList = computed(() => {
-  return allSourceItems.value.filter(l => l.verified === 1 && (
+  const filtered = allSourceItems.value.filter(l => l.verified === 1 && (
     (selectedDate.value === 'ALL' || l.tanggal === selectedDate.value) &&
     (selectedMachine.value === 'ALL' || l.mesin === selectedMachine.value || (!l.mesin && selectedMachine.value === 'SLITTING'))
   ));
+  return [...filtered].sort((a, b) => compareHierarkiLabel(a, b, 'asc'));
 });
 
 const totalWasteUnverified = computed(() => {
@@ -2968,20 +2988,24 @@ const closeVerifiedBatchView = () => {
 
 const selectedBatchRolls = computed(() => {
   if (!selectedBatch.value) return [];
+  let rolls = [];
   try {
     const parsed = JSON.parse(selectedBatch.value.rollsJson || '[]');
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    if (Array.isArray(parsed) && parsed.length > 0) rolls = parsed;
   } catch (e) {
     console.error('Failed to parse rollsJson:', e);
   }
-  // Fallback: match from labelStore.labels
-  const bDate = selectedBatch.value.tanggal || (selectedBatch.value.uploadDate ? selectedBatch.value.uploadDate.slice(0, 10) : '');
-  const bMach = (selectedBatch.value.machine || selectedBatch.value.mesin || '').toUpperCase();
-  return (labelStore.labels || []).filter(l => 
-    l.verified === 1 && 
-    (!bDate || l.tanggal === bDate) && 
-    (!bMach || bMach === 'ALL' || (l.mesin || 'SLITTING').toUpperCase() === bMach)
-  );
+  if (rolls.length === 0) {
+    // Fallback: match from labelStore.labels
+    const bDate = selectedBatch.value.tanggal || (selectedBatch.value.uploadDate ? selectedBatch.value.uploadDate.slice(0, 10) : '');
+    const bMach = (selectedBatch.value.machine || selectedBatch.value.mesin || '').toUpperCase();
+    rolls = (labelStore.labels || []).filter(l => 
+      l.verified === 1 && 
+      (!bDate || l.tanggal === bDate) && 
+      (!bMach || bMach === 'ALL' || (l.mesin || 'SLITTING').toUpperCase() === bMach)
+    );
+  }
+  return [...rolls].sort((a, b) => compareHierarkiLabel(a, b, 'asc'));
 });
 
 const validBatchDetailRolls = computed(() => {
@@ -3216,7 +3240,7 @@ const getParentLotInfo = (lotNo) => {
       }
     });
     const sumWidth = Array.from(chartMap.values()).reduce((acc, w) => acc + w, 0);
-    parentWidth = sumWidth > 0 ? sumWidth : (parseFloat(first.width || first.lebar) || 1000) * 2;
+    parentWidth = sumWidth > 0 ? (sumWidth + 30) : (parseFloat(first.width || first.lebar) || 1000) * 2;
   }
 
   // 2. Parent Meter (Panjang Bahan)

@@ -1,3 +1,13 @@
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import { db } from '@/db';
+import { useConfigStore } from '@/stores/configStore';
+import { useLabelStore } from '@/stores/labelStore';
+import { useDataRollStore } from '@/stores/dataRollStore';
+import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, broadcastRealtimeEvent } from '@/services/syncService';
+import { extractCleanParentLot } from '@/services/dataRollParserService';
+import { supabase } from '@/services/supabaseClient';
+
 export function getBatchDateMatchingWindow(batch) {
   if (!batch || !batch.tanggal) return null;
 
@@ -44,14 +54,40 @@ export function getBatchDateMatchingWindow(batch) {
   };
 }
 
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { db } from '@/db';
-import { useConfigStore } from '@/stores/configStore';
-import { useLabelStore } from '@/stores/labelStore';
-import { useDataRollStore } from '@/stores/dataRollStore';
-import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase } from '@/services/syncService';
-import { extractCleanParentLot } from '@/services/dataRollParserService';
+export const sortSpkBatches = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.slice().sort((a, b) => {
+    let timeB = 0;
+    let timeA = 0;
+    if (b.tanggal) {
+      const matchB = String(b.tanggal).match(/\d{4}-\d{2}-\d{2}/);
+      if (matchB) timeB = new Date(matchB[0]).getTime() || 0;
+      else {
+        const d = new Date(b.tanggal).getTime();
+        if (!isNaN(d)) timeB = d;
+      }
+    }
+    if (!timeB && b.createdAt) timeB = new Date(b.createdAt).getTime() || 0;
+
+    if (a.tanggal) {
+      const matchA = String(a.tanggal).match(/\d{4}-\d{2}-\d{2}/);
+      if (matchA) timeA = new Date(matchA[0]).getTime() || 0;
+      else {
+        const d = new Date(a.tanggal).getTime();
+        if (!isNaN(d)) timeA = d;
+      }
+    }
+    if (!timeA && a.createdAt) timeA = new Date(a.createdAt).getTime() || 0;
+
+    if (timeB !== timeA) return timeB - timeA;
+
+    const cB = new Date(b.createdAt || 0).getTime() || 0;
+    const cA = new Date(a.createdAt || 0).getTime() || 0;
+    if (cB !== cA) return cB - cA;
+
+    return (b.id || 0) - (a.id || 0);
+  });
+};
 export function getFilmDensity(jenis, kodeFormula, spkNo = '', filmConfigs = []) {
   const cleanJenis = String(jenis || '').toUpperCase().trim();
   const cleanKode = String(kodeFormula || '').toUpperCase().trim();
@@ -175,23 +211,77 @@ export const useSpkStore = defineStore('spk', () => {
   const isLoading = ref(false);
   const activePlanId = ref(null);
   const selectedBatchId = ref(null);
-  const activeTimelineBatchUuid = ref(localStorage.getItem('spk_active_reference_batch_uuid') || null);
+  const activeTimelineBatchUuid = ref(
+    (typeof window !== 'undefined' ? localStorage.getItem('spk_active_reference_batch_uuid') : null) || null
+  );
 
-  const setActiveReferenceBatch = (batchUuid) => {
-    activeTimelineBatchUuid.value = batchUuid || null;
-    if (batchUuid) {
-      localStorage.setItem('spk_active_reference_batch_uuid', batchUuid);
-    } else {
-      localStorage.removeItem('spk_active_reference_batch_uuid');
+  // Auto-healing single active reference batch (latest date wins by default)
+  const reconcileSpkActiveBatch = (preferredUuid = null) => {
+    const list = Array.isArray(batches.value) ? batches.value : [];
+    if (list.length === 0) {
+      activeTimelineBatchUuid.value = null;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('spk_active_reference_batch_uuid');
+      }
+      return null;
+    }
+
+    batches.value = sortSpkBatches(list);
+
+    let chosen = null;
+    if (preferredUuid) {
+      chosen = batches.value.find(b => b.uuid === preferredUuid || String(b.id) === String(preferredUuid));
+    }
+    if (!chosen && activeTimelineBatchUuid.value) {
+      chosen = batches.value.find(b => b.uuid === activeTimelineBatchUuid.value);
+    }
+    if (!chosen) {
+      // Latest batch by date wins
+      chosen = batches.value[0];
+    }
+
+    if (chosen && chosen.uuid) {
+      activeTimelineBatchUuid.value = chosen.uuid;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('spk_active_reference_batch_uuid', chosen.uuid);
+      }
+    }
+    return chosen;
+  };
+
+  const setActiveReferenceBatch = async (batchUuid) => {
+    const chosen = reconcileSpkActiveBatch(batchUuid);
+    const targetUuid = chosen?.uuid || batchUuid || null;
+
+    try {
+      if (db.settings) {
+        await db.settings.put({
+          key: 'spk_active_reference_batch_uuid',
+          value: targetUuid || '',
+          updatedAt: new Date().toISOString()
+        });
+      }
+      if (targetUuid) {
+        await supabase.from('settings').upsert([{
+          key: 'spk_active_reference_batch_uuid',
+          value: targetUuid,
+          updated_at: new Date().toISOString()
+        }], { onConflict: 'key' });
+      }
+      broadcastRealtimeEvent('spk_broadcast', { action: 'set_active_batch', batchUuid: targetUuid });
+    } catch (e) {
+      console.warn('Sync active SPK batch notice:', e);
     }
   };
 
   const activeBatch = computed(() => {
+    const list = Array.isArray(batches.value) ? batches.value : [];
+    if (list.length === 0) return null;
     if (activeTimelineBatchUuid.value) {
-      const found = (batches.value || []).find(b => b.uuid === activeTimelineBatchUuid.value);
+      const found = list.find(b => b.uuid === activeTimelineBatchUuid.value);
       if (found) return found;
     }
-    return (batches.value || [])[0] || null;
+    return list[0] || null;
   });
 
   const activeDateWindow = computed(() => {
@@ -250,7 +340,9 @@ export const useSpkStore = defineStore('spk', () => {
     isLoading.value = true;
     try {
       if (db.spk_batches) {
-        batches.value = (await db.spk_batches.toArray()).reverse();
+        const rawBatches = await db.spk_batches.toArray();
+        batches.value = sortSpkBatches(rawBatches);
+        reconcileSpkActiveBatch(activeTimelineBatchUuid.value);
       }
       if (db.spk_plans) {
         // ZERO-SEEDING POLICY: Bersihkan segala data sample / dummy SPK
@@ -279,8 +371,16 @@ export const useSpkStore = defineStore('spk', () => {
   };
 
   // Create New Batch with multiple SPK Plans (1 Scan = 1 Batch Harian)
+  let isProcessingBatchAdd = false;
   const addBatchWithPlans = async (batchMeta, planItems) => {
-    const now = new Date().toISOString();
+    if (isProcessingBatchAdd) {
+      console.warn('⚠️ addBatchWithPlans rejected: another batch is currently being saved.');
+      return null;
+    }
+    isProcessingBatchAdd = true;
+
+    try {
+      const now = new Date().toISOString();
     const batchUuid = `spk_batch_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const items = planItems || [];
 
@@ -305,6 +405,7 @@ export const useSpkStore = defineStore('spk', () => {
       const bId = await db.spk_batches.add(batchRecord);
       batchRecord.id = bId;
       batches.value.unshift(batchRecord);
+      batches.value = sortSpkBatches(batches.value);
     }
 
     const createdPlans = [];
@@ -345,10 +446,18 @@ export const useSpkStore = defineStore('spk', () => {
     }
 
     // Acuan monitoring otomatis mengikuti batch SPK yang baru dibuat/discan
-    setActiveReferenceBatch(batchUuid);
-    pushLocalToSupabase().catch(() => {});
+    await setActiveReferenceBatch(batchUuid);
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('spk_broadcast', { action: 'add_batch', batchUuid });
+    } catch (e) {
+      console.warn('Push SPK batch notice:', e);
+    }
 
-    return { batch: batchRecord, plans: createdPlans };
+      return { batch: batchRecord, plans: createdPlans };
+    } finally {
+      isProcessingBatchAdd = false;
+    }
   };
 
   // Delete Batch and all its child plans
@@ -370,6 +479,21 @@ export const useSpkStore = defineStore('spk', () => {
     if (selectedBatchId.value === batchUuid) {
       selectedBatchId.value = null;
     }
+
+    const wasActive = activeTimelineBatchUuid.value === batchUuid;
+    if (wasActive) {
+      const remaining = reconcileSpkActiveBatch();
+      if (remaining?.uuid) {
+        await setActiveReferenceBatch(remaining.uuid);
+      } else {
+        await setActiveReferenceBatch(null);
+      }
+    }
+
+    try {
+      await pushLocalToSupabase();
+      broadcastRealtimeEvent('spk_broadcast', { action: 'delete_batch', batchUuid });
+    } catch (e) {}
   };
 
   // Add New Plan
@@ -411,7 +535,10 @@ export const useSpkStore = defineStore('spk', () => {
       const id = await db.spk_plans.add(record);
       record.id = id;
       plans.value.push(record);
-      pushLocalToSupabase().catch(() => {});
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('spk_broadcast', { action: 'add_plan', uuid: record.uuid });
+      } catch (e) {}
       return record;
     }
   };
@@ -463,7 +590,10 @@ export const useSpkStore = defineStore('spk', () => {
     if (db.spk_plans) {
       await db.spk_plans.update(id, payload);
       plans.value[existingIndex] = { ...oldData, ...payload };
-      pushLocalToSupabase().catch(() => {});
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('spk_broadcast', { action: 'update_plan', id });
+      } catch (e) {}
     }
   };
 
@@ -477,6 +607,10 @@ export const useSpkStore = defineStore('spk', () => {
       if (uuid) {
         deleteFromSupabase('spk_plans', 'uuid', uuid).catch(() => {});
       }
+      try {
+        await pushLocalToSupabase();
+        broadcastRealtimeEvent('spk_broadcast', { action: 'delete_plan', id });
+      } catch (e) {}
     }
   };
 
@@ -504,18 +638,16 @@ export const useSpkStore = defineStore('spk', () => {
     // Persist to Dexie DB
     if (db.spk_plans) {
       try {
-        await db.transaction('rw', db.spk_plans, async () => {
-          for (const up of updates) {
-            if (up.id) {
-              await db.spk_plans.update(up.id, { seq: up.seq });
-            } else if (up.uuid) {
-              const p = await db.spk_plans.where('uuid').equals(up.uuid).first();
-              if (p && p.id) {
-                await db.spk_plans.update(p.id, { seq: up.seq });
-              }
+        for (const up of updates) {
+          if (up.id) {
+            await db.spk_plans.update(up.id, { seq: up.seq });
+          } else if (up.uuid) {
+            const p = await db.spk_plans.where('uuid').equals(up.uuid).first();
+            if (p && p.id) {
+              await db.spk_plans.update(p.id, { seq: up.seq });
             }
           }
-        });
+        }
       } catch (dbErr) {
         console.warn('Failed persisting reordered spk_plans to Dexie:', dbErr);
       }
@@ -1273,7 +1405,9 @@ export const useSpkStore = defineStore('spk', () => {
     getSpkRealtimeAnalytics,
     allDataRollSpkList,
     getAllSpkAnalytics,
-    parseSpkMetadata
+    parseSpkMetadata,
+    reconcileSpkActiveBatch,
+    sortSpkBatches
   };
 });
 
@@ -1391,5 +1525,34 @@ export function parseSpkMetadata(spkNo, sampleDate = null) {
     isTrial,
     material
   };
+}
+
+// Auto-reload spkStore whenever cloud sync or realtime updates spk data (debounced)
+if (typeof window !== 'undefined' && !window.__mlabel_spk_sync_listener_attached) {
+  window.__mlabel_spk_sync_listener_attached = true;
+  let reloadTimer = null;
+  window.addEventListener('sync:spk-plans-updated', () => {
+    if (reloadTimer) clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(async () => {
+      try {
+        const store = useSpkStore();
+        await store.loadAll(true);
+      } catch (e) {
+        console.warn('Auto reload spkStore failed:', e);
+      }
+    }, 300);
+  });
+
+  window.addEventListener('sync:spk-reference-updated', (ev) => {
+    const newRefUuid = ev?.detail?.batchUuid;
+    if (newRefUuid) {
+      try {
+        const store = useSpkStore();
+        store.reconcileSpkActiveBatch(newRefUuid);
+      } catch (e) {
+        console.warn('Sync spk reference updated event failed:', e);
+      }
+    }
+  });
 }
 

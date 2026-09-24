@@ -488,8 +488,9 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
 
   let modelCandidates = await getAiModelCandidates();
   if (!modelCandidates || modelCandidates.length === 0) {
-    modelCandidates = [aiCfg.selectedModel || 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    modelCandidates = [aiCfg.selectedModel || 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
   }
+  modelCandidates = modelCandidates.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
 
   const rawImagesArray = Array.isArray(base64Images) ? base64Images : [base64Images];
   if (rawImagesArray.length === 0) {
@@ -509,7 +510,10 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
   for (let i = 0; i < compressedImages.length; i++) {
     const match = compressedImages[i].match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
     if (match) {
-      pass1Parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+      // Skema standar resmi Google Gemini REST API v1beta (inlineData dengan mimeType)
+      pass1Parts.push({
+        inlineData: { mimeType: match[1], data: match[2] }
+      });
     }
   }
 
@@ -519,7 +523,7 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
     parts: pass1Parts,
     apiKey,
     modelCandidates,
-    generationConfig: { temperature: 0.0, response_mime_type: 'application/json' },
+    generationConfig: { temperature: 0.0, responseMimeType: 'application/json' },
     notify,
     stepIndex: 3,
     stepBasePercent: 50
@@ -531,6 +535,11 @@ export async function extractReportFromImage(base64Images, machineType = 'CASTIN
   if (!pass1Text) throw new Error('Tidak ada respon teks dari model AI Google pada Pass 1.');
 
   let cleanJsonText = pass1Text.replace(/```json\s*|```/g, '').trim();
+  const firstBrace = cleanJsonText.indexOf('{');
+  const lastBrace = cleanJsonText.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleanJsonText = cleanJsonText.substring(firstBrace, lastBrace + 1);
+  }
   notify(5, 85, 'Memvalidasi neraca material balance & master data...');
 
   let rawParsedData;
@@ -591,8 +600,9 @@ async function executeGeminiWithFallback({
   }
   if (candidates.length === 0) {
     const configuredCandidates = await getAiModelCandidates();
-    candidates = configuredCandidates.length > 0 ? configuredCandidates : ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    candidates = configuredCandidates.length > 0 ? configuredCandidates : ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-pro-exp-02-05'];
   }
+  candidates = candidates.filter(m => m && !m.includes('1.') && !m.includes('2.5') && !m.includes('3.5'));
 
   let lastError = null;
 
@@ -603,7 +613,7 @@ async function executeGeminiWithFallback({
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       const abortCtrl = new AbortController();
-      const timeoutId = setTimeout(() => abortCtrl.abort(), 35000); // 35s timeout per vision call
+      const timeoutId = setTimeout(() => abortCtrl.abort(), 75000); // 75s timeout per vision call (OCR multi-halaman membutuhkan waktu lebih leluasa)
 
       try {
         if (attempt > 1 && typeof notify === 'function') {
@@ -626,7 +636,7 @@ async function executeGeminiWithFallback({
             contents: [{ parts }],
             generationConfig: {
               temperature: 0.0,
-              response_mime_type: 'application/json',
+              responseMimeType: 'application/json',
               ...generationConfig
             }
           })
@@ -663,12 +673,10 @@ async function executeGeminiWithFallback({
       } catch (err) {
         clearTimeout(timeoutId);
         const isTimeout = err.name === 'AbortError';
-        const reason = isTimeout ? 'Timeout (>35s)' : (err.message || 'Error');
+        const reason = isTimeout ? 'Timeout (>75s)' : (err.message || 'Error');
         recordModelFailure(currentModel, reason, isTimeout ? 408 : null).catch(() => {});
         lastError = err;
         if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, 800));
-        }
       }
     }
 
@@ -708,7 +716,7 @@ export async function performDeepHandwritingAudit(imagesArray, apiKeyParam = nul
   for (let i = 0; i < imagesArray.length; i++) {
     const match = imagesArray[i].match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
     if (match) {
-      parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+      parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
     }
   }
 
@@ -717,10 +725,15 @@ export async function performDeepHandwritingAudit(imagesArray, apiKeyParam = nul
       parts,
       apiKey,
       modelCandidates,
-      generationConfig: { temperature: 0.1, response_mime_type: 'application/json' }
+      generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
     });
 
-    const cleanJson = auditExecution.text.replace(/```json\s*|```/g, '').trim();
+    let cleanJson = auditExecution.text.replace(/```json\s*|```/g, '').trim();
+    const firstBrace = cleanJson.indexOf('{');
+    const lastBrace = cleanJson.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
+    }
     const parsed = JSON.parse(cleanJson);
     const list = Array.isArray(parsed.anomali_rekomendasi) ? parsed.anomali_rekomendasi : [];
     return list.filter(a => {
@@ -1019,6 +1032,19 @@ function processSingleMetalizeShift(shiftData, filmConfigs = [], operatorList = 
  */
 async function postProcessMultiShiftData(data, machineType = 'CASTING') {
   if (!data) return null;
+
+  // Unpack jika AI membungkus dalam array langsung atau property data/result/laporan
+  if (Array.isArray(data)) {
+    data = { shifts: data };
+  } else if (data && typeof data === 'object') {
+    if (data.data && typeof data.data === 'object') {
+      data = Array.isArray(data.data) ? { shifts: data.data } : data.data;
+    } else if (data.result && typeof data.result === 'object') {
+      data = Array.isArray(data.result) ? { shifts: data.result } : data.result;
+    } else if (data.laporan && typeof data.laporan === 'object') {
+      data = Array.isArray(data.laporan) ? { shifts: data.laporan } : data.laporan;
+    }
+  }
 
   // Ambil data konfigurasi film, item resin, dan daftar operator resmi dari IndexedDB
   let filmConfigs = [];

@@ -405,6 +405,10 @@ db.version(25).stores({
   operator_list: '++id, nama, mesin, kodeGrup, kodeOperator, berlakuMulai, berlakuSampai, active, createdAt, updatedAt'
 });
 
+db.version(26).stores({
+  inventory_stock_uploads: '++id, uuid, uploadDate, fileName, totalSku, totalRoll, uploadedBy, itemsJson, createdAt'
+});
+
 export async function saveSetting(key, value) {
   try {
     let cleanValue = value;

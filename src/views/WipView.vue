@@ -674,14 +674,14 @@
                   :key="update.id || update.uuid"
                   :class="[
                     'hover:bg-amber-50/40 transition-colors group cursor-pointer',
-                    update.isActive ? 'bg-amber-50/20' : ''
+                    isUpdateActive(update) ? 'bg-amber-50/20' : ''
                   ]"
                   @click="openDetailView(update)"
                 >
                   <td class="py-3 px-3 text-center text-zinc-400 font-bold font-sans">{{ idx + 1 }}</td>
                   <td class="py-3 px-3 text-center font-sans" @click.stop>
                     <span
-                      v-if="update.isActive"
+                      v-if="isUpdateActive(update)"
                       class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1 shadow-xs"
                       title="Data WIP ini aktif sebagai acuan utama stok dan validasi nomor lot label"
                     >
@@ -756,13 +756,13 @@
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-xs font-bold text-zinc-400">Batch:</span>
               <span class="text-xs font-black text-zinc-900 bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-lg">{{ currentDetailBatch?.title }}</span>
-              <span v-if="currentDetailBatch?.isActive" class="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">🟢 ACUAN UTAMA STOK</span>
+              <span v-if="isUpdateActive(currentDetailBatch)" class="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">🟢 ACUAN UTAMA STOK</span>
               <span v-else class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">📁 STATUS: ARSIP</span>
             </div>
           </div>
 
           <div class="flex items-center gap-2 flex-wrap">
-            <button v-if="!currentDetailBatch?.isActive" @click="makeActiveUpdate(currentDetailBatch)" class="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all flex items-center gap-1 cursor-pointer">
+            <button v-if="!isUpdateActive(currentDetailBatch)" @click="makeActiveUpdate(currentDetailBatch)" class="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all flex items-center gap-1 cursor-pointer">
               <span>✓ Jadikan Acuan Utama Stok</span>
             </button>
             <button @click="openSingleRollModal(null)" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-900 hover:bg-black text-white transition-all flex items-center gap-1 cursor-pointer">
@@ -1598,7 +1598,7 @@
             <h3 class="text-base font-black text-zinc-900 tracking-tight flex items-center gap-1.5">
               <span>🚚</span> Pindahkan Roll ke Rak Lain
             </h3>
-            <button @click="showMoveLocationModal = false" class="p-1 text-zinc-400 hover:text-zinc-700 font-bold text-base cursor-pointer">✕</button>
+            <button @click="showMoveLocationModal = false" :disabled="isMovingRoll" class="p-1 text-zinc-400 hover:text-zinc-700 font-bold text-base cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
           </div>
 
           <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs space-y-1">
@@ -1628,8 +1628,24 @@
           </div>
 
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
-            <button @click="showMoveLocationModal = false" class="px-4 py-1.5 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 cursor-pointer">Batal</button>
-            <button @click="executeMoveLocation" class="px-5 py-1.5 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-xs cursor-pointer">Simpan Perpindahan</button>
+            <button
+              @click="showMoveLocationModal = false"
+              :disabled="isMovingRoll"
+              class="px-4 py-1.5 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Batal
+            </button>
+            <button
+              @click="executeMoveLocation"
+              :disabled="isMovingRoll"
+              class="px-5 py-1.5 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              <svg v-if="isMovingRoll" class="animate-spin h-3.5 w-3.5 text-zinc-950" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>{{ isMovingRoll ? 'Memindahkan...' : 'Simpan Perpindahan' }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1650,7 +1666,7 @@
                 Setiap upload akan membentuk 1 Sesi Update baru dan dapat langsung dijadikan Acuan Utama Stok.
               </p>
             </div>
-            <button @click="showImportModal = false" class="p-1 text-zinc-400 hover:text-zinc-700 font-bold text-base cursor-pointer">✕</button>
+            <button @click="showImportModal = false" :disabled="isImportingWip" class="p-1 text-zinc-400 hover:text-zinc-700 font-bold text-base cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
           </div>
 
           <!-- Import Metadata Settings -->
@@ -1831,16 +1847,21 @@
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
             <button
               @click="showImportModal = false"
-              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 cursor-pointer"
+              :disabled="isImportingWip"
+              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               Batal
             </button>
             <button
               @click="executeImportWip"
-              :disabled="parsedPreviewRolls.length === 0"
-              class="px-5 py-2 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-zinc-950 disabled:opacity-40 shadow-md shadow-amber-500/20 cursor-pointer transition-all"
+              :disabled="parsedPreviewRolls.length === 0 || isImportingWip"
+              class="px-5 py-2 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-zinc-950 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-amber-500/20 cursor-pointer transition-all flex items-center gap-2"
             >
-              ✓ Simpan & Buat Update Baru ({{ parsedPreviewRolls.length }} Roll)
+              <svg v-if="isImportingWip" class="animate-spin h-3.5 w-3.5 text-zinc-950" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>{{ isImportingWip ? 'Menyimpan & Menyinkronkan ke Cloud...' : `✓ Simpan & Buat Update Baru (${parsedPreviewRolls.length} Roll)` }}</span>
             </button>
           </div>
         </div>
@@ -1857,7 +1878,7 @@
             <h3 class="text-base font-black text-zinc-900 tracking-tight">
               {{ editingRollId ? '✏️ Edit Data Roll WIP' : '+ Tambah Data Roll WIP' }}
             </h3>
-            <button @click="showSingleRollModal = false" class="p-1 text-zinc-400 hover:text-zinc-700 font-bold text-base cursor-pointer">✕</button>
+            <button @click="showSingleRollModal = false" :disabled="isSavingRoll" class="p-1 text-zinc-400 hover:text-zinc-700 font-bold text-base cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -1922,8 +1943,24 @@
           </div>
 
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
-            <button @click="showSingleRollModal = false" class="px-4 py-1.5 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 cursor-pointer">Batal</button>
-            <button @click="saveSingleRoll" class="px-5 py-1.5 rounded-xl text-xs font-black bg-zinc-900 hover:bg-black text-white shadow-xs cursor-pointer">Simpan</button>
+            <button
+              @click="showSingleRollModal = false"
+              :disabled="isSavingRoll"
+              class="px-4 py-1.5 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Batal
+            </button>
+            <button
+              @click="saveSingleRoll"
+              :disabled="isSavingRoll"
+              class="px-5 py-1.5 rounded-xl text-xs font-black bg-zinc-900 hover:bg-black text-white shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              <svg v-if="isSavingRoll" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>{{ isSavingRoll ? 'Menyimpan...' : 'Simpan' }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -2356,12 +2393,14 @@ const selectedRack = ref(null);
 
 // Move Location State
 const showMoveLocationModal = ref(false);
+const isMovingRoll = ref(false);
 const movingRoll = ref(null);
 const moveTargetLocation = ref('RAK A1A2');
 const moveTargetPosition = ref('BAWAH');
 
 // Import Modal State
 const showImportModal = ref(false);
+const isImportingWip = ref(false);
 const importMode = ref('file');
 const importTitle = ref('');
 const importTanggal = ref(new Date().toISOString().slice(0, 10));
@@ -2373,6 +2412,7 @@ const fileInputRef = ref(null);
 
 // Single Roll Modal
 const showSingleRollModal = ref(false);
+const isSavingRoll = ref(false);
 const editingRollId = ref(null);
 const rollForm = reactive({
   lot: '',
@@ -3063,6 +3103,14 @@ const openDetailView = (update) => {
   isDetailViewOpen.value = true;
 };
 
+const isUpdateActive = (update) => {
+  if (!update || !wipStore.activeUpdate) return false;
+  if (update.uuid && wipStore.activeUpdate.uuid) {
+    return update.uuid === wipStore.activeUpdate.uuid;
+  }
+  return update.id === wipStore.activeUpdate.id;
+};
+
 const makeActiveUpdate = async (update) => {
   await wipStore.setActiveUpdate(update);
   if (currentDetailBatch.value && (currentDetailBatch.value.id === update.id || currentDetailBatch.value.uuid === update.uuid)) {
@@ -3116,18 +3164,26 @@ const openMoveLocationModal = (roll) => {
 };
 
 const executeMoveLocation = async () => {
-  if (!movingRoll.value) return;
-  const rollId = movingRoll.value.id;
-  await wipStore.updateWipRoll(rollId, {
-    lokasiAktif: moveTargetLocation.value,
-    posisiAktif: moveTargetPosition.value
-  });
-  showMoveLocationModal.value = false;
+  if (isMovingRoll.value || !movingRoll.value) return;
+  isMovingRoll.value = true;
+  try {
+    const rollId = movingRoll.value.id;
+    await wipStore.updateWipRoll(rollId, {
+      lokasiAktif: moveTargetLocation.value,
+      posisiAktif: moveTargetPosition.value
+    });
+    showMoveLocationModal.value = false;
 
-  // Refresh selected rack if open
-  if (selectedRack.value) {
-    const updated = wipLocationCards.value.find(r => r.nama === selectedRack.value.nama);
-    if (updated) selectedRack.value = updated;
+    // Refresh selected rack if open
+    if (selectedRack.value) {
+      const updated = wipLocationCards.value.find(r => r.nama === selectedRack.value.nama);
+      if (updated) selectedRack.value = updated;
+    }
+  } catch (err) {
+    console.error('Failed to move roll location:', err);
+    alert('Gagal memindahkan lokasi roll: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    isMovingRoll.value = false;
   }
 };
 
@@ -3263,7 +3319,8 @@ watch(copasText, () => {
 });
 
 const executeImportWip = async () => {
-  if (parsedPreviewRolls.value.length === 0) return;
+  if (isImportingWip.value || parsedPreviewRolls.value.length === 0) return;
+  isImportingWip.value = true;
 
   try {
     // 1. Auto-register any new locations to Data Configuration
@@ -3281,7 +3338,9 @@ const executeImportWip = async () => {
     showImportModal.value = false;
     alert(`⚡ Sukses: Berhasil membuat sesi update "${newBatch.title}" berisi ${newBatch.totalRolls} roll.`);
   } catch (err) {
-    alert('Gagal menyimpan import WIP: ' + err.message);
+    alert('Gagal menyimpan import WIP: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    isImportingWip.value = false;
   }
 };
 
@@ -3313,24 +3372,33 @@ const openSingleRollModal = (roll = null) => {
 };
 
 const saveSingleRoll = async () => {
+  if (isSavingRoll.value) return;
   if (!rollForm.lot.trim()) {
     alert('No Lot wajib diisi!');
     return;
   }
+  isSavingRoll.value = true;
 
-  // Normalize location & ensure exists in master
-  const rawLoc = rollForm.lokasiAktif || 'STAGING';
-  const cleanLoc = await configStore.ensureLocationExists(rawLoc, 'WIP JUMBO');
-  rollForm.lokasiAktif = cleanLoc;
+  try {
+    // Normalize location & ensure exists in master
+    const rawLoc = rollForm.lokasiAktif || 'STAGING';
+    const cleanLoc = await configStore.ensureLocationExists(rawLoc, 'WIP JUMBO');
+    rollForm.lokasiAktif = cleanLoc;
 
-  if (editingRollId.value) {
-    await wipStore.updateWipRoll(editingRollId.value, { ...rollForm });
-  } else {
-    const targetUpdateId = currentDetailBatch.value ? (currentDetailBatch.value.uuid || currentDetailBatch.value.id) : null;
-    await wipStore.addWipRoll({ ...rollForm }, targetUpdateId);
+    if (editingRollId.value) {
+      await wipStore.updateWipRoll(editingRollId.value, { ...rollForm });
+    } else {
+      const targetUpdateId = currentDetailBatch.value ? (currentDetailBatch.value.uuid || currentDetailBatch.value.id) : null;
+      await wipStore.addWipRoll({ ...rollForm }, targetUpdateId);
+    }
+
+    showSingleRollModal.value = false;
+  } catch (err) {
+    console.error('Failed to save single WIP roll:', err);
+    alert('Gagal menyimpan data roll WIP: ' + (err.message || 'Terjadi kesalahan'));
+  } finally {
+    isSavingRoll.value = false;
   }
-
-  showSingleRollModal.value = false;
 };
 
 const handleDeleteRoll = async (roll) => {
