@@ -67,6 +67,19 @@ export function standardizeSpkInhouse(rawSpk, fallbackDate) {
 
 /**
  * Format 29 Kolom Roll Output
+function parseTimeCell(t) {
+  if (t === undefined || t === null || t === '') return '';
+  if (typeof t === 'number') return t;
+  const s = String(t).trim().replace(',', '.');
+  if (/^\d+(\.\d+)?$/.test(s) && !s.includes(':')) {
+    const num = parseFloat(s);
+    return !isNaN(num) ? num : s;
+  }
+  return s;
+}
+
+/**
+ * Format 29 Kolom Roll Output
  */
 function formatRollRow(row, defaultHeader = {}) {
   let timeMinutes = row.time_menit;
@@ -77,8 +90,8 @@ function formatRollRow(row, defaultHeader = {}) {
   return {
     'Tanggal': convertDateToNumericExcel(row.tanggal || defaultHeader.tanggal || ''),
     'Group/Shift': row.group_shift || defaultHeader.shift_group || '',
-    'Start Time': row.start_time || '',
-    'Finish Time': row.finish_time || '',
+    'Start Time': parseTimeCell(row.start_time),
+    'Finish Time': parseTimeCell(row.finish_time),
     'Time': Number(timeMinutes) || '',
     'Downtime': (row.downtime !== '' && row.downtime !== undefined && row.downtime !== null) ? Number(row.downtime) : '', // Angka murni
     'Keterangan DT': row.downtime_ket || '',
@@ -290,8 +303,8 @@ export function formatMetalizeRow(row, defaultHeader = {}) {
     'TANGGAL': numericTgl,
     'Operator': String(row.operator || defaultHeader.operator || '').trim().toUpperCase(),
     'Group/shift': String(row.group_shift || defaultHeader.shift_group || '').trim().toUpperCase(),
-    'Start': row.start_time || '',
-    'Finish': row.finish_time || '',
+    'Start': parseTimeCell(row.start_time),
+    'Finish': parseTimeCell(row.finish_time),
     'Time': Number(timeMinutes) || '',
     'No SPK': String(row.spk_no || defaultHeader.spk_no || '').trim().toUpperCase(),
     'No Lot Awal': lotAwal,
@@ -519,24 +532,42 @@ export async function exportFullSessionToExcel(session) {
 }
 
 export function calculateDurationMinutes(startTimeStr, finishTimeStr) {
-  if (!startTimeStr || !finishTimeStr) return 0;
+  if (startTimeStr === undefined || startTimeStr === null || startTimeStr === '' ||
+      finishTimeStr === undefined || finishTimeStr === null || finishTimeStr === '') return 0;
 
-  const p1 = String(startTimeStr).trim().split(':').map(Number);
-  const p2 = String(finishTimeStr).trim().split(':').map(Number);
-  if (p1.length < 2 || p2.length < 2) return 0;
-  const [h1, m1] = p1;
-  const [h2, m2] = p2;
+  const sStr = String(startTimeStr).trim().replace(',', '.');
+  const fStr = String(finishTimeStr).trim().replace(',', '.');
 
-  if (isNaN(h1) || isNaN(m1) || isNaN(h2) || isNaN(m2)) return 0;
-  if (h1 < 0 || h1 > 23 || m1 < 0 || m1 > 59 || h2 < 0 || h2 > 23 || m2 < 0 || m2 > 59) return 0;
-
-  let totalMinutes1 = h1 * 60 + m1;
-  let totalMinutes2 = h2 * 60 + m2;
-
-  if (totalMinutes2 < totalMinutes1) {
-    totalMinutes2 += 24 * 60;
+  // A. Jika keduanya adalah Time Desimal (angka numerik tanpa titik dua)
+  if (!sStr.includes(':') && !fStr.includes(':')) {
+    const num1 = parseFloat(sStr);
+    const num2 = parseFloat(fStr);
+    if (!isNaN(num1) && !isNaN(num2)) {
+      let diffDays = num2 - num1;
+      if (diffDays < 0) {
+        diffDays += 1.0;
+      }
+      const diffMinutes = Math.round(diffDays * 1440);
+      return (diffMinutes >= 0 && diffMinutes <= 1440) ? diffMinutes : 0;
+    }
   }
 
-  const diff = totalMinutes2 - totalMinutes1;
-  return (diff >= 0 && diff <= 24 * 60) ? diff : 0;
+  // B. Format HH:mm
+  const p1 = sStr.split(/[:.]/).map(Number);
+  const p2 = fStr.split(/[:.]/).map(Number);
+  if (p1.length >= 2 && p2.length >= 2 && !isNaN(p1[0]) && !isNaN(p1[1]) && !isNaN(p2[0]) && !isNaN(p2[1])) {
+    const [h1, m1] = p1;
+    const [h2, m2] = p2;
+    if (h1 >= 0 && h1 <= 24 && m1 >= 0 && m1 <= 59 && h2 >= 0 && h2 <= 24 && m2 >= 0 && m2 <= 59) {
+      let totalMinutes1 = h1 * 60 + m1;
+      let totalMinutes2 = h2 * 60 + m2;
+      if (totalMinutes2 < totalMinutes1) {
+        totalMinutes2 += 24 * 60;
+      }
+      const diff = totalMinutes2 - totalMinutes1;
+      return (diff >= 0 && diff <= 24 * 60) ? diff : 0;
+    }
+  }
+
+  return 0;
 }

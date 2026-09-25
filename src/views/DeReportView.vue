@@ -3191,29 +3191,29 @@ const getDensity = (jenis, kode) => {
   return 0.91; // Default Standard Polypropylene Density
 };
 
-// Helper: Format Ukuran Core Roll (3" atau 6")
+// Helper: Format Ukuran Core Roll (3 atau 6 tanpa tanda kutip)
 const getCoreSizeText = (item) => {
-  if (!item) return '6"';
+  if (!item) return 6;
   
   // 1. Cek properti core, paperCore, coreRoll
   const raw = String(item.core || item.coreRoll || item.paperCore || item.coreDiameter || '').trim();
   
   // Jika bernilai 3 atau mengandung 3 (misal: "3", "3\"", "3 inch", "3INCH")
-  if (/^3(\"|inch|in)?$/i.test(raw) || raw === '3') return '3"';
+  if (/^3(\"|inch|in)?$/i.test(raw) || raw === '3') return 3;
   // Jika bernilai 6 atau mengandung 6 (misal: "6", "6\"", "6 inch", "6INCH")
-  if (/^6(\"|inch|in)?$/i.test(raw) || raw === '6') return '6"';
+  if (/^6(\"|inch|in)?$/i.test(raw) || raw === '6') return 6;
   
   // 2. Cek apakah ada di deskripsi atau OD
   const desc = `${item.descriptionExcel || ''} ${item.descriptionNav || ''} ${item.od || ''} ${item.jenis || ''}`;
   if (desc.includes('3"') || desc.toLowerCase().includes('3 inch') || desc.toLowerCase().includes('3inch')) {
-    return '3"';
+    return 3;
   }
   if (desc.includes('6"') || desc.toLowerCase().includes('6 inch') || desc.toLowerCase().includes('6inch')) {
-    return '6"';
+    return 6;
   }
 
   // 3. Fallback default slitting standard
-  return '6"';
+  return 6;
 };
 
 // Auto-Calculate Parent Lot Info (Lebar Bahan, Panjang Bahan, Berat Bahan) from Child Roll Chartings
@@ -3423,16 +3423,15 @@ const getShiftCombined = (item) => {
   return `${opCode}${shiftNum}`;
 };
 
-// Packing (Hanya nomor akhir kode pack, misal 25)
+// Packing (Hanya nomor akhir kode pack, misal 25 sebagai format Number)
 const getPackingEndNumber = (item) => {
   if (!item) return '';
-  if (item.packing && String(item.packing).length <= 4 && !isNaN(item.packing)) {
-    return parseInt(item.packing, 10);
+  const raw = item.packing ?? item.subKode ?? item.kodePack;
+  if (raw !== undefined && raw !== null && raw !== '') {
+    const num = parseInt(String(raw).replace(/\D/g, ''), 10);
+    if (!isNaN(num)) return num;
   }
-  if (item.subKode && !isNaN(item.subKode)) {
-    return parseInt(item.subKode, 10);
-  }
-  return '25';
+  return 25;
 };
 
 // Reason of Defect: Jika HOLD/REJECT dan belum diisi, otomatis mengambil dari Keterangan Hasil
@@ -4517,7 +4516,7 @@ const addNewBlankRow = async () => {
     netto: '',
     childBeratTeori: '',
     selisihBerat: '',
-    paperCore: '6"',
+    paperCore: 6,
     od: '',
     turunan: '',
     packing: '',
@@ -5203,6 +5202,14 @@ const exportVerificationExcel = async () => {
         const num = parseFloat(val);
         return !isNaN(num) ? num : (val || '');
       }
+      if (col.key === 'paperCore') {
+        const cNum = parseInt(String(val).replace(/\D/g, ''), 10);
+        return !isNaN(cNum) ? cNum : (val ? Number(String(val).replace(/"/g, '')) || 6 : 6);
+      }
+      if (col.key === 'packing' || col.key === 'kodePack') {
+        const pNum = parseInt(String(val).replace(/\D/g, ''), 10);
+        return !isNaN(pNum) ? pNum : '';
+      }
       return val || '';
     });
   });
@@ -5433,6 +5440,14 @@ const exportRewindExcel = async (rolls, customFileName) => {
       if (['netto', 'width', 'length', 'lengthWaste', 'weightWaste', 'thickness'].includes(col.key)) {
         const num = parseFloat(val);
         return !isNaN(num) ? num : (val || '');
+      }
+      if (col.key === 'paperCore') {
+        const cNum = parseInt(String(val).replace(/\D/g, ''), 10);
+        return !isNaN(cNum) ? cNum : (val ? Number(String(val).replace(/"/g, '')) || 6 : 6);
+      }
+      if (col.key === 'packing' || col.key === 'kodePack') {
+        const pNum = parseInt(String(val).replace(/\D/g, ''), 10);
+        return !isNaN(pNum) ? pNum : '';
       }
       return val || '';
     });

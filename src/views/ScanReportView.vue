@@ -3253,7 +3253,7 @@ const handleExcelKeydown = (e) => {
 };
 
 const recalcMetalizeRow = (row) => {
-  if (row.start_time && row.finish_time && !row.time_menit) {
+  if (row.start_time && row.finish_time) {
     row.time_menit = calculateDurationMinutes(row.start_time, row.finish_time);
   }
 };

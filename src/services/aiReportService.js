@@ -1229,10 +1229,51 @@ function processSingleMetalizeShift(shiftData, filmConfigs = [], operatorList = 
   const headerTanggal = formatToIndonesianDate(header.tanggal || shiftData.tanggal || '');
   const headerSpk = standardizeSpkNumber(header.spk_no || '');
 
+  // Standardisasi waktu ke Time Desimal dengan deteksi penyeberangan tengah malam (+1)
+  const isShiftMalam = (/\b3\b|[A-Z]3\b|MALAM/i.test(String(headerShiftGroup || '')));
+  let pastMidnight = false;
+  let prevHour = -1;
+
   const processedRows = rows.map((r, idx) => {
+    // Deteksi apakah waktu melewati jam 12 malam (+1)
+    const parseHour = (t) => {
+      if (t === undefined || t === null || t === '') return -1;
+      if (typeof t === 'number') {
+        const totalMin = Math.round((t >= 1 ? t - 1 : t) * 1440);
+        return Math.floor(totalMin / 60);
+      }
+      const m = String(t).match(/^(\d{1,2})[:.](\d{1,2})/);
+      return m ? parseInt(m[1], 10) : -1;
+    };
+
+    const sHour = parseHour(r.start_time);
+    const fHour = parseHour(r.finish_time);
+
+    // Jika shift malam (Shift 3), jam 00:00 s/d 08:59 sudah melewati tengah malam
+    if (isShiftMalam && (sHour >= 0 && sHour < 9)) {
+      pastMidnight = true;
+    }
+    // Jika ada penurunan dari jam malam (>= 18) ke jam dini hari (< 12)
+    if (prevHour >= 18 && sHour >= 0 && sHour < 12) {
+      pastMidnight = true;
+    }
+
+    let startPast = pastMidnight;
+    let finishPast = startPast;
+    if (!startPast && sHour >= 18 && fHour >= 0 && fHour < 12) {
+      finishPast = true;
+      pastMidnight = true;
+    }
+
+    if (fHour >= 0) prevHour = fHour;
+    else if (sHour >= 0) prevHour = sHour;
+
+    const startDecimal = convertTimeToDecimal(r.start_time, startPast);
+    const finishDecimal = convertTimeToDecimal(r.finish_time, finishPast);
+
     let timeMinutes = r.time_menit;
-    if (!timeMinutes && r.start_time && r.finish_time) {
-      timeMinutes = calculateDuration(r.start_time, r.finish_time);
+    if (!timeMinutes && startDecimal !== '' && finishDecimal !== '') {
+      timeMinutes = calculateDuration(startDecimal, finishDecimal);
     }
 
     const thick = parseFloat(r.thickness) || 35;
@@ -1259,8 +1300,8 @@ function processSingleMetalizeShift(shiftData, filmConfigs = [], operatorList = 
       tanggal: tglRow,
       operator: operator,
       group_shift: shiftGroup,
-      start_time: r.start_time || '',
-      finish_time: r.finish_time || '',
+      start_time: startDecimal !== '' ? startDecimal : (r.start_time || ''),
+      finish_time: finishDecimal !== '' ? finishDecimal : (r.finish_time || ''),
       time_menit: Number(timeMinutes) || '',
       spk_no: spkRow,
       no_lot_awal: lotAwal,
@@ -1467,6 +1508,11 @@ function processSingleShift(shiftData, filmConfigs = [], resinItems = [], operat
   const headerTanggal = formatToIndonesianDate(header.tanggal || '');
   const headerSpk = standardizeSpkNumber(header.spk_no || '');
 
+  // Standardisasi waktu ke Time Desimal dengan deteksi penyeberangan tengah malam (+1)
+  const isShiftMalam = (/\b3\b|[A-Z]3\b|MALAM/i.test(String(shiftData.shift_id || header.shift_group || '')));
+  let pastMidnight = false;
+  let prevHour = -1;
+
   const processedRolls = rolls.map((r, idx) => {
     const thick = parseFloat(r.thickness) || 0;
     const width = parseFloat(r.width) || 0;
@@ -1493,9 +1539,45 @@ function processSingleShift(shiftData, filmConfigs = [], resinItems = [], operat
       dtVal = numMatch ? Number(numMatch[0]) : '';
     }
 
+    // Deteksi apakah waktu melewati jam 12 malam (+1)
+    const parseHour = (t) => {
+      if (t === undefined || t === null || t === '') return -1;
+      if (typeof t === 'number') {
+        const totalMin = Math.round((t >= 1 ? t - 1 : t) * 1440);
+        return Math.floor(totalMin / 60);
+      }
+      const m = String(t).match(/^(\d{1,2})[:.](\d{1,2})/);
+      return m ? parseInt(m[1], 10) : -1;
+    };
+
+    const sHour = parseHour(r.start_time);
+    const fHour = parseHour(r.finish_time);
+
+    // Jika shift malam (Shift 3), jam 00:00 s/d 08:59 sudah melewati tengah malam
+    if (isShiftMalam && (sHour >= 0 && sHour < 9)) {
+      pastMidnight = true;
+    }
+    // Jika ada penurunan dari jam malam (>= 18) ke jam dini hari (< 12)
+    if (prevHour >= 18 && sHour >= 0 && sHour < 12) {
+      pastMidnight = true;
+    }
+
+    let startPast = pastMidnight;
+    let finishPast = startPast;
+    if (!startPast && sHour >= 18 && fHour >= 0 && fHour < 12) {
+      finishPast = true;
+      pastMidnight = true;
+    }
+
+    if (fHour >= 0) prevHour = fHour;
+    else if (sHour >= 0) prevHour = sHour;
+
+    const startDecimal = convertTimeToDecimal(r.start_time, startPast);
+    const finishDecimal = convertTimeToDecimal(r.finish_time, finishPast);
+
     let timeMinutes = r.time_menit;
-    if (!timeMinutes && r.start_time && r.finish_time) {
-      timeMinutes = calculateDuration(r.start_time, r.finish_time);
+    if (!timeMinutes && startDecimal !== '' && finishDecimal !== '') {
+      timeMinutes = calculateDuration(startDecimal, finishDecimal);
     }
 
     return {
@@ -1504,8 +1586,8 @@ function processSingleShift(shiftData, filmConfigs = [], resinItems = [], operat
       tanggal: formatToIndonesianDate(r.tanggal || headerTanggal),
       operator: matchMasterOperator(r.operator || headerOperator, r.group_shift || header.shift_group, operatorList, 'CASTING'),
       group_shift: r.group_shift || header.shift_group || '',
-      start_time: r.start_time || '',
-      finish_time: r.finish_time || '',
+      start_time: startDecimal !== '' ? startDecimal : (r.start_time || ''),
+      finish_time: finishDecimal !== '' ? finishDecimal : (r.finish_time || ''),
       time_menit: timeMinutes || '',
       spk_no: standardizeSpkNumber(r.spk_no || headerSpk),
       no_lot: noLot,
@@ -1575,21 +1657,95 @@ function processSingleShift(shiftData, filmConfigs = [], resinItems = [], operat
   };
 }
 
-function calculateDuration(startTimeStr, finishTimeStr) {
-  if (!startTimeStr || !finishTimeStr) return 0;
-  const p1 = String(startTimeStr).trim().split(':').map(Number);
-  const p2 = String(finishTimeStr).trim().split(':').map(Number);
-  if (p1.length < 2 || p2.length < 2) return 0;
-  const [h1, m1] = p1;
-  const [h2, m2] = p2;
-  if (isNaN(h1) || isNaN(m1) || isNaN(h2) || isNaN(m2)) return 0;
-  if (h1 < 0 || h1 > 23 || m1 < 0 || m1 > 59 || h2 < 0 || h2 > 23 || m2 < 0 || m2 > 59) return 0;
+/**
+ * Konversi teks waktu (HH:mm atau desimal) ke format Time Desimal Excel.
+ * Rumus Excel: (jam * 60 + menit) / 1440
+ * Jika waktu telah melewati jam 12 malam (cross midnight), tambahkan 1.0 (hari ke-2),
+ * misal jam 00:30 -> 1 + (30 / 1440) = 1.0208 (atau 1.02).
+ */
+export function convertTimeToDecimal(timeInput, isPastMidnight = false) {
+  if (timeInput === undefined || timeInput === null || timeInput === '') return '';
 
-  let min1 = h1 * 60 + m1;
-  let min2 = h2 * 60 + m2;
-  if (min2 < min1) {
-    min2 += 24 * 60;
+  // 1. Jika sudah berupa number
+  if (typeof timeInput === 'number') {
+    let val = timeInput;
+    if (isPastMidnight && val < 1) {
+      val += 1.0;
+    }
+    return Number(val.toFixed(4));
   }
-  const diff = min2 - min1;
-  return (diff >= 0 && diff <= 24 * 60) ? diff : 0;
+
+  const str = String(timeInput).trim();
+  const normalizedStr = str.replace(',', '.');
+
+  // 2. Jika sudah string angka desimal murni tanpa titik dua (:)
+  if (/^\d+(\.\d+)?$/.test(normalizedStr) && !str.includes(':')) {
+    let num = parseFloat(normalizedStr);
+    if (!isNaN(num)) {
+      if (isPastMidnight && num < 1) {
+        num += 1.0;
+      }
+      return Number(num.toFixed(4));
+    }
+  }
+
+  // 3. Parsing format "HH:mm" atau "HH.mm"
+  const match = str.match(/^(\d{1,2})[:.](\d{1,2})/);
+  if (match) {
+    const h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    if (!isNaN(h) && !isNaN(m) && h >= 0 && h <= 24 && m >= 0 && m <= 59) {
+      let fraction = (h * 60 + m) / 1440;
+      if (isPastMidnight) {
+        fraction += 1.0;
+      }
+      return Number(fraction.toFixed(4));
+    }
+  }
+
+  return str;
+}
+
+/**
+ * Hitung durasi kerja dalam menit baik dari string HH:mm maupun Time Desimal (0.9583, 1.0208)
+ */
+export function calculateDuration(startTimeVal, finishTimeVal) {
+  if (startTimeVal === undefined || startTimeVal === null || startTimeVal === '' ||
+      finishTimeVal === undefined || finishTimeVal === null || finishTimeVal === '') return 0;
+
+  const sStr = String(startTimeVal).trim().replace(',', '.');
+  const fStr = String(finishTimeVal).trim().replace(',', '.');
+
+  // A. Jika keduanya adalah Time Desimal (angka murni tanpa titik dua)
+  if (!sStr.includes(':') && !fStr.includes(':')) {
+    const num1 = parseFloat(sStr);
+    const num2 = parseFloat(fStr);
+    if (!isNaN(num1) && !isNaN(num2)) {
+      let diffDays = num2 - num1;
+      if (diffDays < 0) {
+        diffDays += 1.0;
+      }
+      const diffMinutes = Math.round(diffDays * 1440);
+      return (diffMinutes >= 0 && diffMinutes <= 1440) ? diffMinutes : 0;
+    }
+  }
+
+  // B. Format teks "HH:mm"
+  const p1 = sStr.split(/[:.]/).map(Number);
+  const p2 = fStr.split(/[:.]/).map(Number);
+  if (p1.length >= 2 && p2.length >= 2 && !isNaN(p1[0]) && !isNaN(p1[1]) && !isNaN(p2[0]) && !isNaN(p2[1])) {
+    const [h1, m1] = p1;
+    const [h2, m2] = p2;
+    if (h1 >= 0 && h1 <= 24 && m1 >= 0 && m1 <= 59 && h2 >= 0 && h2 <= 24 && m2 >= 0 && m2 <= 59) {
+      let min1 = h1 * 60 + m1;
+      let min2 = h2 * 60 + m2;
+      if (min2 < min1) {
+        min2 += 24 * 60;
+      }
+      const diff = min2 - min1;
+      return (diff >= 0 && diff <= 24 * 60) ? diff : 0;
+    }
+  }
+
+  return 0;
 }
