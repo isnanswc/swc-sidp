@@ -358,32 +358,49 @@ export const useLabelStore = defineStore('labelStore', {
     },
 
     filteredLabels: (state) => {
-      const term = state.searchTerm.toLowerCase().trim();
-      let opList = [];
-      try {
-        const configStore = useConfigStore();
-        opList = configStore.operatorList || [];
-      } catch (e) {}
-
-      const filtered = state.labels.filter(item => {
-        let matchesOperator = (item.operator && item.operator.toLowerCase().includes(term)) ||
-          (item.kodeOperator && item.kodeOperator.toLowerCase().includes(term));
-
-        if (!matchesOperator && term && opList.length > 0) {
-          const matchedOps = opList.filter(o => 
+      const term = (state.searchTerm || '').toLowerCase().trim();
+      let matchedOps = [];
+      if (term) {
+        try {
+          const configStore = useConfigStore();
+          const opList = configStore.operatorList || [];
+          matchedOps = opList.filter(o => 
             (o.nama && o.nama.toLowerCase().includes(term)) ||
             (o.kodeOperator && o.kodeOperator.toLowerCase() === term)
           );
-          if (matchedOps.length > 0) {
-            matchesOperator = matchedOps.some(o => 
-              (item.kodeOperator && item.kodeOperator.toUpperCase() === o.kodeOperator.toUpperCase()) ||
-              (item.operator && (item.operator.toUpperCase().includes(o.kodeOperator.toUpperCase()) || item.operator.toUpperCase().includes(o.nama.toUpperCase()))) ||
-              (item.turunan && getOperatorCodeFromTurunan(item.turunan, item.mesin) === o.kodeOperator.toUpperCase())
-            );
-          }
+        } catch (e) {}
+      }
+
+      const filtered = state.labels.filter(item => {
+        // 1. Fast checks first: Mesin & Status (Instant O(1) equality check)
+        const matchesMesin = state.filterMesin === 'ALL' || 
+          item.mesin === state.filterMesin ||
+          (state.filterMesin === 'SLITTING' && (item.mesin === 'SLT01' || item.mesin === 'SLT02' || (item.mesin && item.mesin.includes('SLIT')))) ||
+          (state.filterMesin === 'REWIND' && (item.mesin === 'REW01' || (item.mesin && item.mesin.includes('REW')))) ||
+          (state.filterMesin === 'CASTING' && (item.mesin === 'CASTING' || (item.mesin && (item.mesin.includes('CAST') || item.mesin.includes('SML'))))) ||
+          (state.filterMesin === 'SML' && (item.mesin === 'SML' || (item.mesin && (item.mesin.includes('SML') || item.mesin.includes('CAST'))))) ||
+          (state.filterMesin === 'METALIZE' && (item.mesin && item.mesin.includes('MET')));
+
+        if (!matchesMesin) return false;
+
+        const matchesStatus = state.filterStatus === 'ALL' || item.status === state.filterStatus;
+        if (!matchesStatus) return false;
+
+        // 2. Jika tidak ada kata kunci pencarian, langsung loloskan tanpa pencarian string
+        if (!term) return true;
+
+        let matchesOperator = (item.operator && item.operator.toLowerCase().includes(term)) ||
+          (item.kodeOperator && item.kodeOperator.toLowerCase().includes(term));
+
+        if (!matchesOperator && matchedOps.length > 0) {
+          matchesOperator = matchedOps.some(o => 
+            (item.kodeOperator && item.kodeOperator.toUpperCase() === o.kodeOperator.toUpperCase()) ||
+            (item.operator && (item.operator.toUpperCase().includes(o.kodeOperator.toUpperCase()) || item.operator.toUpperCase().includes(o.nama.toUpperCase()))) ||
+            (item.turunan && getOperatorCodeFromTurunan(item.turunan, item.mesin) === o.kodeOperator.toUpperCase())
+          );
         }
 
-        const matchesSearch = !term || (
+        return (
           (item.supplier && item.supplier.toLowerCase().includes(term)) ||
           (item.spk && item.spk.toLowerCase().includes(term)) ||
           (item.lot && item.lot.toLowerCase().includes(term)) ||
@@ -396,18 +413,6 @@ export const useLabelStore = defineStore('labelStore', {
           (item.keterangan && item.keterangan.toLowerCase().includes(term)) ||
           (item.uniqId && item.uniqId.toLowerCase().includes(term))
         );
-
-        const matchesMesin = state.filterMesin === 'ALL' || 
-          item.mesin === state.filterMesin ||
-          (state.filterMesin === 'SLITTING' && (item.mesin === 'SLT01' || item.mesin === 'SLT02' || (item.mesin && item.mesin.includes('SLIT')))) ||
-          (state.filterMesin === 'REWIND' && (item.mesin === 'REW01' || (item.mesin && item.mesin.includes('REW')))) ||
-          (state.filterMesin === 'CASTING' && (item.mesin === 'CASTING' || (item.mesin && (item.mesin.includes('CAST') || item.mesin.includes('SML'))))) ||
-          (state.filterMesin === 'SML' && (item.mesin === 'SML' || (item.mesin && (item.mesin.includes('SML') || item.mesin.includes('CAST'))))) ||
-          (state.filterMesin === 'METALIZE' && (item.mesin && item.mesin.includes('MET')));
-
-        const matchesStatus = state.filterStatus === 'ALL' || item.status === state.filterStatus;
-
-        return matchesSearch && matchesMesin && matchesStatus;
       });
 
       // Ultra-fast Hierarchical Slitting Comparator (O(1) comparisons using precomputed keys)

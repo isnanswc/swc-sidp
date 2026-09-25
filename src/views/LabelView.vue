@@ -3591,13 +3591,23 @@
                       >
                         {{ ch }}
                       </button>
+                      <!-- Tombol Kurangi Turunan (▼) -->
                       <button
                         type="button"
-                        @click="advanceFormTurunan"
-                        class="px-1.5 py-0.2 rounded bg-zinc-900 hover:bg-black text-white text-[9px] font-bold cursor-pointer"
-                        title="Auto-complete ke no urut berikutnya"
+                        @click="stepFormTurunan(-1)"
+                        class="px-1.5 py-0.2 rounded bg-zinc-800 hover:bg-black text-white text-[9px] font-bold cursor-pointer transition-colors shadow-2xs"
+                        title="Kurangi nomor urut turunan (-1)"
                       >
-                        ➔
+                        ▼
+                      </button>
+                      <!-- Tombol Tambah Turunan (▲) -->
+                      <button
+                        type="button"
+                        @click="stepFormTurunan(1)"
+                        class="px-1.5 py-0.2 rounded bg-zinc-800 hover:bg-black text-white text-[9px] font-bold cursor-pointer transition-colors shadow-2xs"
+                        title="Tambah nomor urut turunan (+1)"
+                      >
+                        ▲
                       </button>
                     </div>
                   </div>
@@ -3702,10 +3712,35 @@
                   />
                 </div>
                 <div>
-                  <label class="block font-bold text-emerald-950 mb-0.5 text-[11px]" title="Jumlah sambungan join: 0, 1, 2...">
-                    Joint (Jml) <span class="text-[9px] font-normal text-zinc-400">(Opsional)</span>
-                  </label>
-                  <input v-model="form.joint" placeholder="0" class="w-full px-2 py-1 text-xs border border-emerald-300 rounded-lg outline-none bg-white font-semibold text-center" />
+                  <div class="flex items-center justify-between mb-0.5">
+                    <label class="block font-bold text-emerald-950 text-[11px]" title="Jumlah sambungan join: maks 5 (misal: 0, 1, 1x, 2)">
+                      Joint (Jml)
+                    </label>
+                    <span class="text-[9.5px] font-bold" :class="isJointExceeding ? 'text-red-600 animate-pulse' : 'text-zinc-400'">
+                      (Maks 5)
+                    </span>
+                  </div>
+                  <input
+                    v-model="form.joint"
+                    @input="onJointInput"
+                    @blur="onJointBlur"
+                    placeholder="0 / 1x / 2"
+                    maxlength="6"
+                    class="w-full px-2 py-1 text-xs border rounded-lg outline-none bg-white font-semibold text-center transition-colors"
+                    :class="isJointExceeding ? 'border-red-500 bg-red-50 text-red-700 ring-1 ring-red-400 font-bold' : 'border-emerald-300'"
+                  />
+                  <!-- Smart Warning jika terbalik mengetik angka meteran di kolom joint -->
+                  <div v-if="isJointLikelyMeter" class="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9.5px] text-amber-900 flex items-center justify-between gap-1 shadow-2xs">
+                    <span class="truncate">⚠️ Meteran {{ form.joint }}m?</span>
+                    <button
+                      type="button"
+                      @click="swapJointToMeter"
+                      class="px-1.5 py-0.5 rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-extrabold cursor-pointer shrink-0 transition-colors"
+                      title="Pindahkan angka ini ke kolom Meter Join dan set Joint = 1"
+                    >
+                      ⇄ Pindahkan
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label class="block font-bold text-emerald-950 mb-0.5 text-[11px]" title="Posisi meteran join: misal 5000 atau 3000, 8000">
@@ -4552,16 +4587,26 @@ const getDataRollDesc = (r) => {
   return `${j} ${f} ${t ? t + ' MC' : ''} ${w ? 'X ' + w + ' MM' : ''} ${l ? '= ' + l + ' M' : ''}`.trim() || '-';
 };
 
+// Debounced lot input to eliminate typing freeze on large 30k datasets
+const debouncedLotQuery = ref('');
+let lotQueryDebounceTimer = null;
+watch(() => form.lot, (newVal) => {
+  clearTimeout(lotQueryDebounceTimer);
+  lotQueryDebounceTimer = setTimeout(() => {
+    debouncedLotQuery.value = (newVal || '').trim().toUpperCase();
+  }, 200);
+}, { immediate: true });
+
 // Modal dedicated search query state
 const modalSearchQuery = ref('');
 const activeQuery = computed(() => {
   if (showWipModal.value) {
-    return (modalSearchQuery.value !== '' ? modalSearchQuery.value : (form.lot || '')).trim().toUpperCase();
+    return (modalSearchQuery.value !== '' ? modalSearchQuery.value : debouncedLotQuery.value).trim().toUpperCase();
   }
-  return (form.lot || '').trim().toUpperCase();
+  return debouncedLotQuery.value.trim().toUpperCase();
 });
 
-// Matched rolls from WIP Jumbo (Pencarian menyeluruh di seluruh database)
+// Matched rolls from WIP Jumbo (Pencarian super cepat berbasis memoized keys & early exit)
 const wipMatchedRolls = computed(() => {
   const allRolls = (wipStore.activeWipRolls && wipStore.activeWipRolls.length > 0)
     ? wipStore.activeWipRolls
@@ -4575,27 +4620,30 @@ const wipMatchedRolls = computed(() => {
     return allRolls.slice(0, 100).map(r => ({ roll: r, similarityPct: 100 }));
   }
 
-  // Tahap 1: Pencarian langsung kata kunci (Exact, Prefix, Substring) ke seluruh 30rb data
+  // Tahap 1: Pencarian langsung kata kunci (Exact, Prefix, Substring) dengan memoized keys & early exit
   const directMatches = [];
+  const maxMatches = showWipModal.value ? 200 : 50;
   for (let i = 0; i < allRolls.length; i++) {
     const r = allRolls[i];
-    const lotRaw = (r.lot || '').trim().toUpperCase();
-    const lotClean = lotRaw.replace(/[\/\.\-\s]/g, '');
-    const spkClean = (r.spk || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+    if (r._cLot === undefined) {
+      r._cLot = (r.lot || '').toUpperCase().replace(/[\/\.\-\s]/g, '');
+      r._cSpk = (r.spk || '').toUpperCase().replace(/[\/\.\-\s]/g, '');
+    }
 
     let score = 0;
-    if (q === lotClean || (spkClean && q === spkClean)) {
+    if (q === r._cLot || (r._cSpk && q === r._cSpk)) {
       score = 100;
-    } else if (lotClean.startsWith(q)) {
+    } else if (r._cLot.startsWith(q)) {
       score = 95;
-    } else if (lotClean.includes(q)) {
+    } else if (r._cLot.includes(q)) {
       score = 88;
-    } else if (spkClean && spkClean.includes(q)) {
+    } else if (r._cSpk && r._cSpk.includes(q)) {
       score = 80;
     }
 
     if (score > 0) {
       directMatches.push({ roll: r, similarityPct: score });
+      if (directMatches.length >= maxMatches) break;
     }
   }
 
@@ -4605,14 +4653,17 @@ const wipMatchedRolls = computed(() => {
   }
 
   // Tahap 2: Jika tidak ada kecocokan teks sama sekali dan q >= 4, lakukan pencarian kemiripan typo (Fuzzy)
-  if (q.length >= 4) {
+  if (q.length >= 4 && showWipModal.value) {
     const fuzzyMatches = [];
     for (let i = 0; i < allRolls.length; i++) {
       const r = allRolls[i];
-      const lotRaw = (r.lot || '').trim().toUpperCase();
-      const pct = computeLotSimilarityPct(q, lotRaw);
+      if (r._cLot === undefined) {
+        r._cLot = (r.lot || '').toUpperCase().replace(/[\/\.\-\s]/g, '');
+      }
+      const pct = computeLotSimilarityPct(q, r._cLot);
       if (pct >= 50) {
         fuzzyMatches.push({ roll: r, similarityPct: pct });
+        if (fuzzyMatches.length >= 50) break;
       }
     }
     fuzzyMatches.sort((a, b) => b.similarityPct - a.similarityPct);
@@ -4622,7 +4673,7 @@ const wipMatchedRolls = computed(() => {
   return [];
 });
 
-// Matched rolls from Data Roll (Pencarian menyeluruh di seluruh 30rb+ data roll)
+// Matched rolls from Data Roll (Pencarian super cepat berbasis memoized keys & early exit di 30rb+ roll)
 const dataRollMatchedRolls = computed(() => {
   const allRolls = dataRollStore.rolls || [];
   const rawQ = activeQuery.value;
@@ -4634,37 +4685,39 @@ const dataRollMatchedRolls = computed(() => {
     return allRolls.slice(0, 100).map(r => ({ roll: r, similarityPct: 100 }));
   }
 
-  // Tahap 1: Pencarian langsung kata kunci (Exact, StartsWith, Contains) ke seluruh database roll
+  // Tahap 1: Pencarian langsung kata kunci (Exact, StartsWith, Contains) dengan memoized keys & early exit
   const directMatches = [];
+  const maxMatches = showWipModal.value ? 200 : 50;
   for (let i = 0; i < allRolls.length; i++) {
     const r = allRolls[i];
-    const lotRaw = (r.lot || '').trim().toUpperCase();
-    const lotClean = lotRaw.replace(/[\/\.\-\s]/g, '');
-    const turunanRaw = (r.turunan || '').trim().toUpperCase();
-    const turunanClean = turunanRaw.replace(/[\/\.\-\s]/g, '');
-    const fullLotClean = lotClean + turunanClean;
-    const kodeFgClean = (r.kodeFg || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
-    const spkClean = (r.spk || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+    if (r._cLot === undefined) {
+      r._cLot = (r.lot || '').toUpperCase().replace(/[\/\.\-\s]/g, '');
+      r._cTur = (r.turunan || '').toUpperCase().replace(/[\/\.\-\s]/g, '');
+      r._cFull = r._cLot + r._cTur;
+      r._cKode = (r.kodeFg || '').toUpperCase().replace(/[\/\.\-\s]/g, '');
+      r._cSpk = (r.spk || '').toUpperCase().replace(/[\/\.\-\s]/g, '');
+    }
 
     let score = 0;
-    if (q === fullLotClean || q === lotClean || (turunanClean && q === turunanClean) || (spkClean && q === spkClean)) {
+    if (q === r._cFull || q === r._cLot || (r._cTur && q === r._cTur) || (r._cSpk && q === r._cSpk)) {
       score = 100;
-    } else if (fullLotClean.startsWith(q) || lotClean.startsWith(q)) {
+    } else if (r._cFull.startsWith(q) || r._cLot.startsWith(q)) {
       score = 95;
-    } else if (turunanClean && turunanClean.startsWith(q)) {
+    } else if (r._cTur && r._cTur.startsWith(q)) {
       score = 92;
-    } else if (fullLotClean.includes(q) || lotClean.includes(q)) {
+    } else if (r._cFull.includes(q) || r._cLot.includes(q)) {
       score = 88;
-    } else if (turunanClean && turunanClean.includes(q)) {
+    } else if (r._cTur && r._cTur.includes(q)) {
       score = 85;
-    } else if (spkClean && spkClean.includes(q)) {
+    } else if (r._cSpk && r._cSpk.includes(q)) {
       score = 80;
-    } else if (kodeFgClean && kodeFgClean.includes(q)) {
+    } else if (r._cKode && r._cKode.includes(q)) {
       score = 75;
     }
 
     if (score > 0) {
       directMatches.push({ roll: r, similarityPct: score });
+      if (directMatches.length >= maxMatches) break;
     }
   }
 
@@ -4674,14 +4727,17 @@ const dataRollMatchedRolls = computed(() => {
   }
 
   // Tahap 2: Jika tidak ada kecocokan langsung dan kata kunci >= 4 karakter, cari dengan toleransi kemiripan typo (Fuzzy)
-  if (q.length >= 4) {
+  if (q.length >= 4 && showWipModal.value) {
     const fuzzyMatches = [];
     for (let i = 0; i < allRolls.length; i++) {
       const r = allRolls[i];
-      const lotRaw = (r.lot || '').trim().toUpperCase();
-      const pct = computeLotSimilarityPct(q, lotRaw);
+      if (r._cLot === undefined) {
+        r._cLot = (r.lot || '').toUpperCase().replace(/[\/\.\-\s]/g, '');
+      }
+      const pct = computeLotSimilarityPct(q, r._cLot);
       if (pct >= 50) {
         fuzzyMatches.push({ roll: r, similarityPct: pct });
+        if (fuzzyMatches.length >= 50) break;
       }
     }
     fuzzyMatches.sort((a, b) => b.similarityPct - a.similarityPct);
@@ -5709,37 +5765,48 @@ const calculateSequenceLengthSummary = (items) => {
   };
 };
 
+const spkPlanCache = new Map();
 const findSpkPlanForLot = (spkNo) => {
   if (!spkNo || spkNo === '-' || spkNo === 'ALL') return null;
   const cleanSpk = String(spkNo).trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
   if (!cleanSpk) return null;
+  if (spkPlanCache.has(cleanSpk)) return spkPlanCache.get(cleanSpk);
+  if (spkPlanCache.size > 1000) spkPlanCache.clear();
+
   const plans = spkStore.plans || [];
-  return plans.find(p => {
+  const found = plans.find(p => {
     if (!p.spkNo) return false;
     const cleanP = String(p.spkNo).trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
     return cleanP === cleanSpk || cleanSpk.includes(cleanP) || cleanP.includes(cleanSpk);
   }) || null;
+  spkPlanCache.set(cleanSpk, found);
+  return found;
 };
 
+const wipRollCache = new Map();
 const findWipRollForLot = (lotStr, spkNo) => {
   const cleanLot = (lotStr || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
   const cleanSpk = (spkNo || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
+  const cacheKey = `${cleanLot}__${cleanSpk}`;
+  if (wipRollCache.has(cacheKey)) return wipRollCache.get(cacheKey);
+  if (wipRollCache.size > 2000) wipRollCache.clear();
+
   const allWip = wipStore.wipRolls || [];
+  let found = null;
   if (cleanLot) {
-    const foundByLot = allWip.find(r => {
+    found = allWip.find(r => {
       const rLot = (r.lot || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
       return rLot && (rLot === cleanLot || rLot.includes(cleanLot) || cleanLot.includes(rLot));
     });
-    if (foundByLot) return foundByLot;
   }
-  if (cleanSpk && cleanSpk !== '-') {
-    const foundBySpk = allWip.find(r => {
+  if (!found && cleanSpk && cleanSpk !== '-') {
+    found = allWip.find(r => {
       const rSpk = (r.spk || '').trim().toUpperCase().replace(/[\/\.\-\s]/g, '');
       return rSpk && (rSpk === cleanSpk || rSpk.includes(cleanSpk));
     });
-    if (foundBySpk) return foundBySpk;
   }
-  return null;
+  wipRollCache.set(cacheKey, found || null);
+  return found || null;
 };
 
 const getSumChildWidthForLot = (items, spkPlan) => {
@@ -8419,6 +8486,56 @@ const advanceFormTurunan = () => {
   form.turunan = getNextTurunan(form.turunan, form.lot);
 };
 
+// Menambah (+1) atau mengurangi (-1) nomor urut turunan sesuai karakteristik mesin
+const stepFormTurunan = (delta) => {
+  if (!form.turunan) {
+    if (form.mesin === 'REWIND') {
+      const op = form.kodeOperator || 'J';
+      form.turunan = `${op}101`;
+    } else {
+      const op = form.kodeOperator || 'H';
+      form.turunan = `${op}A01`;
+    }
+    return;
+  }
+
+  const parsed = parseTurunan(form.turunan);
+  const currentNum = parsed.noUrut || 1;
+  const newNum = Math.max(1, currentNum + delta);
+  const numDigits = parsed.numDigits || (parsed.isCasting ? 1 : 2);
+  const formattedNum = String(newNum).padStart(numDigits, '0');
+
+  // 1. Kasus Compound Rewind (contoh: HA03/J101 -> HA03/J102 atau HA03/J100)
+  if (parsed.isCompoundRewind) {
+    const parentT = parsed.parentTurunan || '';
+    const opPrefix = parsed.prefix || form.kodeOperator || 'J';
+    if (parsed.hasChildLetter) {
+      form.turunan = `${parentT}/${opPrefix}${parsed.chartingan || 'A'}${formattedNum}`;
+    } else {
+      form.turunan = `${parentT}/${opPrefix}${formattedNum}`;
+    }
+    return;
+  }
+
+  // 2. Kasus Single Rewind (contoh: J101, K201)
+  if (parsed.isSingleRewind || (form.mesin === 'REWIND' && !parsed.chartingan)) {
+    const opPrefix = parsed.prefix || form.kodeOperator || 'J';
+    form.turunan = `${opPrefix}${formattedNum}`;
+    return;
+  }
+
+  // 3. Kasus Mesin Casting (contoh: L04270826B1A27 -> L04270826B1A28)
+  if (parsed.isCasting) {
+    form.turunan = `${parsed.prefix}${parsed.chartingan || 'A'}${formattedNum}`;
+    return;
+  }
+
+  // 4. Kasus Standar Mesin Slitting / SML / Metalize (contoh: HA01 -> HA02 / HA01)
+  const prefix = parsed.prefix || '';
+  const chartingan = parsed.chartingan || 'A';
+  form.turunan = `${prefix}${chartingan}${formattedNum}`;
+};
+
 const onTurunanInput = () => {
   if (form.turunan) {
     form.turunan = form.turunan.toUpperCase();
@@ -8707,6 +8824,56 @@ const resetFormToDefaults = () => {
   form.originalRollId = null;
 };
 
+// ── KONDISI & VALIDASI JOINT (MAKSIMAL 5 JOIN) ──────────────────────────────
+const isJointExceeding = computed(() => {
+  if (!form.joint) return false;
+  const match = String(form.joint).match(/\d+/);
+  return match ? parseInt(match[0], 10) > 5 : false;
+});
+
+const isJointLikelyMeter = computed(() => {
+  if (!form.joint) return false;
+  const match = String(form.joint).match(/\d+/);
+  if (!match) return false;
+  const num = parseInt(match[0], 10);
+  return num >= 20; // Angka >= 20 hampir pasti meteran bukan jumlah sambungan
+});
+
+const swapJointToMeter = () => {
+  const currentJoint = String(form.joint || '').trim();
+  form.meter = currentJoint;
+  form.joint = '1';
+};
+
+const onJointInput = () => {
+  if (!form.joint) return;
+  const raw = String(form.joint).trim();
+  // Tangani angka murni antara 6 s/d 19 langsung batasi ke 5 (misal ketik 6x -> 5x)
+  const match = raw.match(/^\s*(\d+)\s*([xX]?)\s*$/);
+  if (match) {
+    const num = parseInt(match[1], 10);
+    const suffix = match[2] || '';
+    if (num > 5 && num < 20) {
+      form.joint = `5${suffix}`;
+    }
+  }
+};
+
+const onJointBlur = () => {
+  if (!form.joint) return;
+  const raw = String(form.joint).trim();
+  const match = raw.match(/\d+/);
+  if (match) {
+    const num = parseInt(match[0], 10);
+    if (num >= 20 && (!form.meter || form.meter.trim() === '')) {
+      form.meter = raw;
+      form.joint = '1';
+    } else if (num > 5 && num < 20) {
+      form.joint = raw.toLowerCase().includes('x') ? '5X' : '5';
+    }
+  }
+};
+
 const openModal = async (item = -1) => {
   clearPreviousInfo();
   resetFormToDefaults();
@@ -8860,6 +9027,15 @@ const handleFormSubmit = async () => {
     const rawNum = String(form.subKodeNumeric || '').trim();
     if (!rawNum) {
       alert('Nomor Sub Kode Pack untuk status PASS wajib diisi!');
+      return;
+    }
+  }
+
+  // 3. Validasi Joint: Maksimal 5 join (mencegah operator terbalik menulis meter di kolom joint)
+  if (form.joint) {
+    const jointMatch = String(form.joint).match(/\d+/);
+    if (jointMatch && parseInt(jointMatch[0], 10) > 5) {
+      alert(`⚠️ Peringatan Validasi: Jumlah Joint maksimal adalah 5 (Anda memasukkan "${form.joint}").\n\nJika angka ini adalah posisi meteran sambungan (misalnya ${form.joint} M), silakan masukkan ke kolom Meter Join.`);
       return;
     }
   }
@@ -9058,9 +9234,17 @@ const triggerPrint = () => {
   window.print();
 };
 
-const handleLabelsSync = async () => {
-  await labelStore.loadLabels(true);
-  refreshQuickTags();
+let labelsSyncDebounceTimer = null;
+const handleLabelsSync = () => {
+  clearTimeout(labelsSyncDebounceTimer);
+  labelsSyncDebounceTimer = setTimeout(async () => {
+    // Hindari interupsi atau reload data jika pengguna sedang aktif mengetik di modal
+    if (showModal.value || showShiftModal.value || showParentLotModal.value || showWipModal.value) {
+      return;
+    }
+    await labelStore.loadLabels(true);
+    refreshQuickTags();
+  }, 1000);
 };
 
 onMounted(async () => {
