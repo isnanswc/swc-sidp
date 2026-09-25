@@ -992,6 +992,38 @@ export async function pushLocalToSupabase() {
       })());
     }
 
+    // 1o. Tasks Management Registry Sync
+    if (db.tasks) {
+      tasks.push((async () => {
+        try {
+          const allTasks = await db.tasks.toArray();
+          if (allTasks.length > 0) {
+            const payload = {
+              key: 'tasks_management_registry',
+              value: JSON.stringify(allTasks.map(t => ({
+                uuid: t.uuid,
+                taskCode: t.taskCode,
+                title: t.title,
+                tanggal: t.tanggal,
+                user: t.user,
+                assignee: t.assignee,
+                category: t.category,
+                status: t.status,
+                notes: t.notes,
+                items: t.items || [],
+                createdAt: t.createdAt,
+                updatedAt: t.updatedAt
+              }))),
+              updated_at: new Date().toISOString()
+            };
+            await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+          }
+        } catch (taskErr) {
+          console.warn('[SyncPush] Tasks sync notice:', taskErr.message || taskErr);
+        }
+      })());
+    }
+
     // Jalankan seluruh sync push secara PARALEL
     await Promise.all(tasks);
     await countUnsynced();
@@ -2085,6 +2117,30 @@ export async function pullFromSupabase(forceFull = false) {
                   console.warn('Sync pull data_roll_uploads registry:', druErr);
                 }
               }
+
+              // Jika ini registry manajemen tugas, sinkronkan ke db.tasks
+              if (cs.key === 'tasks_management_registry' && db.tasks && Array.isArray(parsedVal)) {
+                try {
+                  const existingTasks = await db.tasks.toArray();
+                  const taskMap = new Map(existingTasks.map(t => [t.uuid, t]));
+                  for (const ct of parsedVal) {
+                    if (!ct.uuid) continue;
+                    const local = taskMap.get(ct.uuid);
+                    if (!local) {
+                      const { id, ...newT } = ct;
+                      await db.tasks.add({ ...newT, synced: 1 });
+                    } else {
+                      const cloudTime = new Date(ct.updatedAt || 0).getTime();
+                      const localTime = new Date(local.updatedAt || 0).getTime();
+                      if (cloudTime > localTime) {
+                        await db.tasks.update(local.id, { ...ct, id: local.id, synced: 1 });
+                      }
+                    }
+                  }
+                } catch (taskPullErr) {
+                  console.warn('Sync pull tasks_management_registry:', taskPullErr);
+                }
+              }
             }
             await db.settings.bulkPut(toUpdate);
           }
@@ -2205,6 +2261,7 @@ export async function pullFromSupabase(forceFull = false) {
       window.dispatchEvent(new CustomEvent('sync:wip-updated'));
       window.dispatchEvent(new CustomEvent('sync:inventory-updated'));
       window.dispatchEvent(new CustomEvent('sync:spk-plans-updated'));
+      window.dispatchEvent(new CustomEvent('sync:tasks-updated'));
     }
 
     syncState.lastSyncTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -2527,6 +2584,14 @@ export function startRealtimeSync(onDataChangeCallback) {
         window.dispatchEvent(new CustomEvent('sync:labels-updated'));
       }
       if (onDataChangeCallback) onDataChangeCallback('labels');
+    })
+    .on('broadcast', { event: 'tasks_updated' }, async () => {
+      console.log('⚡ [Realtime] Received Tasks broadcast from another device');
+      await pullFromSupabase(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sync:tasks-updated'));
+      }
+      if (onDataChangeCallback) onDataChangeCallback('tasks');
     })
     .on('broadcast', { event: 'clear_all_data_rolls' }, async () => {
       console.log('⚡ [Realtime] Menerima broadcast Hapus Semua Data Roll dari perangkat lain');

@@ -73,7 +73,7 @@ const routes = [
     path: '/tasks',
     name: 'TaskManagement',
     component: () => import('@/views/TaskView.vue'),
-    meta: { title: 'Manajemen Tugas & QR', menuKey: 'tasks' }
+    meta: { title: 'Manajemen Tugas', menuKey: 'tasks' }
   },
   {
     path: '/opname',
