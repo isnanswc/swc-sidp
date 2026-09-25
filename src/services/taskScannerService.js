@@ -173,31 +173,39 @@ export function parseTaskQrCode(qrString, defaultDensity = 0.91) {
       if (words.length >= 2 && !words[1].includes('MC')) kodeFormula = words[1].toUpperCase();
     }
 
-    // Parse lot and turunan from lotPart e.g. "M01240826C101HA01" or "M01240826C101/HA01"
-    if (lotPart.includes('/')) {
-      const segs = lotPart.split('/');
-      turunan = segs.pop().toUpperCase();
+    // Parse lot and turunan from lotPart e.g. "M01240826C101HA01" or "M01240826C101/HA01" or "M01240826C101 HA01"
+    const cleanLotPart = (lotPart || '').trim();
+    if (cleanLotPart.includes('/')) {
+      const segs = cleanLotPart.split('/').map(s => s.trim()).filter(Boolean);
+      turunan = segs.length > 1 ? segs.pop().toUpperCase() : '';
       lot = segs.join('/').toUpperCase();
+    } else if (cleanLotPart.includes(' ')) {
+      const segs = cleanLotPart.split(/\s+/).filter(Boolean);
+      turunan = segs.length > 1 ? segs.pop().toUpperCase() : '';
+      lot = segs.join(' ').toUpperCase();
     } else {
-      // Common turunan pattern: suffix 1-2 letters + 2-3 digits e.g. HA01, A01, J101, B02
-      const tMatch = lotPart.match(/([A-Za-z]{1,2}\d{2,3})$/);
-      if (tMatch && lotPart.length > tMatch[1].length) {
+      // Continuous string: Periksa apakah ada suffix turunan slitting (misal HA01, A01, J101, B02)
+      // Karakter lot induk umumnya 12-13 char (misal M01240826C101), jika > 13 char dan berakhiran pola turunan
+      const tMatch = cleanLotPart.match(/([A-Za-z]{1,2}\d{2,3})$/);
+      if (tMatch && cleanLotPart.length > 13 && cleanLotPart.length > tMatch[1].length) {
         turunan = tMatch[1].toUpperCase();
-        lot = lotPart.slice(0, -tMatch[1].length).toUpperCase();
+        lot = cleanLotPart.slice(0, -tMatch[1].length).trim().toUpperCase();
       } else {
-        lot = lotPart.toUpperCase();
+        lot = cleanLotPart.toUpperCase();
         turunan = '';
       }
     }
 
     // Parse packPart: e.g. "SL08240001" or "SL0824 0001" or "RW0924REJECT"
-    if (packPart) {
-      const pMatch = packPart.match(/^([A-Za-z0-9]{5,7})\s*(\d{4}|0000|REJECT|HOLD)$/i);
+    const cleanPack = (packPart || '').trim();
+    if (cleanPack) {
+      const pMatch = cleanPack.match(/^([A-Za-z0-9]{4,8})\s*(\d{3,4}|0000|REJECT|HOLD)$/i);
       if (pMatch) {
         kodePack = pMatch[1].toUpperCase();
         subKode = pMatch[2].toUpperCase();
       } else {
-        kodePack = packPart.toUpperCase();
+        kodePack = cleanPack.toUpperCase();
+        subKode = '';
       }
     }
   } else {

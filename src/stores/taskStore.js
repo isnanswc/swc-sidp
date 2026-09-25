@@ -3,6 +3,57 @@ import { db, generateUUID } from '@/db';
 import { supabase, syncState, broadcastRealtimeEvent } from '@/services/syncService';
 import { parseTaskQrCode, calculateBeratTeori, playSuccessFeedback, playWarningFeedback, formatScanTimestamp } from '@/services/taskScannerService';
 
+/**
+ * Menentukan apakah dua data item scan merujuk ke roll fisik yang sama persis.
+ * Roll dianggap duplikat HANYA jika:
+ * 1. String raw QR identik, ATAU
+ * 2. Identitas roll lengkap sama persis: No Lot sama, Turunan sama, dan Kode Pack sama.
+ * (Dua roll dari lot induk yang sama tetapi beda turunan, misal HA01 vs HA02, adalah BEDA roll dan BUKAN duplikat).
+ */
+export function isSameRoll(item, parsed) {
+  if (!item || !parsed) return false;
+
+  // 1. Raw QR string match persis
+  const r1 = (item.rawQr || '').trim().toUpperCase();
+  const r2 = (parsed.rawQr || '').trim().toUpperCase();
+  if (r1 && r2 && r1 === r2) return true;
+
+  // 2. Identity match: Lot + Turunan + KodePack + SubKode
+  const l1 = (item.lot || '').trim().toUpperCase();
+  const l2 = (parsed.lot || '').trim().toUpperCase();
+  const t1 = (item.turunan || '').trim().toUpperCase();
+  const t2 = (parsed.turunan || '').trim().toUpperCase();
+  const p1 = (item.kodePack || '').trim().toUpperCase();
+  const p2 = (parsed.kodePack || '').trim().toUpperCase();
+  const sk1 = (item.subKode || '').trim().toUpperCase();
+  const sk2 = (parsed.subKode || '').trim().toUpperCase();
+
+  if (l1 && l2) {
+    const cleanL1 = l1.replace(/[\/\s_-]+/g, '');
+    const cleanL2 = l2.replace(/[\/\s_-]+/g, '');
+    if (cleanL1 !== cleanL2) return false;
+
+    // Turunan check:
+    // Jika salah satu memiliki nilai turunan, keduanya HARUS sama.
+    // Beda turunan (misal HA01 vs HA02) adalah dua roll berbeda dari lot induk yang sama!
+    if (t1 || t2) {
+      if (t1 !== t2) return false;
+    }
+
+    // Kode pack check: jika keduanya terisi, harus cocok
+    if (p1 && p2 && p1 !== p2) return false;
+    if (sk1 && sk2 && sk1 !== sk2) return false;
+
+    // Dimensi check jika keduanya terisi
+    if (item.width && parsed.width && Number(item.width) !== Number(parsed.width)) return false;
+    if (item.length && parsed.length && Number(item.length) !== Number(parsed.length)) return false;
+
+    return true;
+  }
+
+  return false;
+}
+
 export const useTaskStore = defineStore('taskStore', {
   state: () => ({
     tasks: [],
@@ -307,27 +358,13 @@ export const useTaskStore = defineStore('taskStore', {
       const existingItems = Array.isArray(task.items) ? task.items : [];
 
       // 2. Intra-Task Duplicate Guard (TIDAK TERSIMPAN jika dalam SATU tugas yang sama)
-      const isDuplicateInCurrentTask = existingItems.some(item => {
-        if (item.rawQr && parsed.rawQr && item.rawQr === parsed.rawQr) return true;
-
-        if (parsed.lot && item.lot === parsed.lot) {
-          const t1 = (item.turunan || '').trim().toUpperCase();
-          const t2 = (parsed.turunan || '').trim().toUpperCase();
-          if (t1 && t2 && t1 === t2) return true;
-
-          if (parsed.kodePack && item.kodePack === parsed.kodePack) {
-            const sk1 = (item.subKode || '').trim().toUpperCase();
-            const sk2 = (parsed.subKode || '').trim().toUpperCase();
-            if (sk1 && sk2 && sk1 === sk2) return true;
-          }
-        }
-
-        return false;
-      });
+      const isDuplicateInCurrentTask = existingItems.some(item => isSameRoll(item, parsed));
 
       if (isDuplicateInCurrentTask) {
         playWarningFeedback();
-        const dupMsg = `⚠️ Roll Duplikat! Lot "${parsed.lot} ${parsed.turunan || ''}" (Pack: ${parsed.kodePack}${parsed.subKode}) SUDAH ADA di tugas ini dan TIDAK disimpan ulang!`;
+        const lotDisplay = `${parsed.lot || ''}${parsed.turunan ? ' ' + parsed.turunan : ''}`.trim() || 'Item';
+        const packDisplay = (parsed.kodePack || parsed.subKode) ? ` (Pack: ${parsed.kodePack || ''}${parsed.subKode || ''})` : '';
+        const dupMsg = `⚠️ Roll Duplikat! Lot "${lotDisplay}"${packDisplay} SUDAH ADA di tugas ini dan TIDAK disimpan ulang!`;
         this.lastScanAlert = { type: 'error', message: dupMsg };
         return {
           success: false,
@@ -342,20 +379,7 @@ export const useTaskStore = defineStore('taskStore', {
       for (const otherT of this.tasks) {
         if (otherT.id === task.id || otherT.uuid === task.uuid) continue;
         const oItems = Array.isArray(otherT.items) ? otherT.items : [];
-        const match = oItems.find(it => {
-          if (it.rawQr && parsed.rawQr && it.rawQr === parsed.rawQr) return true;
-          if (parsed.lot && it.lot === parsed.lot) {
-            const t1 = (it.turunan || '').trim().toUpperCase();
-            const t2 = (parsed.turunan || '').trim().toUpperCase();
-            if (t1 && t2 && t1 === t2) return true;
-            if (parsed.kodePack && it.kodePack === parsed.kodePack) {
-              const sk1 = (it.subKode || '').trim().toUpperCase();
-              const sk2 = (parsed.subKode || '').trim().toUpperCase();
-              if (sk1 && sk2 && sk1 === sk2) return true;
-            }
-          }
-          return false;
-        });
+        const match = oItems.find(it => isSameRoll(it, parsed));
 
         if (match) {
           foundOtherTask = {

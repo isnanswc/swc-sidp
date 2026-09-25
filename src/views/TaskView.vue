@@ -452,15 +452,36 @@
       <!-- ═════════════════════════════════════════════════════════════════ -->
       <div class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
         <!-- Summary Header with Grand Totals (3 Satuan: Roll, Meter, Berat Teori) -->
-        <div class="p-4 bg-zinc-950 text-white flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-2">
+        <div class="p-3.5 sm:p-4 bg-zinc-950 text-white flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
             <span class="text-lg">📊</span>
             <div>
-              <h3 class="text-xs sm:text-sm font-black uppercase tracking-wider text-zinc-100">
-                Rangkuman Item Hasil Scan (Parent Accordion)
-              </h3>
-              <p class="text-[11px] text-zinc-400 font-mono">
-                Format: [jenis] [kf] [thick] MC X [width] MM • Klik baris untuk melihat rincian panjang & jumlah roll
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-xs sm:text-sm font-black uppercase tracking-wider text-zinc-100">
+                  Rangkuman Dimensi (Accordion)
+                </h3>
+                <!-- Quick Expand/Collapse All Buttons -->
+                <div v-if="taskSummary.groups.length > 0" class="flex items-center gap-1">
+                  <button
+                    type="button"
+                    @click="expandAllAccordions"
+                    class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
+                    title="Buka semua grup dimensi"
+                  >
+                    ▼ Buka Semua
+                  </button>
+                  <button
+                    type="button"
+                    @click="collapseAllAccordions"
+                    class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
+                    title="Tutup semua grup dimensi"
+                  >
+                    ▲ Tutup Semua
+                  </button>
+                </div>
+              </div>
+              <p class="text-[11px] text-zinc-400 font-mono mt-0.5">
+                Format: [jenis] [kf] [thick] MC X [width] MM • Klik baris untuk melihat rincian panjang & roll
               </p>
             </div>
           </div>
@@ -482,7 +503,7 @@
           </div>
         </div>
 
-        <!-- Accordion Groups List -->
+        <!-- Accordion Groups List (Gaya Bersih task.html) -->
         <div v-if="taskSummary.groups.length > 0" class="divide-y divide-zinc-200">
           <div
             v-for="grp in taskSummary.groups"
@@ -494,21 +515,23 @@
               @click="toggleAccordion(grp.key)"
               class="p-3 sm:p-3.5 hover:bg-zinc-50 active:bg-zinc-100 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 select-none"
             >
-              <div class="flex items-center gap-2 min-w-0">
-                <!-- Chevron Toggle -->
+              <div class="flex items-center gap-2.5 min-w-0">
+                <!-- Chevron Toggle (Rotates 90 deg smoothly) -->
                 <div
                   :class="[
-                    'w-6 h-6 rounded-lg bg-zinc-100 text-zinc-600 flex items-center justify-center text-xs font-bold transition-transform duration-200 shrink-0',
+                    'w-6 h-6 rounded-lg bg-zinc-100 text-zinc-600 flex items-center justify-center text-xs font-bold transition-transform duration-200 shrink-0 select-none',
                     isAccordionOpen(grp.key) ? 'rotate-90 bg-red-100 text-red-600' : ''
                   ]"
                 >
-                  ▶
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
                 </div>
 
                 <!-- Group Title in exact requested format: [jenis] [kf] [thick] MC X [width] MM -->
                 <div class="min-w-0">
                   <div class="font-black text-xs sm:text-sm text-zinc-900 font-mono tracking-tight flex items-center gap-1.5 flex-wrap">
-                    <span class="text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-lg truncate">
+                    <span class="text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-lg truncate">
                       {{ grp.key }}
                     </span>
                     <span class="text-[10px] sm:text-[11px] font-bold text-zinc-500 font-sans">
@@ -532,39 +555,43 @@
               </div>
             </div>
 
-            <!-- Accordion Expanded Content (Subgroup by Length) -->
+            <!-- Accordion Expanded Content (Subgroup by Length - Polished task.html style) -->
             <div
               v-show="isAccordionOpen(grp.key)"
-              class="px-4 pb-4 pt-1 bg-zinc-50/70 border-t border-zinc-100 space-y-2 animate-fade-in"
+              class="px-3 sm:px-4 py-3 bg-zinc-50/80 border-t border-zinc-200 space-y-2 animate-fade-in"
             >
-              <div class="text-[11px] font-bold text-zinc-500 uppercase tracking-wide pt-1">
-                Rincian Panjang & Jumlah Roll yang Diambil:
+              <div class="flex items-center justify-between text-[10.5px] font-bold text-zinc-500 uppercase tracking-wide px-1">
+                <span>Rincian Variasi Panjang (Length)</span>
+                <span>Jumlah Roll • Subtotal Meter • Berat Teori</span>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              <div class="bg-white rounded-xl border border-zinc-200 shadow-2xs divide-y divide-zinc-100 overflow-hidden">
                 <div
                   v-for="lenItem in grp.lengths"
                   :key="lenItem.length"
-                  class="p-3 bg-white border border-zinc-200 rounded-xl shadow-2xs flex flex-col justify-between"
+                  class="p-2.5 sm:px-4 sm:py-2.5 flex items-center justify-between gap-2 hover:bg-zinc-50/80 transition-colors"
                 >
-                  <div class="flex items-center justify-between border-b border-zinc-100 pb-1.5">
-                    <span class="font-mono font-black text-sm text-indigo-700">
+                  <!-- Sisi Kiri: Panjang Roll -->
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"></span>
+                    <span class="font-mono font-black text-xs sm:text-sm text-zinc-900">
                       {{ lenItem.length.toLocaleString('id-ID') }} M
-                    </span>
-                    <span class="px-2 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-900">
-                      {{ lenItem.rollCount }} Roll
                     </span>
                   </div>
 
-                  <div class="grid grid-cols-2 gap-2 pt-2 text-[11px] font-mono">
-                    <div>
-                      <span class="text-zinc-400 block text-[9.5px]">Total Meter:</span>
-                      <strong class="text-zinc-800">{{ lenItem.subTotalMeter.toLocaleString('id-ID') }} M</strong>
-                    </div>
-                    <div class="text-right">
-                      <span class="text-zinc-400 block text-[9.5px]">Berat Teori:</span>
-                      <strong class="text-emerald-700 font-bold">{{ lenItem.subTotalBeratTeori.toLocaleString('id-ID') }} kg</strong>
-                    </div>
+                  <!-- Sisi Kanan: Roll, Subtotal Meter & Berat Teori -->
+                  <div class="flex items-center gap-1.5 sm:gap-3 text-xs font-mono shrink-0">
+                    <span class="px-2 py-0.5 rounded-md font-black text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                      {{ lenItem.rollCount }} Roll
+                    </span>
+                    <span class="hidden sm:inline text-zinc-300">•</span>
+                    <span class="text-zinc-600 font-semibold text-[11px] sm:text-xs">
+                      {{ lenItem.subTotalMeter.toLocaleString('id-ID') }} M
+                    </span>
+                    <span class="hidden sm:inline text-zinc-300">•</span>
+                    <span class="text-emerald-700 font-black text-[11px] sm:text-xs bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      {{ lenItem.subTotalBeratTeori.toLocaleString('id-ID') }} kg
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1293,6 +1320,24 @@ const isAccordionOpen = (key) => {
 
 const toggleAccordion = (key) => {
   openAccordions[key] = !isAccordionOpen(key);
+};
+
+const expandAllAccordions = () => {
+  const summary = taskStore.activeTaskSummary;
+  if (summary && Array.isArray(summary.groups)) {
+    summary.groups.forEach(g => {
+      openAccordions[g.key] = true;
+    });
+  }
+};
+
+const collapseAllAccordions = () => {
+  const summary = taskStore.activeTaskSummary;
+  if (summary && Array.isArray(summary.groups)) {
+    summary.groups.forEach(g => {
+      openAccordions[g.key] = false;
+    });
+  }
 };
 
 // ── TASK NAVIGATION ─────────────────────────────────────────────────────────
