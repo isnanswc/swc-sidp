@@ -1308,8 +1308,34 @@
                   <td class="border border-zinc-300 p-0"><input v-model="row.tanggal" @focus="selectCell(rIdx, 'tanggal')" class="w-full px-2 py-1 bg-transparent outline-none" /></td>
                   <td class="border border-zinc-300 p-0 font-bold"><input v-model="row.operator" @focus="selectCell(rIdx, 'operator')" class="w-full px-2 py-1 bg-transparent outline-none uppercase font-bold text-zinc-800" /></td>
                   <td class="border border-zinc-300 p-0 text-center font-bold"><input v-model="row.group_shift" @focus="selectCell(rIdx, 'group_shift')" class="w-full px-2 py-1 text-center font-bold bg-transparent outline-none uppercase" /></td>
-                  <td class="border border-zinc-300 p-0 text-center"><input v-model="row.start_time" @input="recalcMetalizeRow(row)" @focus="selectCell(rIdx, 'start_time')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" /></td>
-                  <td class="border border-zinc-300 p-0 text-center"><input v-model="row.finish_time" @input="recalcMetalizeRow(row)" @focus="selectCell(rIdx, 'finish_time')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" /></td>
+                  <td class="border border-zinc-300 p-0 text-center relative group">
+                    <div class="flex items-center justify-center relative">
+                      <input v-model="row.start_time" @input="recalcMetalizeRow(row)" @focus="selectCell(rIdx, 'start_time')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" />
+                      <button
+                        type="button"
+                        @click="toggleCrossDay(row, 'start')"
+                        :class="row.start_cross_day ? 'bg-amber-500 text-white font-black opacity-100' : 'text-zinc-300 hover:text-zinc-600 opacity-0 group-hover:opacity-100'"
+                        class="absolute right-0.5 top-1/2 -translate-y-1/2 text-[8px] px-1 py-0.2 rounded transition-all cursor-pointer shadow-2xs"
+                        :title="row.start_cross_day ? 'Melewati tengah malam (+1 Hari). Klik untuk batalkan.' : 'Klik jika jam ini melewati tengah malam (+1 Hari)'"
+                      >
+                        {{ row.start_cross_day ? '+1h' : '+1' }}
+                      </button>
+                    </div>
+                  </td>
+                  <td class="border border-zinc-300 p-0 text-center relative group">
+                    <div class="flex items-center justify-center relative">
+                      <input v-model="row.finish_time" @input="recalcMetalizeRow(row)" @focus="selectCell(rIdx, 'finish_time')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" />
+                      <button
+                        type="button"
+                        @click="toggleCrossDay(row, 'finish')"
+                        :class="row.finish_cross_day ? 'bg-amber-500 text-white font-black opacity-100' : 'text-zinc-300 hover:text-zinc-600 opacity-0 group-hover:opacity-100'"
+                        class="absolute right-0.5 top-1/2 -translate-y-1/2 text-[8px] px-1 py-0.2 rounded transition-all cursor-pointer shadow-2xs"
+                        :title="row.finish_cross_day ? 'Melewati tengah malam (+1 Hari). Klik untuk batalkan.' : 'Klik jika jam ini melewati tengah malam (+1 Hari)'"
+                      >
+                        {{ row.finish_cross_day ? '+1h' : '+1' }}
+                      </button>
+                    </div>
+                  </td>
                   <td class="border border-zinc-300 text-center font-bold bg-blue-50 px-2 py-1 text-zinc-900">{{ row.time_menit }}</td>
                   <td class="border border-zinc-300 p-0"><input v-model="row.spk_no" @focus="selectCell(rIdx, 'spk_no')" class="w-full px-2 py-1 font-bold bg-transparent outline-none" /></td>
                   <td class="border border-zinc-300 p-0"><input v-model="row.no_lot_awal" @focus="selectCell(rIdx, 'no_lot_awal')" class="w-full px-2 py-1 font-black text-amber-900 uppercase bg-transparent outline-none" /></td>
@@ -1490,8 +1516,34 @@
                   <td class="border border-zinc-300 text-center font-bold bg-zinc-100 text-zinc-600 px-1.5 py-1">{{ rIdx + 1 }}</td>
                   <td class="border border-zinc-300 p-0"><input v-model="row.tanggal" @focus="selectCell(rIdx, 'tanggal')" class="w-full px-2 py-1 bg-transparent outline-none" /></td>
                   <td class="border border-zinc-300 p-0 text-center"><input v-model="row.group_shift" @focus="selectCell(rIdx, 'group_shift')" class="w-full px-2 py-1 text-center font-bold bg-transparent outline-none uppercase" /></td>
-                  <td class="border border-zinc-300 p-0 text-center"><input v-model="row.start_time" @input="recalcRoll(row)" @focus="selectCell(rIdx, 'start_time')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" /></td>
-                  <td class="border border-zinc-300 p-0 text-center"><input v-model="row.finish_time" @input="recalcRoll(row)" @focus="selectCell(rIdx, 'finish_time')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" /></td>
+                  <td class="border border-zinc-300 p-0 text-center relative group">
+                    <div class="flex items-center justify-center relative">
+                      <input v-model="row.start_time" @input="recalcRoll(row)" @focus="selectCell(rIdx, 'start_time')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" />
+                      <button
+                        type="button"
+                        @click="toggleCrossDay(row, 'start')"
+                        :class="row.start_cross_day ? 'bg-amber-500 text-white font-black opacity-100' : 'text-zinc-300 hover:text-zinc-600 opacity-0 group-hover:opacity-100'"
+                        class="absolute right-0.5 top-1/2 -translate-y-1/2 text-[8px] px-1 py-0.2 rounded transition-all cursor-pointer shadow-2xs"
+                        :title="row.start_cross_day ? 'Melewati tengah malam (+1 Hari). Klik untuk batalkan.' : 'Klik jika jam ini melewati tengah malam (+1 Hari)'"
+                      >
+                        {{ row.start_cross_day ? '+1h' : '+1' }}
+                      </button>
+                    </div>
+                  </td>
+                  <td class="border border-zinc-300 p-0 text-center relative group">
+                    <div class="flex items-center justify-center relative">
+                      <input v-model="row.finish_time" @input="recalcRoll(row)" @focus="selectCell(rIdx, 'finish_time')" class="w-full px-1.5 py-1 text-center bg-transparent outline-none" />
+                      <button
+                        type="button"
+                        @click="toggleCrossDay(row, 'finish')"
+                        :class="row.finish_cross_day ? 'bg-amber-500 text-white font-black opacity-100' : 'text-zinc-300 hover:text-zinc-600 opacity-0 group-hover:opacity-100'"
+                        class="absolute right-0.5 top-1/2 -translate-y-1/2 text-[8px] px-1 py-0.2 rounded transition-all cursor-pointer shadow-2xs"
+                        :title="row.finish_cross_day ? 'Melewati tengah malam (+1 Hari). Klik untuk batalkan.' : 'Klik jika jam ini melewati tengah malam (+1 Hari)'"
+                      >
+                        {{ row.finish_cross_day ? '+1h' : '+1' }}
+                      </button>
+                    </div>
+                  </td>
                   <td class="border border-zinc-300 text-center font-bold bg-zinc-50 px-2 py-1 text-zinc-900">{{ row.time_menit }}</td>
                   <td class="border border-zinc-300 p-0 text-center bg-amber-50/40"><input v-model.number="row.downtime" @focus="selectCell(rIdx, 'downtime')" type="number" class="w-full px-1.5 py-1 text-center font-bold text-amber-900 bg-transparent outline-none" /></td>
                   <td class="border border-zinc-300 p-0 font-sans"><input v-model="row.downtime_ket" @focus="selectCell(rIdx, 'downtime_ket')" class="w-full px-2 py-1 bg-transparent outline-none text-zinc-800" /></td>
@@ -2132,7 +2184,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { getSetting, saveSetting, db } from '@/db';
 import { getAiConfig } from '@/services/geminiService';
 import { useConfigStore } from '@/stores/configStore';
-import { extractReportFromImage, performDeepHandwritingAudit, matchMasterResin, extractShiftNumber, compareRollsChronological } from '@/services/aiReportService';
+import { extractReportFromImage, performDeepHandwritingAudit, matchMasterResin, extractShiftNumber, compareRollsChronological, convertDecimalToStandardTime, convertTimeToDecimal } from '@/services/aiReportService';
 import { exportCastingReportToExcel, exportMetalizeReportToExcel, exportFullSessionToExcel, calculateDurationMinutes, standardizeSpkInhouse } from '@/services/excelReportService';
 
 const configStore = useConfigStore();
@@ -3193,6 +3245,21 @@ const applyDynamicAnomalyFix = (anomali) => {
   }
 };
 
+const toggleCrossDay = (row, fieldType) => {
+  if (fieldType === 'start') {
+    row.start_cross_day = !row.start_cross_day;
+    row.start_time_decimal = convertTimeToDecimal(row.start_time, row.start_cross_day);
+  } else if (fieldType === 'finish') {
+    row.finish_cross_day = !row.finish_cross_day;
+    row.finish_time_decimal = convertTimeToDecimal(row.finish_time, row.finish_cross_day);
+  }
+  if (isMetalizeSession.value) {
+    recalcMetalizeRow(row);
+  } else {
+    recalcRoll(row);
+  }
+};
+
 const recalcRoll = (roll) => {
   const thick = parseFloat(roll.thickness) || 0;
   const width = parseFloat(roll.width) || 0;
@@ -3202,8 +3269,42 @@ const recalcRoll = (roll) => {
   roll.berat_teori = Number(((thick * width * length * 0.91) / 1000000).toFixed(2));
   roll.berat_selisih = Number((roll.berat_teori - beratAktual).toFixed(2));
 
+  // Normalisasi input start_time
+  if (roll.start_time !== undefined && roll.start_time !== null && roll.start_time !== '') {
+    const sStr = String(roll.start_time).trim().replace(',', '.');
+    if (/^\d+(\.\d+)?$/.test(sStr) && !String(roll.start_time).includes(':')) {
+      const num = parseFloat(sStr);
+      if (!isNaN(num)) {
+        roll.start_cross_day = num >= 1.0;
+        roll.start_time_decimal = Number(num.toFixed(4));
+        roll.start_time = convertDecimalToStandardTime(num);
+      }
+    } else {
+      roll.start_time_decimal = convertTimeToDecimal(roll.start_time, roll.start_cross_day);
+    }
+  }
+
+  // Normalisasi input finish_time
+  if (roll.finish_time !== undefined && roll.finish_time !== null && roll.finish_time !== '') {
+    const fStr = String(roll.finish_time).trim().replace(',', '.');
+    if (/^\d+(\.\d+)?$/.test(fStr) && !String(roll.finish_time).includes(':')) {
+      const num = parseFloat(fStr);
+      if (!isNaN(num)) {
+        roll.finish_cross_day = num >= 1.0;
+        roll.finish_time_decimal = Number(num.toFixed(4));
+        roll.finish_time = convertDecimalToStandardTime(num);
+      }
+    } else {
+      roll.finish_time_decimal = convertTimeToDecimal(roll.finish_time, roll.finish_cross_day);
+    }
+  }
+
   if (roll.start_time && roll.finish_time) {
-    roll.time_menit = calculateDurationMinutes(roll.start_time, roll.finish_time);
+    if (roll.start_time_decimal !== undefined && roll.finish_time_decimal !== undefined) {
+      roll.time_menit = calculateDurationMinutes(roll.start_time_decimal, roll.finish_time_decimal);
+    } else {
+      roll.time_menit = calculateDurationMinutes(roll.start_time, roll.finish_time);
+    }
   }
 };
 
@@ -3253,8 +3354,42 @@ const handleExcelKeydown = (e) => {
 };
 
 const recalcMetalizeRow = (row) => {
+  // Normalisasi input start_time
+  if (row.start_time !== undefined && row.start_time !== null && row.start_time !== '') {
+    const sStr = String(row.start_time).trim().replace(',', '.');
+    if (/^\d+(\.\d+)?$/.test(sStr) && !String(row.start_time).includes(':')) {
+      const num = parseFloat(sStr);
+      if (!isNaN(num)) {
+        row.start_cross_day = num >= 1.0;
+        row.start_time_decimal = Number(num.toFixed(4));
+        row.start_time = convertDecimalToStandardTime(num);
+      }
+    } else {
+      row.start_time_decimal = convertTimeToDecimal(row.start_time, row.start_cross_day);
+    }
+  }
+
+  // Normalisasi input finish_time
+  if (row.finish_time !== undefined && row.finish_time !== null && row.finish_time !== '') {
+    const fStr = String(row.finish_time).trim().replace(',', '.');
+    if (/^\d+(\.\d+)?$/.test(fStr) && !String(row.finish_time).includes(':')) {
+      const num = parseFloat(fStr);
+      if (!isNaN(num)) {
+        row.finish_cross_day = num >= 1.0;
+        row.finish_time_decimal = Number(num.toFixed(4));
+        row.finish_time = convertDecimalToStandardTime(num);
+      }
+    } else {
+      row.finish_time_decimal = convertTimeToDecimal(row.finish_time, row.finish_cross_day);
+    }
+  }
+
   if (row.start_time && row.finish_time) {
-    row.time_menit = calculateDurationMinutes(row.start_time, row.finish_time);
+    if (row.start_time_decimal !== undefined && row.finish_time_decimal !== undefined) {
+      row.time_menit = calculateDurationMinutes(row.start_time_decimal, row.finish_time_decimal);
+    } else {
+      row.time_menit = calculateDurationMinutes(row.start_time, row.finish_time);
+    }
   }
 };
 

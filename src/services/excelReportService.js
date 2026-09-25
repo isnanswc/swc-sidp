@@ -66,14 +66,28 @@ export function standardizeSpkInhouse(rawSpk, fallbackDate) {
 }
 
 /**
- * Format 29 Kolom Roll Output
-function parseTimeCell(t) {
-  if (t === undefined || t === null || t === '') return '';
-  if (typeof t === 'number') return t;
-  const s = String(t).trim().replace(',', '.');
+ * Konversi nilai waktu ke nilai numerik Time Desimal Excel
+ */
+function parseTimeCell(val, decimalVal, isPastMidnight = false) {
+  if (typeof decimalVal === 'number' && !isNaN(decimalVal)) {
+    return decimalVal;
+  }
+  if (val === undefined || val === null || val === '') return '';
+  if (typeof val === 'number') return val;
+  const s = String(val).trim().replace(',', '.');
   if (/^\d+(\.\d+)?$/.test(s) && !s.includes(':')) {
     const num = parseFloat(s);
     return !isNaN(num) ? num : s;
+  }
+  const match = s.match(/^(\d{1,2})[:.](\d{1,2})/);
+  if (match) {
+    const h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    if (!isNaN(h) && !isNaN(m)) {
+      let frac = (h * 60 + m) / 1440;
+      if (isPastMidnight) frac += 1.0;
+      return Number(frac.toFixed(4));
+    }
   }
   return s;
 }
@@ -90,8 +104,8 @@ function formatRollRow(row, defaultHeader = {}) {
   return {
     'Tanggal': convertDateToNumericExcel(row.tanggal || defaultHeader.tanggal || ''),
     'Group/Shift': row.group_shift || defaultHeader.shift_group || '',
-    'Start Time': parseTimeCell(row.start_time),
-    'Finish Time': parseTimeCell(row.finish_time),
+    'Start Time': parseTimeCell(row.start_time, row.start_time_decimal, row.start_cross_day),
+    'Finish Time': parseTimeCell(row.finish_time, row.finish_time_decimal, row.finish_cross_day),
     'Time': Number(timeMinutes) || '',
     'Downtime': (row.downtime !== '' && row.downtime !== undefined && row.downtime !== null) ? Number(row.downtime) : '', // Angka murni
     'Keterangan DT': row.downtime_ket || '',
@@ -149,7 +163,7 @@ const COLS_WIDTH_7 = [
   { wch: 16 }, { wch: 9 }, { wch: 10 }, { wch: 18 }, { wch: 22 }, { wch: 12 }, { wch: 18 }
 ];
 
-function formatWorksheetDateCells(ws, XLSX) {
+function formatWorksheetDateCells(ws, XLSX, timeCols = []) {
   if (!ws || !ws['!ref'] || !XLSX) return;
   const range = XLSX.utils.decode_range(ws['!ref']);
   for (let R = range.s.r + 1; R <= range.e.r; ++R) {
@@ -158,6 +172,17 @@ function formatWorksheetDateCells(ws, XLSX) {
     if (cell && typeof cell.v === 'number') {
       cell.t = 'n';
       cell.z = 'yyyy-mm-dd';
+    }
+    // Format sel waktu (Start Time & Finish Time) sebagai format jam Excel hh:mm
+    if (Array.isArray(timeCols) && timeCols.length > 0) {
+      for (const cIdx of timeCols) {
+        const tRef = XLSX.utils.encode_cell({ c: cIdx, r: R });
+        const tCell = ws[tRef];
+        if (tCell && typeof tCell.v === 'number') {
+          tCell.t = 'n';
+          tCell.z = 'hh:mm';
+        }
+      }
     }
   }
 }
@@ -199,7 +224,7 @@ export async function exportCastingReportToExcel(headerData, rollsData, resinDat
   ws2['!cols'] = COLS_WIDTH_7;
   ws3['!cols'] = [{ wch: 35 }, { wch: 25 }];
 
-  formatWorksheetDateCells(ws1, XLSX);
+  formatWorksheetDateCells(ws1, XLSX, [2, 3]);
   formatWorksheetDateCells(ws2, XLSX);
   XLSX.utils.book_append_sheet(wb, ws1, 'Laporan Produksi Roll');
   XLSX.utils.book_append_sheet(wb, ws2, 'Pemakaian Resin');
@@ -303,8 +328,8 @@ export function formatMetalizeRow(row, defaultHeader = {}) {
     'TANGGAL': numericTgl,
     'Operator': String(row.operator || defaultHeader.operator || '').trim().toUpperCase(),
     'Group/shift': String(row.group_shift || defaultHeader.shift_group || '').trim().toUpperCase(),
-    'Start': parseTimeCell(row.start_time),
-    'Finish': parseTimeCell(row.finish_time),
+    'Start': parseTimeCell(row.start_time, row.start_time_decimal, row.start_cross_day),
+    'Finish': parseTimeCell(row.finish_time, row.finish_time_decimal, row.finish_cross_day),
     'Time': Number(timeMinutes) || '',
     'No SPK': String(row.spk_no || defaultHeader.spk_no || '').trim().toUpperCase(),
     'No Lot Awal': lotAwal,
@@ -375,7 +400,7 @@ export async function exportMetalizeReportToExcel(headerData, metalizeRows) {
   ws1['!cols'] = COLS_WIDTH_METALIZE;
   ws2['!cols'] = [{ wch: 35 }, { wch: 25 }];
 
-  formatWorksheetDateCells(ws1, XLSX);
+  formatWorksheetDateCells(ws1, XLSX, [3, 4]);
   XLSX.utils.book_append_sheet(wb, ws1, 'Laporan Produksi Metalize');
   XLSX.utils.book_append_sheet(wb, ws2, 'Material Balance');
 
@@ -443,7 +468,7 @@ export async function exportFullSessionToExcel(session) {
 
     const wsAll = XLSX.utils.json_to_sheet(allMetalizeRows);
     wsAll['!cols'] = COLS_WIDTH_METALIZE;
-    formatWorksheetDateCells(wsAll, XLSX);
+    formatWorksheetDateCells(wsAll, XLSX, [3, 4]);
     XLSX.utils.book_append_sheet(wb, wsAll, 'Laporan Metalize Harian');
 
     // 3. INDIVIDUAL SHEETS PER SHIFT
@@ -453,7 +478,7 @@ export async function exportFullSessionToExcel(session) {
         const sRows = (s.tabel_metalize || []).map(r => formatMetalizeRow(r, s.header || {}));
         const wsShift = XLSX.utils.json_to_sheet(sRows);
         wsShift['!cols'] = COLS_WIDTH_METALIZE;
-        formatWorksheetDateCells(wsShift, XLSX);
+        formatWorksheetDateCells(wsShift, XLSX, [3, 4]);
         XLSX.utils.book_append_sheet(wb, wsShift, sName);
       });
     }
@@ -500,33 +525,34 @@ export async function exportFullSessionToExcel(session) {
       allRollsData.push(formatRollRow(r, s.header || {}));
     });
   });
-  const wsAllRolls = XLSX.utils.json_to_sheet(allRollsData);
-  wsAllRolls['!cols'] = COLS_WIDTH_29;
-  formatWorksheetDateCells(wsAllRolls, XLSX);
-  XLSX.utils.book_append_sheet(wb, wsAllRolls, 'Semua Roll Harian (29 Kolom)');
+    const wsAllRolls = XLSX.utils.json_to_sheet(allRollsData);
+    wsAllRolls['!cols'] = COLS_WIDTH_29;
+    formatWorksheetDateCells(wsAllRolls, XLSX, [2, 3]);
+    XLSX.utils.book_append_sheet(wb, wsAllRolls, 'Semua Roll Harian (29 Kolom)');
 
-  // 3. SHEET SEMUA RESIN (AKUMULASI SELURUH SHIFT DALAM 7 KOLOM)
-  const allResinData = [];
-  shifts.forEach(s => {
-    (s.tabel_2_resin || []).forEach(res => {
-      allResinData.push(formatResinRow(res, s.header || {}));
+    // 3. SHEET SEMUA RESIN (AKUMULASI SELURUH SHIFT DALAM 7 KOLOM)
+    const allResinData = [];
+    shifts.forEach(s => {
+      (s.tabel_2_resin || []).forEach(res => {
+        allResinData.push(formatResinRow(res, s.header || {}));
+      });
     });
-  });
-  const wsAllResin = XLSX.utils.json_to_sheet(allResinData);
-  wsAllResin['!cols'] = COLS_WIDTH_7;
-  formatWorksheetDateCells(wsAllResin, XLSX);
-  XLSX.utils.book_append_sheet(wb, wsAllResin, 'Semua Resin Harian (7 Kolom)');
+    const wsAllResin = XLSX.utils.json_to_sheet(allResinData);
+    wsAllResin['!cols'] = COLS_WIDTH_7;
+    formatWorksheetDateCells(wsAllResin, XLSX);
+    XLSX.utils.book_append_sheet(wb, wsAllResin, 'Semua Resin Harian (7 Kolom)');
 
-  // 4. INDIVIDUAL SHEETS UNTUK TIAP SHIFT JIKA LEBIH DARI 1 SHIFT
-  if (shifts.length > 1) {
-    shifts.forEach((s, idx) => {
-      const shiftSheetName = (s.shift_name || `Shift ${idx + 1}`).substring(0, 25);
-      const sRollsData = (s.tabel_1_rolls || []).map(r => formatRollRow(r, s.header || {}));
-      const wsShift = XLSX.utils.json_to_sheet(sRollsData);
-      wsShift['!cols'] = COLS_WIDTH_29;
-      XLSX.utils.book_append_sheet(wb, wsShift, shiftSheetName);
-    });
-  }
+    // 4. INDIVIDUAL SHEETS UNTUK TIAP SHIFT JIKA LEBIH DARI 1 SHIFT
+    if (shifts.length > 1) {
+      shifts.forEach((s, idx) => {
+        const shiftSheetName = (s.shift_name || `Shift ${idx + 1}`).substring(0, 25);
+        const sRollsData = (s.tabel_1_rolls || []).map(r => formatRollRow(r, s.header || {}));
+        const wsShift = XLSX.utils.json_to_sheet(sRollsData);
+        wsShift['!cols'] = COLS_WIDTH_29;
+        formatWorksheetDateCells(wsShift, XLSX, [2, 3]);
+        XLSX.utils.book_append_sheet(wb, wsShift, shiftSheetName);
+      });
+    }
 
   XLSX.writeFile(wb, fileName);
 }
