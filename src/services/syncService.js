@@ -461,6 +461,78 @@ export async function recordLabelsWipedCloud() {
   }
 }
 
+// ── WIP REGISTRY DIRECT PUSH: Sinkronkan acuan aktif & daftar batch WIP langsung ke Cloud ──
+export async function pushWipRegistryToSupabase(preferredActiveUuid = null) {
+  if (!navigator.onLine || !db.wip_updates) return null;
+  try {
+    const updates = await db.wip_updates.toArray();
+    if (updates.length === 0) return null;
+
+    // Urutkan batch dari tanggal terbaru (latest date first)
+    const sorted = updates.slice().sort((a, b) => {
+      const timeB = new Date(b.tanggal || b.createdAt || 0).getTime() || 0;
+      const timeA = new Date(a.tanggal || a.createdAt || 0).getTime() || 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || 0) - (a.id || 0);
+    });
+
+    let activeBatch = null;
+    if (preferredActiveUuid) {
+      activeBatch = sorted.find(u => u.uuid === preferredActiveUuid || String(u.id) === String(preferredActiveUuid));
+    }
+    if (!activeBatch) {
+      const activeCandidates = sorted.filter(u => u.isActive === 1 || u.isActive === true);
+      activeBatch = activeCandidates.length > 0 ? activeCandidates[0] : sorted[0];
+    }
+
+    const activeUuid = activeBatch?.uuid || (typeof window !== 'undefined' ? localStorage.getItem('m_label_active_wip_batch_uuid') : null) || sorted[0]?.uuid || null;
+    const nowIso = new Date().toISOString();
+
+    if (activeUuid && typeof window !== 'undefined') {
+      localStorage.setItem('m_label_active_wip_batch_uuid', activeUuid);
+      localStorage.setItem('m_label_active_wip_batch_updated_at', String(Date.now()));
+    }
+
+    // Pastikan di db.wip_updates lokal hanya 1 batch yang isActive = 1
+    for (const u of updates) {
+      const shouldBeActive = (u.uuid === activeUuid || u.id === activeBatch?.id) ? 1 : 0;
+      if (u.isActive !== shouldBeActive && u.id) {
+        await db.wip_updates.update(u.id, { isActive: shouldBeActive, updatedAt: nowIso });
+      }
+    }
+
+    const payload = {
+      key: 'ims_wip_updates_registry',
+      value: JSON.stringify({
+        activeWipBatchUuid: activeUuid,
+        updates: sorted.map(u => ({
+          uuid: u.uuid,
+          title: u.title,
+          tanggal: u.tanggal,
+          fileName: u.fileName,
+          totalRolls: u.totalRolls,
+          totalKg: u.totalKg,
+          isActive: (u.uuid === activeUuid || u.id === activeBatch?.id) ? 1 : 0,
+          createdAt: u.createdAt,
+          updatedAt: u.updatedAt || nowIso
+        }))
+      }),
+      updated_at: nowIso
+    };
+
+    const { error } = await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+    if (error) {
+      console.warn('[SyncPush] Direct push WIP registry notice:', error.message);
+    } else {
+      console.log(`[SyncPush] Berhasil memperbarui acuan WIP di cloud: ${activeUuid}`);
+    }
+    return activeUuid;
+  } catch (err) {
+    console.warn('[SyncPush] Gagal push WIP registry:', err);
+    return null;
+  }
+}
+
 // 1. PUSH: Kirim data lokal yang belum tersinkron ke Supabase (PARALLEL & BULK)
 export async function pushLocalToSupabase() {
   if (!navigator.onLine) return;
@@ -801,30 +873,7 @@ export async function pushLocalToSupabase() {
 
           // Sinkronkan registry batch upload WIP (wip_updates)
           if (db.wip_updates) {
-            const updates = await db.wip_updates.toArray();
-            if (updates.length > 0) {
-              const activeUpdate = updates.find(u => u.isActive === 1 || u.isActive === true) || updates[0];
-              const activeUuid = activeUpdate?.uuid || (typeof window !== 'undefined' ? localStorage.getItem('m_label_active_wip_batch_uuid') : null) || null;
-              const payload = {
-                key: 'ims_wip_updates_registry',
-                value: JSON.stringify({
-                  activeWipBatchUuid: activeUuid,
-                  updates: updates.map(u => ({
-                    uuid: u.uuid,
-                    title: u.title,
-                    tanggal: u.tanggal,
-                    fileName: u.fileName,
-                    totalRolls: u.totalRolls,
-                    totalKg: u.totalKg,
-                    isActive: u.isActive,
-                    createdAt: u.createdAt,
-                    updatedAt: u.updatedAt
-                  }))
-                }),
-                updated_at: new Date().toISOString()
-              };
-              await supabase.from('settings').upsert([payload], { onConflict: 'key' });
-            }
+            await pushWipRegistryToSupabase();
           }
         } catch (wipPushErr) {
           console.warn('[SyncPush] WIP sync error:', wipPushErr.message || wipPushErr);
@@ -1875,23 +1924,84 @@ export async function pullFromSupabase(forceFull = false) {
               if (cs.key === 'ims_wip_updates_registry' && db.wip_updates) {
                 try {
                   const updatesList = Array.isArray(parsedVal) ? parsedVal : (parsedVal?.updates || []);
-                  const activeWipUuid = (!Array.isArray(parsedVal) && parsedVal?.activeWipBatchUuid) ? parsedVal.activeWipBatchUuid : null;
-                  if (activeWipUuid && typeof window !== 'undefined') {
-                    localStorage.setItem('m_label_active_wip_batch_uuid', activeWipUuid);
-                  }
+                  const cloudActiveWipUuid = (!Array.isArray(parsedVal) && parsedVal?.activeWipBatchUuid) ? parsedVal.activeWipBatchUuid : null;
+
+                  const localLastActiveChange = parseInt(localStorage.getItem('m_label_active_wip_batch_updated_at') || '0', 10);
+                  const cloudUpdatedAt = cs.updated_at ? new Date(cs.updated_at).getTime() : 0;
+                  const currentLocalActiveUuid = localStorage.getItem('m_label_active_wip_batch_uuid');
+
+                  // Jika lokal baru saja mengubah acuan (< 10 menit atau timestamp lokal > cloud), jangan timpa acuan lokal!
+                  const isLocalFresher = localLastActiveChange > cloudUpdatedAt || (Date.now() - localLastActiveChange < 600000 && Boolean(currentLocalActiveUuid));
 
                   const existingBatches = await db.wip_updates.toArray();
-                  const batchMap = new Map(existingBatches.map(b => [b.uuid, b.id]));
+                  const batchMap = new Map(existingBatches.map(b => [b.uuid, b]));
+
+                  // Merge batch dari cloud tanpa menghilangkan batch lokal terbaru
                   for (const cb of updatesList) {
-                    const localId = batchMap.get(cb.uuid);
-                    const shouldBeActive = activeWipUuid ? (cb.uuid === activeWipUuid ? 1 : 0) : cb.isActive;
-                    const batchData = { ...cb, isActive: shouldBeActive };
-                    if (localId) {
-                      await db.wip_updates.update(localId, { ...batchData, id: localId });
+                    const localBatch = batchMap.get(cb.uuid);
+                    if (localBatch) {
+                      const shouldBeActive = isLocalFresher
+                        ? (localBatch.uuid === currentLocalActiveUuid ? 1 : 0)
+                        : (cloudActiveWipUuid ? (cb.uuid === cloudActiveWipUuid ? 1 : 0) : cb.isActive);
+                      await db.wip_updates.update(localBatch.id, {
+                        ...cb,
+                        id: localBatch.id,
+                        isActive: shouldBeActive
+                      });
                     } else {
-                      const { id, ...newBatch } = batchData;
-                      await db.wip_updates.add(newBatch);
+                      const { id, ...newBatch } = cb;
+                      await db.wip_updates.add({
+                        ...newBatch,
+                        isActive: (!isLocalFresher && cloudActiveWipUuid && cb.uuid === cloudActiveWipUuid) ? 1 : 0
+                      });
                     }
+                  }
+
+                  const allBatchesAfterSync = await db.wip_updates.toArray();
+                  const sortedBatches = allBatchesAfterSync.slice().sort((a, b) => {
+                    const tB = new Date(b.tanggal || b.createdAt || 0).getTime() || 0;
+                    const tA = new Date(a.tanggal || a.createdAt || 0).getTime() || 0;
+                    return tB - tA;
+                  });
+                  const newestBatch = sortedBatches[0];
+                  const cloudBatchItem = allBatchesAfterSync.find(b => b.uuid === cloudActiveWipUuid);
+
+                  const newestBatchTime = newestBatch ? (new Date(newestBatch.tanggal || newestBatch.createdAt || 0).getTime() || 0) : 0;
+                  const cloudBatchTime = cloudBatchItem ? (new Date(cloudBatchItem.tanggal || cloudBatchItem.createdAt || 0).getTime() || 0) : 0;
+
+                  // Tentukan acuan akhir:
+                  // 1. Jika lokal baru saja mengubah acuan secara eksplisit -> gunakan lokal
+                  // 2. Jika ada batch lokal dengan tanggal upload lebih baru dari acuan cloud -> gunakan batch terbaru!
+                  // 3. Jika tidak, gunakan acuan dari cloud
+                  let finalActiveUuid = null;
+                  if (isLocalFresher && currentLocalActiveUuid) {
+                    finalActiveUuid = currentLocalActiveUuid;
+                  } else if (newestBatch && newestBatchTime > cloudBatchTime) {
+                    finalActiveUuid = newestBatch.uuid;
+                  } else {
+                    finalActiveUuid = cloudActiveWipUuid;
+                  }
+
+                  const validBatch = allBatchesAfterSync.find(b => b.uuid === finalActiveUuid);
+                  if (!validBatch && sortedBatches.length > 0) {
+                    finalActiveUuid = sortedBatches[0].uuid;
+                  }
+
+                  if (finalActiveUuid && typeof window !== 'undefined') {
+                    localStorage.setItem('m_label_active_wip_batch_uuid', finalActiveUuid);
+                  }
+
+                  // Pastikan hanya batch terpilih yang isActive = 1 di IndexedDB
+                  for (const b of allBatchesAfterSync) {
+                    const shouldBe = (b.uuid === finalActiveUuid) ? 1 : 0;
+                    if (b.isActive !== shouldBe) {
+                      await db.wip_updates.update(b.id, { isActive: shouldBe });
+                    }
+                  }
+
+                  // Jika acuan lokal berbeda / lebih baru daripada cloud, sinkronkan acuan lokal ke cloud sekarang juga
+                  if (finalActiveUuid && finalActiveUuid !== cloudActiveWipUuid) {
+                    pushWipRegistryToSupabase(finalActiveUuid).catch(() => {});
                   }
                 } catch (wipBatchErr) {
                   console.warn('Sync pull wip_updates registry:', wipBatchErr);
@@ -2136,13 +2246,15 @@ export async function forceFullSync() {
 }
 
 // 5. Broadcast helper antar device (sub-100ms real-time event sync)
+const CLIENT_DEVICE_ID = 'dev_' + Math.random().toString(36).substring(2, 9);
+
 export async function broadcastRealtimeEvent(event, payload = {}) {
   try {
     if (realtimeChannel && syncState.realtimeConnected) {
       await realtimeChannel.send({
         type: 'broadcast',
         event,
-        payload: { ...payload, timestamp: Date.now() }
+        payload: { ...payload, senderDeviceId: CLIENT_DEVICE_ID, timestamp: Date.now() }
       });
     }
   } catch (err) {
@@ -2365,10 +2477,15 @@ export function startRealtimeSync(onDataChangeCallback) {
     })
     // 6. Broadcast Events (Sub-100ms ultra fast device-to-device sync)
     .on('broadcast', { event: 'wip_broadcast' }, async (payload) => {
+      // Abaikan jika broadcast berasal dari perangkat ini sendiri untuk mencegah race condition loop
+      if (payload?.payload?.senderDeviceId === CLIENT_DEVICE_ID) {
+        return;
+      }
       console.log('⚡ [Realtime] Received WIP broadcast from another device', payload);
       const wUuid = payload?.payload?.targetUuid || payload?.payload?.batchUuid || payload?.payload?.newActiveUuid;
       if (wUuid && typeof window !== 'undefined') {
         localStorage.setItem('m_label_active_wip_batch_uuid', wUuid);
+        localStorage.setItem('m_label_active_wip_batch_updated_at', String(Date.now()));
       }
       await pullFromSupabase(false);
       if (typeof window !== 'undefined') {

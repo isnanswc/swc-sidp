@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db, generateUniqID } from '@/db';
 import { useConfigStore } from '@/stores/configStore';
-import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, broadcastRealtimeEvent } from '@/services/syncService';
+import { pushLocalToSupabase, pushWipRegistryToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, recordTombstones, broadcastRealtimeEvent } from '@/services/syncService';
 
 export const useWipStore = defineStore('wip', () => {
   const wipUpdates = ref([]); // List of batch update sessions
@@ -89,25 +89,34 @@ export const useWipStore = defineStore('wip', () => {
       activeBatch = wipUpdates.value.find(u => u.uuid === preferredUuid || String(u.id) === String(preferredUuid));
     }
 
-    // 2. Check current active items
+    // 2. Check saved active batch in localStorage
+    if (!activeBatch) {
+      const savedActiveUuid = typeof window !== 'undefined' ? localStorage.getItem('m_label_active_wip_batch_uuid') : null;
+      if (savedActiveUuid) {
+        activeBatch = wipUpdates.value.find(u => u.uuid === savedActiveUuid || String(u.id) === String(savedActiveUuid));
+      }
+    }
+
+    // 3. Check current active items
     if (!activeBatch) {
       const activeCandidates = wipUpdates.value.filter(u => u.isActive === 1 || u.isActive === true);
       if (activeCandidates.length === 1) {
         activeBatch = activeCandidates[0];
       } else if (activeCandidates.length > 1) {
-        console.warn(`[WIP Auto-Healing] Mendeteksi ${activeCandidates.length} acuan ganda! Menetapkan hanya 1 batch terbaru sebagai acuan.`);
+        console.warn(`[WIP Auto-Healing] Mendeteksi ${activeCandidates.length} acuan ganda! Menetapkan batch tanggal terbaru sebagai acuan.`);
         const sortedCandidates = sortWipUpdates(activeCandidates);
         activeBatch = sortedCandidates[0];
       }
     }
 
-    // 3. Fallback: choose latest date batch (index 0)
+    // 4. Fallback: selalu pilih batch dengan tanggal terbaru (index 0)
     if (!activeBatch) {
       console.log('[WIP Auto-Healing] Tidak ada acuan aktif, menetapkan batch tanggal terbaru sebagai acuan utama.');
       activeBatch = wipUpdates.value[0];
     }
 
     const activeUuid = activeBatch.uuid || activeBatch.id;
+    const nowIso = new Date().toISOString();
 
     // Atomically enforce isActive = 1 for the chosen batch and 0 for all others
     for (const u of wipUpdates.value) {
@@ -115,13 +124,14 @@ export const useWipStore = defineStore('wip', () => {
       if (u.isActive !== shouldBeActive) {
         u.isActive = shouldBeActive;
         if (u.id) {
-          await db.wip_updates.update(u.id, { isActive: shouldBeActive, updatedAt: new Date().toISOString() });
+          await db.wip_updates.update(u.id, { isActive: shouldBeActive, updatedAt: nowIso });
         }
       }
     }
 
     if (activeBatch.uuid) {
       localStorage.setItem('m_label_active_wip_batch_uuid', activeBatch.uuid);
+      localStorage.setItem('m_label_active_wip_batch_updated_at', String(Date.now()));
     }
 
     return activeBatch;
@@ -197,9 +207,22 @@ export const useWipStore = defineStore('wip', () => {
   const setActiveUpdate = async (updateItemOrId) => {
     const targetId = typeof updateItemOrId === 'object' ? (updateItemOrId.uuid || updateItemOrId.id) : updateItemOrId;
     const active = await reconcileWipActiveBatch(targetId);
+    const activeUuid = active?.uuid || targetId;
+
+    if (activeUuid && typeof window !== 'undefined') {
+      localStorage.setItem('m_label_active_wip_batch_uuid', activeUuid);
+      localStorage.setItem('m_label_active_wip_batch_updated_at', String(Date.now()));
+    }
+
     try {
-      await pushLocalToSupabase();
-      broadcastRealtimeEvent('wip_broadcast', { action: 'set_active', targetUuid: active?.uuid || targetId });
+      // 1. Direct Instant Push registry acuan ke Cloud Supabase (< 100ms)
+      await pushWipRegistryToSupabase(activeUuid);
+
+      // 2. Broadcast sinyal update acuan ke device / tab lain
+      broadcastRealtimeEvent('wip_broadcast', { action: 'set_active', targetUuid: activeUuid });
+
+      // 3. Jalankan sync roll di latar belakang
+      pushLocalToSupabase().catch(() => {});
     } catch (e) {
       console.warn('Sync active update notice:', e);
     }
@@ -323,10 +346,11 @@ export const useWipStore = defineStore('wip', () => {
       await setActiveUpdate(newBatch);
     } else {
       await reconcileWipActiveBatch();
+      pushWipRegistryToSupabase().catch(() => {});
     }
 
     try {
-      await pushLocalToSupabase();
+      pushLocalToSupabase().catch(() => {});
       broadcastRealtimeEvent('wip_broadcast', { action: 'create_wip_update', batchUuid, targetUuid: batchUuid });
     } catch (pushErr) {
       console.warn('Push WIP to Supabase notice:', pushErr);
@@ -365,15 +389,18 @@ export const useWipStore = defineStore('wip', () => {
     wipRolls.value = wipRolls.value.filter(r => r.updateId !== uuid);
 
     // If the deleted batch was active, activate the next available batch by latest date
+    // If the deleted batch was active, activate the next available batch by latest date
     if (target.isActive && wipUpdates.value.length > 0) {
       const newActive = await reconcileWipActiveBatch();
       try {
-        await pushLocalToSupabase();
+        await pushWipRegistryToSupabase(newActive?.uuid);
+        pushLocalToSupabase().catch(() => {});
         broadcastRealtimeEvent('wip_broadcast', { action: 'delete_wip_update', updateId, newActiveUuid: newActive?.uuid });
       } catch (e) {}
     } else {
       try {
-        await pushLocalToSupabase();
+        await pushWipRegistryToSupabase();
+        pushLocalToSupabase().catch(() => {});
         broadcastRealtimeEvent('wip_broadcast', { action: 'delete_wip_update', updateId });
       } catch (e) {}
     }
