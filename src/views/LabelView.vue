@@ -7681,7 +7681,9 @@ const selectAllFiltered = () => {
   selectedIds.value = allFiltered.map(i => i.id);
 };
 
-const currentDateTimeString = computed(() => {
+const currentDateTimeString = ref('');
+
+const updatePrintTimestamp = () => {
   const now = new Date();
   const dd = String(now.getDate()).padStart(2, '0');
   const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -7689,8 +7691,11 @@ const currentDateTimeString = computed(() => {
   const hh = String(now.getHours()).padStart(2, '0');
   const min = String(now.getMinutes()).padStart(2, '0');
   const ss = String(now.getSeconds()).padStart(2, '0');
-  return `${dd}/${mm}/${yy}, ${hh}:${min}:${ss}`;
-});
+  currentDateTimeString.value = `${dd}/${mm}/${yy}, ${hh}:${min}:${ss}`;
+};
+
+// Inisialisasi awal print timestamp
+updatePrintTimestamp();
 
 function calculateShiftDate() {
   if (scheduleStore && typeof scheduleStore.getWorkDate === 'function') {
@@ -9215,6 +9220,7 @@ const deleteSelected = async () => {
 
 const previewSingle = (item) => {
   if (!item) return;
+  updatePrintTimestamp();
   const cleanId = (typeof item.id === 'string' && /^\d+$/.test(item.id)) ? parseInt(item.id, 10) : item.id;
   const freshItem = labelStore.labels.find(l =>
     l.id === cleanId || l.id === item.id || l.id == item.id ||
@@ -9226,11 +9232,13 @@ const previewSingle = (item) => {
 
 const previewSelected = () => {
   if (selectedIds.value.length === 0) return;
+  updatePrintTimestamp();
   previewItems.value = labelStore.labels.filter(l => selectedIds.value.includes(l.id));
   showPreviewModal.value = true;
 };
 
 const triggerPrint = () => {
+  updatePrintTimestamp();
   window.print();
 };
 
@@ -9271,11 +9279,13 @@ onMounted(async () => {
     }
   });
   window.addEventListener('resize', updateControlBarOffset);
+  window.addEventListener('beforeprint', updatePrintTimestamp);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateControlBarOffset);
   window.removeEventListener('sync:labels-updated', handleLabelsSync);
+  window.removeEventListener('beforeprint', updatePrintTimestamp);
 });
 
 // ── CONFIG-DRIVEN COMPUTED & MACHINE SHEETS ───────────────────────────────────

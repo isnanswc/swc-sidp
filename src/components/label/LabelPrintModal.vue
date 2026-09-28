@@ -175,7 +175,7 @@
 
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 6.5px; font-family: monospace; color: #475569; line-height: 1; padding: 0.5px 2px 0 2px; margin: 0; height: 7.5px; box-sizing: border-box;">
                   <span>{{ item.uniqId }}</span>
-                  <span>{{ currentDateTimeString }}</span>
+                  <span>{{ localPrintDateTime || currentDateTimeString }}</span>
                 </div>
               </div>
 
@@ -206,7 +206,7 @@
             Tutup
           </button>
           <button
-            @click="$emit('print')"
+            @click="handlePrint"
             class="px-6 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/25 flex items-center gap-2 cursor-pointer"
           >
             🖨️ Cetak {{ previewItems.length }} Label ({{ previewPages.length }} Halaman)
@@ -362,7 +362,7 @@
 
               <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-top: 3px; padding-bottom: 2px; box-sizing: border-box; line-height: 1.2;">
                 <strong><span style="font-size: 8px; font-family: monospace; letter-spacing: 0.2px; color: #000;">{{ item.uniqId }}</span></strong>
-                <span style="font-size: 8px; font-family: Arial, sans-serif; color: #1f2937;">{{ currentDateTimeString }}</span>
+                <span style="font-size: 8px; font-family: Arial, sans-serif; color: #1f2937;">{{ localPrintDateTime || currentDateTimeString }}</span>
               </div>
             </div>
 
@@ -388,6 +388,7 @@
 </template>
 
 <script setup>
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { formatLotVisual } from '@/services/aiAutomationService';
 import { formatTurunanDisplay } from '@/stores/labelStore';
 
@@ -402,12 +403,48 @@ const props = defineProps({
   getDisplayJenis: { type: Function, default: null }
 });
 
+const emit = defineEmits(['update:modelValue', 'print']);
+
+const localPrintDateTime = ref('');
+
+const formatCurrentDateTime = () => {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yy = String(now.getFullYear()).slice(-2);
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${dd}/${mm}/${yy}, ${hh}:${min}:${ss}`;
+};
+
+const refreshTimestamp = () => {
+  localPrintDateTime.value = formatCurrentDateTime();
+};
+
+watch(() => props.modelValue, (val) => {
+  if (val) {
+    refreshTimestamp();
+  }
+}, { immediate: true });
+
+onMounted(() => {
+  window.addEventListener('beforeprint', refreshTimestamp);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('beforeprint', refreshTimestamp);
+});
+
 const getDisplayJenis = (item) => {
   if (props.getDisplayJenis) return props.getDisplayJenis(item);
   return item?.alias || item?.jenis || '';
 };
 
-const emit = defineEmits(['update:modelValue', 'print']);
+const handlePrint = () => {
+  refreshTimestamp();
+  emit('print');
+};
 
 const close = () => {
   emit('update:modelValue', false);
