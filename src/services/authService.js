@@ -107,10 +107,8 @@ export function generatePresetPermissions(role) {
         canEdit = false;
       }
     } else if (role === 'OPERATOR') {
-      if (['dashboard', 'schedule', 'tools'].includes(menu.key)) {
-        canView = true;
-        canEdit = false;
-      } else if (['label', 'spk'].includes(menu.key)) {
+      // Operator: Hak akses khusus Manajemen Label (lihat dan edit)
+      if (['label'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }
@@ -227,7 +225,7 @@ export function evaluatePasswordStrength(password) {
   }
 }
 
-// Super Admin Initial Seed
+// Default Offline & Pre-registered Users
 export const DEFAULT_SUPER_ADMIN = {
   username: 'admin',
   name: 'Super Admin SWC',
@@ -235,34 +233,69 @@ export const DEFAULT_SUPER_ADMIN = {
   defaultPassword: 'Admin@SWC2026!'
 };
 
+export const DEFAULT_USERS = [
+  {
+    uuid: 'usr_super_admin_001',
+    username: 'admin',
+    name: 'Super Admin SWC',
+    email: 'isnanswc@gmail.com',
+    defaultPassword: 'Admin@SWC2026!',
+    role: 'SUPER_ADMIN'
+  },
+  {
+    uuid: 'usr_default_de_002',
+    username: 'DE',
+    name: 'Data Entry SWC',
+    email: 'de@saptawarna.co.id',
+    defaultPassword: 'semi123',
+    role: 'ADMIN_DE'
+  },
+  {
+    uuid: 'usr_default_operator_003',
+    username: 'operator',
+    name: 'Operator Label Produksi',
+    email: 'operator@saptawarna.co.id',
+    defaultPassword: 'semi123',
+    role: 'OPERATOR'
+  }
+];
+
 export async function seedDefaultSuperAdmin() {
   try {
-    const existing = await db.users.where('email').equalsIgnoreCase(DEFAULT_SUPER_ADMIN.email).first();
-    if (!existing) {
-      const altAdmin = await db.users.where('username').equalsIgnoreCase(DEFAULT_SUPER_ADMIN.username).first();
-      if (!altAdmin) {
+    for (const defUser of DEFAULT_USERS) {
+      const lowerEmail = defUser.email.toLowerCase();
+      const lowerUsername = defUser.username.toLowerCase();
+
+      let existing = await db.users.where('email').equalsIgnoreCase(lowerEmail).first();
+      if (!existing) {
+        existing = await db.users.where('username').equalsIgnoreCase(lowerUsername).first();
+      }
+
+      if (!existing) {
         const salt = generateSalt();
-        const hash = await hashPassword(DEFAULT_SUPER_ADMIN.defaultPassword, salt);
-        const fullPermissions = generatePresetPermissions('SUPER_ADMIN');
+        const hash = await hashPassword(defUser.defaultPassword, salt);
+        const perms = generatePresetPermissions(defUser.role);
 
         await db.users.add({
-          uuid: 'usr_super_admin_001',
-          username: DEFAULT_SUPER_ADMIN.username,
-          name: DEFAULT_SUPER_ADMIN.name,
-          email: DEFAULT_SUPER_ADMIN.email,
+          uuid: defUser.uuid,
+          username: defUser.username,
+          name: defUser.name,
+          email: defUser.email,
           passwordHash: hash,
           salt: salt,
-          role: 'SUPER_ADMIN',
-          permissionsJson: JSON.stringify(fullPermissions),
+          role: defUser.role,
+          department: defUser.role === 'OPERATOR' ? 'PRODUKSI_SLITTING' : 'PRODUKSI_EXTRUSION',
+          permissionsJson: JSON.stringify(perms),
           active: true,
           lastLogin: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
-        console.log('✅ Super Admin (isnanswc@gmail.com) berhasil di-seed.');
+        console.log(`✅ Default user (${defUser.username}) berhasil di-seed.`);
       }
     }
   } catch (err) {
-    console.error('Failed to seed super admin:', err);
+    console.error('Failed to seed default users:', err);
   }
 }
+

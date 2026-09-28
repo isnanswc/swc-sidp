@@ -251,12 +251,17 @@ export function startSessionHeartbeat(sessionId) {
   if (!sessionId) sessionId = getCurrentSessionId();
   if (!sessionId) return;
 
-  updateSessionHeartbeat(sessionId);
-
-  // Heartbeat setiap 45 detik
-  heartbeatTimer = setInterval(() => {
+  // Hanya jalankan jika perangkat online
+  if (typeof navigator !== 'undefined' && navigator.onLine) {
     updateSessionHeartbeat(sessionId);
-  }, 45 * 1000);
+  }
+
+  // Heartbeat ramah kuota: setiap 5 menit (mencegah egress membengkak hingga GB)
+  heartbeatTimer = setInterval(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      updateSessionHeartbeat(sessionId);
+    }
+  }, 5 * 60 * 1000);
 }
 
 /**
@@ -436,11 +441,16 @@ export async function checkIsCurrentSessionRevoked(force = false) {
   const sessionId = getCurrentSessionId();
   if (!sessionId) return false;
 
+  // Jika sedang offline, jangan pernah kick user keluar
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return false;
+  }
+
   if (lastRevokedCheckStatus) return true;
 
   const now = Date.now();
-  // Jalankan background refresh setiap 60 detik atau jika dipaksa (force)
-  if (force || (now - lastRevokedCheckTime > 60000)) {
+  // Jalankan background refresh setiap 3 menit atau jika dipaksa (force)
+  if (force || (now - lastRevokedCheckTime > 180000)) {
     lastRevokedCheckTime = now;
     if (!isCheckingInBackground) {
       isCheckingInBackground = true;
@@ -452,19 +462,9 @@ export async function checkIsCurrentSessionRevoked(force = false) {
             triggerRevocationCallbacks('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
             return;
           }
-
-          const activeList = await getAllActiveSessions();
-          if (Array.isArray(activeList) && activeList.length > 0) {
-            const exists = activeList.some(s => s.sessionId === sessionId);
-            if (!exists) {
-              lastRevokedCheckStatus = true;
-              triggerRevocationCallbacks('Sesi perangkat Anda telah dihentikan oleh Super Admin.');
-              return;
-            }
-          }
           lastRevokedCheckStatus = false;
         } catch (e) {
-          // ignore cloud fetch error
+          // ignore cloud fetch error (jangan logout saat offline atau cloud limit)
         } finally {
           isCheckingInBackground = false;
         }

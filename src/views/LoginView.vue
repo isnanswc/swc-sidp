@@ -380,8 +380,33 @@
           </button>
         </form>
 
+        <!-- Quick Offline Accounts Quick Reference -->
+        <div class="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 text-[11px] space-y-1.5 font-mono text-zinc-600">
+          <div class="flex items-center justify-between font-bold text-zinc-800 text-[11.5px]">
+            <span class="flex items-center gap-1.5">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+              Akses Lokal / Mode Offline:
+            </span>
+            <span class="text-[10px] text-zinc-400 font-normal">Tanpa Kuota/Internet</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 pt-1 text-[10.5px]">
+            <div @click="loginForm.identifier = 'admin'; loginForm.password = 'Admin@SWC2026!'" class="p-1.5 rounded-lg bg-white border border-zinc-200 cursor-pointer hover:border-red-500 hover:bg-red-50/30 transition-all text-center" title="Klik untuk isi otomatis">
+              <div class="font-bold text-red-600">Admin</div>
+              <div class="text-[9.5px] text-zinc-500 truncate">Super Admin</div>
+            </div>
+            <div @click="loginForm.identifier = 'DE'; loginForm.password = 'semi123'" class="p-1.5 rounded-lg bg-white border border-zinc-200 cursor-pointer hover:border-purple-500 hover:bg-purple-50/30 transition-all text-center" title="Klik untuk isi otomatis">
+              <div class="font-bold text-purple-700">DE</div>
+              <div class="text-[9.5px] text-zinc-500 truncate">semi123</div>
+            </div>
+            <div @click="loginForm.identifier = 'operator'; loginForm.password = 'semi123'" class="p-1.5 rounded-lg bg-white border border-zinc-200 cursor-pointer hover:border-blue-500 hover:bg-blue-50/30 transition-all text-center" title="Klik untuk isi otomatis">
+              <div class="font-bold text-blue-700">operator</div>
+              <div class="text-[9.5px] text-zinc-500 truncate">semi123</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Footer Notice -->
-        <div class="text-center text-[10.5px] text-zinc-400 font-mono mt-6 pt-4 border-t border-zinc-100 flex items-center justify-between">
+        <div class="text-center text-[10.5px] text-zinc-400 font-mono mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between">
           <span>Enterprise Secure</span>
           <span>© 2026 PT. Saptawarna Cemerlang</span>
         </div>

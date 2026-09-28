@@ -239,14 +239,19 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     // 2. Jika pengguna belum ada di lokal ATAU password lokal tidak cocok (misal baru ganti sandi di Device A)
-    if (!user || !passwordMatches) {
+    if ((!user || !passwordMatches) && typeof navigator !== 'undefined' && navigator.onLine) {
       try {
         const { supabase } = await import('@/services/supabaseClient');
-        const { data: cloudRow, error: cloudErr } = await supabase
+        // Timeout 3 detik agar login offline/terbatas kuota tidak menggantung
+        const cloudPromise = supabase
           .from('settings')
           .select('value')
           .eq('key', 'system_users_registry')
           .single();
+
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud login timeout')), 3000));
+        const res = await Promise.race([cloudPromise, timeoutPromise]);
+        const { data: cloudRow, error: cloudErr } = res || {};
 
         if (!cloudErr && cloudRow && cloudRow.value) {
           const cloudUsers = typeof cloudRow.value === 'string' ? JSON.parse(cloudRow.value) : cloudRow.value;
@@ -281,7 +286,7 @@ export const useAuthStore = defineStore('auth', () => {
           }
         }
       } catch (cloudSyncLoginErr) {
-        console.warn('[HybridLogin] Cloud verification error:', cloudSyncLoginErr);
+        console.warn('[HybridLogin] Cloud verification error (safe fallback to local):', cloudSyncLoginErr.message || cloudSyncLoginErr);
       }
     }
 
