@@ -17,10 +17,12 @@ function bootstrapApp() {
 
   // Background non-blocking execution of purge legacy dummy data
   setTimeout(() => {
-    purgeAllLegacyDummyData().catch(e => {
-      console.warn('Purge legacy data warning:', e);
-    });
-  }, 100);
+    try {
+      purgeAllLegacyDummyData().catch(e => {
+        console.warn('Purge legacy data warning:', e);
+      });
+    } catch (_) {}
+  }, 300);
 }
 
 bootstrapApp();

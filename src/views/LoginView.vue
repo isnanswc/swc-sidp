@@ -249,8 +249,11 @@
         <!-- HEADER FORM: VARIASI UKURAN FONT ESTETIK & PROFESIONAL -->
         <!-- ===================================================================== -->
         <div class="text-center space-y-2 mb-7">
-          <!-- Official SWC Corporate Badge -->
-          <div class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 shadow-2xs mb-2">
+          <!-- Official SWC Corporate Badge (Backdoor: Klik 5x untuk membuka Akses Lokal Rahasia) -->
+          <div
+            @click="handleLogoClick"
+            class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 shadow-2xs mb-2 select-none"
+          >
             <span class="font-black text-red-600 text-base leading-none tracking-tighter" style="font-family: 'Arial Black', Impact, sans-serif;">
               SWC
             </span>
@@ -380,14 +383,14 @@
           </button>
         </form>
 
-        <!-- Quick Offline Accounts Quick Reference -->
-        <div class="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 text-[11px] space-y-1.5 font-mono text-zinc-600">
+        <!-- Quick Offline Accounts Quick Reference (TERSEMBUNYI - Hanya muncul jika logo SWC diklik 5x) -->
+        <div v-if="showSecretBackdoor" class="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 text-[11px] space-y-1.5 font-mono text-zinc-600 animate-fade-in">
           <div class="flex items-center justify-between font-bold text-zinc-800 text-[11.5px]">
             <span class="flex items-center gap-1.5">
               <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-              Akses Lokal / Mode Offline:
+              Akses Lokal / Mode Darurat:
             </span>
-            <span class="text-[10px] text-zinc-400 font-normal">Tanpa Kuota/Internet</span>
+            <button type="button" @click="showSecretBackdoor = false" class="text-[10px] text-zinc-400 hover:text-zinc-700 cursor-pointer">✕ Tutup</button>
           </div>
           <div class="grid grid-cols-3 gap-1.5 pt-1 text-[10.5px]">
             <div @click="loginForm.identifier = 'admin'; loginForm.password = 'Admin@SWC2026!'" class="p-1.5 rounded-lg bg-white border border-zinc-200 cursor-pointer hover:border-red-500 hover:bg-red-50/30 transition-all text-center" title="Klik untuk isi otomatis">
@@ -558,6 +561,25 @@ const loginForm = reactive({
 const showPassword = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref('');
+
+// Backdoor Rahasia: Klik logo SWC 5 kali untuk membuka Akses Lokal Darurat
+const showSecretBackdoor = ref(false);
+let logoClickCount = 0;
+let logoClickTimer = null;
+
+const handleLogoClick = () => {
+  logoClickCount++;
+  if (logoClickTimer) clearTimeout(logoClickTimer);
+  logoClickTimer = setTimeout(() => {
+    logoClickCount = 0;
+  }, 2500);
+
+  if (logoClickCount >= 5) {
+    showSecretBackdoor.value = !showSecretBackdoor.value;
+    logoClickCount = 0;
+    if (logoClickTimer) clearTimeout(logoClickTimer);
+  }
+};
 
 onMounted(() => {
   if (typeof sessionStorage !== 'undefined') {

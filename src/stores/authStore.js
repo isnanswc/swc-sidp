@@ -6,7 +6,8 @@ import {
   generateSalt,
   seedDefaultSuperAdmin,
   generatePresetPermissions,
-  DEFAULT_SUPER_ADMIN
+  DEFAULT_SUPER_ADMIN,
+  DEFAULT_USERS
 } from '@/services/authService';
 import {
   registerDeviceSession,
@@ -43,20 +44,25 @@ export const useAuthStore = defineStore('auth', () => {
   const initAuth = async () => {
     isInitializing.value = true;
     try {
-      await seedDefaultSuperAdmin();
+      try {
+        await seedDefaultSuperAdmin();
+      } catch (seedErr) {
+        console.warn('[initAuth] seedDefaultSuperAdmin non-blocking error:', seedErr);
+      }
       restoreSession();
 
       // If session exists, refresh data from DB to get latest status/permissions
       if (currentUser.value?.id) {
-        const fresh = await db.users.get(currentUser.value.id);
-        if (fresh && fresh.active) {
-          currentUser.value = {
-            id: fresh.id,
-            uuid: fresh.uuid,
-            username: fresh.username,
-            name: fresh.name,
-            email: fresh.email,
-            role: fresh.role,
+        try {
+          const fresh = await db.users.get(currentUser.value.id);
+          if (fresh && fresh.active) {
+            currentUser.value = {
+              id: fresh.id,
+              uuid: fresh.uuid,
+              username: fresh.username,
+              name: fresh.name,
+              email: fresh.email,
+              role: fresh.role,
             department: fresh.department || 'PRODUKSI_EXTRUSION',
             pinEnabled: Boolean(fresh.pinEnabled),
             idleTimeoutMinutes: fresh.idleTimeoutMinutes !== undefined ? fresh.idleTimeoutMinutes : 30,
@@ -84,7 +90,10 @@ export const useAuthStore = defineStore('auth', () => {
           // User deactivated
           await logout({ resetPin: false });
         }
+      } catch (freshErr) {
+        console.warn('[initAuth] user refresh notice:', freshErr);
       }
+    }
 
       // Listen for remote revocation event from Super Admin
       onSessionRevoked(async (reason) => {
@@ -214,8 +223,8 @@ export const useAuthStore = defineStore('auth', () => {
     return true;
   };
 
-  // Login action dengan HYBRID MULTI-DEVICE SUPPORT
-  // 1. Cek IndexedDB Lokal -> 2. Jika tidak cocok/tidak ada, otomatis cek ke Cloud Supabase -> 3. Auto-cache ke Lokal
+  // Login action dengan HYBRID MULTI-DEVICE SUPPORT & TANGGUH TERHADAP INDEXEDDB CORRUPT
+  // 1. Cek IndexedDB Lokal -> 2. Cek Cloud Supabase -> 3. Fallback Darurat DEFAULT_USERS (Memory)
   const login = async (usernameOrEmail, password) => {
     if (!usernameOrEmail || !password) {
       throw new Error('Username / Email dan kata sandi wajib diisi.');
@@ -223,26 +232,80 @@ export const useAuthStore = defineStore('auth', () => {
 
     const trimmed = usernameOrEmail.trim().toLowerCase();
 
-    // 1. Cari user di IndexedDB lokal
-    let user = await db.users.where('email').equalsIgnoreCase(trimmed).first();
-    if (!user) {
-      user = await db.users.where('username').equalsIgnoreCase(trimmed).first();
+    // 1. Cari user di IndexedDB lokal dengan penanganan jika IndexedDB browser rusak (AbortError NotReadableError)
+    let user = null;
+    let dbReadError = null;
+
+    try {
+      user = await db.users.where('email').equalsIgnoreCase(trimmed).first();
+      if (!user) {
+        user = await db.users.where('username').equalsIgnoreCase(trimmed).first();
+      }
+    } catch (dexieErr) {
+      console.warn('[Login] IndexedDB read error (possible corrupt DB):', dexieErr);
+      dbReadError = dexieErr;
+      // Jika database IndexedDB browser rusak, coba perbaiki secara otomatis
+      try {
+        await db.open();
+      } catch (_) {}
     }
 
     let passwordMatches = false;
 
-    if (user) {
+    if (user && user.salt && user.passwordHash) {
       const hashed = await hashPassword(password, user.salt);
       if (hashed === user.passwordHash) {
         passwordMatches = true;
       }
     }
 
-    // 2. Jika pengguna belum ada di lokal ATAU password lokal tidak cocok (misal baru ganti sandi di Device A)
+    // 2. Fallback Darurat Langsung: Cek terhadap DEFAULT_USERS (admin, DE, operator) jika belum cocok atau IndexedDB bermasalah
+    if (!user || !passwordMatches) {
+      const defMatch = DEFAULT_USERS.find(du => 
+        du.username.toLowerCase() === trimmed || 
+        du.email.toLowerCase() === trimmed
+      );
+
+      if (defMatch && defMatch.defaultPassword === password) {
+        passwordMatches = true;
+        const perms = generatePresetPermissions(defMatch.role);
+        const salt = generateSalt();
+        const hash = await hashPassword(password, salt);
+
+        user = {
+          id: defMatch.username === 'admin' ? 1 : (defMatch.username === 'DE' ? 2 : 3),
+          uuid: defMatch.uuid,
+          username: defMatch.username,
+          name: defMatch.name,
+          email: defMatch.email,
+          passwordHash: hash,
+          salt: salt,
+          role: defMatch.role,
+          department: defMatch.role === 'OPERATOR' ? 'PRODUKSI_SLITTING' : 'PRODUKSI_EXTRUSION',
+          permissionsJson: JSON.stringify(perms),
+          active: true,
+          pinEnabled: false,
+          idleTimeoutMinutes: 30
+        };
+
+        // Coba simpan atau perbaiki kembali ke IndexedDB jika memungkinkan
+        try {
+          const existInDb = await db.users.where('username').equalsIgnoreCase(defMatch.username).first();
+          if (!existInDb) {
+            await db.users.add(user);
+          } else {
+            await db.users.update(existInDb.id, { ...user, id: existInDb.id });
+          }
+        } catch (repairErr) {
+          console.warn('[Login] Auto-repair IndexedDB user notice:', repairErr);
+        }
+      }
+    }
+
+    // 3. Jika pengguna belum ada di lokal & bukan default, cek ke Cloud Supabase (jika online)
     if ((!user || !passwordMatches) && typeof navigator !== 'undefined' && navigator.onLine) {
       try {
         const { supabase } = await import('@/services/supabaseClient');
-        // Timeout 3 detik agar login offline/terbatas kuota tidak menggantung
         const cloudPromise = supabase
           .from('settings')
           .select('value')
@@ -261,26 +324,28 @@ export const useAuthStore = defineStore('auth', () => {
           );
 
           if (matchedCloudUser) {
-            // Verifikasi password terhadap hash di Cloud
             const hashedAgainstCloud = await hashPassword(password, matchedCloudUser.salt);
             if (hashedAgainstCloud === matchedCloudUser.passwordHash) {
               passwordMatches = true;
 
-              // Simpan / Perbarui data akun ke IndexedDB lokal (Auto-Healing Cache)
               const { id: _, ...cleanCloudUser } = matchedCloudUser;
-              if (user) {
-                await db.users.update(user.id, {
-                  ...cleanCloudUser,
-                  updatedAt: matchedCloudUser.updatedAt || new Date().toISOString()
-                });
-                user = await db.users.get(user.id);
-              } else {
-                const newLocalId = await db.users.add({
-                  ...cleanCloudUser,
-                  createdAt: matchedCloudUser.createdAt || new Date().toISOString(),
-                  updatedAt: matchedCloudUser.updatedAt || new Date().toISOString()
-                });
-                user = await db.users.get(newLocalId);
+              try {
+                if (user && user.id) {
+                  await db.users.update(user.id, {
+                    ...cleanCloudUser,
+                    updatedAt: matchedCloudUser.updatedAt || new Date().toISOString()
+                  });
+                  user = await db.users.get(user.id);
+                } else {
+                  const newLocalId = await db.users.add({
+                    ...cleanCloudUser,
+                    createdAt: matchedCloudUser.createdAt || new Date().toISOString(),
+                    updatedAt: matchedCloudUser.updatedAt || new Date().toISOString()
+                  });
+                  user = await db.users.get(newLocalId);
+                }
+              } catch (_) {
+                user = matchedCloudUser;
               }
             }
           }
@@ -305,14 +370,18 @@ export const useAuthStore = defineStore('auth', () => {
     // Parse permissions
     const permissions = typeof user.permissionsJson === 'string'
       ? JSON.parse(user.permissionsJson)
-      : user.permissionsJson;
+      : (user.permissionsJson || generatePresetPermissions(user.role));
 
-    // Update last login
+    // Update last login ke IndexedDB secara aman
     const nowIso = new Date().toISOString();
-    await db.users.update(user.id, { lastLogin: nowIso, updatedAt: nowIso });
+    try {
+      if (user.id) {
+        await db.users.update(user.id, { lastLogin: nowIso, updatedAt: nowIso });
+      }
+    } catch (_) {}
 
     const sessionData = {
-      id: user.id,
+      id: user.id || 1,
       uuid: user.uuid,
       username: user.username,
       name: user.name,
@@ -334,12 +403,10 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('mlabel_screen_locked');
     resetIdleTimer();
 
-    // Register active device session to Supabase Cloud
+    // Register active device session ke Supabase Cloud (jika online & non-blocking)
     try {
-      await registerDeviceSession(sessionData);
-    } catch (e) {
-      console.warn('Failed to register device session:', e);
-    }
+      registerDeviceSession(sessionData).catch(() => {});
+    } catch (e) {}
 
     return sessionData;
   };
