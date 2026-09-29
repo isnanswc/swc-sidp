@@ -707,6 +707,8 @@ export const useLabelStore = defineStore('labelStore', {
               const sortKeys = computeLabelSortKeys(rollBaseObj, rollBaseObj.mesin || 'SLITTING');
               return markRaw({ ...rollBaseObj, ...sortKeys });
             });
+        }
+
         const prevPage = this.currentPage;
         this.labels = [...cleanStandardLabels, ...mappedDataRolls];
         
