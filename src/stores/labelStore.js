@@ -707,10 +707,19 @@ export const useLabelStore = defineStore('labelStore', {
               const sortKeys = computeLabelSortKeys(rollBaseObj, rollBaseObj.mesin || 'SLITTING');
               return markRaw({ ...rollBaseObj, ...sortKeys });
             });
-        }
-
+        const prevPage = this.currentPage;
         this.labels = [...cleanStandardLabels, ...mappedDataRolls];
-        this.currentPage = Math.max(1, this.totalPages);
+        
+        // JANGAN reset halaman jika user sudah berada di halaman tertentu (misal saat background sync)
+        // Reset ke totalPages HANYA pada pemuatan awal jika belum pernah diset (prevPage <= 1) dan bukan preservePage
+        if (opts.resetToLastPage) {
+          this.currentPage = Math.max(1, this.totalPages);
+        } else if (prevPage && prevPage > 1) {
+          // Pertahankan halaman aktif user, batasi tidak melebihi totalPages terbaru
+          this.currentPage = Math.min(Math.max(1, prevPage), Math.max(1, this.totalPages));
+        } else if (!this.currentPage || this.currentPage < 1) {
+          this.currentPage = Math.max(1, this.totalPages);
+        }
       } catch (err) {
         console.error('Failed to load labels:', err);
       } finally {

@@ -4322,6 +4322,105 @@
       :get-display-jenis="getDisplayJenis"
       @print="triggerPrint"
     />
+
+    <!-- ══════ POPUP PERINGATAN BESAR: NOMOR KODE PACK LOMPAT ══════ -->
+    <teleport to="body">
+      <div
+        v-if="showKodePackSkipModal"
+        class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-zinc-950/80 backdrop-blur-sm animate-fade-in"
+        style="z-index: 99999;"
+        @click.self="showKodePackSkipModal = false"
+      >
+        <div class="bg-white rounded-3xl border-4 border-amber-400 shadow-2xl max-w-xl w-full p-5 sm:p-7 flex flex-col space-y-4 animate-scale-up text-zinc-900">
+          <!-- Header Peringatan Besar -->
+          <div class="flex items-center gap-3 border-b-2 border-amber-200 pb-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow-md shrink-0 animate-bounce">
+              ⚠️
+            </div>
+            <div>
+              <h2 class="text-xl sm:text-2xl font-black text-amber-950 uppercase tracking-tight leading-tight">
+                PERHATIAN: NOMOR KODEPACK LOMPAT!
+              </h2>
+              <p class="text-xs sm:text-sm font-bold text-amber-800 mt-0.5">
+                Peringatan Validasi Sistem Mesin {{ form.mesin }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Body Komparasi Nomor: Yang Diinput vs Yang Seharusnya -->
+          <div class="space-y-3.5 pt-1">
+            <!-- Box Nomor Yang Diinput (Merah + Highlight Kuning) -->
+            <div class="p-3.5 rounded-2xl border-2 border-red-300 bg-red-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+              <span class="text-xs sm:text-sm font-extrabold text-red-900 uppercase">
+                Nomor Yang Anda Input:
+              </span>
+              <div class="inline-block">
+                <span class="px-3 py-1 rounded-xl text-lg sm:text-2xl font-black font-mono tracking-wider text-red-600 bg-yellow-300 border-2 border-red-500 shadow-sm inline-block">
+                  {{ skipModalData.inputKodePack }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Box Nomor Yang Seharusnya (Highlight Hijau + Font Bold) -->
+            <div class="p-3.5 rounded-2xl border-2 border-emerald-300 bg-emerald-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+              <span class="text-xs sm:text-sm font-extrabold text-emerald-950 uppercase">
+                Nomor Yang Seharusnya (Berdasarkan Sistem):
+              </span>
+              <div class="inline-block">
+                <span class="px-3 py-1 rounded-xl text-lg sm:text-2xl font-black font-mono tracking-wider text-emerald-950 bg-emerald-400 border-2 border-emerald-600 shadow-sm inline-block">
+                  {{ skipModalData.expectedKodePack }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Pesan Penegasan Kepada Operator -->
+            <div class="p-3.5 bg-amber-50/90 rounded-2xl border border-amber-300 space-y-1.5 text-xs sm:text-sm text-zinc-800 leading-relaxed font-medium">
+              <p class="font-bold text-amber-950 flex items-center gap-1.5">
+                <span>📖</span>
+                <span>Berdasarkan sistem, nomor yang Anda masukkan terdeteksi loncat dari urutan terakhir (Terakhir: <strong>{{ skipModalData.maxRegular }}</strong>).</span>
+              </p>
+              <p class="text-red-900 font-bold">
+                Silakan cek ulang fisik roll dan nomor di buku laporan produksi Anda.
+              </p>
+              <p class="text-zinc-600 text-xs italic pt-1 border-t border-amber-200">
+                Apakah Anda benar-benar yakin ingin tetap menggunakan nomor yang Anda ketik ({{ skipModalData.inputKodePack }})?
+              </p>
+            </div>
+          </div>
+
+          <!-- Tombol Aksi -->
+          <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t-2 border-zinc-100">
+            <!-- Tombol Ubah ke yang Seharusnya (Pilihan Rekomendasi Utama) -->
+            <button
+              type="button"
+              @click="applyExpectedKodePack"
+              class="w-full sm:w-auto px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border-2 border-emerald-500 shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>✓ Pakai Nomor Yang Benar ({{ skipModalData.expectedKodePack }})</span>
+            </button>
+
+            <!-- Tombol Yakin / Lanjut dengan nomor saat ini -->
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                @click="showKodePackSkipModal = false"
+                class="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 transition-colors cursor-pointer"
+              >
+                Periksa Ulang
+              </button>
+              <button
+                type="button"
+                @click="confirmUseSkippedKodePack"
+                class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-black text-white bg-red-600 hover:bg-red-700 shadow-md shadow-red-600/20 transition-all cursor-pointer"
+                title="Tetap simpan dengan nomor yang diinput"
+              >
+                Ya, Saya Yakin Tetap Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
@@ -7953,15 +8052,25 @@ const subKodeValidation = computed(() => {
   }
 
   const expectedNext = maxRegular > 0 ? maxRegular + 1 : 1;
+  const inputFormatted = String(rawNum).padStart(4, '0');
+  const expectedFormatted = String(expectedNext).padStart(4, '0');
+  const inputFullCode = `${form.kodePack || ''}${inputFormatted}`;
+  const expectedFullCode = `${form.kodePack || ''}${expectedFormatted}`;
+
   if (maxRegular > 0 && rawNum > expectedNext) {
     return {
       isDuplicate: false,
       isSkipped: true,
-      message: `⚠️ No. Pack lompat! (Kode Pack terbesar saat ini: ${String(maxRegular).padStart(4, '0')}, Urutan berikutnya yang seharusnya: ${String(expectedNext).padStart(4, '0')})`
+      inputSubNum: inputFormatted,
+      expectedSubNum: expectedFormatted,
+      inputKodePack: inputFullCode,
+      expectedKodePack: expectedFullCode,
+      maxRegular: String(maxRegular).padStart(4, '0'),
+      message: `⚠️ No. Pack lompat! (Kode Pack terbesar saat ini: ${String(maxRegular).padStart(4, '0')}, Urutan berikutnya yang seharusnya: ${expectedFormatted})`
     };
   }
 
-  return { isDuplicate: false, isSkipped: false, message: '' };
+  return { isDuplicate: false, isSkipped: false, inputKodePack: '', expectedKodePack: '', message: '' };
 });
 
 const quickTags = ref([...DEFAULT_DEFECT_TAGS]);
@@ -8997,77 +9106,115 @@ const closeModal = () => {
   clearPreviousInfo();
 };
 
-const handleFormSubmit = async () => {
-  if (isSubmittingLabel.value) return;
+  // State dialog peringatan Nomor Kode Pack Lompat
+  const showKodePackSkipModal = ref(false);
+  const skipModalData = reactive({
+    inputKodePack: '',
+    expectedKodePack: '',
+    inputSubNum: '',
+    expectedSubNum: '',
+    maxRegular: ''
+  });
 
-  // 1. Bersihkan spasi dari Lot dan Supplier (aktual tersimpan tanpa spasi)
-  form.lot = (form.lot || '').replace(/\s+/g, '').toUpperCase();
-  form.spk = (form.spk || '').trim().toUpperCase();
-  form.supplier = (form.supplier || '').replace(/\s+/g, '').toUpperCase();
-  form.turunan = normalizeTurunan(form.turunan || '');
+  const confirmUseSkippedKodePack = () => {
+    showKodePackSkipModal.value = false;
+    proceedSubmitLabel(true);
+  };
 
-  // Khusus mesin REWIND: pastikan operator dan kodeOperator diekstrak dari turunan child rewind
-  if (form.mesin === 'REWIND') {
-    const rewindOpCode = getOperatorCodeFromTurunan(form.turunan, 'REWIND');
-    if (rewindOpCode) {
-      const matchOp = (configStore.activeOperators || []).find(o => 
-        o.kodeOperator === rewindOpCode && isMachineMatch(o.mesin, 'REWIND')
-      ) || (configStore.operatorList || []).find(o => 
-        o.kodeOperator === rewindOpCode && isMachineMatch(o.mesin, 'REWIND')
-      );
-      if (matchOp) {
-        form.operator = matchOp.nama;
-        form.kodeOperator = matchOp.kodeOperator;
-      } else {
-        form.kodeOperator = rewindOpCode;
+  const applyExpectedKodePack = () => {
+    if (skipModalData.expectedSubNum) {
+      form.subKodeNumeric = parseInt(skipModalData.expectedSubNum, 10).toString();
+      handleSubKode();
+    }
+    showKodePackSkipModal.value = false;
+  };
+
+  const handleFormSubmit = async () => {
+    if (isSubmittingLabel.value) return;
+
+    // 1. Bersihkan spasi dari Lot dan Supplier (aktual tersimpan tanpa spasi)
+    form.lot = (form.lot || '').replace(/\s+/g, '').toUpperCase();
+    form.spk = (form.spk || '').trim().toUpperCase();
+    form.supplier = (form.supplier || '').replace(/\s+/g, '').toUpperCase();
+    form.turunan = normalizeTurunan(form.turunan || '');
+
+    // Khusus mesin REWIND: pastikan operator dan kodeOperator diekstrak dari turunan child rewind
+    if (form.mesin === 'REWIND') {
+      const rewindOpCode = getOperatorCodeFromTurunan(form.turunan, 'REWIND');
+      if (rewindOpCode) {
+        const matchOp = (configStore.activeOperators || []).find(o => 
+          o.kodeOperator === rewindOpCode && isMachineMatch(o.mesin, 'REWIND')
+        ) || (configStore.operatorList || []).find(o => 
+          o.kodeOperator === rewindOpCode && isMachineMatch(o.mesin, 'REWIND')
+        );
+        if (matchOp) {
+          form.operator = matchOp.nama;
+          form.kodeOperator = matchOp.kodeOperator;
+        } else {
+          form.kodeOperator = rewindOpCode;
+        }
       }
     }
-  }
 
-  form.kodeOperator = (form.kodeOperator || '').trim().toUpperCase();
-  form.operator = (form.operator || '').trim().toUpperCase();
+    form.kodeOperator = (form.kodeOperator || '').trim().toUpperCase();
+    form.operator = (form.operator || '').trim().toUpperCase();
 
-  // 2. Validasi: Jika status PASS (numeric), maka angka subKode wajib diisi
-  if (form.subKodeType === 'numeric') {
-    const rawNum = String(form.subKodeNumeric || '').trim();
-    if (!rawNum) {
-      alert('Nomor Sub Kode Pack untuk status PASS wajib diisi!');
-      return;
+    // 2. Validasi: Jika status PASS (numeric), maka angka subKode wajib diisi
+    if (form.subKodeType === 'numeric') {
+      const rawNum = String(form.subKodeNumeric || '').trim();
+      if (!rawNum) {
+        alert('Nomor Sub Kode Pack untuk status PASS wajib diisi!');
+        return;
+      }
+
+      // Validasi Nomor Kode Pack Lompat: Tampilkan Popup Modal Besar Penegasan
+      if (subKodeValidation.value.isSkipped) {
+        skipModalData.inputKodePack = subKodeValidation.value.inputKodePack;
+        skipModalData.expectedKodePack = subKodeValidation.value.expectedKodePack;
+        skipModalData.inputSubNum = subKodeValidation.value.inputSubNum;
+        skipModalData.expectedSubNum = subKodeValidation.value.expectedSubNum;
+        skipModalData.maxRegular = subKodeValidation.value.maxRegular;
+        showKodePackSkipModal.value = true;
+        return;
+      }
     }
-  }
 
-  // 3. Validasi Joint: Maksimal 5 join (mencegah operator terbalik menulis meter di kolom joint)
-  if (form.joint) {
-    const jointMatch = String(form.joint).match(/\d+/);
-    if (jointMatch && parseInt(jointMatch[0], 10) > 5) {
-      alert(`⚠️ Peringatan Validasi: Jumlah Joint maksimal adalah 5 (Anda memasukkan "${form.joint}").\n\nJika angka ini adalah posisi meteran sambungan (misalnya ${form.joint} M), silakan masukkan ke kolom Meter Join.`);
-      return;
+    // 3. Validasi Joint: Maksimal 5 join (mencegah operator terbalik menulis meter di kolom joint)
+    if (form.joint) {
+      const jointMatch = String(form.joint).match(/\d+/);
+      if (jointMatch && parseInt(jointMatch[0], 10) > 5) {
+        alert(`⚠️ Peringatan Validasi: Jumlah Joint maksimal adalah 5 (Anda memasukkan "${form.joint}").\n\nJika angka ini adalah posisi meteran sambungan (misalnya ${form.joint} M), silakan masukkan ke kolom Meter Join.`);
+        return;
+      }
     }
-  }
 
-  updateAutoFields();
+    updateAutoFields();
 
-  if (lotMismatch.value) {
-    if (!confirm(`Peringatan: 3 karakter awal No. Lot (${form.lot.substring(0, 3)}) tidak sama dengan Kode Formula (${form.kode.substring(0, 3)}).\n\nApakah Anda yakin ingin tetap menyimpan?`)) {
-      return;
+    if (lotMismatch.value) {
+      if (!confirm(`Peringatan: 3 karakter awal No. Lot (${form.lot.substring(0, 3)}) tidak sama dengan Kode Formula (${form.kode.substring(0, 3)}).\n\nApakah Anda yakin ingin tetap menyimpan?`)) {
+        return;
+      }
     }
-  }
 
-  isSubmittingLabel.value = true;
-  const payload = { ...form };
-  if (!payload.shift) {
-    payload.shift = scheduleStore.getCurrentShiftInfo().shiftCode;
-  }
-  if (payload.parentWidth !== undefined && payload.parentWidth !== '') {
-    payload.parentWidth = parseFloat(payload.parentWidth) || '';
-  }
-  if (payload.parentMeter !== undefined && payload.parentMeter !== '') {
-    payload.parentMeter = parseFloat(payload.parentMeter) || '';
-  }
-  if (payload.parentTrim !== undefined && payload.parentTrim !== '') {
-    payload.parentTrim = parseFloat(payload.parentTrim) || '';
-  }
-  if (payload.parentBeratAktual !== undefined && payload.parentBeratAktual !== '') {
+    await proceedSubmitLabel();
+  };
+
+  const proceedSubmitLabel = async (bypassSkipCheck = false) => {
+    isSubmittingLabel.value = true;
+    const payload = { ...form };
+    if (!payload.shift) {
+      payload.shift = scheduleStore.getCurrentShiftInfo().shiftCode;
+    }
+    if (payload.parentWidth !== undefined && payload.parentWidth !== '') {
+      payload.parentWidth = parseFloat(payload.parentWidth) || '';
+    }
+    if (payload.parentMeter !== undefined && payload.parentMeter !== '') {
+      payload.parentMeter = parseFloat(payload.parentMeter) || '';
+    }
+    if (payload.parentTrim !== undefined && payload.parentTrim !== '') {
+      payload.parentTrim = parseFloat(payload.parentTrim) || '';
+    }
+    if (payload.parentBeratAktual !== undefined && payload.parentBeratAktual !== '') {
     payload.parentBeratAktual = parseFloat(payload.parentBeratAktual) || '';
   }
 
