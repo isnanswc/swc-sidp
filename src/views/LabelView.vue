@@ -9421,6 +9421,7 @@ const duplicateData = (item) => {
   }
 
   // Deteksi jika label asal yang diduplikat berstatus HOLD / 0000
+  const itemStatus = (item.status || '').toUpperCase();
   const isOrigHold = itemStatus === 'HOLD' || item.subKode === '0000';
   duplicatedFromHold.value = isOrigHold;
   showHoldKeteranganAlert.value = false;
