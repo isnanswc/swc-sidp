@@ -7765,6 +7765,10 @@ const cancelInlineParentEdit = () => {
   editingParentField.value = null;
 };
 
+// State dialog peringatan duplikat HOLD diubah ke PASS dengan keterangan belum dihapus
+const duplicatedFromHold = ref(false);
+const showHoldKeteranganAlert = ref(false);
+
 const form = reactive({
   id: null,
   uniqId: '',
@@ -8047,6 +8051,11 @@ const handleTypeChange = () => {
 
 const handleSubKode = () => {
   if (form.subKodeType === 'numeric') {
+    // Jika awalnya kosong atau dari HOLD ('0' / '0000'), isi otomatis urutan subKode nomor pack berikutnya
+    if (!form.subKodeNumeric || form.subKodeNumeric === '0' || form.subKodeNumeric === '0000' || form.subKode === '0000') {
+      const nextSubNum = getSmartNextSubKode(null, form.mesin, form.kodePack);
+      form.subKodeNumeric = String(nextSubNum);
+    }
     const raw = String(form.subKodeNumeric || '').replace(/[^0-9]/g, '');
     form.subKode = raw ? raw.padStart(4, '0') : '0000';
     form.status = form.subKode === '0000' ? 'HOLD' : 'PASS';
@@ -9170,10 +9179,6 @@ const openModal = async (item = -1) => {
   }
   showModal.value = true;
 };
-
-// State dialog peringatan duplikat HOLD diubah ke PASS dengan keterangan belum dihapus
-const duplicatedFromHold = ref(false);
-const showHoldKeteranganAlert = ref(false);
 
 const clearHoldKeteranganNow = () => {
   form.keterangan = '';
