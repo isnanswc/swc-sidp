@@ -3839,6 +3839,8 @@
                       <input
                         v-model="form.subKodeNumeric"
                         @input="handleSubKode"
+                        @blur="onSubKodeBlur"
+                        @change="onSubKodeBlur"
                         :required="form.subKodeType === 'numeric'"
                         maxlength="4"
                         placeholder="0001"
@@ -3900,6 +3902,50 @@
                   </span>
                 </div>
 
+                <!-- Peringatan Visual Cerdas: Duplikat dari HOLD diubah ke PASS tapi Keterangan HOLD belum dihapus -->
+                <div
+                  v-if="showHoldKeteranganAlert"
+                  class="mb-2 p-2.5 rounded-xl bg-amber-50 border-2 border-amber-400 shadow-md text-amber-950 flex flex-col gap-1.5 animate-bounce-short"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">⚠️</span>
+                      <div>
+                        <h4 class="text-xs font-black text-amber-950 uppercase tracking-tight">
+                          Perhatian: Catatan HOLD Belum Dihapus!
+                        </h4>
+                        <p class="text-[11px] text-amber-900 leading-tight mt-0.5">
+                          Label ini diduplikat dari status <strong>HOLD</strong>. Status sekarang <strong>PASS</strong>, tetapi kolom keterangan masih berisi catatan defect sebelumnya: <em class="font-bold underline decoration-amber-500">"{{ form.keterangan }}"</em>.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      @click="dismissHoldKeteranganAlert"
+                      class="text-amber-800 hover:text-amber-950 font-black text-sm px-1.5 py-0.5 rounded cursor-pointer shrink-0"
+                      title="Tutup peringatan ini"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div class="flex items-center gap-2 pt-1 border-t border-amber-200">
+                    <button
+                      type="button"
+                      @click="clearHoldKeteranganNow"
+                      class="px-2.5 py-1 rounded-lg text-[10.5px] font-black text-white bg-amber-600 hover:bg-amber-700 shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <span>🗑️ Bersihkan Keterangan Sekarang</span>
+                    </button>
+                    <button
+                      type="button"
+                      @click="dismissHoldKeteranganAlert"
+                      class="px-2.5 py-1 rounded-lg text-[10.5px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-colors cursor-pointer"
+                    >
+                      Biarkan & Abaikan
+                    </button>
+                  </div>
+                </div>
+
                 <input
                   v-model="form.keterangan"
                   :placeholder="
@@ -3909,6 +3955,7 @@
                   "
                   :class="[
                     'w-full px-2.5 py-1 text-xs border rounded-lg outline-none transition-all shadow-2xs',
+                    showHoldKeteranganAlert ? 'border-amber-500 bg-amber-50/50 text-amber-950 ring-2 ring-amber-400 font-semibold' :
                     form.subKodeType === 'hold' ? 'border-amber-400 bg-white text-amber-950 focus:ring-1 focus:ring-amber-500 font-medium' :
                     form.subKodeType === 'reject' ? 'border-red-400 bg-white text-red-950 focus:ring-1 focus:ring-red-500 font-medium' :
                     'border-amber-300 bg-white focus:ring-1 focus:ring-blue-500'
@@ -4323,7 +4370,7 @@
       @print="triggerPrint"
     />
 
-    <!-- ══════ POPUP PERINGATAN BESAR: NOMOR KODE PACK LOMPAT ══════ -->
+    <!-- ══════ POPUP PERINGATAN BESAR: NOMOR KODE PACK LOMPAT ATAU DOUBLE ══════ -->
     <teleport to="body">
       <div
         v-if="showKodePackSkipModal"
@@ -4331,17 +4378,17 @@
         style="z-index: 99999;"
         @click.self="showKodePackSkipModal = false"
       >
-        <div class="bg-white rounded-3xl border-4 border-amber-400 shadow-2xl max-w-xl w-full p-5 sm:p-7 flex flex-col space-y-4 animate-scale-up text-zinc-900">
+        <div class="bg-white rounded-3xl border-4 shadow-2xl max-w-xl w-full p-5 sm:p-7 flex flex-col space-y-4 animate-scale-up text-zinc-900" :class="skipModalData.isDuplicate ? 'border-red-500' : 'border-amber-400'">
           <!-- Header Peringatan Besar -->
-          <div class="flex items-center gap-3 border-b-2 border-amber-200 pb-3.5">
-            <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow-md shrink-0 animate-bounce">
+          <div class="flex items-center gap-3 border-b-2 pb-3.5" :class="skipModalData.isDuplicate ? 'border-red-200' : 'border-amber-200'">
+            <div class="w-12 h-12 rounded-2xl text-white flex items-center justify-center text-2xl shadow-md shrink-0 animate-bounce" :class="skipModalData.isDuplicate ? 'bg-red-600' : 'bg-amber-500'">
               ⚠️
             </div>
             <div>
-              <h2 class="text-xl sm:text-2xl font-black text-amber-950 uppercase tracking-tight leading-tight">
-                PERHATIAN: NOMOR KODEPACK LOMPAT!
+              <h2 class="text-xl sm:text-2xl font-black uppercase tracking-tight leading-tight" :class="skipModalData.isDuplicate ? 'text-red-950' : 'text-amber-950'">
+                {{ skipModalData.isDuplicate ? 'PERHATIAN: NOMOR KODEPACK DOUBLE!' : 'PERHATIAN: NOMOR KODEPACK LOMPAT!' }}
               </h2>
-              <p class="text-xs sm:text-sm font-bold text-amber-800 mt-0.5">
+              <p class="text-xs sm:text-sm font-bold mt-0.5" :class="skipModalData.isDuplicate ? 'text-red-800' : 'text-amber-800'">
                 Peringatan Validasi Sistem Mesin {{ form.mesin }}
               </p>
             </div>
@@ -4374,15 +4421,20 @@
             </div>
 
             <!-- Pesan Penegasan Kepada Operator -->
-            <div class="p-3.5 bg-amber-50/90 rounded-2xl border border-amber-300 space-y-1.5 text-xs sm:text-sm text-zinc-800 leading-relaxed font-medium">
-              <p class="font-bold text-amber-950 flex items-center gap-1.5">
+            <div class="p-3.5 rounded-2xl border space-y-1.5 text-xs sm:text-sm text-zinc-800 leading-relaxed font-medium" :class="skipModalData.isDuplicate ? 'bg-red-50/90 border-red-300' : 'bg-amber-50/90 border-amber-300'">
+              <p class="font-bold flex items-center gap-1.5" :class="skipModalData.isDuplicate ? 'text-red-950' : 'text-amber-950'">
                 <span>📖</span>
-                <span>Berdasarkan sistem, nomor yang Anda masukkan terdeteksi loncat dari urutan terakhir (Terakhir: <strong>{{ skipModalData.maxRegular }}</strong>).</span>
+                <span v-if="skipModalData.isDuplicate">
+                  Berdasarkan sistem, nomor <strong>{{ skipModalData.inputKodePack }}</strong> sudah pernah tersimpan di mesin ini (Double/Duplikat). Urutan berikutnya yang direkomendasikan adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
+                </span>
+                <span v-else>
+                  Berdasarkan sistem, nomor yang Anda masukkan terdeteksi loncat dari urutan terakhir (Terakhir: <strong>{{ skipModalData.maxRegular }}</strong>). Urutan berikutnya yang seharusnya adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
+                </span>
               </p>
               <p class="text-red-900 font-bold">
                 Silakan cek ulang fisik roll dan nomor di buku laporan produksi Anda.
               </p>
-              <p class="text-zinc-600 text-xs italic pt-1 border-t border-amber-200">
+              <p class="text-zinc-600 text-xs italic pt-1 border-t" :class="skipModalData.isDuplicate ? 'border-red-200' : 'border-amber-200'">
                 Apakah Anda benar-benar yakin ingin tetap menggunakan nomor yang Anda ketik ({{ skipModalData.inputKodePack }})?
               </p>
             </div>
@@ -4987,8 +5039,13 @@ const selectWipRoll = (roll) => {
   form.parentMeter = (roll.length || roll.meter) ? parseFloat(roll.length || roll.meter) : '';
   form.parentBeratAktual = (roll.berat || roll.netto) ? parseFloat(roll.berat || roll.netto) : '';
 
-  // Kosongkan width, length, meter, dan netto child agar diisi manual oleh operator
-  form.width = '';
+  // Khusus mesin REWIND: width otomatis terisi sesuai parent roll
+  // Mesin lain: kosongkan width child agar diisi manual oleh operator
+  if (isRewind && roll.width) {
+    form.width = String(roll.width);
+  } else {
+    form.width = '';
+  }
   form.length = '';
   form.meter = '';
   form.netto = '';
@@ -5057,8 +5114,13 @@ const selectDataRoll = (roll) => {
   form.parentMeter = (roll.length || roll.meter) ? parseFloat(roll.length || roll.meter) : '';
   form.parentBeratAktual = (roll.netto || roll.berat) ? parseFloat(roll.netto || roll.berat) : '';
 
-  // Kosongkan width, length, meter, dan netto child agar diisi manual oleh operator
-  form.width = '';
+  // Khusus mesin REWIND: width otomatis terisi sesuai parent roll
+  // Mesin lain: kosongkan width child agar diisi manual oleh operator
+  if (isRewind && roll.width) {
+    form.width = String(roll.width);
+  } else {
+    form.width = '';
+  }
   form.length = '';
   form.meter = '';
   form.netto = '';
@@ -7988,6 +8050,9 @@ const handleSubKode = () => {
     const raw = String(form.subKodeNumeric || '').replace(/[^0-9]/g, '');
     form.subKode = raw ? raw.padStart(4, '0') : '0000';
     form.status = form.subKode === '0000' ? 'HOLD' : 'PASS';
+    if (form.status === 'PASS' && duplicatedFromHold.value && form.keterangan && form.keterangan.trim() !== '') {
+      showHoldKeteranganAlert.value = true;
+    }
   } else if (form.subKodeType === 'reject') {
     form.subKode = 'REJECT';
     form.status = 'REJECT';
@@ -8026,22 +8091,7 @@ const subKodeValidation = computed(() => {
     return mesinMatches && kodePackMatches;
   });
 
-  // 1. Cek DUPLIKAT (Double)
-  const isDuplicate = otherLabels.some(l => {
-    if (l.status === 'HOLD' || l.status === 'REJECT') return false;
-    const lNum = parseInt(l.subKodeNumeric || l.subKode, 10);
-    return !isNaN(lNum) && lNum === rawNum;
-  });
-
-  if (isDuplicate) {
-    return {
-      isDuplicate: true,
-      isSkipped: false,
-      message: `⚠️ No. Pack ${form.kodePack}${String(rawNum).padStart(4, '0')} sudah terdaftar di mesin ini (Double)!`
-    };
-  }
-
-  // 2. Cek LOMPAT (Skip Sequence) di bawah kepala 5 (< 5000)
+  // Hitung urutan terbesar saat ini & urutan berikutnya yang seharusnya (< 5000)
   let maxRegular = 0;
   for (const l of otherLabels) {
     if (l.status === 'HOLD' || l.status === 'REJECT') continue;
@@ -8057,6 +8107,27 @@ const subKodeValidation = computed(() => {
   const inputFullCode = `${form.kodePack || ''}${inputFormatted}`;
   const expectedFullCode = `${form.kodePack || ''}${expectedFormatted}`;
 
+  // 1. Cek DUPLIKAT (Double)
+  const isDuplicate = otherLabels.some(l => {
+    if (l.status === 'HOLD' || l.status === 'REJECT') return false;
+    const lNum = parseInt(l.subKodeNumeric || l.subKode, 10);
+    return !isNaN(lNum) && lNum === rawNum;
+  });
+
+  if (isDuplicate) {
+    return {
+      isDuplicate: true,
+      isSkipped: false,
+      inputSubNum: inputFormatted,
+      expectedSubNum: expectedFormatted,
+      inputKodePack: inputFullCode,
+      expectedKodePack: expectedFullCode,
+      maxRegular: String(maxRegular).padStart(4, '0'),
+      message: `⚠️ No. Pack ${inputFullCode} sudah terdaftar di mesin ini (Double)! Rekomendasi urutan berikutnya: ${expectedFullCode}`
+    };
+  }
+
+  // 2. Cek LOMPAT (Skip Sequence) di bawah kepala 5 (< 5000)
   if (maxRegular > 0 && rawNum > expectedNext) {
     return {
       isDuplicate: false,
@@ -8070,7 +8141,7 @@ const subKodeValidation = computed(() => {
     };
   }
 
-  return { isDuplicate: false, isSkipped: false, inputKodePack: '', expectedKodePack: '', message: '' };
+  return { isDuplicate: false, isSkipped: false, inputKodePack: '', expectedKodePack: '', inputSubNum: '', expectedSubNum: '', maxRegular: '', message: '' };
 });
 
 const quickTags = ref([...DEFAULT_DEFECT_TAGS]);
@@ -8936,6 +9007,8 @@ const resetFormToDefaults = () => {
   delete form.originalRollId;
   form.isDataRoll = false;
   form.originalRollId = null;
+  duplicatedFromHold.value = false;
+  showHoldKeteranganAlert.value = false;
 };
 
 // ── KONDISI & VALIDASI JOINT (MAKSIMAL 5 JOIN) ──────────────────────────────
@@ -9098,17 +9171,33 @@ const openModal = async (item = -1) => {
   showModal.value = true;
 };
 
+// State dialog peringatan duplikat HOLD diubah ke PASS dengan keterangan belum dihapus
+const duplicatedFromHold = ref(false);
+const showHoldKeteranganAlert = ref(false);
+
+const clearHoldKeteranganNow = () => {
+  form.keterangan = '';
+  showHoldKeteranganAlert.value = false;
+};
+
+const dismissHoldKeteranganAlert = () => {
+  showHoldKeteranganAlert.value = false;
+};
+
 const closeModal = () => {
   showModal.value = false;
   showWipModal.value = false;
   userDismissedWipModal.value = false;
   selectedWipRoll.value = null;
+  duplicatedFromHold.value = false;
+  showHoldKeteranganAlert.value = false;
   clearPreviousInfo();
 };
 
-  // State dialog peringatan Nomor Kode Pack Lompat
+  // State dialog peringatan Nomor Kode Pack Lompat atau Double
   const showKodePackSkipModal = ref(false);
   const skipModalData = reactive({
+    isDuplicate: false,
     inputKodePack: '',
     expectedKodePack: '',
     inputSubNum: '',
@@ -9116,9 +9205,32 @@ const closeModal = () => {
     maxRegular: ''
   });
 
+  const triggerSubKodeWarning = (validation) => {
+    if (!validation) return false;
+    if (validation.isDuplicate || validation.isSkipped) {
+      skipModalData.isDuplicate = !!validation.isDuplicate;
+      skipModalData.inputKodePack = validation.inputKodePack;
+      skipModalData.expectedKodePack = validation.expectedKodePack;
+      skipModalData.inputSubNum = validation.inputSubNum;
+      skipModalData.expectedSubNum = validation.expectedSubNum;
+      skipModalData.maxRegular = validation.maxRegular;
+      showKodePackSkipModal.value = true;
+      return true;
+    }
+    return false;
+  };
+
+  const onSubKodeBlur = () => {
+    if (form.subKodeType === 'numeric' && form.subKodeNumeric) {
+      triggerSubKodeWarning(subKodeValidation.value);
+    }
+  };
+
   const confirmUseSkippedKodePack = () => {
     showKodePackSkipModal.value = false;
-    proceedSubmitLabel(true);
+    if (isSubmittingLabel.value) {
+      proceedSubmitLabel(true);
+    }
   };
 
   const applyExpectedKodePack = () => {
@@ -9167,14 +9279,8 @@ const closeModal = () => {
         return;
       }
 
-      // Validasi Nomor Kode Pack Lompat: Tampilkan Popup Modal Besar Penegasan
-      if (subKodeValidation.value.isSkipped) {
-        skipModalData.inputKodePack = subKodeValidation.value.inputKodePack;
-        skipModalData.expectedKodePack = subKodeValidation.value.expectedKodePack;
-        skipModalData.inputSubNum = subKodeValidation.value.inputSubNum;
-        skipModalData.expectedSubNum = subKodeValidation.value.expectedSubNum;
-        skipModalData.maxRegular = subKodeValidation.value.maxRegular;
-        showKodePackSkipModal.value = true;
+      // Validasi Nomor Kode Pack Lompat atau Double: Tampilkan Popup Modal Besar Penegasan
+      if (triggerSubKodeWarning(subKodeValidation.value)) {
         return;
       }
     }
@@ -9314,9 +9420,13 @@ const duplicateData = (item) => {
     lotSearchSource.value = 'WIP';
   }
 
+  // Deteksi jika label asal yang diduplikat berstatus HOLD / 0000
+  const isOrigHold = itemStatus === 'HOLD' || item.subKode === '0000';
+  duplicatedFromHold.value = isOrigHold;
+  showHoldKeteranganAlert.value = false;
+
   // Auto-complete subKode / kodePack increment cerdas (KESELURUHAN per Mesin / Kode Pack, BUKAN per lot)
   let nextSubNum = 1;
-  const itemStatus = String(item.status || item.qualityStatus || '').toUpperCase();
   if (itemStatus === 'REJECT' || item.subKode === 'REJECT') {
     form.subKodeType = 'reject';
     form.status = 'REJECT';
@@ -9333,6 +9443,9 @@ const duplicateData = (item) => {
     form.subKodeNumeric = String(nextSubNum);
     form.subKode = String(nextSubNum).padStart(4, '0');
     form.status = 'PASS';
+    if (isOrigHold && form.keterangan && form.keterangan.trim() !== '') {
+      showHoldKeteranganAlert.value = true;
+    }
   }
 
   // Simpan info sebelumnya untuk indikator kecil di form
