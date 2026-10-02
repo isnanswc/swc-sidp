@@ -7768,6 +7768,7 @@ const cancelInlineParentEdit = () => {
 // State dialog peringatan duplikat HOLD diubah ke PASS dengan keterangan belum dihapus
 const duplicatedFromHold = ref(false);
 const showHoldKeteranganAlert = ref(false);
+const isDuplicating = ref(false);
 
 const form = reactive({
   id: null,
@@ -8533,12 +8534,15 @@ function getNextTurunan(prevTurunan, lot = '', forcePrefix = null) {
   let maxUrut = 0;
   for (const l of relatedLabels) {
     const p = parseTurunan(l.turunan);
-    if ((!prefix || p.prefix === prefix) && p.chartingan === chartingan && p.noUrut > 0 && p.noUrut < 8000) {
+    if (p.chartingan === chartingan && p.noUrut > 0 && p.noUrut < 8000) {
       if (p.noUrut > maxUrut) maxUrut = p.noUrut;
     }
   }
 
-  const nextNoUrut = maxUrut > 0 ? maxUrut + 1 : (parsed.noUrut > 0 ? parsed.noUrut + 1 : 1);
+  // Gunakan noUrut tertinggi di chartingan ini, atau nomor sebelumnya jika lebih tinggi
+  const effectivePrevNo = parsed.noUrut || 0;
+  const baseNoUrut = Math.max(maxUrut, effectivePrevNo);
+  const nextNoUrut = baseNoUrut > 0 ? baseNoUrut + 1 : 1;
   const formattedNum = String(nextNoUrut).padStart(parsed.numDigits || 2, '0');
   return `${prefix}${chartingan}${formattedNum}`;
 }
@@ -8934,6 +8938,7 @@ const getActiveShiftOperator = (machineName) => {
 
 // Saat operator mengubah pilihan mesin di form modal, sesuaikan operator & turunan ke operator aktif shift mesin tersebut
 watch(() => form.mesin, (newMesin, oldMesin) => {
+  if (isDuplicating.value) return;
   if (newMesin && newMesin !== oldMesin) {
     updateAutoFields();
     if (newMesin === 'REWIND') {
@@ -9354,6 +9359,7 @@ const closeModal = () => {
 
 const duplicateData = (item) => {
   if (!item) return;
+  isDuplicating.value = true;
   isEditing.value = false;
 
   // Clone seluruh data dari item
@@ -9468,6 +9474,9 @@ const duplicateData = (item) => {
     form.status = 'PASS';
   }
   showModal.value = true;
+  nextTick(() => {
+    isDuplicating.value = false;
+  });
 };
 
 const deleteData = async (item) => {

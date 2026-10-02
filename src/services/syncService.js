@@ -2365,31 +2365,101 @@ function scheduleRealtimeReconnect(callback) {
   }, delay);
 }
 
-function startBackgroundSyncPoller() {
-  if (backgroundSyncInterval) return;
-  backgroundSyncInterval = setInterval(async () => {
+// ── SMART ACTIVITY TRACKER & ADAPTIVE POLLING (HEMAT EGRESS & QUOTA) ──────────
+const IDLE_THRESHOLD_MS = 60 * 1000;         // 1 menit tanpa pergerakan = masuk mode standby/idle
+const ACTIVE_POLL_INTERVAL_MS = 90 * 1000;   // Saat layar aktif: poller delta cadangan 1.5 menit
+const IDLE_POLL_INTERVAL_MS = 15 * 60 * 1000;// Saat layar idle: sincronisasi 15 menit sekali
+
+let lastUserActivityTime = Date.now();
+let isCurrentlyUserIdle = false;
+let pollerTimeoutId = null;
+
+function recordUserActivity() {
+  const wasIdle = isCurrentlyUserIdle;
+  lastUserActivityTime = Date.now();
+  isCurrentlyUserIdle = false;
+
+  // Jika baru bangun dari kondisi idle (> 1 menit), jalankan 1x sinkronisasi segar
+  if (wasIdle) {
+    console.log('⚡ [ActivityTracker] User aktif kembali setelah idle. Menjadwalkan sinkronisasi segar...');
     if (navigator.onLine && !syncState.isSyncing) {
-      try {
-        await pullFromSupabase(false);
-      } catch (e) {
-        console.warn('[BackgroundPoller] Delta sync error:', e);
-      }
+      pullFromSupabase(false).catch(() => {});
     }
-  }, 45000);
+    scheduleNextPoll(ACTIVE_POLL_INTERVAL_MS);
+  }
 }
 
-// Tambahkan auto-reconnect saat tab kembali aktif atau device online
+// Pasang event listener deteksi gerakan kursor, sentuhan, scroll, atau ketikan keyboard
 if (typeof window !== 'undefined') {
+  const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'pointerdown'];
+  let throttleTimer = null;
+  const onActivityEvent = () => {
+    if (throttleTimer) return;
+    throttleTimer = setTimeout(() => {
+      throttleTimer = null;
+      recordUserActivity();
+    }, 1000);
+  };
+
+  activityEvents.forEach(evt => {
+    window.addEventListener(evt, onActivityEvent, { passive: true });
+  });
+
+  // Listener tab visibility (jika tab diminimalkan/berpindah tab)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      recordUserActivity();
+    } else {
+      isCurrentlyUserIdle = true;
+      scheduleNextPoll(IDLE_POLL_INTERVAL_MS);
+    }
+  });
+
   window.addEventListener('online', () => {
     if (!syncState.realtimeConnected) {
       scheduleRealtimeReconnect();
     }
+    recordUserActivity();
   });
+
   window.addEventListener('focus', () => {
     if (!syncState.realtimeConnected) {
       scheduleRealtimeReconnect();
     }
+    recordUserActivity();
   });
+}
+
+function scheduleNextPoll(delayMs) {
+  if (pollerTimeoutId) clearTimeout(pollerTimeoutId);
+  pollerTimeoutId = setTimeout(async () => {
+    pollerTimeoutId = null;
+    const now = Date.now();
+    const timeSinceLastActivity = now - lastUserActivityTime;
+    const isDocHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
+    // Cek apakah masuk kondisi idle (tidak ada pergerakan kursor/keypad > 1 menit atau tab disembunyikan)
+    if (timeSinceLastActivity >= IDLE_THRESHOLD_MS || isDocHidden) {
+      isCurrentlyUserIdle = true;
+    }
+
+    if (navigator.onLine && !syncState.isSyncing) {
+      try {
+        await pullFromSupabase(false);
+      } catch (e) {
+        console.warn('[AdaptivePoller] Delta sync error:', e);
+      }
+    }
+
+    // Tentukan interval berikutnya: 15 menit jika idle, atau 90 detik jika user masih aktif
+    const nextDelay = isCurrentlyUserIdle ? IDLE_POLL_INTERVAL_MS : ACTIVE_POLL_INTERVAL_MS;
+    scheduleNextPoll(nextDelay);
+  }, delayMs);
+}
+
+function startBackgroundSyncPoller() {
+  if (pollerTimeoutId) return;
+  scheduleNextPoll(ACTIVE_POLL_INTERVAL_MS);
 }
 
 export function startRealtimeSync(onDataChangeCallback) {
