@@ -8130,6 +8130,10 @@ const subKodeValidation = computed(() => {
     return { isDuplicate: false, isSkipped: false, message: '' };
   }
 
+  const targetKodePack = (form.kodePack || '').trim().toUpperCase();
+  const targetMesin = (form.mesin || '').trim().toUpperCase();
+  const currentId = form.id;
+
   // Filter label lain di database untuk mesin / kode pack yang sama dalam rentang 24 jam terakhir
   const nowMs = Date.now();
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -8143,15 +8147,15 @@ const subKodeValidation = computed(() => {
     const kodePackMatches = !targetKodePack || lKodePack === targetKodePack;
     if (!mesinMatches || !kodePackMatches) return false;
 
-    // Batasi ke 24 jam terakhir atau tanggal kerja aktif
+    // Batasi ke 24 jam terakhir atau tanggal kerja aktif jika ada informasi waktu
     if (l.createdAt) {
       const createdTime = new Date(l.createdAt).getTime();
       if (!isNaN(createdTime) && (nowMs - createdTime) <= ONE_DAY_MS) return true;
     }
     const lDate = l.tanggalShift || l.tanggal;
     if (currentWorkDate && lDate === currentWorkDate) return true;
-    // Fallback jika tidak ada timestamp spesifik tapi kodePack cocok persis di hari yang sama
-    return true;
+    if (!l.createdAt && !lDate) return true;
+    return false;
   });
 
   // Hitung urutan terbesar saat ini & urutan berikutnya yang seharusnya (< 5000)
