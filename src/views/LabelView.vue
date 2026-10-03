@@ -4421,41 +4421,79 @@
             </div>
 
             <!-- Pesan Penegasan Kepada Operator -->
-            <div class="p-3.5 rounded-2xl border space-y-1.5 text-xs sm:text-sm text-zinc-800 leading-relaxed font-medium" :class="skipModalData.isDuplicate ? 'bg-red-50/90 border-red-300' : 'bg-amber-50/90 border-amber-300'">
-              <p class="font-bold flex items-center gap-1.5" :class="skipModalData.isDuplicate ? 'text-red-950' : 'text-amber-950'">
-                <span>📖</span>
+            <div class="p-3.5 rounded-2xl border space-y-2 text-xs sm:text-sm text-zinc-800 leading-relaxed font-medium" :class="skipModalData.isDuplicate ? 'bg-red-50/90 border-red-300' : 'bg-amber-50/90 border-amber-300'">
+              <p class="font-bold flex items-start gap-1.5" :class="skipModalData.isDuplicate ? 'text-red-950' : 'text-amber-950'">
+                <span class="text-base">📢</span>
                 <span v-if="skipModalData.isDuplicate">
-                  Berdasarkan sistem, nomor <strong>{{ skipModalData.inputKodePack }}</strong> sudah pernah tersimpan di mesin ini (Double/Duplikat). Urutan berikutnya yang direkomendasikan adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
+                  <strong>PADA 24 JAM TERAKHIR / SHIFT INI:</strong> Nomor <strong>{{ skipModalData.inputKodePack }}</strong> sudah pernah dicatat di sistem (Double). Rekomendasi urutan berikutnya adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
                 </span>
                 <span v-else>
-                  Berdasarkan sistem, nomor yang Anda masukkan terdeteksi loncat dari urutan terakhir (Terakhir: <strong>{{ skipModalData.maxRegular }}</strong>). Urutan berikutnya yang seharusnya adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
+                  <strong>PADA 24 JAM TERAKHIR / SHIFT INI:</strong> Nomor pack terakhir yang dicatat adalah <strong>{{ skipModalData.maxRegular }}</strong>. Mengapa nomor melompat ke <strong>{{ skipModalData.inputKodePack }}</strong>? Seharusnya urutan berikutnya adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
                 </span>
               </p>
-              <p class="text-red-900 font-bold">
-                Silakan cek ulang fisik roll dan nomor di buku laporan produksi Anda.
+              <p class="text-red-900 font-extrabold text-xs">
+                ⚠️ Cek ulang fisik roll dan nomor di buku laporan Anda sekarang!
               </p>
-              <p class="text-zinc-600 text-xs italic pt-1 border-t" :class="skipModalData.isDuplicate ? 'border-red-200' : 'border-amber-200'">
-                Apakah Anda benar-benar yakin ingin tetap menggunakan nomor yang Anda ketik ({{ skipModalData.inputKodePack }})?
-              </p>
+
+              <!-- Form Alasan Wajib Diisi Jika Tetap Ingin Memakai Nomor Lompat -->
+              <div class="pt-2 border-t" :class="skipModalData.isDuplicate ? 'border-red-200' : 'border-amber-200'">
+                <label class="block text-[11px] font-black uppercase text-zinc-700 mb-1">
+                  Jika tetap ingin menggunakan nomor {{ skipModalData.inputKodePack }}, pilih / tulis alasannya: <span class="text-red-600">*</span>
+                </label>
+                <!-- Quick Tags Alasan Cepat -->
+                <div class="flex flex-wrap gap-1 mb-1.5">
+                  <button
+                    type="button"
+                    @click="skipReason = 'Roll sebelumnya afkir / reject'"
+                    class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-700 cursor-pointer shadow-2xs"
+                  >
+                    + Roll Sebelumnya Afkir/Reject
+                  </button>
+                  <button
+                    type="button"
+                    @click="skipReason = 'Mengikuti nomor di buku catatan manual'"
+                    class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-700 cursor-pointer shadow-2xs"
+                  >
+                    + Ikuti Buku Manual
+                  </button>
+                  <button
+                    type="button"
+                    @click="skipReason = 'Instruksi Pengawas / Leader'"
+                    class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-700 cursor-pointer shadow-2xs"
+                  >
+                    + Instruksi Leader
+                  </button>
+                </div>
+                <input
+                  v-model="skipReason"
+                  type="text"
+                  placeholder="Ketik alasan mengapa nomor ini melompat/double..."
+                  class="w-full px-2.5 py-1.5 text-xs border rounded-xl bg-white font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-amber-500 shadow-inner"
+                  :class="skipReasonError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'"
+                />
+                <p v-if="skipReasonError" class="text-[10.5px] font-bold text-red-600 mt-0.5">
+                  {{ skipReasonError }}
+                </p>
+              </div>
             </div>
           </div>
 
           <!-- Tombol Aksi -->
           <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t-2 border-zinc-100">
-            <!-- Tombol Ubah ke yang Seharusnya (Pilihan Rekomendasi Utama) -->
+            <!-- Tombol Ubah ke yang Seharusnya (Pilihan Rekomendasi Utama - Instan Tanpa Delay) -->
             <button
               type="button"
               @click="applyExpectedKodePack"
-              class="w-full sm:w-auto px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border-2 border-emerald-500 shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              class="w-full sm:w-auto px-5 py-2.5 rounded-xl font-black text-xs sm:text-sm text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border-2 border-emerald-500 shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 animate-pulse"
             >
               <span>✓ Pakai Nomor Yang Benar ({{ skipModalData.expectedKodePack }})</span>
             </button>
 
-            <!-- Tombol Yakin / Lanjut dengan nomor saat ini -->
+            <!-- Tombol Periksa Ulang & Tombol Bypass dengan Delay 10 Detik -->
             <div class="flex items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
-                @click="showKodePackSkipModal = false"
+                @click="closeSkipModal"
                 class="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 transition-colors cursor-pointer"
               >
                 Periksa Ulang
@@ -4463,10 +4501,15 @@
               <button
                 type="button"
                 @click="confirmUseSkippedKodePack"
-                class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-black text-white bg-red-600 hover:bg-red-700 shadow-md shadow-red-600/20 transition-all cursor-pointer"
-                title="Tetap simpan dengan nomor yang diinput"
+                :disabled="skipModalCountdown > 0"
+                class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-black text-white shadow-md transition-all flex items-center justify-center gap-1.5"
+                :class="skipModalCountdown > 0 
+                  ? 'bg-zinc-400 opacity-60 cursor-not-allowed shadow-none' 
+                  : 'bg-red-600 hover:bg-red-700 shadow-red-600/20 cursor-pointer'"
+                :title="skipModalCountdown > 0 ? `Tunggu ${skipModalCountdown} detik sebelum tombol aktif` : 'Tetap simpan dengan nomor yang diinput'"
               >
-                Ya, Saya Yakin Tetap Simpan
+                <span v-if="skipModalCountdown > 0">⏳ Tunggu ({{ skipModalCountdown }}s)</span>
+                <span v-else>Tetap Simpan Nomor Ini</span>
               </button>
             </div>
           </div>
@@ -8087,18 +8130,28 @@ const subKodeValidation = computed(() => {
     return { isDuplicate: false, isSkipped: false, message: '' };
   }
 
-  const targetKodePack = (form.kodePack || '').trim().toUpperCase();
-  const targetMesin = (form.mesin || '').trim().toUpperCase();
-  const currentId = form.id;
+  // Filter label lain di database untuk mesin / kode pack yang sama dalam rentang 24 jam terakhir
+  const nowMs = Date.now();
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const currentWorkDate = form.tanggalShift || form.tanggal || '';
 
-  // Filter label lain di database untuk mesin / kode pack yang sama
   const otherLabels = labelStore.labels.filter(l => {
     if (currentId && l.id === currentId) return false;
     const lKodePack = (l.kodePack || '').trim().toUpperCase();
     const lMesin = (l.mesin || '').trim().toUpperCase();
     const mesinMatches = !targetMesin || isMachineMatch(lMesin, targetMesin);
     const kodePackMatches = !targetKodePack || lKodePack === targetKodePack;
-    return mesinMatches && kodePackMatches;
+    if (!mesinMatches || !kodePackMatches) return false;
+
+    // Batasi ke 24 jam terakhir atau tanggal kerja aktif
+    if (l.createdAt) {
+      const createdTime = new Date(l.createdAt).getTime();
+      if (!isNaN(createdTime) && (nowMs - createdTime) <= ONE_DAY_MS) return true;
+    }
+    const lDate = l.tanggalShift || l.tanggal;
+    if (currentWorkDate && lDate === currentWorkDate) return true;
+    // Fallback jika tidak ada timestamp spesifik tapi kodePack cocok persis di hari yang sama
+    return true;
   });
 
   // Hitung urutan terbesar saat ini & urutan berikutnya yang seharusnya (< 5000)
@@ -9206,6 +9259,11 @@ const closeModal = () => {
 
   // State dialog peringatan Nomor Kode Pack Lompat atau Double
   const showKodePackSkipModal = ref(false);
+  const skipModalCountdown = ref(10);
+  const skipReason = ref('');
+  const skipReasonError = ref('');
+  let skipModalTimer = null;
+
   const skipModalData = reactive({
     isDuplicate: false,
     inputKodePack: '',
@@ -9214,6 +9272,52 @@ const closeModal = () => {
     expectedSubNum: '',
     maxRegular: ''
   });
+
+  const playWarningAudioBeep = () => {
+    try {
+      if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.45);
+      }
+    } catch (e) {
+      // Audio autoplay policy guard
+    }
+  };
+
+  const startSkipModalCountdown = () => {
+    if (skipModalTimer) clearInterval(skipModalTimer);
+    skipModalCountdown.value = 10;
+    skipReason.value = '';
+    skipReasonError.value = '';
+    skipModalTimer = setInterval(() => {
+      if (skipModalCountdown.value > 0) {
+        skipModalCountdown.value--;
+      } else {
+        clearInterval(skipModalTimer);
+        skipModalTimer = null;
+      }
+    }, 1000);
+  };
+
+  const closeSkipModal = () => {
+    if (skipModalTimer) {
+      clearInterval(skipModalTimer);
+      skipModalTimer = null;
+    }
+    showKodePackSkipModal.value = false;
+    skipReasonError.value = '';
+  };
 
   const triggerSubKodeWarning = (validation) => {
     if (!validation) return false;
@@ -9225,6 +9329,8 @@ const closeModal = () => {
       skipModalData.expectedSubNum = validation.expectedSubNum;
       skipModalData.maxRegular = validation.maxRegular;
       showKodePackSkipModal.value = true;
+      startSkipModalCountdown();
+      playWarningAudioBeep();
       return true;
     }
     return false;
@@ -9237,7 +9343,23 @@ const closeModal = () => {
   };
 
   const confirmUseSkippedKodePack = () => {
-    showKodePackSkipModal.value = false;
+    if (skipModalCountdown.value > 0) return;
+    if (!skipReason.value || skipReason.value.trim().length < 5) {
+      skipReasonError.value = 'Wajib pilih atau tuliskan alasan valid mengapa nomor ini melompat (min. 5 karakter)!';
+      return;
+    }
+
+    // Rekam alasan lompat ke field keterangan agar tercatat di laporan audit
+    const reasonText = `[ALASAN NOMOR ${skipModalData.isDuplicate ? 'DOUBLE' : 'LOMPAT'} ${skipModalData.inputKodePack}]: ${skipReason.value.trim()}`;
+    if (form.keterangan) {
+      if (!form.keterangan.includes(skipModalData.inputKodePack)) {
+        form.keterangan = `${form.keterangan}; ${reasonText}`;
+      }
+    } else {
+      form.keterangan = reasonText;
+    }
+
+    closeSkipModal();
     if (isSubmittingLabel.value) {
       proceedSubmitLabel(true);
     }
@@ -9248,7 +9370,7 @@ const closeModal = () => {
       form.subKodeNumeric = parseInt(skipModalData.expectedSubNum, 10).toString();
       handleSubKode();
     }
-    showKodePackSkipModal.value = false;
+    closeSkipModal();
   };
 
   const handleFormSubmit = async () => {
