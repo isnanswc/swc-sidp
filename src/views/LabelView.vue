@@ -499,14 +499,19 @@
                 {{ item.jenis }} <span class="text-red-600 font-bold">{{ item.kode }}</span> {{ item.thickness }} MC × {{ item.width }} MM = {{ item.length }}
               </td>
 
-              <!-- Kode Pack (Red highlight if DUPLICATE) -->
+              <!-- Kode Pack (Red highlight if DUPLICATE, Yellow highlight if LOMPAT) -->
               <td v-if="visibleColumns.kodePack" class="py-2.5 px-3 whitespace-nowrap">
-                <div v-if="isDuplicateKodePack(item)" class="inline-flex items-center px-2 py-0.5 rounded bg-red-600 text-yellow-300 font-bold font-mono text-[11px] shadow-xs" title="Duplikasi Kode Pack Terdeteksi!">
-                  {{ item.kodePack }}{{ item.subKode }}
+                <div v-if="isDuplicateKodePack(item)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-600 text-white font-black font-mono text-[11px] shadow-xs border border-red-700" title="🚨 Duplikasi Kode Pack Terdeteksi!">
+                  <span>{{ item.kodePack }}</span><span>{{ item.subKode }}</span>
+                  <span class="text-[9px] bg-red-800 text-red-100 px-1 py-0.2 rounded font-sans uppercase ml-0.5">DOUBLE</span>
                 </div>
-                <div v-else class="font-mono">
-                  <span>{{ item.kodePack }}</span>
-                  <span class="text-red-600 font-bold">{{ item.subKode }}</span>
+                <div v-else-if="isSkippedKodePack(item)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-300 text-amber-950 font-black font-mono text-[11px] shadow-xs border border-amber-500" :title="`⚠️ Nomor ini melompat dari ${skippedKodePackInfo(item)?.fromPack || 'sebelumnya'} (Terlewat ${skippedKodePackInfo(item)?.skippedCount || 0} nomor: ${skippedKodePackInfo(item)?.skippedRange || ''})`">
+                  <span>{{ item.kodePack }}</span><span>{{ item.subKode }}</span>
+                  <span class="text-[9px] bg-amber-400 text-amber-950 px-1 py-0.2 rounded font-sans uppercase ml-0.5 border border-amber-500/50">LOMPAT</span>
+                </div>
+                <div v-else class="font-mono text-xs">
+                  <span class="text-zinc-800 font-semibold">{{ item.kodePack }}</span>
+                  <span class="text-red-600 font-black">{{ item.subKode }}</span>
                 </div>
               </td>
 
@@ -1481,8 +1486,16 @@
                               <span class="text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200/80 uppercase font-mono font-black text-[10.5px] shrink-0">
                                 {{ formatTurunanDisplay(item.turunan) }}
                               </span>
-                              <span class="font-mono font-bold text-xs text-zinc-800 truncate">
-                                {{ item.kodePack }}<span class="text-red-600">{{ item.subKode }}</span>
+                              <div v-if="isDuplicateKodePack(item)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-600 text-white font-black font-mono text-[10.5px] border border-red-700 shrink-0" title="🚨 Duplikasi Kode Pack Terdeteksi!">
+                                <span>{{ item.kodePack }}</span><span>{{ item.subKode }}</span>
+                                <span class="text-[8.5px] bg-red-800 text-red-100 px-1 py-0.2 rounded font-sans uppercase">DBL</span>
+                              </div>
+                              <div v-else-if="isSkippedKodePack(item)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-300 text-amber-950 font-black font-mono text-[10.5px] border border-amber-500 shrink-0" :title="`⚠️ Nomor ini melompat dari ${skippedKodePackInfo(item)?.fromPack || 'sebelumnya'} (Terlewat ${skippedKodePackInfo(item)?.skippedCount || 0} nomor: ${skippedKodePackInfo(item)?.skippedRange || ''})`">
+                                <span>{{ item.kodePack }}</span><span>{{ item.subKode }}</span>
+                                <span class="text-[8.5px] bg-amber-400 text-amber-950 px-1 py-0.2 rounded font-sans uppercase border border-amber-500/50">LOMPAT</span>
+                              </div>
+                              <span v-else class="font-mono font-bold text-xs text-zinc-800 truncate">
+                                {{ item.kodePack }}<span class="text-red-600 font-black">{{ item.subKode }}</span>
                               </span>
                             </div>
                             <span
@@ -1626,9 +1639,19 @@
                               </span>
                             </td>
 
-                            <!-- Kode Pack -->
-                            <td class="py-2 px-3 font-mono whitespace-nowrap text-xs">
-                              <span class="text-zinc-800">{{ item.kodePack }}</span><span class="text-red-600 font-bold">{{ item.subKode }}</span>
+                            <!-- Kode Pack (Red highlight if DUPLICATE, Yellow highlight if LOMPAT) -->
+                            <td class="py-2 px-3 whitespace-nowrap text-xs">
+                              <div v-if="isDuplicateKodePack(item)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-600 text-white font-black font-mono text-[11px] shadow-xs border border-red-700" title="🚨 Duplikasi Kode Pack Terdeteksi!">
+                                <span>{{ item.kodePack }}</span><span>{{ item.subKode }}</span>
+                                <span class="text-[9px] bg-red-800 text-red-100 px-1 py-0.2 rounded font-sans uppercase ml-0.5">DOUBLE</span>
+                              </div>
+                              <div v-else-if="isSkippedKodePack(item)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-300 text-amber-950 font-black font-mono text-[11px] shadow-xs border border-amber-500" :title="`⚠️ Nomor ini melompat dari ${skippedKodePackInfo(item)?.fromPack || 'sebelumnya'} (Terlewat ${skippedKodePackInfo(item)?.skippedCount || 0} nomor: ${skippedKodePackInfo(item)?.skippedRange || ''})`">
+                                <span>{{ item.kodePack }}</span><span>{{ item.subKode }}</span>
+                                <span class="text-[9px] bg-amber-400 text-amber-950 px-1 py-0.2 rounded font-sans uppercase ml-0.5 border border-amber-500/50">LOMPAT</span>
+                              </div>
+                              <div v-else class="font-mono">
+                                <span class="text-zinc-800 font-semibold">{{ item.kodePack }}</span><span class="text-red-600 font-black">{{ item.subKode }}</span>
+                              </div>
                             </td>
 
                             <!-- Ukuran & Panjang -->
@@ -4428,7 +4451,7 @@
                   <strong>PADA 24 JAM TERAKHIR / SHIFT INI:</strong> Nomor <strong>{{ skipModalData.inputKodePack }}</strong> sudah pernah dicatat di sistem (Double). Rekomendasi urutan berikutnya adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
                 </span>
                 <span v-else>
-                  <strong>PADA 24 JAM TERAKHIR / SHIFT INI:</strong> Nomor pack terakhir yang dicatat adalah <strong>{{ skipModalData.maxRegular }}</strong>. Mengapa nomor melompat ke <strong>{{ skipModalData.inputKodePack }}</strong>? Seharusnya urutan berikutnya adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
+                  <strong>PADA 24 JAM TERAKHIR / SHIFT INI:</strong> Nomor pack terakhir yang dicatat adalah <strong>{{ skipModalData.lastRecordedKodePack || skipModalData.maxRegular }}</strong>. Mengapa nomor melompat ke <strong>{{ skipModalData.inputKodePack }}</strong>? Terlewat <strong class="text-red-700 underline">{{ skipModalData.skippedCount }} nomor ({{ skipModalData.skippedRange }})</strong>. Seharusnya urutan berikutnya adalah <strong>{{ skipModalData.expectedKodePack }}</strong>.
                 </span>
               </p>
               <p class="text-red-900 font-extrabold text-xs">
@@ -4528,16 +4551,18 @@
         leave-to-class="opacity-0"
       >
         <div
-          v-if="showCornerReminder && detectedRecentIssue"
-          class="fixed bottom-4 right-4 z-[99990] max-w-sm w-full sm:w-96 bg-white rounded-2xl shadow-2xl border-2 p-3.5 space-y-2 animate-bounce-short text-zinc-900"
-          :class="detectedRecentIssue.type === 'DUPLICATE' ? 'border-red-500 shadow-red-500/20' : 'border-amber-500 shadow-amber-500/20'"
+          v-if="showCornerReminder && detectedRecentIssues.length > 0"
+          class="fixed bottom-4 right-4 z-[99990] max-w-sm w-full sm:w-96 bg-white rounded-2xl shadow-2xl border-2 p-3.5 space-y-2.5 animate-bounce-short text-zinc-900 border-red-500 shadow-red-500/20"
         >
-          <div class="flex items-start justify-between gap-2">
+          <div class="flex items-start justify-between gap-2 pb-1.5 border-b border-zinc-100">
             <div class="flex items-center gap-2">
-              <span class="text-lg">{{ detectedRecentIssue.type === 'DUPLICATE' ? '🚨' : '⚠️' }}</span>
-              <h5 class="text-xs font-black uppercase tracking-tight" :class="detectedRecentIssue.type === 'DUPLICATE' ? 'text-red-700' : 'text-amber-800'">
-                {{ detectedRecentIssue.type === 'DUPLICATE' ? 'Terdeteksi Kode Pack Double!' : 'Terdeteksi Kode Pack Lompat!' }}
-              </h5>
+              <span class="text-lg">🚨</span>
+              <div>
+                <h5 class="text-xs font-black uppercase tracking-tight text-red-700">
+                  {{ detectedRecentIssues.length === 1 ? (detectedRecentIssues[0].type === 'DUPLICATE' ? 'Kode Pack Double Terdeteksi!' : 'Kode Pack Lompat Terdeteksi!') : `${detectedRecentIssues.length} Isu Kode Pack Terdeteksi!` }}
+                </h5>
+                <p class="text-[10px] text-zinc-400 font-bold">Audit Urutan 24 Jam Terakhir</p>
+              </div>
             </div>
             <button
               type="button"
@@ -4549,22 +4574,42 @@
             </button>
           </div>
 
-          <div class="text-[11px] leading-relaxed text-zinc-700 bg-zinc-50 p-2 rounded-xl border border-zinc-200">
-            <p v-if="detectedRecentIssue.type === 'DUPLICATE'">
-              Terdeteksi No Pack <strong>{{ detectedRecentIssue.kodePack }}</strong> ganda/double pada mesin <strong>{{ detectedRecentIssue.mesin }}</strong>.
-            </p>
-            <p v-else>
-              Terdeteksi lompatan nomor dari <strong>{{ detectedRecentIssue.fromPack }}</strong> ke <strong>{{ detectedRecentIssue.toPack }}</strong> pada mesin <strong>{{ detectedRecentIssue.mesin }}</strong>.
-            </p>
-            <p v-if="detectedRecentIssue.reason" class="text-zinc-500 italic mt-1 text-[10.5px]">
-              Alasan tercatat: "{{ detectedRecentIssue.reason }}"
-            </p>
-            <p class="font-bold text-red-700 mt-1">
-              Harap pastikan kembali fisik roll dan catatan buku laporan Anda.
-            </p>
+          <!-- List of All Detected Issues -->
+          <div class="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+            <div
+              v-for="(iss, idx) in detectedRecentIssues"
+              :key="idx"
+              class="p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all"
+              :class="iss.type === 'DUPLICATE' ? 'bg-red-50/90 border-red-200' : 'bg-amber-50/90 border-amber-200'"
+            >
+              <div class="flex items-center justify-between gap-1 font-bold">
+                <span class="flex items-center gap-1" :class="iss.type === 'DUPLICATE' ? 'text-red-700' : 'text-amber-800'">
+                  <span>{{ iss.type === 'DUPLICATE' ? '🔴 DOUBLE' : '⚠️ LOMPAT' }}</span>
+                  <span class="font-mono">{{ iss.type === 'DUPLICATE' ? iss.kodePack : `${iss.fromPack} ➔ ${iss.toPack}` }}</span>
+                </span>
+                <span class="text-[9.5px] px-1.5 py-0.2 rounded font-mono font-bold bg-white text-zinc-600 border border-zinc-200 shadow-2xs">
+                  {{ iss.mesin }}
+                </span>
+              </div>
+
+              <p v-if="iss.type === 'SKIPPED'" class="text-zinc-700 text-[10.5px] mt-0.5">
+                Terlewat <strong>{{ iss.skippedCount }} nomor</strong> ({{ iss.skippedRange }}).
+              </p>
+              <p v-else class="text-zinc-700 text-[10.5px] mt-0.5">
+                Nomor ini tersimpan sebanyak <strong class="text-red-700">{{ iss.count }} kali</strong>.
+              </p>
+
+              <p v-if="iss.reason" class="text-zinc-500 italic mt-0.5 text-[10px] bg-white/70 px-1.5 py-0.5 rounded border border-zinc-200/60">
+                Alasan: "{{ iss.reason }}"
+              </p>
+            </div>
           </div>
 
-          <div class="flex items-center justify-between pt-1 text-[10px] text-zinc-400 font-medium">
+          <p class="font-extrabold text-[10.5px] text-red-700 leading-tight">
+            Harap pastikan kembali fisik roll dan catatan buku laporan Anda.
+          </p>
+
+          <div class="flex items-center justify-between pt-1 text-[10px] text-zinc-400 font-medium border-t border-zinc-100">
             <span>Diingatkan otomatis tiap 5 menit</span>
             <button
               type="button"
@@ -8086,9 +8131,105 @@ function calculatePaperCore(width, diameterCore = 6) {
   return ((base6Inch * d) / 6).toFixed(2);
 }
 
+// ── DETEKSI VISUAL: KODE PACK DOUBLE (MERAH) & KODE PACK LOMPAT (KUNING) ──────
+const duplicateKodePackMap = computed(() => {
+  const map = new Map();
+  const labels = labelStore.labels || [];
+  for (const l of labels) {
+    if (l.status === 'HOLD' || l.status === 'REJECT' || l.subKode === '0000' || l.subKode === 'REJECT') continue;
+    const full = `${l.kodePack || ''}${l.subKode || ''}`;
+    const m = (l.mesin || 'PRODUKSI').toUpperCase();
+    const k = `${m}::${full}`;
+    map.set(k, (map.get(k) || 0) + 1);
+  }
+  return map;
+});
+
 function isDuplicateKodePack(item) {
-  const key = (item.kodePack || '') + (item.subKode || '');
-  return labelStore.duplicateKodePacks.has(key);
+  if (!item || item.status === 'HOLD' || item.status === 'REJECT' || item.subKode === '0000' || item.subKode === 'REJECT') return false;
+  const full = `${item.kodePack || ''}${item.subKode || ''}`;
+  const m = (item.mesin || 'PRODUKSI').toUpperCase();
+  if ((duplicateKodePackMap.value.get(`${m}::${full}`) || 0) > 1) return true;
+  return labelStore.duplicateKodePacks.has(full);
+}
+
+const skippedKodePackMap = computed(() => {
+  const map = new Map();
+  const labels = labelStore.labels || [];
+  if (labels.length === 0) return map;
+
+  const groups = new Map();
+  for (const l of labels) {
+    if (l.status === 'HOLD' || l.status === 'REJECT' || l.subKode === '0000' || l.subKode === 'REJECT') continue;
+    const rawNum = parseInt(l.subKodeNumeric || l.subKode, 10);
+    if (isNaN(rawNum) || rawNum <= 0 || rawNum >= 5000) continue;
+
+    const mName = (l.mesin || 'PRODUKSI').toUpperCase();
+    const kPack = (l.kodePack || '').toUpperCase();
+    const groupKey = `${mName}::${kPack}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, { mesin: mName, kodePack: kPack, nums: new Set() });
+    }
+    groups.get(groupKey).nums.add(rawNum);
+  }
+
+  for (const [, grp] of groups.entries()) {
+    const uniqueNums = Array.from(grp.nums).sort((a, b) => a - b);
+    for (let i = 0; i < uniqueNums.length - 1; i++) {
+      const prevNum = uniqueNums[i];
+      const nextNum = uniqueNums[i + 1];
+      const gap = nextNum - prevNum;
+      if (gap > 1) {
+        const skippedCount = gap - 1;
+        const fromPack = `${grp.kodePack}${String(prevNum).padStart(4, '0')}`;
+        const toPack = `${grp.kodePack}${String(nextNum).padStart(4, '0')}`;
+        const startMissing = String(prevNum + 1).padStart(4, '0');
+        const endMissing = String(nextNum - 1).padStart(4, '0');
+        const skippedRange = skippedCount === 1 ? startMissing : `${startMissing} s/d ${endMissing}`;
+
+        map.set(`${grp.mesin}::${toPack}`, {
+          type: 'SKIPPED',
+          mesin: grp.mesin,
+          fromPack,
+          toPack,
+          skippedCount,
+          skippedRange,
+          prevNum,
+          nextNum
+        });
+      }
+    }
+  }
+
+  return map;
+});
+
+function skippedKodePackInfo(item) {
+  if (!item || item.status === 'HOLD' || item.status === 'REJECT' || item.subKode === '0000' || item.subKode === 'REJECT') return null;
+  const subNum = parseInt(item.subKodeNumeric || item.subKode, 10);
+  const formattedSub = !isNaN(subNum) && subNum > 0 ? String(subNum).padStart(4, '0') : (item.subKode || '');
+  const full = `${item.kodePack || ''}${formattedSub}`;
+  const m = (item.mesin || 'PRODUKSI').toUpperCase();
+  const found = skippedKodePackMap.value.get(`${m}::${full}`);
+  if (found) return found;
+  if (item.keterangan && item.keterangan.includes('[ALASAN NOMOR LOMPAT')) {
+    const match = item.keterangan.match(/\[ALASAN NOMOR LOMPAT[^\]]*\]:\s*([^;]+)/);
+    return {
+      type: 'SKIPPED',
+      mesin: m,
+      fromPack: 'sebelumnya',
+      toPack: full,
+      skippedCount: 1,
+      skippedRange: '',
+      reason: match ? match[1].trim() : ''
+    };
+  }
+  return null;
+}
+
+function isSkippedKodePack(item) {
+  return !!skippedKodePackInfo(item);
 }
 
 const syncFormulaConfigs = () => {
@@ -8234,6 +8375,12 @@ const subKodeValidation = computed(() => {
   const expectedFormatted = String(expectedNext).padStart(4, '0');
   const inputFullCode = `${form.kodePack || ''}${inputFormatted}`;
   const expectedFullCode = `${form.kodePack || ''}${expectedFormatted}`;
+  const lastRecordedFormatted = maxRegular > 0 ? String(maxRegular).padStart(4, '0') : '-';
+  const lastRecordedFullCode = maxRegular > 0 ? `${form.kodePack || ''}${lastRecordedFormatted}` : '-';
+  const skippedCount = maxRegular > 0 && rawNum > expectedNext ? (rawNum - expectedNext) : 0;
+  const skippedRange = skippedCount > 1
+    ? `${expectedFormatted} s/d ${String(rawNum - 1).padStart(4, '0')}`
+    : expectedFormatted;
 
   // 1. Cek DUPLIKAT (Double)
   const isDuplicate = otherLabels.some(l => {
@@ -8250,7 +8397,10 @@ const subKodeValidation = computed(() => {
       expectedSubNum: expectedFormatted,
       inputKodePack: inputFullCode,
       expectedKodePack: expectedFullCode,
-      maxRegular: String(maxRegular).padStart(4, '0'),
+      maxRegular: lastRecordedFormatted,
+      lastRecordedKodePack: lastRecordedFullCode,
+      skippedCount: 0,
+      skippedRange: '',
       message: `⚠️ No. Pack ${inputFullCode} sudah terdaftar di mesin ini (Double)! Rekomendasi urutan berikutnya: ${expectedFullCode}`
     };
   }
@@ -8264,12 +8414,15 @@ const subKodeValidation = computed(() => {
       expectedSubNum: expectedFormatted,
       inputKodePack: inputFullCode,
       expectedKodePack: expectedFullCode,
-      maxRegular: String(maxRegular).padStart(4, '0'),
-      message: `⚠️ No. Pack lompat! (Kode Pack terbesar saat ini: ${String(maxRegular).padStart(4, '0')}, Urutan berikutnya yang seharusnya: ${expectedFormatted})`
+      maxRegular: lastRecordedFormatted,
+      lastRecordedKodePack: lastRecordedFullCode,
+      skippedCount,
+      skippedRange,
+      message: `⚠️ No. Pack lompat dari ${lastRecordedFullCode} ke ${inputFullCode}! (${skippedCount} nomor terlewat: ${skippedRange})`
     };
   }
 
-  return { isDuplicate: false, isSkipped: false, inputKodePack: '', expectedKodePack: '', inputSubNum: '', expectedSubNum: '', maxRegular: '', message: '' };
+  return { isDuplicate: false, isSkipped: false, inputKodePack: '', expectedKodePack: '', inputSubNum: '', expectedSubNum: '', maxRegular: '', lastRecordedKodePack: '', skippedCount: 0, skippedRange: '', message: '' };
 });
 
 const quickTags = ref([...DEFAULT_DEFECT_TAGS]);
@@ -9335,7 +9488,10 @@ const closeModal = () => {
     expectedKodePack: '',
     inputSubNum: '',
     expectedSubNum: '',
-    maxRegular: ''
+    maxRegular: '',
+    lastRecordedKodePack: '',
+    skippedCount: 0,
+    skippedRange: ''
   });
 
   const playWarningAudioBeep = () => {
@@ -9393,6 +9549,9 @@ const closeModal = () => {
       skipModalData.inputSubNum = validation.inputSubNum;
       skipModalData.expectedSubNum = validation.expectedSubNum;
       skipModalData.maxRegular = validation.maxRegular;
+      skipModalData.lastRecordedKodePack = validation.lastRecordedKodePack;
+      skipModalData.skippedCount = validation.skippedCount || 0;
+      skipModalData.skippedRange = validation.skippedRange || '';
       showKodePackSkipModal.value = true;
       startSkipModalCountdown();
       playWarningAudioBeep();
@@ -9560,6 +9719,14 @@ const duplicateData = (item) => {
   form.verifiedAt = null;
   form.verifiedBy = null;
   form.spk = (item.spk || '').trim().toUpperCase();
+
+  // Bersihkan catatan audit lompat / double dari label sebelumnya agar tidak mencemari duplikat baru
+  if (form.keterangan) {
+    form.keterangan = form.keterangan
+      .replace(/\[ALASAN NOMOR (LOMPAT|DOUBLE)[^\]]*\]:\s*[^;]+;?\s*/gi, '')
+      .trim();
+  }
+
   const currentShiftInfo = scheduleStore.getCurrentShiftInfo(null, form.mesin || item.mesin);
   form.shift = currentShiftInfo?.shiftCode || item.shift || '1';
 
@@ -9980,61 +10147,137 @@ watch(() => form.kode, () => {
 const showCornerReminder = ref(false);
 let cornerReminderIntervalTimer = null;
 
-// Pengecekan otomatis jika ada kode pack lompat atau double pada label terakhir (24 jam terakhir)
-const detectedRecentIssue = computed(() => {
+// Pengecekan otomatis jika ada kode pack lompat atau double pada seluruh label (24 jam terakhir / hari ini)
+const detectedRecentIssues = computed(() => {
   const labels = labelStore.labels || [];
-  if (labels.length === 0) return null;
+  if (labels.length === 0) return [];
 
   const nowMs = Date.now();
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const today = new Date().toISOString().slice(0, 10);
 
-  // Urutkan label dari yang paling baru diinput (descending)
-  const recentLabels = [...labels]
-    .filter(l => {
-      if (l.status === 'HOLD' || l.status === 'REJECT') return false;
-      if (l.createdAt) {
-        const t = new Date(l.createdAt).getTime();
-        if (!isNaN(t) && (nowMs - t) <= ONE_DAY_MS) return true;
-      }
-      return true;
-    })
-    .sort((a, b) => (b.id || 0) - (a.id || 0));
-
-  // 1. Cek apakah ada record yang memiliki catatan alasan lompat / double
-  for (const l of recentLabels.slice(0, 30)) {
-    const ket = l.keterangan || '';
-    if (ket.includes('[ALASAN NOMOR LOMPAT') || ket.includes('[ALASAN NOMOR DOUBLE')) {
-      const match = ket.match(/\[ALASAN NOMOR (LOMPAT|DOUBLE) ([^\]]+)\]:\s*([^;]+)/);
-      const isDouble = ket.includes('DOUBLE');
-      return {
-        type: isDouble ? 'DUPLICATE' : 'SKIPPED',
-        kodePack: match ? match[2] : (l.kodePack || '') + (l.subKode || ''),
-        fromPack: (l.kodePack || '') + String(Math.max(1, (parseInt(l.subKode, 10) || 1) - 1)).padStart(4, '0'),
-        toPack: (l.kodePack || '') + (l.subKode || ''),
-        mesin: l.mesin || 'PRODUKSI',
-        reason: match ? match[3] : 'Tercatat di sistem'
-      };
+  // Filter label 24 jam terakhir atau tanggal kerja hari ini
+  const recentLabels = labels.filter(l => {
+    if (l.status === 'HOLD' || l.status === 'REJECT' || l.subKode === '0000' || l.subKode === 'REJECT') return false;
+    if (l.createdAt) {
+      const t = new Date(l.createdAt).getTime();
+      if (!isNaN(t) && (nowMs - t) <= ONE_DAY_MS) return true;
     }
+    const lDate = l.tanggalShift || l.tanggal;
+    if (lDate === today) return true;
+    return false;
+  });
+
+  // Kelompokkan per grup unik: mesin + kodePack (contoh: SLITTING + 3B1026)
+  const groups = new Map();
+  for (const l of recentLabels) {
+    const rawNum = parseInt(l.subKodeNumeric || l.subKode, 10);
+    // Hanya evaluasi nomor urut standar (< 5000)
+    if (isNaN(rawNum) || rawNum <= 0 || rawNum >= 5000) continue;
+
+    const mName = (l.mesin || 'PRODUKSI').toUpperCase();
+    const kPack = (l.kodePack || '').toUpperCase();
+    const groupKey = `${mName}::${kPack}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        mesin: mName,
+        kodePack: kPack,
+        items: []
+      });
+    }
+    groups.get(groupKey).items.push({
+      id: l.id,
+      subNum: rawNum,
+      subKode: l.subKode,
+      fullCode: `${l.kodePack || ''}${l.subKode || String(rawNum).padStart(4, '0')}`,
+      keterangan: l.keterangan || '',
+      createdAt: l.createdAt
+    });
   }
 
-  // 2. Cek apakah ada nomor duplikat murni di daftar 24 jam terakhir
-  const seenMap = new Map();
-  for (const l of recentLabels.slice(0, 40)) {
-    const fullPack = (l.kodePack || '') + (l.subKode || '');
-    if (fullPack && l.subKode && l.subKode !== '0000' && l.subKode !== 'REJECT') {
-      if (seenMap.has(fullPack)) {
-        return {
+  const issues = [];
+
+  for (const [, grp] of groups.entries()) {
+    // 1. Deteksi SEMUA data double pada grup ini
+    const countMap = new Map();
+    for (const item of grp.items) {
+      const list = countMap.get(item.subNum) || [];
+      list.push(item);
+      countMap.set(item.subNum, list);
+    }
+
+    for (const [subNum, list] of countMap.entries()) {
+      if (list.length > 1) {
+        const reasonItem = list.find(it => it.keterangan && it.keterangan.includes('[ALASAN NOMOR DOUBLE'));
+        let reason = '';
+        if (reasonItem) {
+          const match = reasonItem.keterangan.match(/\[ALASAN NOMOR DOUBLE[^\]]*\]:\s*([^;]+)/);
+          reason = match ? match[1].trim() : '';
+        }
+        issues.push({
           type: 'DUPLICATE',
-          kodePack: fullPack,
-          mesin: l.mesin || 'PRODUKSI',
-          reason: 'Nomor kode pack tersimpan lebih dari 1 kali'
-        };
+          mesin: grp.mesin,
+          kodePack: list[0].fullCode,
+          subNum,
+          count: list.length,
+          reason
+        });
       }
-      seenMap.set(fullPack, l);
+    }
+
+    // 2. Deteksi SEMUA lompatan nomor (gaps) pada grup ini berdasarkan urutan aktual
+    // Dapatkan daftar nomor unik dan urutkan menaik (ascending)
+    const uniqueNums = Array.from(countMap.keys()).sort((a, b) => a - b);
+    for (let i = 0; i < uniqueNums.length - 1; i++) {
+      const prevNum = uniqueNums[i];
+      const nextNum = uniqueNums[i + 1];
+      const gap = nextNum - prevNum;
+
+      if (gap > 1) {
+        // Terdeteksi ada nomor lompat di antara nomor aktual di database!
+        // Contoh: prevNum = 128, nextNum = 140 -> gap = 12 -> lompat 11 nomor!
+        const skippedCount = gap - 1;
+        const fromPack = `${grp.kodePack}${String(prevNum).padStart(4, '0')}`;
+        const toPack = `${grp.kodePack}${String(nextNum).padStart(4, '0')}`;
+        const startMissing = String(prevNum + 1).padStart(4, '0');
+        const endMissing = String(nextNum - 1).padStart(4, '0');
+        const skippedRange = skippedCount === 1 ? startMissing : `${startMissing} s/d ${endMissing}`;
+
+        // Cari apakah pada item nextNum ada alasan lompat yang tercatat
+        const nextItems = countMap.get(nextNum) || [];
+        let reason = '';
+        for (const it of nextItems) {
+          if (it.keterangan && it.keterangan.includes('[ALASAN NOMOR LOMPAT')) {
+            const match = it.keterangan.match(/\[ALASAN NOMOR LOMPAT[^\]]*\]:\s*([^;]+)/);
+            if (match) {
+              reason = match[1].trim();
+              break;
+            }
+          }
+        }
+
+        issues.push({
+          type: 'SKIPPED',
+          mesin: grp.mesin,
+          kodePack: toPack,
+          fromPack,
+          toPack,
+          skippedCount,
+          skippedRange,
+          prevNum,
+          nextNum,
+          reason
+        });
+      }
     }
   }
 
-  return null;
+  return issues;
+});
+
+const detectedRecentIssue = computed(() => {
+  return detectedRecentIssues.value[0] || null;
 });
 
 const dismissCornerReminder = () => {
@@ -10045,13 +10288,13 @@ const dismissCornerReminder = () => {
 onMounted(() => {
   // Munculkan pertama kali setelah 3 detik jika terdeteksi isu
   setTimeout(() => {
-    if (detectedRecentIssue.value) {
+    if (detectedRecentIssues.value.length > 0) {
       showCornerReminder.value = true;
     }
   }, 3000);
 
   cornerReminderIntervalTimer = setInterval(() => {
-    if (detectedRecentIssue.value) {
+    if (detectedRecentIssues.value.length > 0) {
       showCornerReminder.value = true;
     }
   }, 5 * 60 * 1000);
