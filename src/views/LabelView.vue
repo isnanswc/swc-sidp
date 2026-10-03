@@ -4516,6 +4516,67 @@
         </div>
       </div>
     </teleport>
+
+    <!-- ══════ NOTIFIKASI KECIL DI SUDUT LAYAR: PERINGATAN KODEPACK LOMPAT/DOUBLE BERULANG (5 MENIT) ══════ -->
+    <teleport to="body">
+      <transition
+        enter-active-class="transform transition ease-out duration-300"
+        enter-from-class="translate-y-4 opacity-0 sm:translate-y-0 sm:translate-x-4"
+        enter-to-class="translate-y-0 opacity-100 sm:translate-x-0"
+        leave-active-class="transition ease-in duration-200"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showCornerReminder && detectedRecentIssue"
+          class="fixed bottom-4 right-4 z-[99990] max-w-sm w-full sm:w-96 bg-white rounded-2xl shadow-2xl border-2 p-3.5 space-y-2 animate-bounce-short text-zinc-900"
+          :class="detectedRecentIssue.type === 'DUPLICATE' ? 'border-red-500 shadow-red-500/20' : 'border-amber-500 shadow-amber-500/20'"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">{{ detectedRecentIssue.type === 'DUPLICATE' ? '🚨' : '⚠️' }}</span>
+              <h5 class="text-xs font-black uppercase tracking-tight" :class="detectedRecentIssue.type === 'DUPLICATE' ? 'text-red-700' : 'text-amber-800'">
+                {{ detectedRecentIssue.type === 'DUPLICATE' ? 'Terdeteksi Kode Pack Double!' : 'Terdeteksi Kode Pack Lompat!' }}
+              </h5>
+            </div>
+            <button
+              type="button"
+              @click="dismissCornerReminder"
+              class="text-zinc-400 hover:text-zinc-700 font-bold text-xs p-1 rounded-md hover:bg-zinc-100 cursor-pointer"
+              title="Tutup sementara (Akan diingatkan kembali dalam 5 menit)"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="text-[11px] leading-relaxed text-zinc-700 bg-zinc-50 p-2 rounded-xl border border-zinc-200">
+            <p v-if="detectedRecentIssue.type === 'DUPLICATE'">
+              Terdeteksi No Pack <strong>{{ detectedRecentIssue.kodePack }}</strong> ganda/double pada mesin <strong>{{ detectedRecentIssue.mesin }}</strong>.
+            </p>
+            <p v-else>
+              Terdeteksi lompatan nomor dari <strong>{{ detectedRecentIssue.fromPack }}</strong> ke <strong>{{ detectedRecentIssue.toPack }}</strong> pada mesin <strong>{{ detectedRecentIssue.mesin }}</strong>.
+            </p>
+            <p v-if="detectedRecentIssue.reason" class="text-zinc-500 italic mt-1 text-[10.5px]">
+              Alasan tercatat: "{{ detectedRecentIssue.reason }}"
+            </p>
+            <p class="font-bold text-red-700 mt-1">
+              Harap pastikan kembali fisik roll dan catatan buku laporan Anda.
+            </p>
+          </div>
+
+          <div class="flex items-center justify-between pt-1 text-[10px] text-zinc-400 font-medium">
+            <span>Diingatkan otomatis tiap 5 menit</span>
+            <button
+              type="button"
+              @click="dismissCornerReminder"
+              class="px-2.5 py-1 rounded-lg font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 transition-colors cursor-pointer"
+            >
+              Saya Mengerti (Tutup)
+            </button>
+          </div>
+        </div>
+      </transition>
+    </teleport>
   </div>
 </template>
 
@@ -9364,9 +9425,8 @@ const closeModal = () => {
     }
 
     closeSkipModal();
-    if (isSubmittingLabel.value) {
-      proceedSubmitLabel(true);
-    }
+    // Jalankan submit langsung dengan izin bypass validasi lompat
+    proceedSubmitLabel(true);
   };
 
   const applyExpectedKodePack = () => {
@@ -9914,6 +9974,98 @@ watch(() => form.jenis, () => {
 watch(() => form.kode, () => {
   syncFormulaConfigs();
   updateAutoFields();
+});
+
+// ── PERSISTENT CORNER REMINDER WIDGET: DETEKSI KODEPACK LOMPAT / DOUBLE (5 MENIT SEKALI) ──
+const showCornerReminder = ref(false);
+let cornerReminderIntervalTimer = null;
+
+// Pengecekan otomatis jika ada kode pack lompat atau double pada label terakhir (24 jam terakhir)
+const detectedRecentIssue = computed(() => {
+  const labels = labelStore.labels || [];
+  if (labels.length === 0) return null;
+
+  const nowMs = Date.now();
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+  // Urutkan label dari yang paling baru diinput (descending)
+  const recentLabels = [...labels]
+    .filter(l => {
+      if (l.status === 'HOLD' || l.status === 'REJECT') return false;
+      if (l.createdAt) {
+        const t = new Date(l.createdAt).getTime();
+        if (!isNaN(t) && (nowMs - t) <= ONE_DAY_MS) return true;
+      }
+      return true;
+    })
+    .sort((a, b) => (b.id || 0) - (a.id || 0));
+
+  // 1. Cek apakah ada record yang memiliki catatan alasan lompat / double
+  for (const l of recentLabels.slice(0, 30)) {
+    const ket = l.keterangan || '';
+    if (ket.includes('[ALASAN NOMOR LOMPAT') || ket.includes('[ALASAN NOMOR DOUBLE')) {
+      const match = ket.match(/\[ALASAN NOMOR (LOMPAT|DOUBLE) ([^\]]+)\]:\s*([^;]+)/);
+      const isDouble = ket.includes('DOUBLE');
+      return {
+        type: isDouble ? 'DUPLICATE' : 'SKIPPED',
+        kodePack: match ? match[2] : (l.kodePack || '') + (l.subKode || ''),
+        fromPack: (l.kodePack || '') + String(Math.max(1, (parseInt(l.subKode, 10) || 1) - 1)).padStart(4, '0'),
+        toPack: (l.kodePack || '') + (l.subKode || ''),
+        mesin: l.mesin || 'PRODUKSI',
+        reason: match ? match[3] : 'Tercatat di sistem'
+      };
+    }
+  }
+
+  // 2. Cek apakah ada nomor duplikat murni di daftar 24 jam terakhir
+  const seenMap = new Map();
+  for (const l of recentLabels.slice(0, 40)) {
+    const fullPack = (l.kodePack || '') + (l.subKode || '');
+    if (fullPack && l.subKode && l.subKode !== '0000' && l.subKode !== 'REJECT') {
+      if (seenMap.has(fullPack)) {
+        return {
+          type: 'DUPLICATE',
+          kodePack: fullPack,
+          mesin: l.mesin || 'PRODUKSI',
+          reason: 'Nomor kode pack tersimpan lebih dari 1 kali'
+        };
+      }
+      seenMap.set(fullPack, l);
+    }
+  }
+
+  return null;
+});
+
+const dismissCornerReminder = () => {
+  showCornerReminder.value = false;
+};
+
+// Pasang interval muncul otomatis setiap 5 menit (300.000 ms) jika terdeteksi ada issue
+onMounted(() => {
+  // Munculkan pertama kali setelah 3 detik jika terdeteksi isu
+  setTimeout(() => {
+    if (detectedRecentIssue.value) {
+      showCornerReminder.value = true;
+    }
+  }, 3000);
+
+  cornerReminderIntervalTimer = setInterval(() => {
+    if (detectedRecentIssue.value) {
+      showCornerReminder.value = true;
+    }
+  }, 5 * 60 * 1000);
+});
+
+onUnmounted(() => {
+  if (cornerReminderIntervalTimer) {
+    clearInterval(cornerReminderIntervalTimer);
+    cornerReminderIntervalTimer = null;
+  }
+  if (skipModalTimer) {
+    clearInterval(skipModalTimer);
+    skipModalTimer = null;
+  }
 });
 </script>
 
