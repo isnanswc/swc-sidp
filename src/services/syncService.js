@@ -2537,7 +2537,6 @@ export function startRealtimeSync(onDataChangeCallback) {
             await db.data_rolls.delete(existing.id);
           }
         }
-        debouncedPull(onDataChangeCallback, 'data_rolls');
       } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const item = mapDataRollFromSupabase(payload.new);
         const deletedRollSet = new Set(getTombstones('data_rolls'));
@@ -2607,6 +2606,9 @@ export function startRealtimeSync(onDataChangeCallback) {
       if (onDataChangeCallback) onDataChangeCallback('wip');
     })
     .on('broadcast', { event: 'inventory_broadcast' }, async (payload) => {
+      if (payload?.payload?.senderDeviceId === CLIENT_DEVICE_ID) {
+        return;
+      }
       console.log('⚡ [Realtime] Received Inventory broadcast from another device', payload);
       const upUuid = payload?.payload?.uploadUuid;
       const upId = payload?.payload?.uploadId;
@@ -2621,6 +2623,9 @@ export function startRealtimeSync(onDataChangeCallback) {
       if (onDataChangeCallback) onDataChangeCallback('inventory');
     })
     .on('broadcast', { event: 'spk_broadcast' }, async (payload) => {
+      if (payload?.payload?.senderDeviceId === CLIENT_DEVICE_ID) {
+        return;
+      }
       console.log('⚡ [Realtime] Received SPK broadcast from another device', payload);
       const bUuid = payload?.payload?.batchUuid;
       if (bUuid && typeof window !== 'undefined') {
@@ -2633,15 +2638,22 @@ export function startRealtimeSync(onDataChangeCallback) {
       }
       if (onDataChangeCallback) onDataChangeCallback('spk_plans');
     })
-    .on('broadcast', { event: 'labels_broadcast' }, async () => {
-      console.log('⚡ [Realtime] Received Labels broadcast from another device');
-      await pullFromSupabase(false);
+    .on('broadcast', { event: 'labels_broadcast' }, async (payload) => {
+      if (payload?.payload?.senderDeviceId === CLIENT_DEVICE_ID) {
+        return;
+      }
+      console.log('⚡ [Realtime] Received Labels broadcast from another device', payload);
+      // Perubahan baris label (INSERT/UPDATE/DELETE) sudah disinkronkan langsung via postgres_changes
+      // tanpa konsumsi kuota REST Egress. Cukup dispatch event agar UI me-refresh state Pinia.
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('sync:labels-updated'));
       }
       if (onDataChangeCallback) onDataChangeCallback('labels');
     })
-    .on('broadcast', { event: 'tasks_updated' }, async () => {
+    .on('broadcast', { event: 'tasks_updated' }, async (payload) => {
+      if (payload?.payload?.senderDeviceId === CLIENT_DEVICE_ID) {
+        return;
+      }
       console.log('⚡ [Realtime] Received Tasks broadcast from another device');
       await pullFromSupabase(false);
       if (typeof window !== 'undefined') {
@@ -2649,7 +2661,10 @@ export function startRealtimeSync(onDataChangeCallback) {
       }
       if (onDataChangeCallback) onDataChangeCallback('tasks');
     })
-    .on('broadcast', { event: 'clear_all_data_rolls' }, async () => {
+    .on('broadcast', { event: 'clear_all_data_rolls' }, async (payload) => {
+      if (payload?.payload?.senderDeviceId === CLIENT_DEVICE_ID) {
+        return;
+      }
       console.log('⚡ [Realtime] Menerima broadcast Hapus Semua Data Roll dari perangkat lain');
       if (db.data_rolls) {
         const all = await db.data_rolls.toArray();
