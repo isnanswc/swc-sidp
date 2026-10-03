@@ -2365,53 +2365,40 @@ function scheduleRealtimeReconnect(callback) {
   }, delay);
 }
 
-// ── SMART ACTIVITY TRACKER & ADAPTIVE POLLING (HEMAT EGRESS & QUOTA) ──────────
-const IDLE_THRESHOLD_MS = 60 * 1000;         // 1 menit tanpa pergerakan = masuk mode standby/idle
-const ACTIVE_POLL_INTERVAL_MS = 90 * 1000;   // Saat layar aktif: poller delta cadangan 1.5 menit
-const IDLE_POLL_INTERVAL_MS = 15 * 60 * 1000;// Saat layar idle: sincronisasi 15 menit sekali
+// ── ASYMMETRIC LOW-EGRESS SYNC STRATEGY (DOWNLOAD 1 JAM SEKALI, UPLOAD CEPAT & AMAN) ──
+// Supabase membatasi ketat kuota download (Egress maks 5GB/bulan), namun UPLOAD (Ingress) gratis & tidak dibatasi.
+// Oleh karena itu:
+// 1. Download / Pull data dari cloud: dijalankan 1 jam sekali (atau saat refresh / klik manual), dan pause total saat tab background.
+// 2. Upload / Push data lokal ke cloud: dijalankan setiap 2 menit sekali + setiap kali user klik submit label baru.
+const PULL_DOWNLOAD_INTERVAL_MS = 60 * 60 * 1000; // Download data dari cloud: 1 JAM SEKALI (Hemat Egress 98%)
+const AUTO_PUSH_INTERVAL_MS = 2 * 60 * 1000;       // Upload perubahan lokal ke cloud: 2 MENIT SEKALI (Cepat & Aman)
 
-let lastUserActivityTime = Date.now();
-let isCurrentlyUserIdle = false;
 let pollerTimeoutId = null;
+let autoPushIntervalId = null;
 
-function recordUserActivity() {
-  const wasIdle = isCurrentlyUserIdle;
-  lastUserActivityTime = Date.now();
-  isCurrentlyUserIdle = false;
-
-  // Jika baru bangun dari kondisi idle (> 1 menit), jalankan 1x sinkronisasi segar
-  if (wasIdle) {
-    console.log('⚡ [ActivityTracker] User aktif kembali setelah idle. Menjadwalkan sinkronisasi segar...');
+// Background Auto-Push: Menjamin data lokal operator selalu ter-upload ke Supabase setiap 2 menit
+function startBackgroundAutoPush() {
+  if (autoPushIntervalId) return;
+  autoPushIntervalId = setInterval(async () => {
     if (navigator.onLine && !syncState.isSyncing) {
-      pullFromSupabase(false).catch(() => {});
+      try {
+        await pushLocalToSupabase();
+        await countUnsynced();
+      } catch (e) {
+        console.warn('[AutoPush] Notice:', e.message || e);
+      }
     }
-    scheduleNextPoll(ACTIVE_POLL_INTERVAL_MS);
-  }
+  }, AUTO_PUSH_INTERVAL_MS);
 }
 
-// Pasang event listener deteksi gerakan kursor, sentuhan, scroll, atau ketikan keyboard
+// Pasang event listener deteksi fokus dan status online
 if (typeof window !== 'undefined') {
-  const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'pointerdown'];
-  let throttleTimer = null;
-  const onActivityEvent = () => {
-    if (throttleTimer) return;
-    throttleTimer = setTimeout(() => {
-      throttleTimer = null;
-      recordUserActivity();
-    }, 1000);
-  };
-
-  activityEvents.forEach(evt => {
-    window.addEventListener(evt, onActivityEvent, { passive: true });
-  });
-
-  // Listener tab visibility (jika tab diminimalkan/berpindah tab)
+  // Listener tab visibility (jika tab dibuka kembali, jalankan auto-push dan cek koneksi)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      recordUserActivity();
-    } else {
-      isCurrentlyUserIdle = true;
-      scheduleNextPoll(IDLE_POLL_INTERVAL_MS);
+      if (navigator.onLine) {
+        pushLocalToSupabase().catch(() => {});
+      }
     }
   });
 
@@ -2419,47 +2406,46 @@ if (typeof window !== 'undefined') {
     if (!syncState.realtimeConnected) {
       scheduleRealtimeReconnect();
     }
-    recordUserActivity();
+    pushLocalToSupabase().catch(() => {});
   });
 
   window.addEventListener('focus', () => {
     if (!syncState.realtimeConnected) {
       scheduleRealtimeReconnect();
     }
-    recordUserActivity();
   });
 }
 
-function scheduleNextPoll(delayMs) {
+function scheduleNextDownloadPoll(delayMs) {
   if (pollerTimeoutId) clearTimeout(pollerTimeoutId);
   pollerTimeoutId = setTimeout(async () => {
     pollerTimeoutId = null;
-    const now = Date.now();
-    const timeSinceLastActivity = now - lastUserActivityTime;
     const isDocHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
 
-    // Cek apakah masuk kondisi idle (tidak ada pergerakan kursor/keypad > 1 menit atau tab disembunyikan)
-    if (timeSinceLastActivity >= IDLE_THRESHOLD_MS || isDocHidden) {
-      isCurrentlyUserIdle = true;
+    // Jika tab sedang disembunyikan/minimize, tunda download agar tidak buang egress sia-sia
+    if (isDocHidden) {
+      scheduleNextDownloadPoll(10 * 60 * 1000); // Cek ulang 10 menit lagi
+      return;
     }
 
     if (navigator.onLine && !syncState.isSyncing) {
       try {
+        console.log('📥 [LowEgress] Menjalankan download delta berkala (1 jam sekali)...');
         await pullFromSupabase(false);
       } catch (e) {
-        console.warn('[AdaptivePoller] Delta sync error:', e);
+        console.warn('[LowEgressPoller] Delta download notice:', e);
       }
     }
 
-    // Tentukan interval berikutnya: 15 menit jika idle, atau 90 detik jika user masih aktif
-    const nextDelay = isCurrentlyUserIdle ? IDLE_POLL_INTERVAL_MS : ACTIVE_POLL_INTERVAL_MS;
-    scheduleNextPoll(nextDelay);
+    scheduleNextDownloadPoll(PULL_DOWNLOAD_INTERVAL_MS);
   }, delayMs);
 }
 
 function startBackgroundSyncPoller() {
+  startBackgroundAutoPush();
   if (pollerTimeoutId) return;
-  scheduleNextPoll(ACTIVE_POLL_INTERVAL_MS);
+  // Saat web pertama kali dibuka, berikan jeda 3 menit sebelum jadwal download berkala 1 jam dimulai
+  scheduleNextDownloadPoll(PULL_DOWNLOAD_INTERVAL_MS);
 }
 
 export function startRealtimeSync(onDataChangeCallback) {
