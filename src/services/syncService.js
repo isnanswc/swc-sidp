@@ -533,17 +533,87 @@ export async function pushWipRegistryToSupabase(preferredActiveUuid = null) {
   }
 }
 
-// 1. PUSH: Kirim data lokal yang belum tersinkron ke Supabase (PARALLEL & BULK)
-export async function pushLocalToSupabase() {
+// ── DIRTY TABLES TRACKING: HANYA PUSH TABEL YANG BENAR-BENAR DIUBAH LOKAL ──
+// Mencegah penulisan berulang (Blind Upsert) 16 tabel setiap 2 menit yang memboroskan kuota Log Ingestion Supabase
+const DIRTY_TABLES_KEY = 'mlabel_dirty_sync_tables';
+
+export function getDirtyTables() {
+  try {
+    const raw = localStorage.getItem(DIRTY_TABLES_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+export function saveDirtyTables(set) {
+  try {
+    localStorage.setItem(DIRTY_TABLES_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
+
+export function markTableDirty(table) {
+  if (!table) return;
+  const s = getDirtyTables();
+  s.add(table);
+  saveDirtyTables(s);
+}
+
+export function isTableDirty(table) {
+  if (!table) return false;
+  const s = getDirtyTables();
+  return s.has(table);
+}
+
+export function clearTableDirty(table) {
+  if (!table) return;
+  const s = getDirtyTables();
+  s.delete(table);
+  saveDirtyTables(s);
+}
+
+// 1. PUSH: Kirim data lokal yang belum tersinkron ke Supabase (SMART & DIRTY CHECKED)
+export async function pushLocalToSupabase(tableOrForceAll = false) {
   if (!navigator.onLine) return;
+
+  if (typeof tableOrForceAll === 'string') {
+    markTableDirty(tableOrForceAll);
+  }
+  const forceAll = tableOrForceAll === true;
+
+  // FAST CHECK: Periksa apakah ada antrean data lokal yang perlu di-push
+  const dirtySet = getDirtyTables();
+  let hasLabelsToPush = false;
+  let hasRollsToPush = false;
+  let hasWipsToPush = false;
+
+  try {
+    if (db.labels) {
+      hasLabelsToPush = (await db.labels.filter(l => l.synced === 0 || !l.synced).count()) > 0;
+    }
+    if (db.data_rolls) {
+      hasRollsToPush = (await db.data_rolls.filter(r => (r.synced === 0 || !r.synced) && !isTombstoned('data_rolls', r.uuid)).count()) > 0;
+    }
+    if (db.wip_rolls) {
+      hasWipsToPush = (await db.wip_rolls.filter(w => (w.synced === 0 || !w.synced) && !isTombstoned('wip_rolls', w.uuid)).count()) > 0;
+    }
+  } catch (eCheck) {
+    // Fallback jika query filter gagal
+  }
+
+  // JIKA 100% IDLE: Tidak ada label/roll/wip baru dan tidak ada config kotor -> BATALKAN PUSH! (0 Request = 0 Log Ingestion)
+  if (!forceAll && !hasLabelsToPush && !hasRollsToPush && !hasWipsToPush && dirtySet.size === 0) {
+    return;
+  }
+
   syncState.isSyncing = true;
   syncState.lastError = null;
 
   try {
     const tasks = [];
 
-    // 1a. Labels Sync (Hanya yang belum synced)
-    if (db.labels) {
+    // 1a. Labels Sync (Hanya jika ada label baru / belum synced)
+    if (db.labels && (forceAll || hasLabelsToPush)) {
       tasks.push((async () => {
         const unsyncedLabels = await db.labels.filter(l => l.synced === 0 || !l.synced).toArray();
         if (unsyncedLabels.length > 0) {
@@ -558,8 +628,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1b. SPK Batches Sync
-    if (db.spk_batches) {
+    // 1b. SPK Batches Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.spk_batches && (forceAll || dirtySet.has('spk_batches'))) {
       tasks.push((async () => {
         const allBatches = await db.spk_batches.toArray();
         if (allBatches.length > 0) {
@@ -576,23 +646,25 @@ export async function pushLocalToSupabase() {
             updated_at: b.updatedAt || new Date().toISOString()
           }));
           await supabase.from('spk_batches').upsert(payload, { onConflict: 'uuid' });
+          clearTableDirty('spk_batches');
         }
       })());
     }
 
-    // 1c. SPK Plans Sync
-    if (db.spk_plans) {
+    // 1c. SPK Plans Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.spk_plans && (forceAll || dirtySet.has('spk_plans'))) {
       tasks.push((async () => {
         const allPlans = await db.spk_plans.toArray();
         if (allPlans.length > 0) {
           const payload = allPlans.map(mapSpkPlanToSupabase);
           await supabase.from('spk_plans').upsert(payload, { onConflict: 'uuid' });
+          clearTableDirty('spk_plans');
         }
       })());
     }
 
-    // 1c-2. Data Rolls Sync (Chunked Bulk Upsert for Thousands of Rolls)
-    if (db.data_rolls) {
+    // 1c-2. Data Rolls Sync (Hanya jika ada roll baru / diedit)
+    if (db.data_rolls && (forceAll || hasRollsToPush)) {
       tasks.push((async () => {
         const deletedRollSet = new Set(getTombstones('data_rolls'));
         const allRolls = await db.data_rolls.toArray();
@@ -605,7 +677,6 @@ export async function pushLocalToSupabase() {
         }
 
         // 2. HANYA push roll yang BELUM tersinkron (synced === 0 atau !r.synced) dan BUKAN tombstone!
-        // Hal ini sangat penting agar Device B tidak mengunggah kembali data yang sudah dihapus di cloud!
         const unsyncedRolls = allRolls.filter(r => (r.synced === 0 || !r.synced) && (!r.uuid || !deletedRollSet.has(r.uuid)));
         if (unsyncedRolls.length > 0) {
           const CHUNK = 500;
@@ -624,8 +695,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1d. Operator List Sync
-    if (db.operator_list) {
+    // 1d. Operator List Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.operator_list && (forceAll || dirtySet.has('operator_list'))) {
       tasks.push((async () => {
         try {
           const tombstones = new Set(getTombstones('operator_list').map(t => String(t).toUpperCase()));
@@ -652,6 +723,7 @@ export async function pushLocalToSupabase() {
             }));
 
             await supabase.from('operator_list').upsert(payload, { onConflict: 'nama' });
+            clearTableDirty('operator_list');
           }
         } catch (e) {
           console.warn('operator_list push error:', e);
@@ -659,8 +731,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1d-2. Mesin List Sync
-    if (db.mesin_list) {
+    // 1d-2. Mesin List Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.mesin_list && (forceAll || dirtySet.has('mesin_list'))) {
       tasks.push((async () => {
         try {
           const machines = await db.mesin_list.toArray();
@@ -672,6 +744,7 @@ export async function pushLocalToSupabase() {
               created_at: m.createdAt || new Date().toISOString()
             }));
             await supabase.from('mesin_list').upsert(payload, { onConflict: 'nama' });
+            clearTableDirty('mesin_list');
           }
         } catch (e) {
           console.warn('mesin_list push error:', e);
@@ -679,8 +752,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1e. Film Configs Sync
-    if (db.film_configs) {
+    // 1e. Film Configs Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.film_configs && (forceAll || dirtySet.has('film_configs'))) {
       tasks.push((async () => {
         try {
           const films = await db.film_configs.toArray();
@@ -700,6 +773,7 @@ export async function pushLocalToSupabase() {
               updated_at: f.updatedAt || new Date().toISOString()
             }));
             await supabase.from('film_configs').upsert(payload, { onConflict: 'jenis,kode_formula' });
+            clearTableDirty('film_configs');
           }
         } catch (e) {
           console.warn('film_configs push error:', e);
@@ -707,8 +781,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1f. Resin Items Sync
-    if (db.resin_items) {
+    // 1f. Resin Items Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.resin_items && (forceAll || dirtySet.has('resin_items'))) {
       tasks.push((async () => {
         try {
           const resins = await db.resin_items.toArray();
@@ -722,6 +796,7 @@ export async function pushLocalToSupabase() {
               updated_at: r.updatedAt || new Date().toISOString()
             }));
             await supabase.from('resin_items').upsert(payload, { onConflict: 'resin' });
+            clearTableDirty('resin_items');
           }
         } catch (e) {
           console.warn('resin_items push error:', e);
@@ -729,8 +804,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1g. BOM Formulas Sync
-    if (db.bom_formulas) {
+    // 1g. BOM Formulas Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.bom_formulas && (forceAll || dirtySet.has('bom_formulas'))) {
       tasks.push((async () => {
         try {
           const boms = await db.bom_formulas.toArray();
@@ -744,6 +819,7 @@ export async function pushLocalToSupabase() {
               updated_at: b.updatedAt || new Date().toISOString()
             }));
             await supabase.from('bom_formulas').upsert(payload, { onConflict: 'formula,rm' });
+            clearTableDirty('bom_formulas');
           }
         } catch (e) {
           console.warn('bom_formulas push error:', e);
@@ -751,8 +827,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1h. Location List Sync
-    if (db.location_list) {
+    // 1h. Location List Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.location_list && (forceAll || dirtySet.has('location_list'))) {
       tasks.push((async () => {
         try {
           const locs = await db.location_list.toArray();
@@ -769,7 +845,6 @@ export async function pushLocalToSupabase() {
             }));
             const { error } = await supabase.from('location_list').upsert(payload, { onConflict: 'nama' });
             if (error) {
-              console.warn('location_list upsert notice, trying missing insert:', error.message);
               const { data: existing } = await supabase.from('location_list').select('nama');
               const existingSet = new Set((existing || []).map(e => (e.nama || '').trim().toUpperCase()));
               const missing = payload.filter(p => !existingSet.has((p.nama || '').trim().toUpperCase()));
@@ -777,6 +852,7 @@ export async function pushLocalToSupabase() {
                 await supabase.from('location_list').insert(missing);
               }
             }
+            clearTableDirty('location_list');
           }
         } catch (e) {
           console.warn('location_list push error:', e);
@@ -784,8 +860,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1i. Standard Lengths Sync
-    if (db.standard_lengths) {
+    // 1i. Standard Lengths Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.standard_lengths && (forceAll || dirtySet.has('standard_lengths'))) {
       tasks.push((async () => {
         const lens = await db.standard_lengths.toArray();
         if (lens.length > 0) {
@@ -798,12 +874,13 @@ export async function pushLocalToSupabase() {
             updated_at: s.updatedAt || new Date().toISOString()
           }));
           await supabase.from('standard_lengths').upsert(payload, { onConflict: 'thickness' });
+          clearTableDirty('standard_lengths');
         }
       })());
     }
 
-    // 1j. Settings Sync (EmailJS Configuration & App Settings)
-    if (db.settings) {
+    // 1j. Settings Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.settings && (forceAll || dirtySet.has('settings'))) {
       tasks.push((async () => {
         try {
           const allSettings = await db.settings.toArray();
@@ -814,6 +891,7 @@ export async function pushLocalToSupabase() {
               updated_at: st.updatedAt || new Date().toISOString()
             }));
             await supabase.from('settings').upsert(payload, { onConflict: 'key' });
+            clearTableDirty('settings');
           }
         } catch (setErr) {
           console.warn('[SyncPush] Settings sync notice:', setErr.message || setErr);
@@ -821,8 +899,8 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1k. System Users Registry Sync (Multi-Device User Accounts)
-    if (db.users) {
+    // 1k. System Users Registry Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.users && (forceAll || dirtySet.has('users'))) {
       tasks.push((async () => {
         try {
           const allUsers = await db.users.toArray();
@@ -833,6 +911,7 @@ export async function pushLocalToSupabase() {
               updated_at: new Date().toISOString()
             };
             await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+            clearTableDirty('users');
           }
         } catch (usrPushErr) {
           console.warn('[SyncPush] Users registry notice:', usrPushErr.message || usrPushErr);
@@ -840,40 +919,43 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1l. WIP Rolls & WIP Updates Sync (IMS Module)
-    if (db.wip_rolls) {
+    // 1l. WIP Rolls & WIP Updates Sync (Hanya jika ada WIP baru atau batch diubah)
+    if ((db.wip_rolls || db.wip_updates) && (forceAll || hasWipsToPush || dirtySet.has('wip_updates'))) {
       tasks.push((async () => {
         try {
-          const deletedWipSet = new Set(getTombstones('wip_rolls'));
-          const allWips = await db.wip_rolls.toArray();
-          
-          // Bersihkan tombstone lokal
-          const zombieWips = allWips.filter(w => w.uuid && deletedWipSet.has(w.uuid));
-          if (zombieWips.length > 0) {
-            await db.wip_rolls.bulkDelete(zombieWips.map(z => z.id));
-          }
-
-          // Push rolls yang belum disinkron
-          const unsyncedWips = allWips.filter(w => (w.synced === 0 || !w.synced) && (!w.uuid || !deletedWipSet.has(w.uuid)));
-          if (unsyncedWips.length > 0) {
-            const CHUNK = 250;
-            for (let i = 0; i < unsyncedWips.length; i += CHUNK) {
-              const chunk = unsyncedWips.slice(i, i + CHUNK);
-              const payload = chunk.map(mapWipRollToSupabase);
-              const { error } = await supabase.from('wip_rolls').upsert(payload, { onConflict: 'uuid' });
-              if (error) {
-                console.warn('[SyncPush] WIP rolls chunk error:', error.message);
-                break;
-              }
+          if (db.wip_rolls && (forceAll || hasWipsToPush)) {
+            const deletedWipSet = new Set(getTombstones('wip_rolls'));
+            const allWips = await db.wip_rolls.toArray();
+            
+            // Bersihkan tombstone lokal
+            const zombieWips = allWips.filter(w => w.uuid && deletedWipSet.has(w.uuid));
+            if (zombieWips.length > 0) {
+              await db.wip_rolls.bulkDelete(zombieWips.map(z => z.id));
             }
-            for (const w of unsyncedWips) {
-              await db.wip_rolls.update(w.id, { synced: 1 });
+
+            // Push rolls yang belum disinkron
+            const unsyncedWips = allWips.filter(w => (w.synced === 0 || !w.synced) && (!w.uuid || !deletedWipSet.has(w.uuid)));
+            if (unsyncedWips.length > 0) {
+              const CHUNK = 250;
+              for (let i = 0; i < unsyncedWips.length; i += CHUNK) {
+                const chunk = unsyncedWips.slice(i, i + CHUNK);
+                const payload = chunk.map(mapWipRollToSupabase);
+                const { error } = await supabase.from('wip_rolls').upsert(payload, { onConflict: 'uuid' });
+                if (error) {
+                  console.warn('[SyncPush] WIP rolls chunk error:', error.message);
+                  break;
+                }
+              }
+              for (const w of unsyncedWips) {
+                await db.wip_rolls.update(w.id, { synced: 1 });
+              }
             }
           }
 
           // Sinkronkan registry batch upload WIP (wip_updates)
-          if (db.wip_updates) {
+          if (db.wip_updates && (forceAll || dirtySet.has('wip_updates'))) {
             await pushWipRegistryToSupabase();
+            clearTableDirty('wip_updates');
           }
         } catch (wipPushErr) {
           console.warn('[SyncPush] WIP sync error:', wipPushErr.message || wipPushErr);
@@ -881,11 +963,10 @@ export async function pushLocalToSupabase() {
       })());
     }
 
-    // 1m. Inventory FG Stock Sync (IMS Module)
-    if (db.inventory_stock_uploads) {
+    // 1m. Inventory FG Stock Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.inventory_stock_uploads && (forceAll || dirtySet.has('inventory'))) {
       tasks.push((async () => {
         try {
-          // Push master items jika ada
           if (db.inventory_items) {
             const items = await db.inventory_items.toArray();
             if (items.length > 0) {
@@ -898,7 +979,6 @@ export async function pushLocalToSupabase() {
             }
           }
 
-          // Push stock uploads & current stock snapshot
           const uploads = await db.inventory_stock_uploads.toArray();
           const currentStocks = db.inventory_current_stocks ? await db.inventory_current_stocks.toArray() : [];
           if (uploads.length > 0 || currentStocks.length > 0) {
@@ -925,14 +1005,15 @@ export async function pushLocalToSupabase() {
             };
             await supabase.from('settings').upsert([payload], { onConflict: 'key' });
           }
+          clearTableDirty('inventory');
         } catch (invPushErr) {
           console.warn('[SyncPush] Inventory sync error:', invPushErr.message || invPushErr);
         }
       })());
     }
 
-    // 1n. Data Roll Uploads History Sync
-    if (db.data_roll_uploads) {
+    // 1n. Data Roll Uploads History Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.data_roll_uploads && (forceAll || dirtySet.has('data_roll_uploads'))) {
       tasks.push((async () => {
         try {
           const uploads = await db.data_roll_uploads.toArray();
@@ -961,7 +1042,6 @@ export async function pushLocalToSupabase() {
             };
             await supabase.from('settings').upsert([payload], { onConflict: 'key' });
 
-            // Try upserting to data_roll_uploads table if available in Supabase
             try {
               const tablePayload = uploads.map(u => ({
                 uuid: u.uuid || `dru_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -982,18 +1062,17 @@ export async function pushLocalToSupabase() {
                 updated_at: u.updatedAt || new Date().toISOString()
               }));
               await supabase.from('data_roll_uploads').upsert(tablePayload, { onConflict: 'uuid' });
-            } catch (tErr) {
-              // Ignore if dedicated table doesn't exist
-            }
+            } catch (tErr) {}
           }
+          clearTableDirty('data_roll_uploads');
         } catch (druErr) {
           console.warn('[SyncPush] Data roll uploads sync error:', druErr.message || druErr);
         }
       })());
     }
 
-    // 1o. Tasks Management Registry Sync
-    if (db.tasks) {
+    // 1o. Tasks Management Registry Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.tasks && (forceAll || dirtySet.has('tasks'))) {
       tasks.push((async () => {
         try {
           const allTasks = await db.tasks.toArray();
@@ -1018,14 +1097,17 @@ export async function pushLocalToSupabase() {
             };
             await supabase.from('settings').upsert([payload], { onConflict: 'key' });
           }
+          clearTableDirty('tasks');
         } catch (taskErr) {
           console.warn('[SyncPush] Tasks sync notice:', taskErr.message || taskErr);
         }
       })());
     }
 
-    // Jalankan seluruh sync push secara PARALEL
-    await Promise.all(tasks);
+    // Jalankan sync push aktif secara PARALEL
+    if (tasks.length > 0) {
+      await Promise.all(tasks);
+    }
     await countUnsynced();
   } catch (err) {
     console.error('Error pushing to Supabase:', err);
@@ -2369,14 +2451,14 @@ function scheduleRealtimeReconnect(callback) {
 // Supabase membatasi ketat kuota download (Egress maks 5GB/bulan), namun UPLOAD (Ingress) gratis & tidak dibatasi.
 // Oleh karena itu:
 // 1. Download / Pull data dari cloud: dijalankan 1 jam sekali (atau saat refresh / klik manual), dan pause total saat tab background.
-// 2. Upload / Push data lokal ke cloud: dijalankan setiap 2 menit sekali + setiap kali user klik submit label baru.
+// 2. Upload / Push data lokal ke cloud: dijalankan setiap 5 menit sekali + instan saat user submit label / edit config.
 const PULL_DOWNLOAD_INTERVAL_MS = 60 * 60 * 1000; // Download data dari cloud: 1 JAM SEKALI (Hemat Egress 98%)
-const AUTO_PUSH_INTERVAL_MS = 2 * 60 * 1000;       // Upload perubahan lokal ke cloud: 2 MENIT SEKALI (Cepat & Aman)
+const AUTO_PUSH_INTERVAL_MS = 5 * 60 * 1000;       // Upload perubahan lokal ke cloud: 5 MENIT SEKALI (Hemat Log Ingestion)
 
 let pollerTimeoutId = null;
 let autoPushIntervalId = null;
 
-// Background Auto-Push: Menjamin data lokal operator selalu ter-upload ke Supabase setiap 2 menit
+// Background Auto-Push: Menjamin data lokal operator selalu ter-upload ke Supabase setiap 5 menit
 function startBackgroundAutoPush() {
   if (autoPushIntervalId) return;
   autoPushIntervalId = setInterval(async () => {
@@ -2680,49 +2762,27 @@ export function startRealtimeSync(onDataChangeCallback) {
       }
       if (onDataChangeCallback) onDataChangeCallback('data_rolls');
     })
-    // 7. Master Config Tables
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'film_configs' }, () => {
-      debouncedPull(onDataChangeCallback, 'film_configs');
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'resin_items' }, () => {
-      debouncedPull(onDataChangeCallback, 'resin_items');
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'bom_formulas' }, () => {
-      debouncedPull(onDataChangeCallback, 'bom_formulas');
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'operator_list' }, () => {
-      debouncedPull(onDataChangeCallback, 'operator_list');
+    // 7. Master Config Sync (Menggunakan Realtime Broadcast agar 0 database log & tidak memicu SELECT berulang antar device)
+    .on('broadcast', { event: 'config_broadcast' }, (payload) => {
+      if (payload?.payload?.senderDeviceId === CLIENT_DEVICE_ID) {
+        return;
+      }
+      console.log('⚡ [Realtime] Received config broadcast from another device:', payload?.payload);
+      const targetTable = payload?.payload?.table;
+      debouncedPull(onDataChangeCallback, targetTable || 'config');
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
       const key = payload?.new?.key || payload?.old?.key;
-      console.log('⚡ Realtime settings event received for key:', key);
-      if (key === 'operator_tenure_registry') {
-        debouncedPull(onDataChangeCallback, 'operator_list');
-      } else if (key === 'ims_wip_updates_registry' || key === 'ims_wip_active_batch_uuid') {
-        debouncedPull(onDataChangeCallback, 'wip');
-      } else if (key === 'ims_inventory_stocks_registry' || key === 'ims_inventory_master_items') {
-        debouncedPull(onDataChangeCallback, 'inventory');
+      // Hanya tangani event kritis (misal reset/wipe total atau acuan SPK)
+      if (key === 'master_config_wiped_at' || key === 'data_rolls_wiped_at' || key === 'labels_wiped_at') {
+        debouncedPull(onDataChangeCallback, 'settings_wipe');
       } else if (key === 'spk_active_reference_batch_uuid') {
         const newBatchUuid = payload?.new?.value;
         if (newBatchUuid && typeof window !== 'undefined') {
           localStorage.setItem('spk_active_reference_batch_uuid', newBatchUuid);
           window.dispatchEvent(new CustomEvent('sync:spk-reference-updated', { detail: { batchUuid: newBatchUuid } }));
         }
-        debouncedPull(onDataChangeCallback, 'spk_reference');
-      } else if (key === 'system_users_registry') {
-        debouncedPull(onDataChangeCallback, 'users');
-      } else if (key === 'data_roll_uploads_registry') {
-        debouncedPull(onDataChangeCallback, 'data_roll_uploads');
       }
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'mesin_list' }, () => {
-      debouncedPull(onDataChangeCallback, 'mesin_list');
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'location_list' }, () => {
-      debouncedPull(onDataChangeCallback, 'location_list');
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'standard_lengths' }, () => {
-      debouncedPull(onDataChangeCallback, 'standard_lengths');
     })
     .subscribe((status, err) => {
       if (status === 'SUBSCRIBED') {

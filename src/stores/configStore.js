@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { db, getSetting, saveSetting } from '@/db';
-import { pushLocalToSupabase, deleteFromSupabase, recordTombstones, removeTombstones, getTombstones } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase, recordTombstones, removeTombstones, getTombstones, markTableDirty, broadcastRealtimeEvent } from '@/services/syncService';
 
 // ── DEFAULT SEED DATA ──────────────────────────────────────────────────────────
 
@@ -744,7 +744,9 @@ export const useConfigStore = defineStore('configStore', {
       this.jenisBahanList = jbl;
       this.kategoriFilmList = kfl;
       this.tipeBahanList = tbl;
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('film_configs');
+      pushLocalToSupabase('film_configs').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'film_configs' });
     },
 
     async updateFilmConfig(id, changes) {
@@ -779,7 +781,9 @@ export const useConfigStore = defineStore('configStore', {
       this.jenisBahanList = jbl;
       this.kategoriFilmList = kfl;
       this.tipeBahanList = tbl;
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('film_configs');
+      pushLocalToSupabase('film_configs').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'film_configs' });
     },
 
     async deleteFilmConfig(id) {
@@ -788,6 +792,7 @@ export const useConfigStore = defineStore('configStore', {
       this.filmConfigs = this.filmConfigs.filter(f => f.id !== id);
       if (item) {
         deleteFromSupabase('film_configs', 'kode_formula', item.kodeFormula).catch(() => {});
+        broadcastRealtimeEvent('config_broadcast', { table: 'film_configs' });
       }
     },
 
@@ -837,7 +842,10 @@ export const useConfigStore = defineStore('configStore', {
       }
 
       await this.saveTenureRegistryToCloud();
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('operator_list');
+      markTableDirty('settings');
+      pushLocalToSupabase('operator_list').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'operator_list' });
     },
 
     async saveTenureRegistryToCloud() {
@@ -935,7 +943,10 @@ export const useConfigStore = defineStore('configStore', {
       }
 
       await this.saveTenureRegistryToCloud();
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('operator_list');
+      markTableDirty('settings');
+      pushLocalToSupabase('operator_list').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'operator_list' });
     },
 
     /**
@@ -1027,6 +1038,7 @@ export const useConfigStore = defineStore('configStore', {
         } catch (e) {}
       }
       await this.saveTenureRegistryToCloud();
+      broadcastRealtimeEvent('config_broadcast', { table: 'operator_list' });
     },
 
     /**
@@ -1062,7 +1074,9 @@ export const useConfigStore = defineStore('configStore', {
       };
       const id = await db.mesin_list.add(newMesin);
       this.mesinList.push({ ...newMesin, id });
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('mesin_list');
+      pushLocalToSupabase('mesin_list').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'mesin_list' });
     },
 
     async updateMesin(id, changes) {
@@ -1089,7 +1103,9 @@ export const useConfigStore = defineStore('configStore', {
         } catch (e) {}
       }
 
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('mesin_list');
+      pushLocalToSupabase('mesin_list').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'mesin_list' });
     },
 
     async deleteMesin(id) {
@@ -1109,6 +1125,7 @@ export const useConfigStore = defineStore('configStore', {
           }
         } catch (e) {}
       }
+      broadcastRealtimeEvent('config_broadcast', { table: 'mesin_list' });
     },
 
     // ── LABEL SIGNS CRUD ──────────────────────────────────────────────────────
@@ -1154,7 +1171,9 @@ export const useConfigStore = defineStore('configStore', {
       };
       const id = await db.location_list.add(newLoc);
       this.locationList.push({ ...newLoc, id });
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('location_list');
+      pushLocalToSupabase('location_list').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'location_list' });
     },
 
     async updateLocation(id, changes) {
@@ -1171,7 +1190,9 @@ export const useConfigStore = defineStore('configStore', {
       await db.location_list.update(id, updated);
       const idx = this.locationList.findIndex(l => l.id === id);
       if (idx !== -1) Object.assign(this.locationList[idx], updated);
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('location_list');
+      pushLocalToSupabase('location_list').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'location_list' });
     },
 
     async deleteLocation(id) {
@@ -1180,6 +1201,7 @@ export const useConfigStore = defineStore('configStore', {
       this.locationList = this.locationList.filter(l => l.id !== id);
       if (item) {
         deleteFromSupabase('location_list', 'nama', item.nama).catch(() => {});
+        broadcastRealtimeEvent('config_broadcast', { table: 'location_list' });
       }
     },
 
@@ -1313,7 +1335,9 @@ export const useConfigStore = defineStore('configStore', {
       const id = await db.standard_lengths.add(item);
       this.standardLengthList.push({ id, ...item });
       this.standardLengthList.sort((a, b) => parseFloat(a.thickness) - parseFloat(b.thickness));
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('standard_lengths');
+      pushLocalToSupabase('standard_lengths').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'standard_lengths' });
     },
 
     async updateStandardLength(id, changes) {
@@ -1331,7 +1355,9 @@ export const useConfigStore = defineStore('configStore', {
         Object.assign(this.standardLengthList[idx], payload);
         this.standardLengthList.sort((a, b) => parseFloat(a.thickness) - parseFloat(b.thickness));
       }
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('standard_lengths');
+      pushLocalToSupabase('standard_lengths').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'standard_lengths' });
     },
 
     async deleteStandardLength(id) {
@@ -1340,6 +1366,7 @@ export const useConfigStore = defineStore('configStore', {
       this.standardLengthList = this.standardLengthList.filter(i => i.id !== id);
       if (item) {
         deleteFromSupabase('standard_lengths', 'thickness', item.thickness).catch(() => {});
+        broadcastRealtimeEvent('config_broadcast', { table: 'standard_lengths' });
       }
     },
 
@@ -1357,7 +1384,9 @@ export const useConfigStore = defineStore('configStore', {
       const id = await db.resin_items.add(item);
       this.resinItemList.push({ id, ...item });
       this.resinItemList.sort((a, b) => (a.resin || '').localeCompare(b.resin || ''));
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('resin_items');
+      pushLocalToSupabase('resin_items').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'resin_items' });
     },
 
     async updateResinItem(id, changes) {
@@ -1378,7 +1407,9 @@ export const useConfigStore = defineStore('configStore', {
         Object.assign(this.resinItemList[idx], payload);
         this.resinItemList.sort((a, b) => (a.resin || '').localeCompare(b.resin || ''));
       }
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('resin_items');
+      pushLocalToSupabase('resin_items').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'resin_items' });
     },
 
     async deleteResinItem(id) {
@@ -1387,6 +1418,7 @@ export const useConfigStore = defineStore('configStore', {
       this.resinItemList = this.resinItemList.filter(i => i.id !== id);
       if (item) {
         deleteFromSupabase('resin_items', 'resin', item.resin).catch(() => {});
+        broadcastRealtimeEvent('config_broadcast', { table: 'resin_items' });
       }
     },
 
@@ -1404,7 +1436,9 @@ export const useConfigStore = defineStore('configStore', {
       const id = await db.bom_formulas.add(item);
       this.bomFormulaList.push({ id, ...item });
       this.bomFormulaList.sort((a, b) => (a.formula || '').localeCompare(b.formula || '') || (b.persen || 0) - (a.persen || 0));
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('bom_formulas');
+      pushLocalToSupabase('bom_formulas').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'bom_formulas' });
     },
 
     async updateBomFormula(id, changes) {
@@ -1424,7 +1458,9 @@ export const useConfigStore = defineStore('configStore', {
         Object.assign(this.bomFormulaList[idx], payload);
         this.bomFormulaList.sort((a, b) => (a.formula || '').localeCompare(b.formula || '') || (b.persen || 0) - (a.persen || 0));
       }
-      pushLocalToSupabase().catch(() => {});
+      markTableDirty('bom_formulas');
+      pushLocalToSupabase('bom_formulas').catch(() => {});
+      broadcastRealtimeEvent('config_broadcast', { table: 'bom_formulas' });
     },
 
     async deleteBomFormula(id) {
@@ -1433,6 +1469,7 @@ export const useConfigStore = defineStore('configStore', {
       this.bomFormulaList = this.bomFormulaList.filter(i => i.id !== id);
       if (item) {
         deleteFromSupabase('bom_formulas', 'formula', item.formula).catch(() => {});
+        broadcastRealtimeEvent('config_broadcast', { table: 'bom_formulas' });
       }
     },
 

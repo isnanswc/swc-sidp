@@ -4,7 +4,7 @@ import { db } from '@/db';
 import { useConfigStore } from '@/stores/configStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useDataRollStore } from '@/stores/dataRollStore';
-import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, broadcastRealtimeEvent } from '@/services/syncService';
+import { pushLocalToSupabase, deleteFromSupabase, deleteMultipleFromSupabase, broadcastRealtimeEvent, markTableDirty } from '@/services/syncService';
 import { extractCleanParentLot, parseDateToIso } from '@/services/dataRollParserService';
 import { supabase } from '@/services/supabaseClient';
 
@@ -604,6 +604,8 @@ export const useSpkStore = defineStore('spk', () => {
     // Acuan monitoring otomatis mengikuti batch SPK yang baru dibuat/discan
     await setActiveReferenceBatch(batchUuid);
     try {
+      markTableDirty('spk_batches');
+      markTableDirty('spk_plans');
       await pushLocalToSupabase();
       broadcastRealtimeEvent('spk_broadcast', { action: 'add_batch', batchUuid });
     } catch (e) {
@@ -647,7 +649,8 @@ export const useSpkStore = defineStore('spk', () => {
     }
 
     try {
-      await pushLocalToSupabase();
+      markTableDirty('spk_batches');
+      markTableDirty('spk_plans');
       broadcastRealtimeEvent('spk_broadcast', { action: 'delete_batch', batchUuid });
     } catch (e) {}
   };
@@ -676,7 +679,8 @@ export const useSpkStore = defineStore('spk', () => {
     }
 
     try {
-      await pushLocalToSupabase();
+      markTableDirty('spk_batches');
+      await pushLocalToSupabase('spk_batches');
       broadcastRealtimeEvent('spk_broadcast', { action: 'update_batch', batchUuid, data: cleanUpdate });
     } catch (e) {}
   };
@@ -737,7 +741,8 @@ export const useSpkStore = defineStore('spk', () => {
       record.id = id;
       plans.value.push(record);
       try {
-        await pushLocalToSupabase();
+        markTableDirty('spk_plans');
+        await pushLocalToSupabase('spk_plans');
         broadcastRealtimeEvent('spk_broadcast', { action: 'add_plan', uuid: record.uuid });
       } catch (e) {}
       return record;
@@ -792,7 +797,8 @@ export const useSpkStore = defineStore('spk', () => {
       await db.spk_plans.update(id, payload);
       plans.value[existingIndex] = { ...oldData, ...payload };
       try {
-        await pushLocalToSupabase();
+        markTableDirty('spk_plans');
+        await pushLocalToSupabase('spk_plans');
         broadcastRealtimeEvent('spk_broadcast', { action: 'update_plan', id });
       } catch (e) {}
     }
@@ -809,7 +815,7 @@ export const useSpkStore = defineStore('spk', () => {
         deleteFromSupabase('spk_plans', 'uuid', uuid).catch(() => {});
       }
       try {
-        await pushLocalToSupabase();
+        markTableDirty('spk_plans');
         broadcastRealtimeEvent('spk_broadcast', { action: 'delete_plan', id });
       } catch (e) {}
     }
