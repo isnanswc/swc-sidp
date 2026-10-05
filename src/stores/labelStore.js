@@ -219,6 +219,7 @@ export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
   let packKeyA = a._packKey;
   if (tNumA === undefined) {
     const kA = computeLabelSortKeys(a, machA);
+    Object.assign(a, kA);
     tNumA = kA._turunanNum;
     tPrefA = kA._turunanPrefix;
     tExtA = kA._turunanExtra;
@@ -233,6 +234,7 @@ export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
   let packKeyB = b._packKey;
   if (tNumB === undefined) {
     const kB = computeLabelSortKeys(b, machB);
+    Object.assign(b, kB);
     tNumB = kB._turunanNum;
     tPrefB = kB._turunanPrefix;
     tExtB = kB._turunanExtra;
@@ -241,18 +243,29 @@ export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
   }
 
   // Waktu Input / Timeline Pembuatan Fisik (createdAt / waktuInput)
-  const timeA = a._createdTime !== undefined ? a._createdTime : (function() {
+  let timeA = a._createdTime;
+  if (timeA === undefined) {
     const raw = a.createdAt || a.created_at || a.waktuInput || a.waktu_input;
-    if (!raw) return 0;
-    const dt = new Date(raw);
-    return isNaN(dt.getTime()) ? 0 : dt.getTime();
-  })();
-  const timeB = b._createdTime !== undefined ? b._createdTime : (function() {
+    if (raw) {
+      const dt = new Date(raw);
+      timeA = isNaN(dt.getTime()) ? 0 : dt.getTime();
+    } else {
+      timeA = 0;
+    }
+    a._createdTime = timeA;
+  }
+
+  let timeB = b._createdTime;
+  if (timeB === undefined) {
     const raw = b.createdAt || b.created_at || b.waktuInput || b.waktu_input;
-    if (!raw) return 0;
-    const dt = new Date(raw);
-    return isNaN(dt.getTime()) ? 0 : dt.getTime();
-  })();
+    if (raw) {
+      const dt = new Date(raw);
+      timeB = isNaN(dt.getTime()) ? 0 : dt.getTime();
+    } else {
+      timeB = 0;
+    }
+    b._createdTime = timeB;
+  }
   const timeDiff = timeA - timeB;
 
   let cmp = 0;

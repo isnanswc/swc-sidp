@@ -69,14 +69,19 @@ const toggleSidebar = () => {
   isSidebarOpen.value = !isSidebarOpen.value;
 };
 
-// Global Idle & Session Activity Tracking (throttled 30s)
+// Global Idle & Session Activity Tracking (throttled 1s for idle timer, 30s for cloud heartbeat)
+let lastActivityTime = 0;
 let lastActivityHeartbeat = 0;
 let sessionRevokeWatchTimer = null;
 
 const onUserActivity = async () => {
+  const now = Date.now();
+  // Throttle event thrashing dari mousemove/scroll/touch: proses maksimal 1 detik sekali
+  if (now - lastActivityTime < 1000) return;
+  lastActivityTime = now;
+
   authStore.resetIdleTimer();
 
-  const now = Date.now();
   if (now - lastActivityHeartbeat > 30 * 1000) {
     lastActivityHeartbeat = now;
     const sessId = getCurrentSessionId();

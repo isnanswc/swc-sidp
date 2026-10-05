@@ -117,14 +117,23 @@
         <!-- Search Input -->
         <div class="relative w-full md:max-w-md">
           <input
-            v-model="dataRollStore.filterSearch"
+            :value="localRollSearch"
+            @input="onRollSearchInput"
             placeholder="Cari Kode FG, Lot, SPK, Kode Pack, Formula, Dimensi..."
-            class="w-full pl-9 pr-4 py-2 text-xs border border-zinc-300 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 bg-zinc-50/50 focus:bg-white shadow-2xs"
+            class="w-full pl-9 pr-7 py-2 text-xs border border-zinc-300 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 bg-zinc-50/50 focus:bg-white shadow-2xs"
           />
           <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
+          <button
+            v-if="localRollSearch || dataRollStore.filterSearch"
+            @click="clearRollSearch"
+            class="absolute right-2.5 top-2 text-zinc-400 hover:text-zinc-600 font-bold text-xs cursor-pointer"
+            title="Hapus pencarian"
+          >
+            ✕
+          </button>
         </div>
 
         <!-- Filters & Action Buttons -->
@@ -1810,6 +1819,33 @@ import Chart from 'chart.js/auto';
 
 const dataRollStore = useDataRollStore();
 const authStore = useAuthStore();
+
+// Search input debouncer to prevent 20,000+ data rolls freeze during typing
+const localRollSearch = ref(dataRollStore.filterSearch || '');
+let rollSearchDebounceTimer = null;
+
+const onRollSearchInput = (e) => {
+  const val = e.target.value;
+  localRollSearch.value = val;
+  if (rollSearchDebounceTimer) clearTimeout(rollSearchDebounceTimer);
+  rollSearchDebounceTimer = setTimeout(() => {
+    dataRollStore.filterSearch = val;
+    currentPage.value = 1;
+  }, 250);
+};
+
+const clearRollSearch = () => {
+  localRollSearch.value = '';
+  dataRollStore.filterSearch = '';
+  currentPage.value = 1;
+  if (rollSearchDebounceTimer) clearTimeout(rollSearchDebounceTimer);
+};
+
+watch(() => dataRollStore.filterSearch, (newVal) => {
+  if (newVal !== localRollSearch.value) {
+    localRollSearch.value = newVal || '';
+  }
+});
 
 // Active Sheet / Tab ('table' | 'analytics')
 const activeSheet = ref('table');

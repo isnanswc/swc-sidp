@@ -54,6 +54,8 @@ export function isSameRoll(item, parsed) {
   return false;
 }
 
+let pushTasksTimeout = null;
+
 export const useTaskStore = defineStore('taskStore', {
   state: () => ({
     tasks: [],
@@ -279,8 +281,8 @@ export const useTaskStore = defineStore('taskStore', {
         newRecord.id = id;
         this.tasks.unshift(newRecord);
 
-        // Sync to cloud in background
-        this.pushTasksToCloud().catch(console.warn);
+        // Sync to cloud in background (debounced to save Supabase egress/ingress)
+        this.debouncedPushTasksToCloud();
 
         return newRecord;
       } catch (err) {
@@ -307,7 +309,7 @@ export const useTaskStore = defineStore('taskStore', {
           this.tasks[idx] = { ...this.tasks[idx], ...payload };
         }
 
-        this.pushTasksToCloud().catch(console.warn);
+        this.debouncedPushTasksToCloud();
       } catch (err) {
         console.error('Failed to update task:', err);
         throw err;
@@ -443,8 +445,8 @@ export const useTaskStore = defineStore('taskStore', {
         };
       }
 
-      // 7. Sync in background & broadcast
-      this.pushTasksToCloud().catch(console.warn);
+      // 7. Sync in background & broadcast (debounced to avoid spamming Supabase settings)
+      this.debouncedPushTasksToCloud();
       broadcastRealtimeEvent('tasks_updated', { taskId: task.id }).catch(() => {});
 
       return {
@@ -472,7 +474,7 @@ export const useTaskStore = defineStore('taskStore', {
         synced: 0
       });
 
-      this.pushTasksToCloud().catch(console.warn);
+      this.debouncedPushTasksToCloud();
       broadcastRealtimeEvent('tasks_updated', { taskId: task.id }).catch(() => {});
     },
 
@@ -562,6 +564,16 @@ export const useTaskStore = defineStore('taskStore', {
 
       const safeName = (task.taskCode || 'Tugas').replace(/[^a-zA-Z0-9_\-]/g, '_');
       XLSX.writeFile(wb, `Rekap_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    },
+
+    /**
+     * Debounced Cloud Sync: Batasi frekuensi upload payload JSON settings (1.5 detik)
+     */
+    debouncedPushTasksToCloud(delay = 1500) {
+      if (pushTasksTimeout) clearTimeout(pushTasksTimeout);
+      pushTasksTimeout = setTimeout(() => {
+        this.pushTasksToCloud().catch(console.warn);
+      }, delay);
     },
 
     /**
