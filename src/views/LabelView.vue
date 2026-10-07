@@ -484,7 +484,7 @@
                   <span class="text-zinc-600 font-semibold tracking-tight" :title="`No. Lot Induk (Parent): ${formatLotTable(item).parentLot}`">
                     {{ formatLotTable(item).parentLot }}
                   </span>
-                  <span v-if="formatLotTable(item).childTurunan || item.turunan" class="text-zinc-400 font-bold">/</span>
+                  <span v-if="(formatLotTable(item).childTurunan || item.turunan) && item.mesin !== 'CASTING'" class="text-zinc-400 font-bold">/</span>
                   <span
                     v-if="formatLotTable(item).childTurunan || item.turunan"
                     class="px-2 py-0.5 rounded-md font-black bg-red-100 text-red-700 border border-red-200 shadow-2xs text-[11px]"
@@ -3836,7 +3836,7 @@
                 </div>
                 <div class="md:col-span-2">
                   <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Tgl Manual</label>
-                  <input v-model="form.tanggalManual" type="date" @change="updateAutoFields" class="w-full px-1 py-0.5 text-[11px] border border-amber-300 rounded-lg bg-white" />
+                  <input v-model="form.tanggalManual" type="date" @change="updateAutoFields" @input="updateAutoFields" class="w-full px-1 py-0.5 text-[11px] border border-amber-300 rounded-lg bg-white" />
                 </div>
                 <div class="md:col-span-2">
                   <label class="block font-bold text-amber-950 mb-0.5 text-[10.5px]">Shift</label>
@@ -5141,6 +5141,64 @@ const handleLotInput = () => {
   if (selectedWipRoll.value && selectedWipRoll.value.lot !== form.lot) {
     selectedWipRoll.value = null;
   }
+  // Khusus Mesin Casting:
+  // Format Parent: [KODE FORMULA 3][TANGGAL 6 DDMMYY][KODE OPERATOR 1][SHIFT 1] -> e.g. L01011026A2
+  // Format Turunan: [CHARTING 1][NO URUT 2 DIGIT] -> e.g. B01
+  // Format Gabungan: L01011026A2B01 (TANPA SLASH '/')
+  const isCasting = String(form.mesin || '').toUpperCase() === 'CASTING' || (form.lot && /^L0\d/i.test(form.lot) && !form.lot.includes('/'));
+  if (isCasting && form.lot) {
+    const cleanLot = String(form.lot).trim().toUpperCase();
+    // 1. Jika user menginput/menempel no lot gabungan casting: L01011026A2B01
+    const mFull = cleanLot.match(/^([ML]0\d)(\d{6})([A-Z])(\d)([A-Z])(\d{1,2})$/i);
+    if (mFull) {
+      const formula = mFull[1].toUpperCase();
+      const dateStr = mFull[2];
+      const op = mFull[3].toUpperCase();
+      const sh = mFull[4];
+      const chart = mFull[5].toUpperCase();
+      const urut = String(parseInt(mFull[6], 10)).padStart(2, '0');
+
+      form.lot = `${formula}${dateStr}${op}${sh}`; // Parent Lot = L01011026A2
+      form.turunan = `${chart}${urut}`;           // Turunan = B01
+      form.kode = formula;
+      form.shift = sh;
+
+      const matchedOp = (configStore.activeOperators || []).find(o => o.kodeOperator === op && isMachineMatch(o.mesin, 'CASTING'))
+        || (configStore.operatorList || []).find(o => o.kodeOperator === op);
+      if (matchedOp) {
+        form.operator = matchedOp.nama;
+        form.kodeOperator = matchedOp.kodeOperator;
+      } else {
+        form.kodeOperator = op;
+      }
+      return;
+    }
+
+    // 2. Jika user menginput No Lot Parent Casting utuh: L01011026A2 (11 karakter)
+    const mParent = cleanLot.match(/^([ML]0\d)(\d{6})([A-Z])(\d)$/i);
+    if (mParent) {
+      const formula = mParent[1].toUpperCase();
+      const op = mParent[3].toUpperCase();
+      const sh = mParent[4];
+
+      form.lot = `${formula}${mParent[2]}${op}${sh}`;
+      form.kode = formula;
+      form.shift = sh;
+
+      const matchedOp = (configStore.activeOperators || []).find(o => o.kodeOperator === op && isMachineMatch(o.mesin, 'CASTING'))
+        || (configStore.operatorList || []).find(o => o.kodeOperator === op);
+      if (matchedOp) {
+        form.operator = matchedOp.nama;
+        form.kodeOperator = matchedOp.kodeOperator;
+      } else {
+        form.kodeOperator = op;
+      }
+      if (!form.turunan || !/^[A-Z]\d{2}$/i.test(form.turunan)) {
+        form.turunan = 'A01';
+      }
+      return;
+    }
+  }
 };
 
 const extractRewindSourceParts = (roll) => {
@@ -5936,6 +5994,25 @@ const formatLotTable = (item) => {
   if (!item) return { parentLot: '', childTurunan: '' };
   let lotStr = (item.lot || '').trim();
   let turunanStr = (item.turunan || '').trim().toUpperCase();
+
+  // 0. Khusus Mesin CASTING: [Formula 3][Date 6][Op 1][Shift 1] -> e.g. L01011026A2, Turunan: B01
+  // Format Gabungan: L01011026A2B01 (TANPA PARSER '/')
+  const isCasting = String(item.mesin || '').toUpperCase() === 'CASTING' || (/^[ML]0\d/i.test(lotStr) && !lotStr.includes('/'));
+  if (isCasting) {
+    const cleanLot = lotStr.toUpperCase();
+    const cleanTurunan = turunanStr || 'A01';
+    const mCastFull = cleanLot.match(/^([ML]0\d\d{6}[A-Z]\d)([A-Z]\d{1,2})$/);
+    if (mCastFull) {
+      return {
+        parentLot: mCastFull[1],
+        childTurunan: turunanStr || `${mCastFull[2].charAt(0)}${String(parseInt(mCastFull[2].slice(1), 10)).padStart(2, '0')}`
+      };
+    }
+    return {
+      parentLot: lotStr,
+      childTurunan: cleanTurunan
+    };
+  }
 
   // 1. Jika item memiliki turunan eksplisit (dari input form manual atau parsing)
   if (turunanStr) {
@@ -8058,6 +8135,11 @@ function getMonthName(dateStr) {
   if (!dateStr) return '';
   const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+    const p = dateStr.split('-');
+    const m = parseInt(p[1], 10) - 1;
+    return months[m] || '';
+  }
   const date = new Date(dateStr);
   return months[date.getMonth()] || '';
 }
@@ -8068,15 +8150,33 @@ function formatTanggalIndonesia(dateString) {
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
+  if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    const p = dateString.split('-');
+    const y = p[0];
+    const m = parseInt(p[1], 10) - 1;
+    const d = parseInt(p[2], 10);
+    return `${d} ${bulan[m] || ''} ${y}`;
+  }
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString;
   return `${date.getDate()} ${bulan[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function generateKodePack(tanggal, mesin) {
-  const d = new Date(tanggal);
-  const bulan = String(d.getMonth() + 1).padStart(2, '0');
-  const tahun = String(d.getFullYear()).slice(-2);
+  if (!tanggal) tanggal = calculateShiftDate();
+  let bulan = '01';
+  let tahun = '26';
+  if (typeof tanggal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(tanggal)) {
+    const p = tanggal.split('-');
+    bulan = p[1];
+    tahun = p[0].slice(-2);
+  } else {
+    const d = new Date(tanggal);
+    if (!isNaN(d.getTime())) {
+      bulan = String(d.getMonth() + 1).padStart(2, '0');
+      tahun = String(d.getFullYear()).slice(-2);
+    }
+  }
   let prefix = '';
   // Lookup custom praKodePack dari configStore.mesinList
   const matchedMesin = configStore.mesinList.find(m => m.nama === mesin);
@@ -8473,26 +8573,40 @@ const addQuickTag = (tag) => {
 };
 
 const updateAutoFields = () => {
-  if (isEditing.value) {
-    // Pada mode EDIT: JANGAN menimpa tanggal atau kodePack historis yang sudah ada!
-    form.paperCore = calculatePaperCore(form.width, form.diameterCore || 6);
-    form.netto = calculateNetto(form.thickness, form.width, form.length, form.jenis, form.kode);
-    handleSubKode();
-    return;
-  }
-  const tglShift = calculateShiftDate();
+  const tglShift = form.tanggalShift || calculateShiftDate();
   form.tanggalShift = tglShift;
-  const finalDate = form.tanggalManual || tglShift;
-  form.tanggal = finalDate;
-  form.kodePack = generateKodePack(finalDate, form.mesin);
+
+  if (form.tanggalManual) {
+    // Jika user mengisi tanggal manual (baik mode edit maupun tambah baru), prioritaskan tanggal manual
+    form.tanggal = form.tanggalManual;
+    form.kodePack = generateKodePack(form.tanggalManual, form.mesin);
+  } else if (!isEditing.value) {
+    // Mode tambah baru tanpa tanggal manual -> gunakan tanggal shift aktif
+    form.tanggal = tglShift;
+    form.kodePack = generateKodePack(tglShift, form.mesin);
+  }
+
   form.paperCore = calculatePaperCore(form.width, form.diameterCore || 6);
   form.netto = calculateNetto(form.thickness, form.width, form.length, form.jenis, form.kode);
-  if (!form.shift) {
+  if (!form.shift && !isEditing.value) {
     const shiftInfo = scheduleStore.getCurrentShiftInfo(null, form.mesin);
     form.shift = shiftInfo.shiftCode;
   }
   handleSubKode();
 };
+
+// Reaktif terhadap perubahan tanggal manual secara instan
+watch(() => form.tanggalManual, (newVal) => {
+  if (newVal) {
+    form.tanggal = newVal;
+    form.kodePack = generateKodePack(newVal, form.mesin);
+  } else if (!isEditing.value) {
+    const tglShift = form.tanggalShift || calculateShiftDate();
+    form.tanggal = tglShift;
+    form.kodePack = generateKodePack(tglShift, form.mesin);
+  }
+  handleSubKode();
+});
 
 const onMachineChange = () => {
   if (!isEditing.value) {
@@ -8507,7 +8621,10 @@ const onMachineChange = () => {
       form.kodeOperator = '';
     }
     const opPrefix = form.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
-    if (form.mesin === 'REWIND') {
+    if (form.mesin === 'CASTING') {
+      lotSearchSource.value = 'WIP';
+      form.turunan = 'A01';
+    } else if (form.mesin === 'REWIND') {
       lotSearchSource.value = 'DATA_ROLL';
       const currentParentT = parseTurunan(form.turunan)?.parentTurunan || '';
       form.turunan = getSmartNextRewindTurunan({
@@ -8667,9 +8784,23 @@ function parseTurunan(turunanStr) {
     return result;
   }
 
-  // 1. Pola Khusus Mesin Casting:
-  // [formula 3 digit][tanggal bulan tahun 2 digit][kode operator][shift 1/2/3][chartingan][turunan 1-2 digit]
-  // Contoh: L04270826B1A27, L01050125C2A1, L01050125A3B20
+  // 1. Pola Khusus Format Turunan Casting: [Chartingan 1 huruf][1-2 digit angka] (contoh: A01, A1, B03, B3, C12, A27)
+  const matchCastingTurunan = str.match(/^([A-Za-z])(\d{1,2})$/);
+  if (matchCastingTurunan) {
+    const chart = matchCastingTurunan[1].toUpperCase();
+    const num = parseInt(matchCastingTurunan[2], 10);
+    result = {
+      isCasting: true,
+      chartingan: chart,
+      noUrut: num,
+      numDigits: 2,
+      prefix: ''
+    };
+    turunanParseCache.set(str, result);
+    return result;
+  }
+
+  // 1b. Pola Khusus Mesin Casting Continuous (e.g. L04270826B1A27):
   const matchCasting = str.match(/^([A-Za-z]\d{2})(\d{6})([A-Za-z])([1-3])([A-Za-z])(\d{1,2})$/);
   if (matchCasting) {
     const formula = matchCasting[1].toUpperCase();
@@ -8678,7 +8809,6 @@ function parseTurunan(turunanStr) {
     const sh = matchCasting[4];
     const chart = matchCasting[5].toUpperCase();
     const num = parseInt(matchCasting[6], 10);
-    const digits = matchCasting[6].length;
     result = {
       isCasting: true,
       formula,
@@ -8688,11 +8818,12 @@ function parseTurunan(turunanStr) {
       prefix: `${formula}${date}${op}${sh}`,
       chartingan: chart,
       noUrut: num,
-      numDigits: digits
+      numDigits: 2
     };
     turunanParseCache.set(str, result);
     return result;
   }
+
 
   // 2. Pola Standar Slitting/Rewind: Kode Operator/Prefix + 1 Huruf Chartingan + Angka No Urut (contoh: HA01, HB02, GC01, A01, C01)
   const match = str.match(/^([A-Za-z]+?)([A-Za-z])(\d+)$/);
@@ -8737,10 +8868,40 @@ function parseTurunan(turunanStr) {
   return result;
 }
 
-function getNextTurunan(prevTurunan, lot = '', forcePrefix = null) {
+function getNextTurunan(prevTurunan, lot = '', forcePrefix = null, targetMesin = '') {
+  const currentMesin = String(targetMesin || form?.mesin || '').toUpperCase();
   const parsed = parseTurunan(prevTurunan);
   const chartingan = parsed.chartingan || 'A';
+  const isCasting = currentMesin === 'CASTING' || parsed.isCasting;
   const prefix = forcePrefix !== null ? forcePrefix : parsed.prefix;
+
+  // Kasus Khusus: Casting Turunan Format [CHARTING][2 DIGIT ANGKA] (contoh: A01 -> A02, B03 -> B04)
+  if (isCasting) {
+    let maxUrut = parsed.noUrut || 0;
+    const baseLot = extractCleanParentLot(lot, prevTurunan) || (lot ? String(lot).trim() : '');
+
+    const relatedLabels = (labelStore.labels || []).filter(l => {
+      if (!l.turunan) return false;
+      const lMesin = String(l.mesin || '').toUpperCase();
+      if (lMesin && !isMachineMatch(lMesin, 'CASTING')) return false;
+      if (baseLot) {
+        const lBase = extractCleanParentLot(l.lot, l.turunan) || (l.lot ? String(l.lot).trim() : '');
+        return lBase.trim().toUpperCase() === baseLot.trim().toUpperCase() || (l.lot && l.lot.toUpperCase().startsWith(baseLot.toUpperCase()));
+      }
+      return true;
+    });
+
+    for (const l of relatedLabels) {
+      const p = parseTurunan(l.turunan);
+      if (p.chartingan === chartingan) {
+        if (p.noUrut > maxUrut) maxUrut = p.noUrut;
+      }
+    }
+
+    const nextNo = maxUrut > 0 ? maxUrut + 1 : (parsed.noUrut > 0 ? parsed.noUrut + 1 : 1);
+    const formatted = String(nextNo).padStart(2, '0');
+    return `${chartingan}${formatted}`;
+  }
 
   // Kasus Khusus: Compound Rewind Format (e.g. HA03/J101 -> HA03/J102 atau HA03/K102)
   if (parsed.isCompoundRewind) {
@@ -8785,23 +8946,6 @@ function getNextTurunan(prevTurunan, lot = '', forcePrefix = null) {
     }
     const nextNo = maxUrut > 0 ? maxUrut + 1 : (parsed.noUrut > 0 ? parsed.noUrut + 1 : 101);
     return `${opPrefix}${String(nextNo).padStart(parsed.numDigits || 3, '0')}`;
-  }
-
-  // Kasus Khusus: Casting Turunan Format (e.g. L04270826B1A27 -> L04270826B1A28)
-  if (parsed.isCasting) {
-    let maxUrut = parsed.noUrut;
-    const relatedLabels = labelStore.labels.filter(l => {
-      if (!l.turunan) return false;
-      const p = parseTurunan(l.turunan);
-      return p.isCasting && p.chartingan === chartingan;
-    });
-    for (const l of relatedLabels) {
-      const p = parseTurunan(l.turunan);
-      if (p.noUrut > maxUrut) maxUrut = p.noUrut;
-    }
-    const nextNo = maxUrut + 1;
-    const formatted = String(nextNo).padStart(parsed.numDigits || 1, '0');
-    return `${prefix}${chartingan}${formatted}`;
   }
 
   const isCustomUrut = parsed.noUrut >= 8000;
@@ -8969,8 +9113,10 @@ function getSmartNextSubKode(item = null, mesinOverride = '', kodePackOverride =
 
 const applyChartinganToForm = (letter) => {
   const parsed = parseTurunan(form.turunan);
-  const formattedNum = String(parsed.noUrut || 1).padStart(parsed.numDigits || (parsed.isCasting ? 1 : 2), '0');
-  if (parsed.isCompoundRewind) {
+  const formattedNum = String(parsed.noUrut || 1).padStart(2, '0');
+  if (parsed.isCasting || form.mesin === 'CASTING') {
+    form.turunan = `${letter.toUpperCase()}${formattedNum}`;
+  } else if (parsed.isCompoundRewind) {
     form.turunan = `${parsed.parentTurunan}/${parsed.prefix || 'J'}${letter.toUpperCase()}${formattedNum}`;
   } else {
     form.turunan = `${parsed.prefix}${letter.toUpperCase()}${formattedNum}`;
@@ -8978,13 +9124,15 @@ const applyChartinganToForm = (letter) => {
 };
 
 const advanceFormTurunan = () => {
-  form.turunan = getNextTurunan(form.turunan, form.lot);
+  form.turunan = getNextTurunan(form.turunan, form.lot, null, form.mesin);
 };
 
 // Menambah (+1) atau mengurangi (-1) nomor urut turunan sesuai karakteristik mesin
 const stepFormTurunan = (delta) => {
   if (!form.turunan) {
-    if (form.mesin === 'REWIND') {
+    if (form.mesin === 'CASTING') {
+      form.turunan = 'A01';
+    } else if (form.mesin === 'REWIND') {
       const op = form.kodeOperator || 'J';
       form.turunan = `${op}101`;
     } else {
@@ -8997,7 +9145,7 @@ const stepFormTurunan = (delta) => {
   const parsed = parseTurunan(form.turunan);
   const currentNum = parsed.noUrut || 1;
   const newNum = Math.max(1, currentNum + delta);
-  const numDigits = parsed.numDigits || (parsed.isCasting ? 1 : 2);
+  const numDigits = (parsed.isCasting || form.mesin === 'CASTING') ? 2 : (parsed.numDigits || 2);
   const formattedNum = String(newNum).padStart(numDigits, '0');
 
   // 1. Kasus Compound Rewind (contoh: HA03/J101 -> HA03/J102 atau HA03/J100)
@@ -9019,9 +9167,10 @@ const stepFormTurunan = (delta) => {
     return;
   }
 
-  // 3. Kasus Mesin Casting (contoh: L04270826B1A27 -> L04270826B1A28)
-  if (parsed.isCasting) {
-    form.turunan = `${parsed.prefix}${parsed.chartingan || 'A'}${formattedNum}`;
+  // 3. Kasus Mesin Casting (contoh: A01 -> A02 / B03 -> B04)
+  if (parsed.isCasting || form.mesin === 'CASTING') {
+    const chart = parsed.chartingan || 'A';
+    form.turunan = `${chart}${formattedNum}`;
     return;
   }
 
@@ -9252,8 +9401,9 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
         form.operator = '';
         form.kodeOperator = '';
       }
-      const opPrefix = form.kodeOperator || (newMesin === 'REWIND' ? 'J' : 'H');
-      if (newMesin === 'REWIND') {
+      if (newMesin === 'CASTING') {
+        form.turunan = 'A01';
+      } else if (newMesin === 'REWIND') {
         const currentParentT = parseTurunan(form.turunan)?.parentTurunan || '';
         form.turunan = getSmartNextRewindTurunan({
           lot: form.lot,
@@ -9403,6 +9553,10 @@ const openModal = async (item = -1) => {
     form.id = item.id;
     form.tanggal = item.tanggalFormatted || item.tanggal || form.tanggal;
     form.tanggalShift = item.tanggalShift || form.tanggal;
+    form.tanggalManual = item.tanggalManual || (item.tanggal && item.tanggalShift && item.tanggal !== item.tanggalShift ? item.tanggal : '');
+    if (form.tanggalManual) {
+      form.tanggal = form.tanggalManual;
+    }
     form.shift = item.shift || scheduleStore.getCurrentShiftInfo(null, item.mesin || form.mesin).shiftCode;
     form.diameterCore = Number(item.diameterCore) || (parseFloat(item.paperCore) < 4.5 && parseFloat(item.paperCore) > 0 ? 3 : 6);
     form.treatment = item.treatment || 'INSIDE';
@@ -9451,7 +9605,10 @@ const openModal = async (item = -1) => {
       form.kodeOperator = '';
     }
     const opPrefix = form.kodeOperator || (form.mesin === 'REWIND' ? 'J' : 'H');
-    if (form.mesin === 'REWIND') {
+    if (form.mesin === 'CASTING') {
+      form.turunan = 'A01';
+      lotSearchSource.value = 'WIP';
+    } else if (form.mesin === 'REWIND') {
       form.turunan = getSmartNextRewindTurunan({
         lot: form.lot,
         parentTurunan: '',
@@ -9689,6 +9846,10 @@ const closeModal = () => {
   const proceedSubmitLabel = async (bypassSkipCheck = false) => {
     isSubmittingLabel.value = true;
     const payload = { ...form };
+    if (form.tanggalManual) {
+      payload.tanggal = form.tanggalManual;
+      payload.kodePack = generateKodePack(form.tanggalManual, payload.mesin);
+    }
     if (!payload.shift) {
       payload.shift = scheduleStore.getCurrentShiftInfo().shiftCode;
     }
@@ -9770,26 +9931,57 @@ const duplicateData = (item) => {
   // Hitung tanggal shift & kode pack otomatis terlebih dahulu
   const tglShift = calculateShiftDate();
   form.tanggalShift = tglShift;
-  const finalDate = form.tanggalManual || tglShift;
-  form.tanggal = finalDate;
-  form.kodePack = generateKodePack(finalDate, form.mesin);
+  if (item.tanggalManual) {
+    form.tanggalManual = item.tanggalManual;
+    form.tanggal = item.tanggalManual;
+  } else if (item.tanggal && item.tanggalShift && item.tanggal !== item.tanggalShift) {
+    form.tanggalManual = item.tanggal;
+    form.tanggal = item.tanggal;
+  } else {
+    form.tanggalManual = '';
+    form.tanggal = tglShift;
+  }
+  form.kodePack = generateKodePack(form.tanggal, form.mesin);
+
+  const isCasting = String(form.mesin || item.mesin || '').toUpperCase() === 'CASTING' || (item.lot && /^[ML]0\d/i.test(item.lot) && !item.lot.includes('/'));
 
   // Auto-complete Turunan cerdas berlaku untuk SEMUA chart (A, B, C, D, dst)
   // Menjaga chartingan posisi asli (A/B/C/D) dan mengadopsi kode operator shift yang aktif
-  const nextTurunanVal = getNextTurunan(item.turunan, item.lot, targetOpCode);
+  const nextTurunanVal = getNextTurunan(item.turunan, item.lot, targetOpCode, form.mesin || item.mesin);
   form.turunan = nextTurunanVal;
+
+  // Khusus Mesin Casting: Sinkronkan No Lot HANYA jika form.lot adalah lot gabungan yang membawa turunan di belakangnya (> 11 karakter, misal L01011026A2B01 -> L01011026A2B02)
+  if (isCasting && item.lot && String(form.lot).trim().length > 11) {
+    const parsedOld = parseTurunan(item.turunan);
+    const parsedNew = parseTurunan(nextTurunanVal);
+    const oldChart = parsedOld.chartingan || '';
+    const oldNum = parsedOld.noUrut;
+    const newChart = parsedNew.chartingan || oldChart;
+    const newNum = parsedNew.noUrut;
+
+    if (oldChart && oldNum !== undefined) {
+      const regexOldTail2 = new RegExp(`${oldChart}${String(oldNum).padStart(2, '0')}$`, 'i');
+      if (regexOldTail2.test(form.lot)) {
+        form.lot = form.lot.replace(regexOldTail2, `${newChart}${String(newNum).padStart(2, '0')}`);
+      }
+    }
+  }
 
   const parsedNext = parseTurunan(nextTurunanVal);
   let prefix = targetOpCode;
-  if (parsedNext.isCasting) {
-    prefix = parsedNext.op || targetOpCode;
+  if (isCasting || parsedNext.isCasting) {
+    prefix = '';
+    form.operator = targetOpName;
+    form.kodeOperator = '';
   } else if (parsedNext.isCompoundRewind) {
     prefix = parsedNext.prefix || targetOpCode;
+    form.operator = targetOpName;
+    form.kodeOperator = prefix;
   } else {
     prefix = parsedNext.prefix || targetOpCode;
+    form.operator = targetOpName;
+    form.kodeOperator = prefix;
   }
-  form.operator = targetOpName;
-  form.kodeOperator = prefix;
   if (form.mesin === 'REWIND') {
     const rewindCode = getOperatorCodeFromTurunan(nextTurunanVal, 'REWIND') || prefix;
     const rewindOp = (configStore.activeOperators || []).find(o => o.kodeOperator === rewindCode && isMachineMatch(o.mesin, 'REWIND'))

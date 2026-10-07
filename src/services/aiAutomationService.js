@@ -28,6 +28,18 @@ export function formatLotVisual(lotStr, supplier = '') {
   if (!raw) return '';
 
   const isSupplierInhouse = String(supplier || '').trim().toUpperCase() === 'INHOUSE';
+
+  // Khusus No Lot Mesin CASTING: [Formula 3][Date 6][Op 1][Shift 1][Turunan Chart 1 + Urut 1-2]?
+  // Contoh: L01011026A2B01 -> L01 011026 A2 B01 | L01011026A2 -> L01 011026 A2 (TANPA SLASH '/')
+  const castingFullMatch = raw.match(/^([ML]0\d)(\d{6})([A-Z])(\d)([A-Z]\d{1,2})$/i);
+  if (castingFullMatch) {
+    return `${castingFullMatch[1]} ${castingFullMatch[2]} ${castingFullMatch[3]}${castingFullMatch[4]} ${castingFullMatch[5]}`;
+  }
+  const castingParentMatch = raw.match(/^([ML]0\d)(\d{6})([A-Z])(\d)$/i);
+  if (castingParentMatch) {
+    return `${castingParentMatch[1]} ${castingParentMatch[2]} ${castingParentMatch[3]}${castingParentMatch[4]}`;
+  }
+
   const parts = raw.split('/');
 
   if (isSupplierInhouse) {
@@ -116,6 +128,17 @@ export function formatInhouseLotInput(input, supplier = 'INHOUSE', spk = '') {
 
   if (!remainder) {
     return `${formula}${dateStr}`;
+  }
+
+  // Khusus No Lot Mesin CASTING: [Formula: L0*][DDMMYY: 6][Op: 1][Shift: 1][Turunan Chart 1 + Urut 1-2]?
+  // Contoh: L01011026A2 atau L01011026A2B01 -> kembalikan utuh TANPA SLASH '/'!
+  const cleanRemainder = remainder.replace(/[\/\-_]/g, '');
+  const castingRemainderMatch = cleanRemainder.match(/^([A-Z])(\d)([A-Z]\d{1,2})?$/i);
+  if (castingRemainderMatch && /^L0\d/i.test(formula)) {
+    const op = castingRemainderMatch[1].toUpperCase();
+    const sh = castingRemainderMatch[2];
+    const turunanPart = castingRemainderMatch[3] ? castingRemainderMatch[3].toUpperCase() : '';
+    return `${formula}${dateStr}${op}${sh}${turunanPart}`;
   }
 
   // Segmentasi kode mesin proses lanjutan (contoh: C102, F103, GC01, J101)

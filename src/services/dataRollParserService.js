@@ -235,9 +235,19 @@ export function extractCleanParentLot(lotStr, turunanStr = '') {
       return lot.replace(/\/+$/, '');
     }
 
-    // 3. Jika format continuous tanpa slash (misal Casting L04270826B1A27 dan turunan A27)
+    // 3. Jika format continuous tanpa slash (misal Casting L01011026A2B01 dan turunan B01)
     if (lot.length > turunan.length && lot.toUpperCase().endsWith(turunan.toUpperCase())) {
       lot = lot.slice(0, -turunan.length);
+    } else {
+      // Cek variasi jika turunan 2 digit (misal B01) tapi di lot hanya 1 digit (misal L01011026A2B1)
+      // HANYA potong jika panjang sisa lot minimal 11 karakter (format parent lot casting utuh: L01011026A2)
+      const mSingle = turunan.match(/^([A-Za-z])0(\d)$/);
+      if (mSingle) {
+        const shortT = `${mSingle[1]}${mSingle[2]}`.toUpperCase();
+        if (lot.length >= 11 + shortT.length && lot.toUpperCase().endsWith(shortT)) {
+          lot = lot.slice(0, -shortT.length);
+        }
+      }
     }
   }
 
@@ -310,11 +320,12 @@ export function parseContinuousLot(fullLotStr, machineName = 'SLITTING', supplie
   const mName = String(machineName || 'SLITTING').toUpperCase();
 
   // SPECIAL CASE: CASTING (dan SML)
-  // Format FG Roll: [KODE FORMULA: 3][TANGGAL (DDMMYY): 6][KODE OPERATOR: 1][SHIFT: 1][CHARTINGAN: 1][TURUNAN: 1-2]
-  // Contoh: L01050125C2A12 -> L01050125C2A12 (NO SLASH!) | L01050125A3B20 -> L01050125A3B20
+  // Format No Lot Parent: [KODE FORMULA: 3][TANGGAL (DDMMYY): 6][KODE OPERATOR: 1][SHIFT: 1] -> e.g. L01011026A2
+  // Format Turunan: [CHARTINGAN: 1][NO URUT: 2 digit] -> e.g. B01
+  // Format Gabungan: [Parent 11 chars][Turunan 3 chars] -> e.g. L01011026A2B01 (NO SLASH!)
   if (mName === 'CASTING' || mName === 'SML') {
-    // 1. Pattern FG Casting: [Formula: 3 chars][Date: 6 digits][Op: 1 letter][Shift: 1 digit][Chartingan: 1 letter][Turunan: 1-2 digits]
-    // e.g. L01050125C2A12 -> Base: L01050125C2, Turunan: A12, Op: C, Shift: 2
+    // 1. Pattern FG Casting Gabungan: [Formula 3][Date 6][Op 1][Shift 1][Chart 1][Turunan 1-2]
+    // e.g. L01011026A2B01 -> Base: L01011026A2, Turunan: B01, Op: A, Shift: 2
     const smlFgMatch = lotRaw.match(/^([ML]0\d)(\d{6})([A-Z])(\d)([A-Z])(\d{1,2})(.*)$/i);
     if (smlFgMatch) {
       const formula = smlFgMatch[1].toUpperCase();
@@ -322,14 +333,14 @@ export function parseContinuousLot(fullLotStr, machineName = 'SLITTING', supplie
       const op = smlFgMatch[3].toUpperCase();
       const sh = smlFgMatch[4];
       const chart = smlFgMatch[5].toUpperCase();
-      const turunanNum = smlFgMatch[6];
+      const turunanNum = String(parseInt(smlFgMatch[6], 10)).padStart(2, '0');
       const extra = smlFgMatch[7] || '';
 
       const baseLot = `${formula}${date}${op}${sh}`;
       let turunanVal = `${chart}${turunanNum}`;
       if (statusSuffix) turunanVal += statusSuffix;
 
-      const parsedLot = `${formula}${date}${op}${sh}${turunanVal}${extra}`; // NO SLASH FOR CASTING!
+      const parsedLot = `${baseLot}${turunanVal}${extra}`; // NO SLASH FOR CASTING!
       return {
         parsedLot,
         baseLot,
@@ -359,8 +370,8 @@ export function parseContinuousLot(fullLotStr, machineName = 'SLITTING', supplie
       };
     }
 
-    // 3. Pattern Casting Master Roll (Tanpa pemotongan sekunder): [Formula: 3 chars][Date: 6 digits][Op: 1 letter][Shift: 1 digit]
-    // e.g. L01050125C2
+    // 3. Pattern Casting Parent Lot: [Formula: 3 chars][Date: 6 digits][Op: 1 letter][Shift: 1 digit]
+    // e.g. L01011026A2 -> Base: L01011026A2, Op: A, Shift: 2, Turunan: 'A01'
     const smlMasterMatch = lotRaw.match(/^([ML]0\d)(\d{6})([A-Z])(\d)(.*)$/i);
     if (smlMasterMatch) {
       const op = smlMasterMatch[3].toUpperCase();
@@ -369,7 +380,7 @@ export function parseContinuousLot(fullLotStr, machineName = 'SLITTING', supplie
       return {
         parsedLot,
         baseLot: parsedLot,
-        turunan: `${op}${sh}`,
+        turunan: 'A01',
         kodeOperator: op,
         shift: sh,
         statusSuffix

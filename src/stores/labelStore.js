@@ -63,10 +63,13 @@ export function getOperatorCodeFromTurunan(turunan, mesin = '') {
     return str.charAt(0);
   }
 
-  // 3. Format Casting: L04270826B1A27
-  const matchCasting = str.match(/^([A-Za-z]\d{2})(\d{6})([A-Za-z])([1-3])([A-Za-z])(\d{1,2})$/);
-  if (matchCasting) {
-    return matchCasting[3].toUpperCase();
+  // 3. Format Casting: L04270826B1A27 atau format turunan A01 (huruf awal adalah charting, bukan operator)
+  if (m === 'CASTING') {
+    const matchCasting = str.match(/^([A-Za-z]\d{2})(\d{6})([A-Za-z])([1-3])([A-Za-z])(\d{1,2})$/);
+    if (matchCasting) {
+      return matchCasting[3].toUpperCase();
+    }
+    return '';
   }
 
   // 4. Standar Slitting: HA01 -> H
