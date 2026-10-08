@@ -5243,24 +5243,55 @@ const extractRewindSourceParts = (roll) => {
 const selectWipRoll = (roll) => {
   if (!roll) return;
   const isRewind = form.mesin === 'REWIND';
+  const isCasting = String(form.mesin || '').toUpperCase() === 'CASTING';
+
   if (isRewind) {
     const rParts = extractRewindSourceParts(roll);
-    form.lot = rParts.parentLot || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+    form.lot = rParts.parentLot || extractCleanParentLot(roll.lot, roll.turunan) || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
     const activeOp = getActiveShiftOperator('REWIND');
     if (activeOp) {
       form.operator = activeOp.nama;
       form.kodeOperator = activeOp.kodeOperator;
     }
     const opCode = activeOp?.kodeOperator || form.kodeOperator || 'J';
-    form.turunan = getSmartNextRewindTurunan({
-      lot: form.lot,
-      parentTurunan: rParts.slittingTurunan || '',
-      shift: form.shift,
-      kodeOperator: opCode
-    });
+    const shiftDigit = String(form.shift || '1').includes('2') ? '2' : (String(form.shift || '1').includes('3') ? '3' : '1');
+    if (!isEditing.value) {
+      const rewindChild = `${opCode}${shiftDigit}01`;
+      form.turunan = rParts.slittingTurunan ? `${rParts.slittingTurunan}/${rewindChild}` : rewindChild;
+    } else {
+      form.turunan = getSmartNextRewindTurunan({
+        lot: form.lot,
+        parentTurunan: rParts.slittingTurunan || '',
+        shift: form.shift,
+        kodeOperator: opCode
+      });
+    }
+  } else if (isCasting) {
+    let cleanLot = (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+    const mFull = cleanLot.match(/^([ML]0\d)(\d{6})([A-Z])(\d)([A-Z])(\d{1,2})$/i);
+    if (mFull) {
+      cleanLot = `${mFull[1].toUpperCase()}${mFull[2]}${mFull[3].toUpperCase()}${mFull[4]}`;
+    } else {
+      const cleanExtracted = extractCleanParentLot(cleanLot, roll.turunan);
+      if (cleanExtracted) cleanLot = cleanExtracted;
+    }
+    form.lot = cleanLot;
+    if (!isEditing.value) {
+      form.turunan = 'A01';
+    } else if (roll.turunan) {
+      form.turunan = roll.turunan;
+    }
   } else {
-    form.lot = (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+    const cleanLot = extractCleanParentLot(roll.lot, roll.turunan);
+    form.lot = (cleanLot || roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+    if (!isEditing.value) {
+      const opPrefix = form.kodeOperator || 'H';
+      form.turunan = `${opPrefix}A01`;
+    } else if (roll.turunan) {
+      form.turunan = roll.turunan;
+    }
   }
+
   modalSearchQuery.value = form.lot;
   if (roll.spk) form.spk = String(roll.spk).trim().toUpperCase();
   if (roll.kodeFormula) form.kode = roll.kodeFormula;
@@ -5297,6 +5328,7 @@ const selectWipRoll = (roll) => {
     form.subKode = String(nextSubNum).padStart(4, '0');
     form.status = 'PASS';
   }
+  previousInfo.initialSuggestedTurunan = form.turunan;
 
   nextTick(() => {
     if (isRewind && turunanInputRef.value) {
@@ -5311,7 +5343,10 @@ const selectWipRoll = (roll) => {
 };
 
 const selectDataRoll = (roll) => {
+  if (!roll) return;
   const isRewind = form.mesin === 'REWIND';
+  const isCasting = String(form.mesin || '').toUpperCase() === 'CASTING';
+
   if (isRewind) {
     const rParts = extractRewindSourceParts(roll);
     form.lot = rParts.parentLot || extractCleanParentLot(roll.lot, roll.turunan) || (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
@@ -5321,21 +5356,52 @@ const selectDataRoll = (roll) => {
       form.kodeOperator = activeOp.kodeOperator;
     }
     const opCode = activeOp?.kodeOperator || form.kodeOperator || 'J';
-    form.turunan = getSmartNextRewindTurunan({
-      lot: form.lot,
-      parentTurunan: rParts.slittingTurunan || '',
-      shift: form.shift,
-      kodeOperator: opCode
-    });
+    const shiftDigit = String(form.shift || '1').includes('2') ? '2' : (String(form.shift || '1').includes('3') ? '3' : '1');
+    if (!isEditing.value) {
+      const rewindChild = `${opCode}${shiftDigit}01`;
+      form.turunan = rParts.slittingTurunan ? `${rParts.slittingTurunan}/${rewindChild}` : rewindChild;
+    } else {
+      form.turunan = getSmartNextRewindTurunan({
+        lot: form.lot,
+        parentTurunan: rParts.slittingTurunan || '',
+        shift: form.shift,
+        kodeOperator: opCode
+      });
+    }
+  } else if (isCasting) {
+    let cleanLot = (roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
+    const mFull = cleanLot.match(/^([ML]0\d)(\d{6})([A-Z])(\d)([A-Z])(\d{1,2})$/i);
+    if (mFull) {
+      cleanLot = `${mFull[1].toUpperCase()}${mFull[2]}${mFull[3].toUpperCase()}${mFull[4]}`;
+    } else {
+      const cleanExtracted = extractCleanParentLot(cleanLot, roll.turunan);
+      if (cleanExtracted) cleanLot = cleanExtracted;
+    }
+    form.lot = cleanLot;
+    if (!isEditing.value) {
+      form.turunan = 'A01';
+    } else if (roll.turunan) {
+      form.turunan = roll.turunan;
+    }
+    if (roll.operator || roll.kodeOperator) {
+      form.operator = roll.operator || form.operator;
+      form.kodeOperator = roll.kodeOperator || form.kodeOperator;
+    }
   } else {
     const cleanLot = extractCleanParentLot(roll.lot, roll.turunan);
     form.lot = (cleanLot || roll.lot || form.lot || '').replace(/\s+/g, '').toUpperCase();
-    if (roll.turunan) form.turunan = roll.turunan;
+    if (!isEditing.value) {
+      const opPrefix = form.kodeOperator || 'H';
+      form.turunan = `${opPrefix}A01`;
+    } else if (roll.turunan) {
+      form.turunan = roll.turunan;
+    }
     if (roll.operator || roll.kodeOperator) {
       form.operator = roll.operator || form.operator;
       form.kodeOperator = roll.kodeOperator || form.kodeOperator;
     }
   }
+
   modalSearchQuery.value = form.lot;
   if (roll.spk) form.spk = String(roll.spk).trim().toUpperCase();
   if (roll.kodeFormula || roll.kodeFg) form.kode = roll.kodeFormula || roll.kodeFg;
@@ -5373,6 +5439,7 @@ const selectDataRoll = (roll) => {
     form.subKode = String(nextSubNum).padStart(4, '0');
     form.status = 'PASS';
   }
+  previousInfo.initialSuggestedTurunan = form.turunan;
 
   nextTick(() => {
     if (isRewind && turunanInputRef.value) {
