@@ -2226,11 +2226,11 @@
       @click.self="showParentLotModal = false"
     >
       <div class="bg-white rounded-2xl border border-zinc-200/90 shadow-2xl w-full max-w-5xl xl:max-w-6xl max-h-[94vh] overflow-y-auto flex flex-col">
-        <!-- Modal Header -->
-        <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/80 sticky top-0 z-20 backdrop-blur-md">
+        <!-- Modal Header (Light Warm Theme) -->
+        <div class="px-6 py-4 border-b border-amber-200/80 flex items-center justify-between bg-gradient-to-r from-amber-50 via-orange-50/40 to-slate-50 sticky top-0 z-20 backdrop-blur-md">
           <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-md shadow-amber-600/20">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
@@ -2238,8 +2238,8 @@
             </div>
             <div>
               <div class="flex items-center gap-2 flex-wrap">
-                <h3 class="text-sm font-black text-zinc-900 tracking-tight uppercase">Rekonsiliasi Material & Parent Lot</h3>
-                <span class="px-2 py-0.5 rounded-md text-[10.5px] font-mono font-bold bg-zinc-900 text-white">
+                <h3 class="text-sm font-black text-slate-800 tracking-tight uppercase">Rekonsiliasi Material & Parent Lot</h3>
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-amber-200/80 text-amber-950 border border-amber-300">
                   {{ parentLotForm.oldLot }}
                 </span>
                 <span class="px-2 py-0.5 rounded-md text-[10.5px] font-bold border uppercase" :class="[
@@ -2251,8 +2251,8 @@
                   {{ parentLotForm.mesin }}
                 </span>
               </div>
-              <p class="text-[11px] text-zinc-500 font-mono mt-0.5">
-                SPK: <strong class="text-zinc-700">{{ parentLotForm.spk || '-' }}</strong> • {{ currentEditingLotNode?.items?.length || 0 }} Roll Terhubung
+              <p class="text-[11px] text-slate-600 font-mono mt-0.5">
+                SPK: <strong class="text-slate-800">{{ parentLotForm.spk || '-' }}</strong> • {{ currentEditingLotNode?.items?.length || 0 }} Roll Terhubung
               </p>
             </div>
           </div>
@@ -2260,146 +2260,131 @@
           <button
             @click="showParentLotModal = false"
             :disabled="isSavingParentLot"
-            class="p-2 rounded-xl text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            class="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-white/80 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-transparent hover:border-slate-200"
             title="Tutup Modal"
           >
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
 
-        <!-- KPI Quick Bar (4 Stat Cards) -->
-        <div class="px-6 py-3 bg-zinc-900 text-white border-b border-zinc-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-          <div class="border-r border-zinc-800 pr-2">
-            <div class="text-[10px] text-zinc-400 uppercase font-sans font-bold flex items-center justify-between gap-1">
+        <!-- KPI Quick Bar (4 Light Stat Cards - 100% Light Mode) -->
+        <div class="px-6 py-3 bg-white border-b border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+          <!-- Card 1: Material Masuk -->
+          <div class="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/90 flex flex-col justify-between">
+            <div class="text-[10px] text-amber-800 uppercase font-sans font-bold flex items-center justify-between gap-1">
               <span class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                 <span>1. Material Masuk</span>
               </span>
               <span
                 v-if="parentLotForm.parentBeratAktual > 0"
-                class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30"
+                class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-amber-200/80 text-amber-950 border border-amber-300"
                 title="Menggunakan Berat Aktual Timbangan"
               >
                 Aktual
               </span>
               <span
                 v-else
-                class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-zinc-800 text-zinc-400"
+                class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-slate-200 text-slate-600"
                 title="Menggunakan Berat Teori Rumus"
               >
                 Teori
               </span>
             </div>
-            <div class="text-sm font-bold text-amber-300 mt-0.5">
-              {{ computedParentBeratMasuk.toFixed(2) }} <span class="text-[10px] text-zinc-400">kg</span>
-              <span v-if="parentLotForm.parentBeratAktual > 0" class="text-[10px] text-zinc-400 font-normal ml-1">
+            <div class="text-sm font-bold text-amber-950 mt-1">
+              {{ computedParentBeratMasuk.toFixed(2) }} <span class="text-[10px] text-amber-700">kg</span>
+              <span v-if="parentLotForm.parentBeratAktual > 0" class="text-[10px] text-amber-800/80 font-normal ml-1">
                 (Teori: {{ computedParentBeratTeori.toFixed(1) }}kg)
               </span>
             </div>
           </div>
 
-          <div class="border-r border-zinc-800 pr-2">
-            <div class="text-[10px] text-zinc-400 uppercase font-sans font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <!-- Card 2: Output Hasil -->
+          <div class="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/90 flex flex-col justify-between">
+            <div class="text-[10px] text-emerald-800 uppercase font-sans font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
               <span>2. Output Hasil</span>
             </div>
-            <div class="text-sm font-bold text-emerald-300 mt-0.5">
-              {{ currentLotChildNettoSum.toFixed(2) }} <span class="text-[10px] text-zinc-400">kg</span>
+            <div class="text-sm font-bold text-emerald-950 mt-1">
+              {{ currentLotChildNettoSum.toFixed(2) }} <span class="text-[10px] text-emerald-700">kg</span>
             </div>
           </div>
 
-          <div class="border-r border-zinc-800 pr-2">
-            <div class="text-[10px] text-zinc-400 uppercase font-sans font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          <!-- Card 3: Sisa Jumbo -->
+          <div class="p-2.5 rounded-xl bg-cyan-50/70 border border-cyan-200/90 flex flex-col justify-between">
+            <div class="text-[10px] text-cyan-800 uppercase font-sans font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
               <span>3. Sisa Jumbo</span>
             </div>
-            <div class="text-sm font-bold text-cyan-300 mt-0.5">
-              {{ computedBeratSisaJumbo.toFixed(2) }} <span class="text-[10px] text-zinc-400">kg</span>
-              <span v-if="parentLotForm.sisaMeter > 0" class="text-[10px] text-zinc-400 ml-1">({{ parentLotForm.sisaMeter }}M)</span>
+            <div class="text-sm font-bold text-cyan-950 mt-1">
+              {{ computedBeratSisaJumbo.toFixed(2) }} <span class="text-[10px] text-cyan-700">kg</span>
+              <span v-if="parentLotForm.sisaMeter > 0" class="text-[10px] text-cyan-800 ml-1">({{ parentLotForm.sisaMeter }}M)</span>
             </div>
           </div>
 
-          <div>
-            <div class="text-[10px] text-zinc-400 uppercase font-sans font-bold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full" :class="toleranceStatus.level === 'OK' ? 'bg-emerald-400' : toleranceStatus.level === 'WARNING' ? 'bg-amber-400' : 'bg-red-400'"></span>
+          <!-- Card 4: Selisih Loss -->
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between" :class="toleranceStatus.alertBg">
+            <div class="text-[10px] uppercase font-sans font-bold flex items-center gap-1.5" :class="toleranceStatus.color">
+              <span class="w-2 h-2 rounded-full" :class="toleranceStatus.level === 'OK' ? 'bg-emerald-500' : toleranceStatus.level === 'WARNING' ? 'bg-amber-500' : 'bg-red-500'"></span>
               <span>4. Selisih (Loss)</span>
             </div>
-            <div class="text-sm font-bold mt-0.5 flex items-center gap-1.5" :class="toleranceStatus.color">
+            <div class="text-sm font-bold mt-1 flex items-center gap-1.5" :class="toleranceStatus.color">
               <span>{{ weightDiffSign }}{{ Math.abs(computedWeightDiff).toFixed(2) }} kg</span>
               <span class="text-[10px] opacity-80">({{ computedWeightDiffPercent.toFixed(1) }}%)</span>
             </div>
           </div>
         </div>
 
-        <!-- Segmented Tab Navigation Bar (Sticky under KPI Bar) -->
-        <div class="px-6 py-2.5 bg-zinc-100/90 border-b border-zinc-200 flex items-center justify-between gap-2 overflow-x-auto select-none shrink-0">
+        <!-- Segmented Tab Navigation Bar (100% Light Mode) -->
+        <div class="px-6 py-2.5 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between gap-2 overflow-x-auto select-none shrink-0">
           <div class="flex items-center gap-1.5 shrink-0">
-            <!-- TAB 1: Analisa & Output Roll Anak -->
+            <!-- TAB UTAMA: Sambungan & Sisa Jumbo -->
+            <button
+              type="button"
+              @click="activeParentLotTab = 'joint_sisa'"
+              class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+              :class="activeParentLotTab === 'joint_sisa' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'"
+            >
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+              <span>Sambungan & Sisa Jumbo</span>
+              <span
+                class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold"
+                :class="activeParentLotTab === 'joint_sisa' ? 'bg-amber-700/80 text-white' : 'bg-amber-100 text-amber-900 border border-amber-200'"
+              >
+                {{ parentLotForm.multiParents && parentLotForm.multiParents.length > 1 ? parentLotForm.multiParents.length + ' Joint' : (parentLotForm.sisaMeter > 0 ? parentLotForm.sisaMeter + 'M' : 'Aksi') }}
+              </span>
+            </button>
+
+            <!-- TAB 2: Analisa & Output Roll Anak -->
             <button
               type="button"
               @click="activeParentLotTab = 'analisa'"
               class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-              :class="activeParentLotTab === 'analisa' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/70'"
+              :class="activeParentLotTab === 'analisa' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'"
             >
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
               <span>Analisa & Output Roll</span>
               <span
                 class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold uppercase"
-                :class="activeParentLotTab === 'analisa' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-700'"
+                :class="activeParentLotTab === 'analisa' ? 'bg-amber-700/80 text-white' : 'bg-slate-200 text-slate-700'"
               >
                 {{ currentEditingLotNode?.items?.length || 0 }} Roll
               </span>
             </button>
 
-            <!-- TAB 2: Dimensi & Sisa Jumbo -->
-            <button
-              type="button"
-              @click="activeParentLotTab = 'dimensi'"
-              class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-              :class="activeParentLotTab === 'dimensi' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/70'"
-            >
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-              <span>Dimensi & Sisa Jumbo</span>
-              <span
-                v-if="parentLotForm.sisaMeter > 0"
-                class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold"
-                :class="activeParentLotTab === 'dimensi' ? 'bg-cyan-400/20 text-cyan-300 border border-cyan-400/30' : 'bg-cyan-100 text-cyan-800 border border-cyan-200'"
-              >
-                {{ parentLotForm.sisaMeter }}M
-              </span>
-            </button>
-
-            <!-- TAB 3: Roll Joint / Sambungan -->
-            <button
-              type="button"
-              @click="activeParentLotTab = 'joint'"
-              class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-              :class="activeParentLotTab === 'joint' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/70'"
-            >
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-              <span>Sambungan / Joint</span>
-              <span
-                v-if="parentLotForm.multiParents && parentLotForm.multiParents.length > 0"
-                class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold"
-                :class="activeParentLotTab === 'joint' ? 'bg-indigo-400/20 text-indigo-300 border border-indigo-400/30' : 'bg-indigo-100 text-indigo-800 border border-indigo-200'"
-              >
-                {{ parentLotForm.multiParents.length }} Roll
-              </span>
-            </button>
-
-            <!-- TAB 4: Resep Resin (Khusus Mesin CASTING) -->
+            <!-- TAB 3: Resep Resin (Khusus Mesin CASTING) -->
             <button
               v-if="parentLotForm.mesin === 'CASTING' || parentLotForm.isResinMode"
               type="button"
               @click="activeParentLotTab = 'casting'"
               class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-              :class="activeParentLotTab === 'casting' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/70'"
+              :class="activeParentLotTab === 'casting' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'"
             >
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31L4.69 18.5a2 2 0 0 0 1.71 3h11.2a2 2 0 0 0 1.71-3L14 9.31V2"></path></svg>
               <span>Resep Resin</span>
               <span
                 class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold"
-                :class="activeParentLotTab === 'casting' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' : 'bg-amber-100 text-amber-800 border border-amber-200'"
+                :class="activeParentLotTab === 'casting' ? 'bg-amber-700/80 text-white' : 'bg-amber-100 text-amber-800 border border-amber-200'"
               >
                 {{ totalResinWeight.toFixed(0) }} kg
               </span>
@@ -2421,32 +2406,32 @@
         <!-- Modal Form Body -->
         <form @submit.prevent="saveParentLotData" class="p-6 space-y-5 text-xs flex-1">
           
-          <!-- ══════ TAB 1: ANALISA KESEIMBANGAN & OUTPUT ROLL ANAK ══════ -->
+          <!-- ══════ TAB 2: ANALISA KESEIMBANGAN & OUTPUT ROLL ANAK ══════ -->
           <div v-show="activeParentLotTab === 'analisa'" class="space-y-4">
-            <!-- Visual Material Balance & Tolerance Alert Card -->
-            <div class="p-4 bg-zinc-900 text-white rounded-xl space-y-4 shadow-sm">
-              <div class="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <span class="font-bold text-zinc-200 uppercase tracking-wider text-[11px] flex items-center gap-2">
-                  <svg class="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+            <!-- Visual Material Balance & Tolerance Alert Card (Light Mode) -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4 shadow-2xs">
+              <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                <span class="font-bold text-slate-800 uppercase tracking-wider text-[11px] flex items-center gap-2">
+                  <svg class="w-4 h-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
                   <span>Diagram Keseimbangan Material</span>
                 </span>
-                <span class="text-[10.5px] font-mono text-zinc-400">Total Material In = 100% ({{ computedParentBeratMasuk.toFixed(2) }} kg)</span>
+                <span class="text-[10.5px] font-mono font-bold text-slate-600">Total Material In = 100% ({{ computedParentBeratMasuk.toFixed(2) }} kg)</span>
               </div>
 
               <!-- Multi-Segment Visual Stacked Progress Bar -->
               <div class="space-y-2">
-                <div class="h-5 w-full bg-zinc-800 rounded-lg overflow-hidden flex shadow-inner border border-zinc-700/60">
+                <div class="h-5 w-full bg-slate-200 rounded-lg overflow-hidden flex shadow-inner border border-slate-300">
                   <!-- Segment 1: Child Netto Yield (Emerald) -->
                   <div
                     :style="{ width: `${chartYieldChildPct}%` }"
-                    class="bg-emerald-500 hover:bg-emerald-400 transition-all duration-300 relative group cursor-help"
+                    class="bg-emerald-500 hover:bg-emerald-600 transition-all duration-300 relative group cursor-help"
                     :title="`Output Child: ${currentLotChildNettoSum.toFixed(2)} kg (${chartYieldChildPct.toFixed(1)}%)`"
                   ></div>
 
                   <!-- Segment 2: Sisa Jumbo Residual (Cyan) -->
                   <div
                     :style="{ width: `${chartYieldSisaPct}%` }"
-                    class="bg-cyan-500 hover:bg-cyan-400 transition-all duration-300 relative group cursor-help"
+                    class="bg-cyan-500 hover:bg-cyan-600 transition-all duration-300 relative group cursor-help"
                     :title="`Sisa Jumbo: ${computedBeratSisaJumbo.toFixed(2)} kg (${chartYieldSisaPct.toFixed(1)}%)`"
                   ></div>
 
@@ -2454,7 +2439,7 @@
                   <div
                     v-if="computedWeightDiff > 0"
                     :style="{ width: `${chartYieldLossPct}%` }"
-                    class="bg-rose-500 hover:bg-rose-400 transition-all duration-300 relative group cursor-help"
+                    class="bg-rose-500 hover:bg-rose-600 transition-all duration-300 relative group cursor-help"
                     :title="`Loss / Selisih Kurang: ${computedWeightDiff.toFixed(2)} kg (${chartYieldLossPct.toFixed(1)}%)`"
                   ></div>
 
@@ -2462,40 +2447,40 @@
                   <div
                     v-else-if="computedWeightDiff < 0"
                     :style="{ width: `${chartYieldSurplusPct}%` }"
-                    class="bg-purple-500 hover:bg-purple-400 transition-all duration-300 relative group cursor-help"
+                    class="bg-purple-500 hover:bg-purple-600 transition-all duration-300 relative group cursor-help"
                     :title="`Surplus / Lebih: ${Math.abs(computedWeightDiff).toFixed(2)} kg (${chartYieldSurplusPct.toFixed(1)}%)`"
                   ></div>
                 </div>
 
                 <!-- Bar Legend Labels -->
-                <div class="flex items-center justify-between text-xs font-mono text-zinc-300 pt-0.5 flex-wrap gap-2">
+                <div class="flex items-center justify-between text-xs font-mono text-slate-700 pt-0.5 flex-wrap gap-2">
                   <span class="flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-xs bg-emerald-500"></span>
-                    <span>Output Child: <strong>{{ currentLotChildNettoSum.toFixed(1) }} kg</strong> ({{ chartYieldChildPct.toFixed(1) }}%)</span>
+                    <span>Output Child: <strong class="text-emerald-800">{{ currentLotChildNettoSum.toFixed(1) }} kg</strong> ({{ chartYieldChildPct.toFixed(1) }}%)</span>
                   </span>
                   <span class="flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-xs bg-cyan-500"></span>
-                    <span>Sisa Jumbo: <strong>{{ computedBeratSisaJumbo.toFixed(1) }} kg</strong> ({{ chartYieldSisaPct.toFixed(1) }}%)</span>
+                    <span>Sisa Jumbo: <strong class="text-cyan-800">{{ computedBeratSisaJumbo.toFixed(1) }} kg</strong> ({{ chartYieldSisaPct.toFixed(1) }}%)</span>
                   </span>
                   <span class="flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-xs" :class="computedWeightDiff >= 0 ? 'bg-rose-500' : 'bg-purple-500'"></span>
-                    <span>{{ computedWeightDiff >= 0 ? 'Loss (Kurang)' : 'Surplus (Lebih)' }}: <strong>{{ Math.abs(computedWeightDiff).toFixed(1) }} kg</strong> ({{ Math.abs(computedWeightDiffPercent).toFixed(1) }}%)</span>
+                    <span>{{ computedWeightDiff >= 0 ? 'Loss (Kurang)' : 'Surplus (Lebih)' }}: <strong :class="computedWeightDiff >= 0 ? 'text-rose-700' : 'text-purple-700'">{{ Math.abs(computedWeightDiff).toFixed(1) }} kg</strong> ({{ Math.abs(computedWeightDiffPercent).toFixed(1) }}%)</span>
                   </span>
                 </div>
               </div>
 
               <!-- Balance Stat Box & Tolerance Alert -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-zinc-800">
-                <div class="bg-zinc-800/80 p-2.5 rounded-lg border border-zinc-700/60 flex flex-col justify-center">
-                  <div class="text-[10px] text-zinc-400 uppercase font-bold">Total Terdata (Netto + Sisa)</div>
-                  <div class="text-base font-bold font-mono text-cyan-300 mt-0.5">
-                    {{ computedTotalOutputTerdata.toFixed(2) }} <span class="text-xs text-zinc-400">kg</span>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-200">
+                <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-center shadow-2xs">
+                  <div class="text-[10px] text-slate-500 uppercase font-bold">Total Terdata (Netto + Sisa)</div>
+                  <div class="text-base font-bold font-mono text-cyan-800 mt-0.5">
+                    {{ computedTotalOutputTerdata.toFixed(2) }} <span class="text-xs text-slate-500">kg</span>
                   </div>
-                  <div class="text-[10px] text-zinc-500 font-mono mt-0.5">dari total masuk {{ computedParentBeratMasuk.toFixed(2) }} kg</div>
+                  <div class="text-[10px] text-slate-500 font-mono mt-0.5">dari total masuk {{ computedParentBeratMasuk.toFixed(2) }} kg</div>
                 </div>
 
-                <div class="bg-zinc-800/80 p-2.5 rounded-lg border border-zinc-700/60 flex flex-col justify-center">
-                  <div class="text-[10px] text-zinc-400 uppercase font-bold">Selisih Material (Deviasi)</div>
+                <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex flex-col justify-center shadow-2xs">
+                  <div class="text-[10px] text-slate-500 uppercase font-bold">Selisih Material (Deviasi)</div>
                   <div class="text-base font-bold font-mono mt-0.5" :class="toleranceStatus.color">
                     {{ weightDiffSign }}{{ Math.abs(computedWeightDiff).toFixed(2) }} <span class="text-xs">kg</span>
                   </div>
@@ -2506,7 +2491,7 @@
 
                 <!-- Tolerance Alert Box -->
                 <div
-                  class="p-2.5 rounded-lg border flex items-start gap-2.5 text-xs transition-all"
+                  class="p-2.5 rounded-lg border flex items-start gap-2.5 text-xs transition-all shadow-2xs"
                   :class="toleranceStatus.alertBg"
                 >
                   <div class="shrink-0 mt-0.5">
@@ -2522,22 +2507,22 @@
               </div>
             </div>
 
-            <!-- Full-Width Card: Finished Child Rolls Output List -->
-            <div class="p-4 bg-zinc-50/80 border border-zinc-200/90 rounded-xl space-y-3">
-              <div class="flex items-center justify-between border-b border-zinc-200 pb-2">
-                <span class="font-bold text-zinc-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
-                  <svg class="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+            <!-- Full-Width Card: Finished Child Rolls Output List (Light Theme) -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                <span class="font-bold text-slate-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
                   <span>Daftar Roll Hasil (Output Child)</span>
                 </span>
-                <span class="text-xs font-bold text-zinc-600 font-mono">
+                <span class="text-xs font-bold text-slate-600 font-mono">
                   {{ currentEditingLotNode?.items?.length || 0 }} Roll Terhubung
                 </span>
               </div>
 
               <!-- Modern Child Rolls Table -->
-              <div class="overflow-x-auto border border-zinc-200 rounded-lg bg-white shadow-2xs max-h-72 overflow-y-auto">
+              <div class="overflow-x-auto border border-slate-200 rounded-lg bg-white shadow-2xs max-h-72 overflow-y-auto">
                 <table class="w-full text-left text-xs border-collapse">
-                  <thead class="bg-zinc-100/80 text-zinc-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-zinc-200">
+                  <thead class="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200">
                     <tr>
                       <th class="px-3 py-2 text-center w-12">Turunan</th>
                       <th class="px-3 py-2">No Lot Akhir</th>
@@ -2547,35 +2532,35 @@
                       <th class="px-3 py-2 text-center w-20">Status QC</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-zinc-100 font-mono text-[11px]">
+                  <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
                     <tr
                       v-for="(ch, cIdx) in currentEditingLotNode?.items || []"
                       :key="ch.id || ch.uniqId || ch.lotAkhir || cIdx"
-                      class="hover:bg-zinc-50/80 transition-colors"
+                      class="hover:bg-slate-50 transition-colors"
                     >
                       <td class="px-3 py-2 text-center">
-                        <span class="inline-flex items-center justify-center min-w-6 px-1.5 py-0.5 rounded bg-zinc-100 font-black text-zinc-900 border border-zinc-300">
+                        <span class="inline-flex items-center justify-center min-w-6 px-1.5 py-0.5 rounded bg-slate-100 font-black text-slate-900 border border-slate-300">
                           {{ formatTurunanDisplay(ch.turunan || '-') }}
                         </span>
                       </td>
-                      <td class="px-3 py-2 font-bold text-zinc-900">
+                      <td class="px-3 py-2 font-bold text-slate-900">
                         {{ ch.lotAkhir || ch.lot }}
                       </td>
-                      <td class="px-3 py-2 text-zinc-600">
+                      <td class="px-3 py-2 text-slate-600">
                         {{ ch.width }} mm × {{ ch.length }} M
                       </td>
-                      <td class="px-3 py-2 text-right font-black text-zinc-900">
+                      <td class="px-3 py-2 text-right font-black text-slate-900">
                         {{ parseFloat(ch.netto || ch.berat || 0).toFixed(2) }} kg
                       </td>
                       <td class="px-3 py-2">
                         <div class="flex items-center gap-2">
-                          <div class="flex-1 h-2 bg-zinc-100 rounded-full overflow-hidden border border-zinc-200">
+                          <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                             <div
                               class="h-full bg-emerald-500 rounded-full"
                               :style="{ width: `${currentLotChildNettoSum > 0 ? (parseFloat(ch.netto || ch.berat || 0) / currentLotChildNettoSum * 100).toFixed(1) : 0}%` }"
                             ></div>
                           </div>
-                          <span class="text-[10px] text-zinc-500 font-bold shrink-0 w-9 text-right">
+                          <span class="text-[10px] text-slate-500 font-bold shrink-0 w-9 text-right">
                             {{ currentLotChildNettoSum > 0 ? (parseFloat(ch.netto || ch.berat || 0) / currentLotChildNettoSum * 100).toFixed(1) : 0 }}%
                           </span>
                         </div>
@@ -2591,16 +2576,16 @@
                       </td>
                     </tr>
                     <tr v-if="!currentEditingLotNode?.items || currentEditingLotNode.items.length === 0">
-                      <td colspan="6" class="px-4 py-6 text-center text-zinc-400 italic">
+                      <td colspan="6" class="px-4 py-6 text-center text-slate-400 italic">
                         Tidak ada data roll child terhubung pada parent lot ini.
                       </td>
                     </tr>
                   </tbody>
-                  <tfoot class="bg-zinc-50 border-t-2 border-zinc-200 font-mono font-bold text-zinc-800 text-xs">
+                  <tfoot class="bg-slate-50 border-t-2 border-slate-200 font-mono font-bold text-slate-800 text-xs">
                     <tr>
                       <td colspan="3" class="px-3 py-2 text-right font-sans uppercase text-[10.5px]">Total Netto Aktual:</td>
                       <td class="px-3 py-2 text-right font-black text-sm text-emerald-600">{{ currentLotChildNettoSum.toFixed(2) }} kg</td>
-                      <td colspan="2" class="px-3 py-2 text-zinc-500 text-[10px] font-sans">
+                      <td colspan="2" class="px-3 py-2 text-slate-500 text-[10px] font-sans">
                         Rata-rata: {{ currentEditingLotNode?.items?.length ? (currentLotChildNettoSum / currentEditingLotNode.items.length).toFixed(2) : '0.00' }} kg / roll
                       </td>
                     </tr>
@@ -2610,122 +2595,46 @@
             </div>
           </div>
 
-          <!-- ══════ TAB 2: DIMENSI MASTER SLITTING & SISA JUMBO ══════ -->
-          <div v-show="activeParentLotTab === 'dimensi'" class="space-y-4">
-            <!-- Card: Master Film Specifications -->
-            <div class="p-4 bg-zinc-50/80 border border-zinc-200/90 rounded-xl space-y-3">
-              <div class="flex items-center justify-between border-b border-zinc-200 pb-2">
-                <span class="font-bold text-zinc-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
-                  <svg class="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                  <span>Identitas & Spesifikasi Master Film</span>
-                </span>
-                <span class="text-[10.5px] text-zinc-400 font-mono">Diterapkan ke seluruh roll anak</span>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <!-- NO LOT INDUK -->
-                <div class="sm:col-span-2">
-                  <label class="block font-bold text-zinc-700 mb-1">
-                    No Lot Induk Aktif <span class="text-red-500">*</span>
-                  </label>
-                  <input
-                    v-model="parentLotForm.newLot"
-                    type="text"
-                    required
-                    class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-mono font-black text-zinc-900 uppercase focus:ring-1 focus:ring-zinc-900 outline-none bg-white text-sm"
-                    placeholder="No Lot Induk"
-                  />
-                </div>
-
-                <!-- NO SPK -->
+          <!-- ══════ TAB UTAMA: SAMBUNGAN & SISA JUMBO & KETERANGAN ALASAN ══════ -->
+          <div v-show="activeParentLotTab === 'joint_sisa'" class="space-y-4">
+            <!-- 1. KARTU SAMBUNGAN MULTI-PARENT / ROLL JOINT -->
+            <div class="p-4 bg-indigo-50/60 border border-indigo-200/90 rounded-xl space-y-3">
+              <div class="flex items-center justify-between border-b border-indigo-200/80 pb-2.5 flex-wrap gap-2">
                 <div>
-                  <label class="block font-bold text-zinc-700 mb-1">No SPK</label>
-                  <input
-                    v-model="parentLotForm.spk"
-                    @input="parentLotForm.spk = (parentLotForm.spk || '').toUpperCase()"
-                    type="text"
-                    class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-mono font-bold text-zinc-900 uppercase focus:ring-1 focus:ring-zinc-900 outline-none bg-white text-sm"
-                    placeholder="SPK"
-                  />
-                </div>
-
-                <!-- JENIS FILM -->
-                <div>
-                  <label class="block font-bold text-zinc-700 mb-1">Jenis Film <span class="text-red-500">*</span></label>
-                  <select
-                    v-model="parentLotForm.jenis"
-                    @change="onParentJenisChange"
-                    required
-                    class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-bold text-zinc-900 bg-white focus:ring-1 focus:ring-zinc-900 outline-none text-xs"
-                  >
-                    <option v-for="j in jenisOptions" :key="j" :value="j">{{ j }}</option>
-                  </select>
-                </div>
-
-                <!-- KODE FORMULA -->
-                <div>
-                  <label class="block font-bold text-zinc-700 mb-1">Kode / Tipe</label>
-                  <input
-                    v-model="parentLotForm.kode"
-                    type="text"
-                    class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-mono font-bold text-zinc-900 uppercase focus:ring-1 focus:ring-zinc-900 outline-none bg-white text-xs"
-                    placeholder="Contoh: L01"
-                  />
-                </div>
-
-                <!-- THICKNESS -->
-                <div>
-                  <label class="block font-bold text-zinc-700 mb-1">Thickness (MC) <span class="text-red-500">*</span></label>
-                  <div class="relative">
-                    <input
-                      v-model="parentLotForm.thickness"
-                      type="number"
-                      step="any"
-                      required
-                      class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-mono font-black text-zinc-900 focus:ring-1 focus:ring-zinc-900 outline-none bg-white pr-8 text-xs"
-                      placeholder="20"
-                    />
-                    <span class="absolute right-2.5 top-2 text-zinc-400 font-bold font-mono text-[10px]">MC</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Card: Acuan Berat Material Masuk (Aktual Timbangan vs Teori) -->
-            <div class="p-4 bg-amber-50/60 border border-amber-200/90 rounded-xl space-y-3">
-              <div class="flex items-center justify-between border-b border-amber-200/70 pb-2 flex-wrap gap-2">
-                <span class="font-bold text-amber-950 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
-                  <svg class="w-3.5 h-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                  <span>Acuan Berat Material Masuk (Parent Roll Input)</span>
-                  <span class="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                    ({{ parentLotForm.parentBeratAktual > 0 ? 'Aktual Timbangan' : 'Teori Rumus' }})
+                  <span class="font-bold text-indigo-950 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    <span>1. Roll Sambungan / Joint (Input Bahan Masuk)</span>
                   </span>
-                </span>
+                  <p class="text-[10.5px] text-indigo-900/80 mt-0.5">
+                    Tentukan nomor lot induk utama dan tambahkan roll sambungan jika proses melibatkan penggabungan roll.
+                  </p>
+                </div>
 
-                <button
-                  type="button"
-                  @click="openJointSearchModal(0)"
-                  class="px-2.5 py-1 rounded-md text-[10.5px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                  title="Pilih data Parent Utama dari database WIP Jumbo / Data Roll"
-                >
-                  <svg class="w-3 h-3 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                  <span>Pilih dari WIP / Data Roll</span>
-                </button>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="addMultiParentRoll"
+                    class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors"
+                  >
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>+ Tambah Roll Sambungan</span>
+                  </button>
+                </div>
               </div>
 
               <!-- Recommendation Banner if found in WIP / Data Roll -->
               <div
                 v-if="parentLotForm.recommendedParentRoll"
-                class="p-2.5 bg-white border border-amber-200 rounded-lg flex items-center justify-between gap-3 text-xs flex-wrap"
+                class="p-2.5 bg-white border border-amber-200 rounded-lg flex items-center justify-between gap-3 text-xs flex-wrap shadow-2xs"
               >
                 <div class="flex items-center gap-2">
                   <span class="text-base">✨</span>
                   <div>
-                    <div class="font-bold text-zinc-900">
+                    <div class="font-bold text-slate-800">
                       Rekomendasi ditemukan di <span class="text-indigo-600 font-black">{{ parentLotForm.recommendedParentRoll.source }}</span>
                     </div>
-                    <div class="text-[10.5px] text-zinc-500 font-mono">
-                      Lot: <strong class="text-zinc-800">{{ parentLotForm.recommendedParentRoll.lot }}</strong> • Netto: <strong class="text-emerald-700">{{ parentLotForm.recommendedParentRoll.berat.toFixed(2) }} kg</strong> • SPK: {{ parentLotForm.recommendedParentRoll.spk || '-' }}
+                    <div class="text-[10.5px] text-slate-500 font-mono">
+                      Lot: <strong class="text-slate-800">{{ parentLotForm.recommendedParentRoll.lot }}</strong> • Netto: <strong class="text-emerald-700">{{ parentLotForm.recommendedParentRoll.berat.toFixed(2) }} kg</strong> • SPK: {{ parentLotForm.recommendedParentRoll.spk || '-' }}
                     </div>
                   </div>
                 </div>
@@ -2741,244 +2650,10 @@
                   <button
                     type="button"
                     @click="openJointSearchModal(0)"
-                    class="px-2 py-1 rounded-md text-[10.5px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-300 transition-colors shrink-0 cursor-pointer"
+                    class="px-2 py-1 rounded-md text-[10.5px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors shrink-0 cursor-pointer"
                     title="Cari roll lain di database"
                   >
                     Cari Lain ➔
-                  </button>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                <div class="sm:col-span-6">
-                  <label class="block font-bold text-amber-950 mb-1 text-xs flex items-center justify-between">
-                    <span>Berat Parent Aktual (Timbangan Masuk)</span>
-                    <span class="text-[10px] text-amber-800 font-mono">Opsional</span>
-                  </label>
-                  <div class="relative">
-                    <input
-                      v-model="parentLotForm.parentBeratAktual"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      class="w-full px-3 py-2 border border-amber-300 rounded-lg font-mono font-black text-amber-950 bg-white focus:ring-2 focus:ring-amber-500 outline-none text-sm pr-10"
-                      placeholder="Kosongkan jika pakai teori"
-                    />
-                    <span class="absolute right-3 top-2 text-amber-700 font-bold font-mono text-xs">kg</span>
-                  </div>
-                </div>
-
-                <div class="sm:col-span-6 flex items-center gap-2 pt-1 sm:pt-4 flex-wrap">
-                  <button
-                    type="button"
-                    @click="openJointSearchModal(0)"
-                    class="px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <svg class="w-3.5 h-3.5 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <span>Pilih dari WIP / Data Roll</span>
-                  </button>
-                  <button
-                    type="button"
-                    @click="parentLotForm.parentBeratAktual = ''"
-                    class="px-3 py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer"
-                    :class="parentLotForm.parentBeratAktual === '' || parentLotForm.parentBeratAktual === null ? 'bg-zinc-800 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50'"
-                  >
-                    Gunakan Teori Rumus ({{ computedParentBeratTeori.toFixed(2) }} kg)
-                  </button>
-                </div>
-              </div>
-
-              <p class="text-[10.5px] text-amber-900/90 leading-relaxed">
-                💡 <strong>Catatan:</strong> Jika berat aktual timbangan diisi, sistem akan menggunakannya sebagai acuan Material Masuk untuk menghitung selisih fisik riil (Loss/Scrap). Jika dikosongkan, sistem otomatis menggunakan Berat Teori Rumus ({{ computedParentBeratTeori.toFixed(2) }} kg).
-              </p>
-            </div>
-
-            <!-- Card: Dimensi Induk & Trim Slitting / Rewind -->
-            <div class="p-4 bg-zinc-50/80 border border-zinc-200/90 rounded-xl space-y-3">
-              <div class="flex items-center justify-between border-b border-zinc-200 pb-2">
-                <span class="font-bold text-zinc-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
-                  <svg class="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                  <span>{{ parentLotForm.mesin === 'REWIND' ? 'Dimensi Induk Roll Rewind (Roll Utuh 1:1)' : 'Dimensi Induk & Kalkulasi Pisau Slitting' }}</span>
-                </span>
-                <span v-if="parentLotForm.mesin === 'REWIND'" class="text-xs font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-bold">
-                  Lebar Roll: <strong>{{ parentLotForm.parentWidth }} mm</strong> (Tanpa Chart / Trim)
-                </span>
-                <span v-else class="text-xs font-mono text-zinc-600 bg-zinc-200/60 px-2 py-0.5 rounded">
-                  Base: <strong>{{ parentLotForm.chartinganBaseWidth }} mm</strong> + Trim: <strong>{{ parentLotForm.trim || 0 }} mm</strong> = <strong>{{ parentLotForm.parentWidth }} mm</strong>
-                </span>
-              </div>
-
-              <!-- Visual Formula Bar (Slitting vs Rewind) -->
-              <div v-if="parentLotForm.mesin === 'REWIND'" class="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 flex items-center justify-between flex-wrap gap-2 text-xs">
-                <div class="flex items-center gap-2">
-                  <span class="text-indigo-900 font-bold">Sifat Mesin Rewind:</span>
-                  <span class="px-2 py-1 bg-white border border-indigo-200 text-indigo-950 rounded font-mono font-bold">Proses Roll Utuh (Tanpa Potong Pisau Charting)</span>
-                  <span class="text-zinc-400 font-bold">•</span>
-                  <span class="text-indigo-800 text-[11px]">Lebar parent sama persis dengan lebar roll child (Trim = 0 mm)</span>
-                </div>
-              </div>
-              <div v-else class="p-3 bg-white rounded-lg border border-zinc-200 flex items-center justify-between flex-wrap gap-2 text-xs">
-                <div class="flex items-center gap-2">
-                  <span class="text-zinc-500 font-bold">Rumus Lebar:</span>
-                  <span class="px-2 py-1 bg-zinc-100 rounded font-mono font-bold text-zinc-800">Total Pisau: {{ parentLotForm.chartinganBaseWidth }} mm</span>
-                  <span class="font-black text-zinc-400">+</span>
-                  <span class="px-2 py-1 bg-amber-50 border border-amber-200 text-amber-900 rounded font-mono font-bold">Trim Sisi: {{ parentLotForm.trim || 0 }} mm</span>
-                  <span class="font-black text-zinc-400">=</span>
-                  <span class="px-2 py-1 bg-zinc-900 text-white rounded font-mono font-black">Lebar Parent: {{ parentLotForm.parentWidth }} mm</span>
-                </div>
-                <div class="text-[11px] text-zinc-400 font-mono">
-                  Tarikan Sequence: <strong>{{ parentLotForm.sequenceLengthBase }} M</strong>
-                </div>
-              </div>
-
-              <!-- Breakdown Positions & Sequences (Hanya jika Slitting / lebih dari 1 posisi) -->
-              <div v-if="parentLotForm.mesin !== 'REWIND'" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
-                <div class="p-3 bg-white rounded-lg border border-zinc-200 space-y-1.5">
-                  <div class="font-bold text-zinc-700 text-[11px] flex items-center justify-between">
-                    <span>Posisi Pisau Charting (Lebar Sisi):</span>
-                    <span class="text-[10px] font-mono text-zinc-400">{{ parentLotForm.uniqueChartList.length }} Posisi</span>
-                  </div>
-                  <div class="text-zinc-700 font-mono text-xs bg-zinc-50 p-2 rounded border border-zinc-100">
-                    {{ parentLotForm.uniqueChartList.map(c => `${c.chartingan}: ${c.width}mm`).join(' • ') || '-' }}
-                  </div>
-                </div>
-
-                <div class="p-3 bg-white rounded-lg border border-zinc-200 space-y-1.5">
-                  <div class="font-bold text-zinc-700 text-[11px] flex items-center justify-between">
-                    <span>Urutan Putaran Potong (Panjang):</span>
-                    <span class="text-[10px] font-mono text-zinc-400">{{ parentLotForm.uniqueSeqList.length }} Putaran</span>
-                  </div>
-                  <div class="text-zinc-700 font-mono text-xs bg-zinc-50 p-2 rounded border border-zinc-100">
-                    {{ parentLotForm.uniqueSeqList.map(s => `#${String(s.noUrut).padStart(2, '0')}: ${s.length}M`).join(' • ') || '-' }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- Inputs: Trim, Lebar Parent, Panjang Parent -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200">
-                <div v-if="parentLotForm.mesin !== 'REWIND'">
-                  <label class="block font-bold text-zinc-700 mb-1 text-xs">Trim Sisi (mm)</label>
-                  <input
-                    v-model="parentLotForm.trim"
-                    @input="onTrimChange"
-                    type="number"
-                    step="any"
-                    class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-mono font-bold text-zinc-900 bg-white outline-none focus:ring-1 focus:ring-zinc-900 text-xs"
-                    placeholder="20"
-                  />
-                  <span class="text-[10px] text-zinc-400 mt-0.5 block">Trim terbuang di sisi roll</span>
-                </div>
-                <div v-else>
-                  <label class="block font-bold text-zinc-500 mb-1 text-xs">Trim Sisi (mm)</label>
-                  <input
-                    disabled
-                    value="0"
-                    type="text"
-                    class="w-full px-3 py-2 border border-zinc-200 rounded-lg font-mono font-bold text-zinc-400 bg-zinc-100 cursor-not-allowed text-xs"
-                  />
-                  <span class="text-[10px] text-zinc-400 mt-0.5 block">Mesin Rewind tanpa trim potong (0 mm)</span>
-                </div>
-
-                <div>
-                  <label class="block font-bold text-zinc-700 mb-1 text-xs">Lebar Parent (mm) <span class="text-red-500">*</span></label>
-                  <input
-                    v-model="parentLotForm.parentWidth"
-                    @input="onParentWidthChange"
-                    type="number"
-                    step="any"
-                    required
-                    class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-mono font-black text-zinc-900 bg-zinc-100/80 outline-none text-xs"
-                    placeholder="2220"
-                  />
-                  <span class="text-[10px] text-zinc-400 mt-0.5 block">Lebar total bahan masuk</span>
-                </div>
-
-                <div>
-                  <label class="block font-bold text-zinc-700 mb-1 text-xs">Panjang Parent (M) <span class="text-red-500">*</span></label>
-                  <input
-                    v-model="parentLotForm.parentMeter"
-                    type="number"
-                    step="any"
-                    required
-                    class="w-full px-3 py-2 border border-zinc-300 rounded-lg font-mono font-black text-zinc-900 bg-zinc-100/80 outline-none text-xs"
-                    placeholder="2500"
-                  />
-                  <span class="text-[10px] text-zinc-400 mt-0.5 block">Panjang total bahan masuk</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Card: Sisa Jumbo Roll (Highlight Card) -->
-            <div class="p-4 bg-cyan-50/60 border border-cyan-200/90 rounded-xl space-y-3">
-              <div class="flex items-center justify-between border-b border-cyan-200/80 pb-2">
-                <span class="font-bold text-cyan-950 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
-                  <svg class="w-3.5 h-3.5 text-cyan-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                  <span>Data Sisa Jumbo Roll (Meteran Sisa)</span>
-                </span>
-                <span class="text-xs font-mono font-bold text-cyan-900">
-                  Konversi: <strong class="text-sm text-cyan-950">{{ computedBeratSisaJumbo.toFixed(2) }} kg</strong>
-                </span>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                <div class="sm:col-span-6">
-                  <label class="block font-bold text-cyan-950 mb-1 text-xs">
-                    Panjang Sisa Jumbo Roll (Meter)
-                  </label>
-                  <div class="relative">
-                    <input
-                      v-model="parentLotForm.sisaMeter"
-                      type="number"
-                      step="any"
-                      min="0"
-                      class="w-full px-3.5 py-2 border border-cyan-300 rounded-lg font-mono font-black text-cyan-950 bg-white focus:ring-2 focus:ring-cyan-500 outline-none text-sm pr-12"
-                      placeholder="0"
-                    />
-                    <span class="absolute right-3 top-2 text-cyan-600 font-bold font-mono text-xs">Meter</span>
-                  </div>
-                  <span class="text-[10.5px] text-cyan-800 mt-1 block">
-                    Masukkan panjang roll jumbo yang tersisa setelah seluruh set pemotongan selesai.
-                  </span>
-                </div>
-
-                <div class="sm:col-span-6 p-3 bg-white/90 border border-cyan-200 rounded-lg space-y-1 text-xs">
-                  <div class="font-bold text-cyan-900 text-[11px]">Perhitungan Otomatis Sisa:</div>
-                  <div class="text-zinc-600 font-mono text-[11px]">
-                    {{ parentLotForm.thickness || 0 }} MC × {{ parentLotForm.parentWidth || 0 }} mm × {{ parentLotForm.sisaMeter || 0 }} M × {{ parentLotForm.parentDensity }} =
-                  </div>
-                  <div class="text-base font-mono font-black text-cyan-700">
-                    {{ computedBeratSisaJumbo.toFixed(2) }} kg
-                  </div>
-                  <div class="text-[10px] text-zinc-400">
-                    Otomatis masuk ke formula keseimbangan bahan (Output + Sisa + Selisih).
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ══════ TAB 3: MULTI-PARENT / ROLL SAMBUNGAN (JOINT) ══════ -->
-          <div v-show="activeParentLotTab === 'joint'" class="space-y-4">
-            <div class="p-4 bg-indigo-50/50 border border-indigo-200/80 rounded-xl space-y-3">
-              <div class="flex items-center justify-between border-b border-indigo-200/70 pb-2 flex-wrap gap-2">
-                <div>
-                  <span class="font-bold text-indigo-950 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                    <span>Sambungan Multi-Parent Roll (Joint 2-3 Roll)</span>
-                  </span>
-                  <p class="text-[10.5px] text-indigo-800 mt-0.5">
-                    Pilih radio button untuk menentukan nomor lot induk aktif yang digunakan. Klik tombol rekomendasi untuk memilih roll asal dari database.
-                  </p>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    @click="addMultiParentRoll"
-                    class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors"
-                  >
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    <span>Tambah Roll Sambungan</span>
                   </button>
                 </div>
               </div>
@@ -2988,13 +2663,13 @@
                 <div
                   v-for="(pRoll, pIdx) in parentLotForm.multiParents"
                   :key="pIdx"
-                  class="p-3.5 bg-white border rounded-xl transition-all"
+                  class="p-3.5 bg-white border rounded-xl transition-all shadow-2xs"
                   :class="[
-                    selectedActiveParentLotIndex === pIdx ? 'border-indigo-500 shadow-xs ring-2 ring-indigo-500/20' : 'border-zinc-200 hover:border-zinc-300',
-                    pIdx === 0 ? 'bg-indigo-50/20 border-l-4 border-l-indigo-600' : ''
+                    selectedActiveParentLotIndex === pIdx ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 hover:border-slate-300',
+                    pIdx === 0 ? 'border-l-4 border-l-indigo-600' : ''
                   ]"
                 >
-                  <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-zinc-100 flex-wrap">
+                  <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 flex-wrap">
                     <!-- Radio Button Selector for Active Parent Lot -->
                     <label class="flex items-center gap-2 cursor-pointer select-none">
                       <input
@@ -3004,7 +2679,7 @@
                         @change="onSelectActiveParentLot(pIdx)"
                         class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
-                      <span class="font-bold text-xs" :class="selectedActiveParentLotIndex === pIdx ? 'text-indigo-950 font-black' : 'text-zinc-700'">
+                      <span class="font-bold text-xs" :class="selectedActiveParentLotIndex === pIdx ? 'text-indigo-950 font-black' : 'text-slate-700'">
                         {{ pIdx === 0 ? 'Parent Utama (Jumbo Awal)' : `Roll Sambungan #${pIdx}` }}
                       </span>
                       <span v-if="pIdx === 0" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
@@ -3023,19 +2698,19 @@
                       <button
                         type="button"
                         @click="openJointSearchModal(pIdx)"
-                        class="px-2.5 py-1 rounded-md text-[10.5px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors flex items-center gap-1 cursor-pointer"
+                        class="px-2.5 py-1 rounded-md text-[10.5px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
                         :title="pIdx === 0 ? 'Ambil spesifikasi & berat aktual Parent Utama dari WIP / Data Roll' : 'Pilih roll asal sambungan dari database WIP / Data Roll'"
                       >
                         <svg class="w-3 h-3 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         <span>Pilih dari WIP / Data Roll</span>
                       </button>
 
-                      <span class="text-xs font-mono text-zinc-600">
-                        Berat: <strong class="text-zinc-900">{{ pRoll.berat ? parseFloat(pRoll.berat).toFixed(2) + ' kg (Aktual)' : calculateBeratTeori(pRoll.thickness || parentLotForm.thickness, pRoll.width || parentLotForm.parentWidth, pRoll.meter, parentLotForm.parentDensity).toFixed(2) + ' kg (Teori)' }}</strong>
+                      <span class="text-xs font-mono text-slate-600">
+                        Berat: <strong class="text-slate-900">{{ pRoll.berat ? parseFloat(pRoll.berat).toFixed(2) + ' kg (Aktual)' : calculateBeratTeori(pRoll.thickness || parentLotForm.thickness, pRoll.width || parentLotForm.parentWidth, pRoll.meter, parentLotForm.parentDensity).toFixed(2) + ' kg (Teori)' }}</strong>
                       </span>
 
                       <!-- Parent Utama (Indeks 0) TIDAK BISA DIHAPUS, Roll Sambungan (>0) BISA DIHAPUS -->
-                      <div v-if="pIdx === 0" class="px-2 py-1 text-zinc-400 bg-zinc-100 rounded text-[10.5px] flex items-center gap-1 cursor-not-allowed select-none" title="Parent utama tidak dapat dihapus, hanya dapat diedit">
+                      <div v-if="pIdx === 0" class="px-2 py-1 text-slate-400 bg-slate-100 rounded text-[10.5px] flex items-center gap-1 cursor-not-allowed select-none" title="Parent utama tidak dapat dihapus, hanya dapat diedit">
                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                         <span>Permanen</span>
                       </div>
@@ -3043,7 +2718,7 @@
                         v-else
                         type="button"
                         @click="removeMultiParentRoll(pIdx)"
-                        class="p-1 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                        class="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
                         title="Hapus roll sambungan ini"
                       >
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -3053,22 +2728,22 @@
 
                   <div class="grid grid-cols-1 sm:grid-cols-6 gap-2.5 pt-2.5 text-xs">
                     <div class="sm:col-span-2">
-                      <label class="text-[10.5px] font-bold text-zinc-600 mb-0.5 block flex items-center justify-between">
+                      <label class="text-[10.5px] font-bold text-slate-600 mb-0.5 block flex items-center justify-between">
                         <span>{{ pIdx === 0 ? 'No Lot Induk Utama' : 'No Lot Sambungan' }}</span>
-                        <span class="text-[9.5px] text-indigo-600 cursor-pointer hover:underline" @click="openJointSearchModal(pIdx)">🔍 Rekomendasi</span>
+                        <span class="text-[9.5px] text-indigo-600 cursor-pointer hover:underline font-bold" @click="openJointSearchModal(pIdx)">🔍 Rekomendasi</span>
                       </label>
                       <div class="relative">
                         <input
                           v-model="pRoll.lotNo"
                           @input="onMultiParentFieldChange(pIdx, 'lotNo')"
                           type="text"
-                          class="w-full pl-2.5 pr-7 py-1.5 border border-zinc-300 rounded-lg font-mono font-bold uppercase text-zinc-900 bg-zinc-50 focus:bg-white outline-none focus:ring-1 focus:ring-indigo-500"
+                          class="w-full pl-2.5 pr-7 py-1.5 border border-slate-300 rounded-lg font-mono font-bold uppercase text-slate-900 bg-slate-50 focus:bg-white outline-none focus:ring-1 focus:ring-indigo-500"
                           :placeholder="pIdx === 0 ? 'No Lot Utama' : 'No Lot Sambungan'"
                         />
                         <button
                           type="button"
                           @click="openJointSearchModal(pIdx)"
-                          class="absolute right-1.5 top-1.5 text-zinc-400 hover:text-indigo-600 cursor-pointer"
+                          class="absolute right-1.5 top-1.5 text-slate-400 hover:text-indigo-600 cursor-pointer"
                           title="Cari Rekomendasi Lot"
                         >
                           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -3077,84 +2752,255 @@
                     </div>
 
                     <div>
-                      <label class="text-[10.5px] font-bold text-zinc-600 mb-0.5 block">No SPK</label>
-                      <input v-model="pRoll.spk" @input="onMultiParentFieldChange(pIdx, 'spk')" type="text" class="w-full px-2.5 py-1.5 border border-zinc-300 rounded-lg font-mono text-zinc-900 uppercase outline-none focus:ring-1 focus:ring-indigo-500" placeholder="SPK" />
+                      <label class="text-[10.5px] font-bold text-slate-600 mb-0.5 block">No SPK</label>
+                      <input v-model="pRoll.spk" @input="onMultiParentFieldChange(pIdx, 'spk')" type="text" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono text-slate-900 uppercase outline-none focus:ring-1 focus:ring-indigo-500" placeholder="SPK" />
                     </div>
 
                     <div>
-                      <label class="text-[10.5px] font-bold text-zinc-600 mb-0.5 block">Lebar (mm)</label>
-                      <input v-model="pRoll.width" @input="onMultiParentFieldChange(pIdx, 'width')" type="number" class="w-full px-2.5 py-1.5 border border-zinc-300 rounded-lg font-mono text-zinc-900 outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Width" />
+                      <label class="text-[10.5px] font-bold text-slate-600 mb-0.5 block">Lebar (mm)</label>
+                      <input v-model="pRoll.width" @input="onMultiParentFieldChange(pIdx, 'width')" type="number" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono text-slate-900 outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Width" />
                     </div>
 
                     <div>
-                      <label class="text-[10.5px] font-bold text-zinc-600 mb-0.5 block">Panjang (M)</label>
-                      <input v-model="pRoll.meter" @input="onMultiParentFieldChange(pIdx, 'meter')" type="number" class="w-full px-2.5 py-1.5 border border-zinc-300 rounded-lg font-mono text-zinc-900 outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Meter" />
+                      <label class="text-[10.5px] font-bold text-slate-600 mb-0.5 block">Panjang (M)</label>
+                      <input v-model="pRoll.meter" @input="onMultiParentFieldChange(pIdx, 'meter')" type="number" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono text-slate-900 outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Meter" />
                     </div>
 
                     <div>
-                      <label class="text-[10.5px] font-bold text-zinc-600 mb-0.5 block">Berat (kg)</label>
+                      <label class="text-[10.5px] font-bold text-slate-600 mb-0.5 block">Berat (kg)</label>
                       <input
                         v-model="pRoll.berat"
                         @input="onMultiParentFieldChange(pIdx, 'berat')"
                         type="number"
                         step="0.1"
-                        class="w-full px-2.5 py-1.5 border border-zinc-300 rounded-lg font-mono font-bold text-zinc-900 outline-none focus:ring-1 focus:ring-indigo-500"
+                        class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
                         :placeholder="`Teori: ${calculateBeratTeori(pRoll.thickness || parentLotForm.thickness, pRoll.width || parentLotForm.parentWidth, pRoll.meter, parentLotForm.parentDensity).toFixed(1)}`"
                       />
                     </div>
 
                     <div class="sm:col-span-6">
-                      <label class="text-[10.5px] font-bold text-zinc-600 mb-0.5 block">Keterangan Roll</label>
-                      <input v-model="pRoll.note" type="text" class="w-full px-2.5 py-1.5 border border-zinc-300 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500" :placeholder="pIdx === 0 ? 'Parent Utama (Roll 1)' : `Sambungan #${pIdx}`" />
+                      <label class="text-[10.5px] font-bold text-slate-600 mb-0.5 block">Keterangan Asal Sambungan / Catatan Roll</label>
+                      <input v-model="pRoll.note" type="text" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500" :placeholder="pIdx === 0 ? 'Contoh: Parent Utama (Roll Jumbo dari Casting)' : `Contoh: Sambungan dari Lot X sisa shift kemarin`" />
                     </div>
                   </div>
                 </div>
 
-                <!-- Kartu Ajakan Tambah Roll Sambungan jika baru ada Parent Utama saja -->
-                <div v-if="parentLotForm.multiParents && parentLotForm.multiParents.length <= 1" class="p-4 bg-white border border-dashed border-indigo-200 rounded-xl text-center space-y-2">
-                  <div class="text-xs text-indigo-950 font-bold">Belum Ada Roll Sambungan Tambahan</div>
-                  <p class="text-[11px] text-zinc-500 max-w-md mx-auto">
-                    Roll di atas adalah Parent Utama. Jika proses ini menggabungkan 2 atau lebih roll asal (seperti proses Rewind / Doctoring), klik tombol di bawah untuk menambahkan roll sambungan di bawahnya.
-                  </p>
+                <!-- Ajakan Tambah Roll Sambungan jika baru ada Parent Utama saja -->
+                <div v-if="parentLotForm.multiParents && parentLotForm.multiParents.length <= 1" class="p-3 bg-white border border-dashed border-indigo-200 rounded-xl text-center flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-xs text-indigo-950 font-bold">Perlu menyambung roll lain untuk parent ini?</span>
                   <button
                     type="button"
                     @click="addMultiParentRoll"
-                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
+                    class="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
                   >
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     <span>+ Tambah Roll Sambungan (Joint)</span>
                   </button>
                 </div>
+              </div>
+            </div>
 
-                <!-- Total Akumulasi Bahan Masuk jika terdapat roll sambungan -->
-                <div v-if="parentLotForm.multiParents && parentLotForm.multiParents.length > 1" class="flex items-center justify-between pt-1 flex-wrap gap-2">
-                  <button
-                    type="button"
-                    @click="addMultiParentRoll"
-                    class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-1.5 transition-colors"
-                  >
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    <span>Tambah Sambungan Lagi</span>
-                  </button>
+            <!-- 2. KARTU SISA JUMBO & KETERANGAN ALASAN SISA -->
+            <div class="p-4 bg-cyan-50/70 border border-cyan-200/90 rounded-xl space-y-3">
+              <div class="flex items-center justify-between border-b border-cyan-200/80 pb-2">
+                <span class="font-bold text-cyan-950 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-cyan-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  <span>2. Sisa Jumbo Roll & Keterangan Alasan</span>
+                </span>
+                <span class="text-xs font-mono font-bold text-cyan-900 bg-white/80 px-2 py-0.5 rounded border border-cyan-200">
+                  Konversi: <strong class="text-sm text-cyan-950">{{ computedBeratSisaJumbo.toFixed(2) }} kg</strong>
+                </span>
+              </div>
 
-                  <div class="text-right text-xs font-bold text-indigo-950">
-                    Total Akumulasi Bahan Masuk: <span class="font-mono text-base font-black text-indigo-900">{{ computedParentBeratMasuk.toFixed(2) }} kg</span>
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                <!-- Sisa Meter Input -->
+                <div class="sm:col-span-5 space-y-1">
+                  <label class="block font-bold text-cyan-950 text-xs">
+                    Panjang Sisa Jumbo Roll (Meter)
+                  </label>
+                  <div class="relative">
+                    <input
+                      v-model="parentLotForm.sisaMeter"
+                      type="number"
+                      step="any"
+                      min="0"
+                      class="w-full px-3.5 py-2 border border-cyan-300 rounded-lg font-mono font-black text-cyan-950 bg-white focus:ring-2 focus:ring-cyan-500 outline-none text-sm pr-14"
+                      placeholder="0"
+                    />
+                    <span class="absolute right-3 top-2 text-cyan-700 font-bold font-mono text-xs">Meter</span>
                   </div>
+                  <span class="text-[10px] text-cyan-800/80 block">
+                    Rumus: {{ parentLotForm.thickness || 0 }}MC × {{ parentLotForm.parentWidth || 0 }}mm × {{ parentLotForm.sisaMeter || 0 }}M × {{ parentLotForm.parentDensity }} = <strong>{{ computedBeratSisaJumbo.toFixed(2) }} kg</strong>
+                  </span>
+                </div>
+
+                <!-- Sisa Note Textarea & Quick Tags -->
+                <div class="sm:col-span-7 space-y-1.5">
+                  <label class="block font-bold text-cyan-950 text-xs flex items-center justify-between">
+                    <span>Keterangan Alasan Sisa Jumbo</span>
+                    <span class="text-[10px] text-cyan-700 font-normal">Klik tag di bawah untuk isi cepat</span>
+                  </label>
+                  <input
+                    v-model="parentLotForm.sisaNote"
+                    type="text"
+                    class="w-full px-3 py-2 border border-cyan-300 rounded-lg text-xs text-slate-800 bg-white focus:ring-2 focus:ring-cyan-500 outline-none"
+                    placeholder="Contoh: Order SPK terpenuhi, roll sisa disimpan di staging WIP..."
+                  />
+                  <!-- Quick Tag Buttons -->
+                  <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <button
+                      v-for="tag in quickSisaTags"
+                      :key="tag"
+                      type="button"
+                      @click="applySisaNoteTag(tag)"
+                      class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/90 hover:bg-cyan-100 text-cyan-900 border border-cyan-300 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      + {{ tag }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. KARTU IDENTITAS MASTER FILM & DIMENSI TEKNIS -->
+            <div class="p-4 bg-slate-50 border border-slate-200/90 rounded-xl space-y-3">
+              <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                <span class="font-bold text-slate-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  <span>3. Identitas Master Film & Dimensi Teknis</span>
+                </span>
+                <span class="text-[10.5px] text-slate-500 font-mono">Diterapkan ke seluruh roll anak</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <!-- NO LOT INDUK -->
+                <div class="sm:col-span-2">
+                  <label class="block font-bold text-slate-700 mb-1 text-xs">
+                    No Lot Induk Aktif <span class="text-red-500">*</span>
+                  </label>
+                  <input
+                    v-model="parentLotForm.newLot"
+                    type="text"
+                    required
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-black text-slate-900 uppercase focus:ring-1 focus:ring-slate-900 outline-none bg-white text-sm"
+                    placeholder="No Lot Induk"
+                  />
+                </div>
+
+                <!-- NO SPK -->
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1 text-xs">No SPK</label>
+                  <input
+                    v-model="parentLotForm.spk"
+                    @input="parentLotForm.spk = (parentLotForm.spk || '').toUpperCase()"
+                    type="text"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 uppercase focus:ring-1 focus:ring-slate-900 outline-none bg-white text-xs"
+                    placeholder="SPK"
+                  />
+                </div>
+
+                <!-- THICKNESS -->
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1 text-xs">Thickness (MC) <span class="text-red-500">*</span></label>
+                  <div class="relative">
+                    <input
+                      v-model="parentLotForm.thickness"
+                      type="number"
+                      step="any"
+                      required
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-black text-slate-900 focus:ring-1 focus:ring-slate-900 outline-none bg-white pr-8 text-xs"
+                      placeholder="20"
+                    />
+                    <span class="absolute right-2.5 top-2 text-slate-400 font-bold font-mono text-[10px]">MC</span>
+                  </div>
+                </div>
+
+                <!-- JENIS FILM -->
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1 text-xs">Jenis Film <span class="text-red-500">*</span></label>
+                  <select
+                    v-model="parentLotForm.jenis"
+                    @change="onParentJenisChange"
+                    required
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-slate-900 bg-white focus:ring-1 focus:ring-slate-900 outline-none text-xs"
+                  >
+                    <option v-for="j in jenisOptions" :key="j" :value="j">{{ j }}</option>
+                  </select>
+                </div>
+
+                <!-- KODE FORMULA -->
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1 text-xs">Kode / Tipe</label>
+                  <input
+                    v-model="parentLotForm.kode"
+                    type="text"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 uppercase focus:ring-1 focus:ring-slate-900 outline-none bg-white text-xs"
+                    placeholder="L01"
+                  />
+                </div>
+
+                <!-- LEBAR PARENT -->
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1 text-xs">Lebar Parent (mm) <span class="text-red-500">*</span></label>
+                  <input
+                    v-model="parentLotForm.parentWidth"
+                    @input="onParentWidthChange"
+                    type="number"
+                    step="any"
+                    required
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-black text-slate-900 bg-white outline-none focus:ring-1 focus:ring-slate-900 text-xs"
+                    placeholder="2220"
+                  />
+                </div>
+
+                <!-- PANJANG PARENT -->
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1 text-xs">Panjang Parent (M) <span class="text-red-500">*</span></label>
+                  <input
+                    v-model="parentLotForm.parentMeter"
+                    type="number"
+                    step="any"
+                    required
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-black text-slate-900 bg-white outline-none focus:ring-1 focus:ring-slate-900 text-xs"
+                    placeholder="2500"
+                  />
+                </div>
+              </div>
+
+              <!-- Trim Slitting Info jika bukan Rewind -->
+              <div v-if="parentLotForm.mesin !== 'REWIND'" class="p-2.5 bg-white border border-slate-200 rounded-lg flex items-center justify-between text-xs flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500 font-bold">Kalkulasi Pisau:</span>
+                  <span class="px-2 py-0.5 bg-slate-100 rounded font-mono font-bold text-slate-800">Pisau: {{ parentLotForm.chartinganBaseWidth }} mm</span>
+                  <span class="font-bold text-slate-400">+</span>
+                  <span class="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-900 rounded font-mono font-bold">Trim: {{ parentLotForm.trim || 0 }} mm</span>
+                  <span class="font-bold text-slate-400">=</span>
+                  <span class="px-2 py-0.5 bg-slate-800 text-white rounded font-mono font-bold">Parent: {{ parentLotForm.parentWidth }} mm</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <label class="text-[11px] font-bold text-slate-600">Edit Trim (mm):</label>
+                  <input
+                    v-model="parentLotForm.trim"
+                    @input="onTrimChange"
+                    type="number"
+                    step="any"
+                    class="w-16 px-2 py-1 border border-slate-300 rounded font-mono font-bold text-center text-xs"
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- ══════ TAB 4: MESIN CASTING / RESIN CONSUMPTION RECIPE ══════ -->
+          <!-- ══════ TAB 3: MESIN CASTING / RESIN CONSUMPTION RECIPE ══════ -->
           <div v-show="activeParentLotTab === 'casting'" class="space-y-4">
-            <div class="p-4 bg-amber-50/50 border border-amber-200/80 rounded-xl space-y-3">
-              <div class="flex items-center justify-between border-b border-amber-200/70 pb-2 flex-wrap gap-2">
+            <div class="p-4 bg-amber-50/60 border border-amber-200/90 rounded-xl space-y-3">
+              <div class="flex items-center justify-between border-b border-amber-200/80 pb-2 flex-wrap gap-2">
                 <div>
                   <span class="font-bold text-amber-950 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
                     <svg class="w-3.5 h-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31L4.69 18.5a2 2 0 0 0 1.71 3h11.2a2 2 0 0 0 1.71-3L14 9.31V2"></path></svg>
                     <span>Resep & Konsumsi Biji Plastik (Resin Batch)</span>
                   </span>
-                  <p class="text-[10.5px] text-amber-800 mt-0.5">Catat seluruh konsumsi bahan baku per layer (Core, Skin, MB, Regrind).</p>
+                  <p class="text-[10.5px] text-amber-900/80 mt-0.5">Catat seluruh konsumsi bahan baku per layer (Core, Skin, MB, Regrind).</p>
                 </div>
 
                 <button
@@ -3171,22 +3017,22 @@
                 <div
                   v-for="(rItem, rIdx) in parentLotForm.resinConsumptions"
                   :key="rIdx"
-                  class="p-3 bg-white border border-amber-200 rounded-lg grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-center text-xs"
+                  class="p-3 bg-white border border-amber-200 rounded-lg grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-center text-xs shadow-2xs"
                 >
                   <div>
-                    <label class="text-[10px] font-bold text-zinc-500 mb-0.5 block">Nama Resin / Layer</label>
-                    <input v-model="rItem.name" type="text" class="w-full px-2.5 py-1.5 border border-zinc-300 rounded-lg font-bold text-zinc-900 outline-none focus:ring-1 focus:ring-amber-500" placeholder="PP Core Layer" />
+                    <label class="text-[10px] font-bold text-slate-500 mb-0.5 block">Nama Resin / Layer</label>
+                    <input v-model="rItem.name" type="text" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-1 focus:ring-amber-500" placeholder="PP Core Layer" />
                   </div>
                   <div>
-                    <label class="text-[10px] font-bold text-zinc-500 mb-0.5 block">Kode / Lot Resin</label>
-                    <input v-model="rItem.lot" type="text" class="w-full px-2.5 py-1.5 border border-zinc-300 rounded-lg font-mono uppercase text-zinc-900 outline-none focus:ring-1 focus:ring-amber-500" placeholder="Lot Resin" />
+                    <label class="text-[10px] font-bold text-slate-500 mb-0.5 block">Kode / Lot Resin</label>
+                    <input v-model="rItem.lot" type="text" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono uppercase text-slate-900 outline-none focus:ring-1 focus:ring-amber-500" placeholder="Lot Resin" />
                   </div>
                   <div>
-                    <label class="text-[10px] font-bold text-zinc-500 mb-0.5 block">Berat Masuk (kg)</label>
-                    <input v-model="rItem.weight" type="number" step="0.1" class="w-full px-2.5 py-1.5 border border-zinc-300 rounded-lg font-mono font-bold text-zinc-900 outline-none focus:ring-1 focus:ring-amber-500" placeholder="Kg" />
+                    <label class="text-[10px] font-bold text-slate-500 mb-0.5 block">Berat Masuk (kg)</label>
+                    <input v-model="rItem.weight" type="number" step="0.1" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 outline-none focus:ring-1 focus:ring-amber-500" placeholder="Kg" />
                   </div>
                   <div class="flex items-center justify-end pt-2 sm:pt-4">
-                    <button type="button" @click="removeResinItem(rIdx)" class="p-1.5 text-zinc-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer" title="Hapus komponen ini">
+                    <button type="button" @click="removeResinItem(rIdx)" class="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer" title="Hapus komponen ini">
                       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                   </div>
@@ -3199,20 +3045,20 @@
             </div>
           </div>
 
-          <!-- Modal Footer Action Buttons -->
-          <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-zinc-200">
+          <!-- Modal Footer Action Buttons (100% Light Theme) -->
+          <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-200">
             <button
               type="button"
               @click="showParentLotModal = false"
               :disabled="isSavingParentLot"
-              class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200"
             >
               Batal
             </button>
             <button
               type="submit"
               :disabled="isSavingParentLot"
-              class="px-6 py-2 rounded-xl text-xs font-black text-white bg-zinc-900 hover:bg-zinc-800 shadow-md shadow-zinc-900/10 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              class="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <svg v-if="isSavingParentLot" class="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -6940,10 +6786,32 @@ const parentLotForm = reactive({
   isMultiParent: false,
   multiParents: [],
 
+  // Keterangan / Alasan Sisa Jumbo & Joint
+  sisaNote: '',
+
   // Resin batch consumption for CASTING
   isResinMode: false,
   resinConsumptions: []
 });
+
+const quickSisaTags = [
+  'Order SPK Terpenuhi',
+  'Disimpan di Staging / WIP',
+  'Cacat / Bintik Ujung Roll',
+  'Sambungan Putus Film',
+  'Sisa Habis (0 Meter)'
+];
+
+const applySisaNoteTag = (tag) => {
+  if (tag === 'Sisa Habis (0 Meter)') {
+    parentLotForm.sisaMeter = 0;
+  }
+  if (!parentLotForm.sisaNote || parentLotForm.sisaNote.trim() === '') {
+    parentLotForm.sisaNote = tag;
+  } else if (!parentLotForm.sisaNote.includes(tag)) {
+    parentLotForm.sisaNote = `${parentLotForm.sisaNote.trim()}, ${tag}`;
+  }
+};
 
 const selectedActiveParentLotIndex = ref(0);
 
@@ -7502,6 +7370,7 @@ const openParentLotModal = (lotNode) => {
   }
 
   parentLotForm.sisaMeter = first.parentSisaMeter !== undefined ? parseFloat(first.parentSisaMeter) : 0;
+  parentLotForm.sisaNote = first.parentSisaNote || first.sisaNote || '';
   parentLotForm.parentDensity = lotNode.parentDensity || getDensityForJenis(parentLotForm.jenis, parentLotForm.kode);
 
   // Cari Rekomendasi No Lot Induk di Stok WIP / Data Roll
@@ -7584,7 +7453,7 @@ const openParentLotModal = (lotNode) => {
         { name: 'Regrind / Recycle', code: 'RG-01', lot: 'CRUSH-01', weight: 50 }
       ] : []);
 
-  activeParentLotTab.value = 'analisa';
+  activeParentLotTab.value = 'joint_sisa';
   showParentLotModal.value = true;
 };
 
@@ -7635,6 +7504,7 @@ const saveParentLotData = async () => {
         parentMeter: parseFloat(parentLotForm.parentMeter) || '',
         parentSisaMeter: sisaMeterVal,
         parentSisaKg: sisaKgVal,
+        parentSisaNote: (parentLotForm.sisaNote || '').trim(),
         parentDensity: parseFloat(parentLotForm.parentDensity) || 0.91,
         parentBeratTeori: parseFloat(beratTeori.toFixed(2)),
         parentBeratAktual: bAktualVal,
