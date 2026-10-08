@@ -8338,18 +8338,14 @@ function skippedKodePackInfo(item) {
   const full = `${item.kodePack || ''}${formattedSub}`;
   const m = (item.mesin || 'PRODUKSI').toUpperCase();
   const found = skippedKodePackMap.value.get(`${m}::${full}`);
-  if (found) return found;
-  if (item.keterangan && item.keterangan.includes('[ALASAN NOMOR LOMPAT')) {
-    const match = item.keterangan.match(/\[ALASAN NOMOR LOMPAT[^\]]*\]:\s*([^;]+)/);
-    return {
-      type: 'SKIPPED',
-      mesin: m,
-      fromPack: 'sebelumnya',
-      toPack: full,
-      skippedCount: 1,
-      skippedRange: '',
-      reason: match ? match[1].trim() : ''
-    };
+  if (found) {
+    if (item.keterangan && item.keterangan.includes('[ALASAN NOMOR LOMPAT')) {
+      const match = item.keterangan.match(/\[ALASAN NOMOR LOMPAT[^\]]*\]:\s*([^;]+)/);
+      if (match) {
+        return { ...found, reason: match[1].trim() };
+      }
+    }
+    return found;
   }
   return null;
 }
@@ -8462,36 +8458,23 @@ const subKodeValidation = computed(() => {
   const targetMesin = (form.mesin || '').trim().toUpperCase();
   const currentId = form.id;
 
-  // Filter label lain di database untuk mesin / kode pack yang sama dalam rentang 24 jam terakhir
-  const nowMs = Date.now();
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-  const currentWorkDate = form.tanggalShift || form.tanggal || '';
-
-  const otherLabels = labelStore.labels.filter(l => {
-    if (currentId && l.id === currentId) return false;
+  // Evaluasi label lain pada mesin & kode pack yang sama secara menyeluruh
+  const otherLabels = (labelStore.labels || []).filter(l => {
+    if (currentId && (l.id === currentId || l.uniqId === currentId)) return false;
     const lKodePack = (l.kodePack || '').trim().toUpperCase();
     const lMesin = (l.mesin || '').trim().toUpperCase();
     const mesinMatches = !targetMesin || isMachineMatch(lMesin, targetMesin);
     const kodePackMatches = !targetKodePack || lKodePack === targetKodePack;
-    if (!mesinMatches || !kodePackMatches) return false;
-
-    // Batasi ke 24 jam terakhir atau tanggal kerja aktif jika ada informasi waktu
-    if (l.createdAt) {
-      const createdTime = new Date(l.createdAt).getTime();
-      if (!isNaN(createdTime) && (nowMs - createdTime) <= ONE_DAY_MS) return true;
-    }
-    const lDate = l.tanggalShift || l.tanggal;
-    if (currentWorkDate && lDate === currentWorkDate) return true;
-    if (!l.createdAt && !lDate) return true;
-    return false;
+    return mesinMatches && kodePackMatches;
   });
 
-  // Hitung urutan terbesar saat ini & urutan berikutnya yang seharusnya (< 5000)
+  const existingNums = new Set();
   let maxRegular = 0;
   for (const l of otherLabels) {
-    if (l.status === 'HOLD' || l.status === 'REJECT') continue;
+    if (l.status === 'HOLD' || l.status === 'REJECT' || l.subKode === '0000' || l.subKode === 'REJECT') continue;
     const lNum = parseInt(l.subKodeNumeric || l.subKode, 10);
     if (!isNaN(lNum) && lNum > 0 && lNum < 5000) {
+      existingNums.add(lNum);
       if (lNum > maxRegular) maxRegular = lNum;
     }
   }
@@ -8503,19 +8486,9 @@ const subKodeValidation = computed(() => {
   const expectedFullCode = `${form.kodePack || ''}${expectedFormatted}`;
   const lastRecordedFormatted = maxRegular > 0 ? String(maxRegular).padStart(4, '0') : '-';
   const lastRecordedFullCode = maxRegular > 0 ? `${form.kodePack || ''}${lastRecordedFormatted}` : '-';
-  const skippedCount = maxRegular > 0 && rawNum > expectedNext ? (rawNum - expectedNext) : 0;
-  const skippedRange = skippedCount > 1
-    ? `${expectedFormatted} s/d ${String(rawNum - 1).padStart(4, '0')}`
-    : expectedFormatted;
 
   // 1. Cek DUPLIKAT (Double)
-  const isDuplicate = otherLabels.some(l => {
-    if (l.status === 'HOLD' || l.status === 'REJECT') return false;
-    const lNum = parseInt(l.subKodeNumeric || l.subKode, 10);
-    return !isNaN(lNum) && lNum === rawNum;
-  });
-
-  if (isDuplicate) {
+  if (existingNums.has(rawNum)) {
     return {
       isDuplicate: true,
       isSkipped: false,
@@ -8531,8 +8504,17 @@ const subKodeValidation = computed(() => {
     };
   }
 
-  // 2. Cek LOMPAT (Skip Sequence) di bawah kepala 5 (< 5000)
+  // 2. Cek LOMPAT (Skip Sequence) di bawah kepala 5 (< 5000):
+  // Aturan Kelayakan Nomor:
+  // - Jika rawNum <= maxRegular: Ini adalah pengisian nomor yang terlewat sebelumnya (gap-fill), BUKAN lompat!
+  // - Jika rawNum === expectedNext (maxRegular + 1): Ini adalah penerus langsung yang sah, BUKAN lompat!
+  // - Nomor HANYA lompat jika rawNum > expectedNext (ada celah kosong di atas maxRegular yang terlewati).
   if (maxRegular > 0 && rawNum > expectedNext) {
+    const skippedCount = rawNum - expectedNext;
+    const skippedRange = skippedCount > 1
+      ? `${expectedFormatted} s/d ${String(rawNum - 1).padStart(4, '0')}`
+      : expectedFormatted;
+
     return {
       isDuplicate: false,
       isSkipped: true,
@@ -8626,13 +8608,8 @@ const onMachineChange = () => {
       form.turunan = 'A01';
     } else if (form.mesin === 'REWIND') {
       lotSearchSource.value = 'DATA_ROLL';
-      const currentParentT = parseTurunan(form.turunan)?.parentTurunan || '';
-      form.turunan = getSmartNextRewindTurunan({
-        lot: form.lot,
-        parentTurunan: currentParentT,
-        shift: form.shift,
-        kodeOperator: opPrefix
-      });
+      const shiftDigit = (String(form.shift).includes('2')) ? '2' : '1';
+      form.turunan = `${opPrefix}${shiftDigit}01`;
     } else {
       lotSearchSource.value = 'WIP';
       form.turunan = `${opPrefix}A01`;
@@ -9401,16 +9378,12 @@ watch(() => form.mesin, (newMesin, oldMesin) => {
         form.operator = '';
         form.kodeOperator = '';
       }
+      const opPrefix = form.kodeOperator || (newMesin === 'REWIND' ? 'J' : 'H');
       if (newMesin === 'CASTING') {
         form.turunan = 'A01';
       } else if (newMesin === 'REWIND') {
-        const currentParentT = parseTurunan(form.turunan)?.parentTurunan || '';
-        form.turunan = getSmartNextRewindTurunan({
-          lot: form.lot,
-          parentTurunan: currentParentT,
-          shift: form.shift,
-          kodeOperator: opPrefix
-        });
+        const shiftDigit = (String(form.shift).includes('2')) ? '2' : '1';
+        form.turunan = `${opPrefix}${shiftDigit}01`;
       } else {
         form.turunan = `${opPrefix}A01`;
       }
@@ -9609,12 +9582,8 @@ const openModal = async (item = -1) => {
       form.turunan = 'A01';
       lotSearchSource.value = 'WIP';
     } else if (form.mesin === 'REWIND') {
-      form.turunan = getSmartNextRewindTurunan({
-        lot: form.lot,
-        parentTurunan: '',
-        shift: form.shift,
-        kodeOperator: opPrefix
-      });
+      const shiftDigit = (String(form.shift).includes('2')) ? '2' : '1';
+      form.turunan = `${opPrefix}${shiftDigit}01`;
       lotSearchSource.value = 'DATA_ROLL';
     } else {
       form.turunan = `${opPrefix}A01`;
@@ -10445,6 +10414,15 @@ const detectedRecentIssues = computed(() => {
     }
 
     // 2. Deteksi SEMUA lompatan nomor (gaps) pada grup ini berdasarkan urutan aktual
+    // Kumpulkan seluruh nomor numerik aktual di database untuk grup ini guna verifikasi celah
+    const allExistingNumsForGroup = new Set(
+      (labelStore.labels || [])
+        .filter(l => l.status !== 'HOLD' && l.status !== 'REJECT' && l.subKode !== '0000' && l.subKode !== 'REJECT')
+        .filter(l => isMachineMatch(l.mesin, grp.mesin) && (l.kodePack || '').toUpperCase() === grp.kodePack)
+        .map(l => parseInt(l.subKodeNumeric || l.subKode, 10))
+        .filter(n => !isNaN(n) && n > 0 && n < 5000)
+    );
+
     // Dapatkan daftar nomor unik dan urutkan menaik (ascending)
     const uniqueNums = Array.from(countMap.keys()).sort((a, b) => a - b);
     for (let i = 0; i < uniqueNums.length - 1; i++) {
@@ -10453,13 +10431,21 @@ const detectedRecentIssues = computed(() => {
       const gap = nextNum - prevNum;
 
       if (gap > 1) {
-        // Terdeteksi ada nomor lompat di antara nomor aktual di database!
-        // Contoh: prevNum = 128, nextNum = 140 -> gap = 12 -> lompat 11 nomor!
-        const skippedCount = gap - 1;
+        // Verifikasi apakah nomor di antara prevNum dan nextNum benar-benar hilang di database
+        const actuallyMissing = [];
+        for (let m = prevNum + 1; m < nextNum; m++) {
+          if (!allExistingNumsForGroup.has(m)) {
+            actuallyMissing.push(m);
+          }
+        }
+        // Jika seluruh nomor di antara celah sudah terisi di database (misal nomor susulan sudah dibuat), lewati!
+        if (actuallyMissing.length === 0) continue;
+
+        const skippedCount = actuallyMissing.length;
         const fromPack = `${grp.kodePack}${String(prevNum).padStart(4, '0')}`;
         const toPack = `${grp.kodePack}${String(nextNum).padStart(4, '0')}`;
-        const startMissing = String(prevNum + 1).padStart(4, '0');
-        const endMissing = String(nextNum - 1).padStart(4, '0');
+        const startMissing = String(actuallyMissing[0]).padStart(4, '0');
+        const endMissing = String(actuallyMissing[actuallyMissing.length - 1]).padStart(4, '0');
         const skippedRange = skippedCount === 1 ? startMissing : `${startMissing} s/d ${endMissing}`;
 
         // Cari apakah pada item nextNum ada alasan lompat yang tercatat

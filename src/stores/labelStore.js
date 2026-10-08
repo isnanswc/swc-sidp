@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { markRaw } from 'vue';
+import * as XLSX from 'xlsx';
 import { db, generateUniqID, getSetting, saveSetting } from '@/db';
 import { parseContinuousLot, detectSupplier, extractCleanParentLot } from '@/services/dataRollParserService';
 import { useConfigStore } from '@/stores/configStore';
@@ -1152,74 +1153,110 @@ export const useLabelStore = defineStore('labelStore', {
     },
 
     async exportToExcel() {
-      if (this.isWindowed) {
-        const { startLoading, stopLoading } = useGlobalLoading();
-        startLoading('Menyiapkan seluruh arsip label untuk diekspor ke Excel...');
-        try {
-          await this.loadAllLabels();
-        } finally {
-          stopLoading();
-        }
-      }
-      if (this.labels.length === 0) return;
-      const XLSX = await import('xlsx');
-      let opList = [];
+      const { startLoading, stopLoading } = useGlobalLoading();
+      startLoading('Menyiapkan data label dari database lokal untuk diekspor ke Excel...');
+
       try {
-        const configStore = useConfigStore();
-        opList = configStore.operatorList || [];
-      } catch (e) {}
-
-      const worksheetData = this.filteredLabels.map((item, index) => {
-        const cleanParent = extractCleanParentLot(item.lot, item.turunan);
-        let opName = item.operator || '';
-        let opCode = item.kodeOperator || '';
-
-        if (opList.length > 0) {
-          const found = opList.find(o => 
-            (opCode && o.kodeOperator && o.kodeOperator.toUpperCase() === opCode.toUpperCase()) ||
-            (opName && o.nama && o.nama.toUpperCase() === opName.toUpperCase()) ||
-            (opName && o.kodeOperator && o.kodeOperator.toUpperCase() === opName.toUpperCase())
-          );
-          if (found) {
-            opName = found.nama;
-            opCode = found.kodeOperator;
+        if (this.isWindowed) {
+          try {
+            await this.loadAllLabels();
+          } catch (e) {
+            console.warn('Gagal memuat seluruh arsip label dari windowed mode, melanjutkan dengan data lokal saat ini:', e);
           }
         }
 
-        return {
-          No: index + 1,
-          'UNIQ ID': item.uniqId,
-          Tanggal: item.tanggal,
-          Mesin: item.mesin,
-          Operator: opName || (opCode ? `OPERATOR ${opCode}` : 'OPERATOR'),
-          'Kode Operator': opCode,
-          Supplier: item.supplier || 'INHOUSE',
-          SPK: item.spk,
-          'No Lot': cleanParent, // Bersih dari turunan!
-          Turunan: item.turunan || '',
-          Jenis: item.jenis,
-          Type: item.type,
-          OD: item.od,
-          Treatment: item.treatment,
-          Thickness: item.thickness,
-          Width: item.width,
-          Length: item.length,
-          Joint: item.joint,
-          Meter: item.meter,
-          Kode: item.kode,
-          'Kode Pack': item.kodePack,
-          'Sub Kode': item.subKode,
-          Status: item.status,
-          Netto: item.netto,
-          'Paper Core': item.paperCore,
-          Keterangan: item.keterangan
-        };
-      });
+        // Ambil data untuk ekspor: prioritaskan filteredLabels yang sedang aktif di layar
+        let exportSource = this.filteredLabels;
 
-      const ws = XLSX.utils.json_to_sheet(worksheetData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Data Label");
-      XLSX.writeFile(wb, `LabelData_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        // Jika memory store kosong (misal baru buka app offline), ambil langsung dari Dexie IndexedDB lokal
+        if (!exportSource || exportSource.length === 0) {
+          try {
+            const rawDbLabels = await db.labels.toArray();
+            if (rawDbLabels && rawDbLabels.length > 0) {
+              const currentFilterMesin = (this.filterMesin || 'ALL').toUpperCase();
+              if (currentFilterMesin !== 'ALL') {
+                exportSource = rawDbLabels.filter(l => (l.mesin || '').toUpperCase() === currentFilterMesin);
+              } else {
+                exportSource = rawDbLabels;
+              }
+            }
+          } catch (dbErr) {
+            console.warn('Gagal membaca data dari db.labels lokal:', dbErr);
+          }
+        }
+
+        if (!exportSource || exportSource.length === 0) {
+          alert('Tidak ada data label yang ditemukan di database lokal untuk diekspor.');
+          return;
+        }
+
+        let opList = [];
+        try {
+          const configStore = useConfigStore();
+          opList = configStore.operatorList || [];
+        } catch (e) {}
+
+        const worksheetData = exportSource.map((item, index) => {
+          const cleanParent = extractCleanParentLot(item.lot, item.turunan);
+          let opName = item.operator || '';
+          let opCode = item.kodeOperator || '';
+
+          if (opList.length > 0) {
+            const found = opList.find(o => 
+              (opCode && o.kodeOperator && o.kodeOperator.toUpperCase() === opCode.toUpperCase()) ||
+              (opName && o.nama && o.nama.toUpperCase() === opName.toUpperCase()) ||
+              (opName && o.kodeOperator && o.kodeOperator.toUpperCase() === opName.toUpperCase())
+            );
+            if (found) {
+              opName = found.nama;
+              opCode = found.kodeOperator;
+            }
+          }
+
+          return {
+            No: index + 1,
+            'UNIQ ID': item.uniqId,
+            Tanggal: item.tanggal,
+            Mesin: item.mesin,
+            Operator: opName || (opCode ? `OPERATOR ${opCode}` : 'OPERATOR'),
+            'Kode Operator': opCode,
+            Supplier: item.supplier || 'INHOUSE',
+            SPK: item.spk,
+            'No Lot': cleanParent, // Bersih dari turunan!
+            Turunan: item.turunan || '',
+            Jenis: item.jenis,
+            Type: item.type,
+            OD: item.od,
+            Treatment: item.treatment,
+            Thickness: item.thickness,
+            Width: item.width,
+            Length: item.length,
+            Joint: item.joint,
+            Meter: item.meter,
+            Kode: item.kode,
+            'Kode Pack': item.kodePack,
+            'Sub Kode': item.subKode,
+            Status: item.status,
+            Netto: item.netto,
+            'Paper Core': item.paperCore,
+            Keterangan: item.keterangan
+          };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(worksheetData);
+        const wb = XLSX.utils.book_new();
+        const sheetName = this.filterMesin && this.filterMesin !== 'ALL' ? `Label ${this.filterMesin}` : 'Data Label';
+        XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+
+        const machineTag = this.filterMesin && this.filterMesin !== 'ALL' ? `_${this.filterMesin}` : '';
+        const todayStr = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `LabelData${machineTag}_${todayStr}.xlsx`);
+      } catch (err) {
+        console.error('Gagal mengekspor data ke Excel:', err);
+        alert('Terjadi kesalahan saat mengekspor ke Excel: ' + (err?.message || err));
+      } finally {
+        stopLoading();
+      }
     }
   }
 });
