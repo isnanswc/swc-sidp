@@ -5145,7 +5145,7 @@ const handleLotInput = () => {
   // Format Parent: [KODE FORMULA 3][TANGGAL 6 DDMMYY][KODE OPERATOR 1][SHIFT 1] -> e.g. L01011026A2
   // Format Turunan: [CHARTING 1][NO URUT 2 DIGIT] -> e.g. B01
   // Format Gabungan: L01011026A2B01 (TANPA SLASH '/')
-  const isCasting = String(form.mesin || '').toUpperCase() === 'CASTING' || (form.lot && /^L0\d/i.test(form.lot) && !form.lot.includes('/'));
+  const isCasting = String(form.mesin || '').toUpperCase() === 'CASTING';
   if (isCasting && form.lot) {
     const cleanLot = String(form.lot).trim().toUpperCase();
     // 1. Jika user menginput/menempel no lot gabungan casting: L01011026A2B01
@@ -5197,6 +5197,15 @@ const handleLotInput = () => {
         form.turunan = 'A01';
       }
       return;
+    }
+  } else if (!isCasting && form.lot) {
+    // Mesin selain Casting (misal SLITTING):
+    // Jika lot diawali kode formula inhouse ([M|L]0*), otomatis isi formula jika belum terisi
+    if (/^[ML]0\d/i.test(form.lot)) {
+      const formula = form.lot.substring(0, 3).toUpperCase();
+      if (!form.kode || !isEditing.value) {
+        form.kode = formula;
+      }
     }
   }
 };
@@ -9979,7 +9988,7 @@ const duplicateData = (item) => {
   }
   form.kodePack = generateKodePack(form.tanggal, form.mesin);
 
-  const isCasting = String(form.mesin || item.mesin || '').toUpperCase() === 'CASTING' || (item.lot && /^[ML]0\d/i.test(item.lot) && !item.lot.includes('/'));
+  const isCasting = String(form.mesin || item.mesin || '').toUpperCase() === 'CASTING';
 
   // Auto-complete Turunan cerdas berlaku untuk SEMUA chart (A, B, C, D, dst)
   // Menjaga chartingan posisi asli (A/B/C/D) dan mengadopsi kode operator shift yang aktif
@@ -10005,7 +10014,7 @@ const duplicateData = (item) => {
 
   const parsedNext = parseTurunan(nextTurunanVal);
   let prefix = targetOpCode;
-  if (isCasting || parsedNext.isCasting) {
+  if (isCasting) {
     prefix = '';
     form.operator = targetOpName;
     form.kodeOperator = '';
