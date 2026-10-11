@@ -2022,6 +2022,29 @@ export async function pullFromSupabase(forceFull = false) {
                 }
               }
 
+              // Jika ini registry FPB, sinkronkan ke db.fpb_records
+              if (cs.key === 'fpb_records_registry' && db.fpb_records && Array.isArray(parsedVal)) {
+                try {
+                  const localFpbs = await db.fpb_records.toArray();
+                  const localFpbMap = new Map(localFpbs.map(r => [r.uuid || r.nomorFpb, r]));
+                  for (const cf of parsedVal) {
+                    const key = cf.uuid || cf.nomorFpb;
+                    const exist = localFpbMap.get(key);
+                    if (!exist) {
+                      const { id, ...cleanFpb } = cf;
+                      await db.fpb_records.add(cleanFpb);
+                    } else if (new Date(cf.updatedAt || 0) > new Date(exist.updatedAt || 0)) {
+                      await db.fpb_records.update(exist.id, {
+                        ...cf,
+                        id: exist.id
+                      });
+                    }
+                  }
+                } catch (fpbErr) {
+                  console.warn('Sync pull FPB registry into db.fpb_records:', fpbErr);
+                }
+              }
+
               // SPK Active Reference Batch Sync
               if (cs.key === 'spk_active_reference_batch_uuid') {
                 const refUuid = typeof parsedVal === 'string' ? parsedVal : String(cs.value || '');
