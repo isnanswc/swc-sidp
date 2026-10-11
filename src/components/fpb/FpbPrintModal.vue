@@ -63,7 +63,7 @@
 
                 <!-- Form 1 (Atas) -->
                 <div class="fpb-preview-item">
-                  <FpbFormContent :doc="sheet[0]" />
+                  <FpbFormContent :doc="sheet[0]" :print-time="printTimestamp" />
                 </div>
 
                 <!-- Garis Potong jika ada 2 form di 1 lembar -->
@@ -75,7 +75,7 @@
 
                 <!-- Form 2 (Bawah jika ada) -->
                 <div v-if="sheet.length > 1" class="fpb-preview-item">
-                  <FpbFormContent :doc="sheet[1]" />
+                  <FpbFormContent :doc="sheet[1]" :print-time="printTimestamp" />
                 </div>
               </div>
             </div>
@@ -95,7 +95,7 @@
         >
           <!-- Form 1 (Bagian Atas) -->
           <div class="fpb-form-wrapper">
-            <FpbFormContent :doc="sheet[0]" />
+            <FpbFormContent :doc="sheet[0]" :print-time="printTimestamp" />
           </div>
 
           <!-- Garis Potong Pemisah Form 1 & Form 2 (Hanya jika ada 2 FPB dalam 1 lembar) -->
@@ -107,7 +107,7 @@
 
           <!-- Form 2 (Bagian Bawah jika ada) -->
           <div v-if="sheet.length > 1" class="fpb-form-wrapper">
-            <FpbFormContent :doc="sheet[1]" />
+            <FpbFormContent :doc="sheet[1]" :print-time="printTimestamp" />
           </div>
         </div>
       </div>
@@ -116,7 +116,7 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h } from 'vue';
+import { ref, computed, defineComponent, h } from 'vue';
 import SwcLogoPrint from './SwcLogoPrint.vue';
 
 const props = defineProps({
@@ -133,7 +133,26 @@ const closeModal = () => {
   emit('update:modelValue', false);
 };
 
+const formatIndoDateTime = (d) => {
+  if (!d) return '-';
+  try {
+    const pad = (n) => String(n).padStart(2, '0');
+    const day = pad(d.getDate());
+    const month = pad(d.getMonth() + 1);
+    const year = d.getFullYear();
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    const seconds = pad(d.getSeconds());
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  } catch {
+    return '';
+  }
+};
+
+const printTimestamp = ref(formatIndoDateTime(new Date()));
+
 const handlePrint = () => {
+  printTimestamp.value = formatIndoDateTime(new Date());
   window.print();
 };
 
@@ -180,12 +199,14 @@ const getDisplayRows = (doc) => {
 const FpbFormContent = defineComponent({
   name: 'FpbFormContent',
   props: {
-    doc: { type: Object, required: true }
+    doc: { type: Object, required: true },
+    printTime: { type: String, default: '' }
   },
   setup(compProps) {
     return () => {
       const doc = compProps.doc || {};
       const rows = getDisplayRows(doc);
+      const currentTimeStr = compProps.printTime || printTimestamp.value || formatIndoDateTime(new Date());
 
       return h('div', { class: 'fpb-paper-box text-black font-sans leading-tight' }, [
         // 1. KOP HEADER
@@ -194,7 +215,7 @@ const FpbFormContent = defineComponent({
             h(SwcLogoPrint)
           ]),
           h('div', { class: 'header-title-box' }, [
-            h('div', { class: 'header-company-name' }, 'PT.SAPTA WARNA CEMERLANG'),
+            h('div', { class: 'header-company-name' }, 'PT. SAPTAWARNA CEMERLANG'),
             h('div', { class: 'header-doc-title' }, 'PERMINTAAN PENGEBONAN BARANG (FPB)')
           ])
         ]),
@@ -266,9 +287,10 @@ const FpbFormContent = defineComponent({
           ])
         ]),
 
-        // 5. NO DOKUMEN POJOK BAWAH
+        // 5. FOOTER: NOMOR FPB DI POJOK KIRI BAWAH, TANGGAL & JAM PRINT DI POJOK KANAN BAWAH
         h('div', { class: 'footer-fpb-meta' }, [
-          h('span', `No. Dokumen: ${doc.nomorFpb || '-'}`)
+          h('span', { class: 'footer-meta-left' }, `No. Dokumen: ${doc.nomorFpb || '-'}`),
+          h('span', { class: 'footer-meta-right' }, `Dicetak: ${currentTimeStr}`)
         ])
       ]);
     };
@@ -452,7 +474,7 @@ const FpbFormContent = defineComponent({
 .signature-section {
   display: flex;
   justify-content: space-between;
-  margin-top: 22px;
+  margin-top: 24px;
   padding: 0 10px;
 }
 
@@ -462,7 +484,7 @@ const FpbFormContent = defineComponent({
   flex-direction: column;
   justify-content: space-between;
   align-items: center;
-  height: 80px;
+  height: 94px;
   text-align: center;
   font-size: 10.5px;
 }
@@ -495,12 +517,21 @@ const FpbFormContent = defineComponent({
 
 .footer-fpb-meta {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 10px;
   padding-top: 4px;
   font-family: monospace;
   font-size: 8.5px;
-  color: #666666;
+  color: #444444;
+}
+
+.footer-meta-left {
+  text-align: left;
+}
+
+.footer-meta-right {
+  text-align: right;
 }
 
 /* Preview Garis Potong (Screen) */
@@ -687,7 +718,7 @@ const FpbFormContent = defineComponent({
   }
 
   .sig-column {
-    height: 52px !important;
+    height: 64px !important;
     font-size: 9.5px !important;
   }
 
@@ -701,8 +732,19 @@ const FpbFormContent = defineComponent({
   }
 
   .footer-fpb-meta {
-    margin-top: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-top: 3px !important;
     font-size: 7.5px !important;
+  }
+
+  .footer-meta-left {
+    text-align: left !important;
+  }
+
+  .footer-meta-right {
+    text-align: right !important;
   }
 }
 </style>
