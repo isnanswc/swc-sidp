@@ -409,6 +409,11 @@ db.version(26).stores({
   inventory_stock_uploads: '++id, uuid, uploadDate, fileName, totalSku, totalRoll, uploadedBy, itemsJson, createdAt'
 });
 
+db.version(27).stores({
+  fpb_records: '++id, uuid, nomorFpb, tanggal, bagianDept, pemohon, status, totalItems, itemsJson, synced, createdAt, updatedAt',
+  fpb_items: '++id, namaBarang, satuanDefault, lastUsedAt, usageCount'
+});
+
 export async function saveSetting(key, value) {
   try {
     let cleanValue = value;

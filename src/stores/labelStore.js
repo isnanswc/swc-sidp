@@ -93,12 +93,14 @@ export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
   if (!item) return {};
   const lot = String(item.lot || '').toUpperCase();
   const parts = lot.split('/');
-  const baseLot = parts.length >= 3 ? parts.slice(0, -1).join('/') : lot;
 
   let t = String(item.turunan || '').toUpperCase();
   if (!t && parts.length >= 2) {
     t = parts[parts.length - 1].toUpperCase();
   }
+
+  const cleanParent = extractCleanParentLot(lot, t);
+  const baseLot = (cleanParent || (parts.length >= 3 ? parts.slice(0, -1).join('/') : lot)).toUpperCase();
 
   // Jika compound (ada slash atau spasi), gunakan bagian child/rewind untuk penomoran urut
   let sortToken = t;
@@ -163,6 +165,172 @@ export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
   };
 }
 
+/**
+ * Menghitung & mengunci urutan Sesi Pengerjaan Lot Induk (Contiguous Lot Session)
+ * pada setiap kombinasi (Tanggal, Shift, Mesin).
+ *
+ * Mengatasi kasus No. Lot Induk Kembar yang dikerjakan kembali beberapa jam kemudian
+ * (setelah berganti Jumbo Roll baru) pada tanggal dan shift yang sama agar tetap berada
+ * pada urutan alur produksi kronologisnya dan tidak lompat mundur ke sesi awal.
+ */
+export function assignLotSessionAnchors(items) {
+  if (!Array.isArray(items) || items.length === 0) return items;
+
+  // 1. Kelompokkan per (Tanggal, Shift, Mesin)
+  const shiftBuckets = new Map();
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item) continue;
+    if (item._turunanNum === undefined || item._baseLot === undefined) {
+      Object.assign(item, computeLabelSortKeys(item, item.mesin || item.machineName || 'SLITTING'));
+    }
+    const bucketKey = `${item._dateStr || ''}__${item._shiftNum ?? 99}__${item._shiftStr || ''}__${item._mesin || 'SLITTING'}`;
+    let bucket = shiftBuckets.get(bucketKey);
+    if (!bucket) {
+      bucket = [];
+      shiftBuckets.set(bucketKey, bucket);
+    }
+    bucket.push(item);
+  }
+
+  // 2. Di setiap bucket (Tanggal + Shift + Mesin), urutkan berdasarkan kronologi produksi fisik
+  //    (Kode Pack subKode berurutan & waktu input createdAt / ID), lalu deteksi sesi pengerjaan Lot
+  shiftBuckets.forEach((bucket) => {
+    if (bucket.length === 1) {
+      bucket[0]._lotSessionOrder = 1;
+      bucket[0]._lotSessionPart = 1;
+      bucket[0]._lotTotalSessions = 1;
+      return;
+    }
+
+    const timeline = [...bucket].sort((a, b) => {
+      const subA = a._subNum !== undefined ? a._subNum : 999999;
+      const subB = b._subNum !== undefined ? b._subNum : 999999;
+      const hasValidSubA = subA > 0 && subA < 999999;
+      const hasValidSubB = subB > 0 && subB < 999999;
+
+      // Jika keduanya memiliki Kode Pack prefix yang sama & subKode valid yang berbeda,
+      // urutan nomor Kode Pack adalah urutan fisik keluarnya roll dari mesin
+      if (hasValidSubA && hasValidSubB && a._packPrefix === b._packPrefix && subA !== subB) {
+        return subA - subB;
+      }
+
+      // Jika waktu input (createdAt) tersedia dan terpaut > 60 detik, gunakan urutan waktu
+      const timeA = a._createdTime || 0;
+      const timeB = b._createdTime || 0;
+      if (timeA > 0 && timeB > 0 && Math.abs(timeA - timeB) > 60000) {
+        return timeA - timeB;
+      }
+
+      // Fallback ke subKode numerik meskipun prefix berbeda
+      if (hasValidSubA && hasValidSubB && subA !== subB) {
+        return subA - subB;
+      }
+
+      // Fallback waktu input presisi
+      if (timeA > 0 && timeB > 0 && timeA !== timeB) {
+        return timeA - timeB;
+      }
+
+      // Fallback ID database
+      return (a._numericId || 0) - (b._numericId || 0);
+    });
+
+    let currentSessionOrder = 0;
+    let currentGroupKey = null;
+    let prevItem = null;
+    let sessionMaxTurunanNum = 0;
+    let sessionSeenTurunan = new Set();
+    let sessionArmMaxNum = new Map();
+
+    const lotSessionListMap = new Map(); // groupKey -> array of sessionOrder numbers
+
+    for (let i = 0; i < timeline.length; i++) {
+      const item = timeline[i];
+      const groupKey = `${item._spk || ''}__${item._baseLot || ''}`;
+      const fullTurunanKey = `${item._turunanPrefix || ''}_${item._turunanNum || 0}_${item._turunanExtra || ''}`;
+      const armPrefix = item._turunanPrefix || '';
+      const tNum = item._turunanNum !== undefined && item._turunanNum < 999999 ? item._turunanNum : 0;
+
+      let isNewSession = false;
+
+      if (currentGroupKey === null || groupKey !== currentGroupKey) {
+        // Berganti ke SPK / No. Lot Induk yang berbeda (misal ganti Jumbo Roll lain)
+        isNewSession = true;
+      } else if (prevItem) {
+        // Masih di SPK & No. Lot Induk yang sama, cek apakah ini Jumbo Roll Kembar di sesi baru:
+        const timeA = prevItem._createdTime || 0;
+        const timeB = item._createdTime || 0;
+        const timeGap = (timeA > 0 && timeB > 0) ? Math.abs(timeB - timeA) : 0;
+
+        const subA = prevItem._subNum !== undefined ? prevItem._subNum : 999999;
+        const subB = item._subNum !== undefined ? item._subNum : 999999;
+        const samePackPrefix = prevItem._packPrefix === item._packPrefix;
+        const subGap = (samePackPrefix && subA < 999999 && subB < 999999) ? (subB - subA) : 0;
+
+        // Indikator 1: Jeda waktu pengerjaan > 45 menit (2.700.000 ms)
+        const isLongTimeGap = timeGap > 2700000;
+
+        // Indikator 2: Lompatan nomor Kode Pack jauh (>= 8 nomor pada kodePack yang sama, atau >= 2 nomor dengan jeda > 15 menit)
+        const isSubKodeJump = subGap >= 8 || (subGap >= 2 && timeGap > 900000);
+
+        // Indikator 3: Kode turunan persis sama muncul lagi dengan Kode Pack berbeda (misal HA01 lalu HA01 lagi di jumbo baru)
+        const isDuplicateTurunanInNewPack =
+          tNum > 0 &&
+          sessionSeenTurunan.has(fullTurunanKey) &&
+          (subGap >= 1 || timeGap > 300000);
+
+        // Indikator 4: Nomor urut tarikan mundur pada arm yang sama atau setelah jeda Kode Pack / waktu
+        const prevArmMax = sessionArmMaxNum.get(armPrefix) || 0;
+        const isTurunanReset =
+          tNum > 0 &&
+          ((prevArmMax > 0 && tNum < prevArmMax && (subGap >= 1 || timeGap > 300000)) ||
+           (sessionMaxTurunanNum > 0 && tNum < sessionMaxTurunanNum && (subGap >= 2 || timeGap > 600000)));
+
+        if (isLongTimeGap || isSubKodeJump || isDuplicateTurunanInNewPack || isTurunanReset) {
+          isNewSession = true;
+        }
+      }
+
+      if (isNewSession) {
+        currentSessionOrder++;
+        currentGroupKey = groupKey;
+        sessionMaxTurunanNum = 0;
+        sessionSeenTurunan = new Set();
+        sessionArmMaxNum = new Map();
+
+        let sessions = lotSessionListMap.get(groupKey);
+        if (!sessions) {
+          sessions = [];
+          lotSessionListMap.set(groupKey, sessions);
+        }
+        sessions.push(currentSessionOrder);
+      }
+
+      const sessionsForLot = lotSessionListMap.get(groupKey);
+      item._lotSessionOrder = currentSessionOrder;
+      item._lotSessionPart = sessionsForLot ? sessionsForLot.length : 1;
+
+      if (tNum > 0) {
+        if (tNum > sessionMaxTurunanNum) sessionMaxTurunanNum = tNum;
+        const prevArmMax = sessionArmMaxNum.get(armPrefix) || 0;
+        if (tNum > prevArmMax) sessionArmMaxNum.set(armPrefix, tNum);
+        sessionSeenTurunan.add(fullTurunanKey);
+      }
+      prevItem = item;
+    }
+
+    for (let i = 0; i < timeline.length; i++) {
+      const item = timeline[i];
+      const groupKey = `${item._spk || ''}__${item._baseLot || ''}`;
+      const sessions = lotSessionListMap.get(groupKey);
+      item._lotTotalSessions = sessions ? sessions.length : 1;
+    }
+  });
+
+  return items;
+}
+
 export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
   if (!a && !b) return 0;
   if (!a) return 1;
@@ -207,11 +375,17 @@ export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
     return sortOrder === 'desc' ? -machComp : machComp;
   }
 
-  // 4. SPK
+  // 4. Urutan Sesi Pengerjaan Jumbo Roll (Contiguous Lot Session)
+  // Mengunci posisi sesi secara kronologis & transitif agar Lot Induk kembar yang dikerjakan
+  // kembali beberapa jam kemudian (setelah ganti Jumbo Roll) tidak lompat ke belakang.
+  if (a._lotSessionOrder !== undefined && b._lotSessionOrder !== undefined && a._lotSessionOrder !== b._lotSessionOrder) {
+    const sessCmp = a._lotSessionOrder - b._lotSessionOrder;
+    return sortOrder === 'desc' ? -sessCmp : sessCmp;
+  }
+
+  // 5. SPK & Base Lot (Fallback jika _lotSessionOrder belum dihitung)
   const spkA = a._spk !== undefined ? a._spk : String(a.spk || '').toUpperCase();
   const spkB = b._spk !== undefined ? b._spk : String(b.spk || '').toUpperCase();
-
-  // 5. Base Lot (Kelompok Lot Induk)
   const baseLotA = a._baseLot !== undefined ? a._baseLot : String(a.lot || '').toUpperCase();
   const baseLotB = b._baseLot !== undefined ? b._baseLot : String(b.lot || '').toUpperCase();
 
@@ -274,7 +448,7 @@ export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
 
   let cmp = 0;
 
-  // JIKA DALAM SPK & LOT YANG SAMA:
+  // JIKA DALAM SESI LOT YANG SAMA (ATAU SPK & LOT YANG SAMA):
   // Urutan Turunan roll (Tarikan 01, 02, Arm A, B, dsb.) & Kode Pack WAJIB SELALU TERURUT, lalu waktu input!
   const isSameLotGroup = (spkA === spkB) && (baseLotA === baseLotB) && (baseLotA !== '');
   if (isSameLotGroup) {
@@ -296,40 +470,35 @@ export function compareHierarkiLabel(a, b, sortOrder = 'asc') {
       cmp = idA - idB;
     }
   } else {
-    // JIKA BEDA SPK / LOT DALAM SHIFT YANG SAMA:
-    // Ikuti alur waktu input jika berbeda sesi tarikan pengerjaan (> 2 menit)
-    const isSameSetTarikan = Math.abs(timeDiff) < 120000;
-    if (!isSameSetTarikan && timeA > 0 && timeB > 0) {
+    // JIKA BEDA SPK / LOT DALAM SHIFT YANG SAMA (Fallback bila _lotSessionOrder belum ada):
+    if (subA < 999999 && subB < 999999 && a._packPrefix === b._packPrefix && subA !== subB) {
+      cmp = subA - subB;
+    } else if (Math.abs(timeDiff) >= 120000 && timeA > 0 && timeB > 0) {
       cmp = timeDiff;
     } else {
-      // SPK
       const spkComp = spkA.localeCompare(spkB, undefined, { numeric: true, sensitivity: 'base' });
       if (spkComp !== 0) {
         cmp = spkComp;
       } else {
-        // Base Lot
         const lotComp = baseLotA.localeCompare(baseLotB, undefined, { numeric: true, sensitivity: 'base' });
         if (lotComp !== 0) {
           cmp = lotComp;
+        } else if (tNumA !== tNumB) {
+          cmp = tNumA - tNumB;
+        } else if (tPrefA !== tPrefB) {
+          cmp = String(tPrefA).localeCompare(String(tPrefB));
+        } else if (tExtA !== tExtB) {
+          cmp = String(tExtA).localeCompare(String(tExtB));
+        } else if (subA !== subB) {
+          cmp = subA - subB;
+        } else if (packKeyA !== packKeyB) {
+          cmp = String(packKeyA).localeCompare(String(packKeyB));
+        } else if (timeDiff !== 0) {
+          cmp = timeDiff;
         } else {
-          // Nomor Urut Turunan
-          if (tNumA !== tNumB) {
-            cmp = tNumA - tNumB;
-          } else if (tPrefA !== tPrefB) {
-            cmp = String(tPrefA).localeCompare(String(tPrefB));
-          } else if (tExtA !== tExtB) {
-            cmp = String(tExtA).localeCompare(String(tExtB));
-          } else if (subA !== subB) {
-            cmp = subA - subB;
-          } else if (packKeyA !== packKeyB) {
-            cmp = String(packKeyA).localeCompare(String(packKeyB));
-          } else if (timeDiff !== 0) {
-            cmp = timeDiff;
-          } else {
-            const idA = a._numericId !== undefined ? a._numericId : (Number(a.id) || 0);
-            const idB = b._numericId !== undefined ? b._numericId : (Number(b.id) || 0);
-            cmp = idA - idB;
-          }
+          const idA = a._numericId !== undefined ? a._numericId : (Number(a.id) || 0);
+          const idB = b._numericId !== undefined ? b._numericId : (Number(b.id) || 0);
+          cmp = idA - idB;
         }
       }
     }
@@ -375,6 +544,11 @@ export const useLabelStore = defineStore('labelStore', {
     },
 
     filteredLabels: (state) => {
+      // Pastikan seluruh item memiliki penanda sesi lot (_lotSessionOrder) yang dihitung dari seluruh populasi shift
+      if (state.labels.length > 0 && state.labels.some(l => l && l._lotSessionOrder === undefined)) {
+        assignLotSessionAnchors(state.labels);
+      }
+
       const term = (state.searchTerm || '').toLowerCase().trim();
       let matchedOps = [];
       if (term) {
@@ -717,7 +891,7 @@ export const useLabelStore = defineStore('labelStore', {
                 shiftWasteNote: r.shiftWasteNote || '',
                 shiftWasteDetails: r.shiftWasteDetails || null,
                 synced: 0,
-                createdAt: r.createdAt || new Date().toISOString(),
+                createdAt: r.createdAt || r.created_at || '',
                 updatedAt: r.updatedAt || new Date().toISOString()
               };
 
@@ -727,7 +901,9 @@ export const useLabelStore = defineStore('labelStore', {
         }
 
         const prevPage = this.currentPage;
-        this.labels = [...cleanStandardLabels, ...mappedDataRolls];
+        const allLoadedLabels = [...cleanStandardLabels, ...mappedDataRolls];
+        assignLotSessionAnchors(allLoadedLabels);
+        this.labels = allLoadedLabels;
         
         // JANGAN reset halaman jika user sudah berada di halaman tertentu (misal saat background sync)
         // Reset ke totalPages HANYA pada pemuatan awal jika belum pernah diset (prevPage <= 1) dan bukan preservePage
@@ -794,6 +970,7 @@ export const useLabelStore = defineStore('labelStore', {
       record.id = id;
       const sortKeys = computeLabelSortKeys(record, record.mesin || 'SLITTING');
       this.labels.unshift(markRaw({ ...record, ...sortKeys }));
+      assignLotSessionAnchors(this.labels);
       this.totalDbCount++;
       try {
         await pushLocalToSupabase();
@@ -876,6 +1053,7 @@ export const useLabelStore = defineStore('labelStore', {
         const merged = { ...this.labels[idx], ...updatedFields, updatedAt: new Date().toISOString() };
         const sortKeys = computeLabelSortKeys(merged, merged.mesin || 'SLITTING');
         this.labels.splice(idx, 1, markRaw({ ...merged, ...sortKeys }));
+        assignLotSessionAnchors(this.labels);
       }
       try {
         await pushLocalToSupabase();
@@ -923,6 +1101,7 @@ export const useLabelStore = defineStore('labelStore', {
 
       // 3. Hapus dari state lokal
       this.labels = this.labels.filter(l => l.id !== id);
+      assignLotSessionAnchors(this.labels);
       this.selectedIds.delete(id);
       if (this.totalDbCount > 0) this.totalDbCount--;
       if (this.currentPage > this.totalPages) {
@@ -976,6 +1155,7 @@ export const useLabelStore = defineStore('labelStore', {
 
       const idSet = new Set(ids);
       this.labels = this.labels.filter(l => !idSet.has(l.id));
+      assignLotSessionAnchors(this.labels);
       this.selectedIds.clear();
       this.totalDbCount = Math.max(0, this.totalDbCount - ids.length);
       if (this.currentPage > this.totalPages) {
@@ -1008,6 +1188,7 @@ export const useLabelStore = defineStore('labelStore', {
       copy.id = newId;
       const sortKeys = computeLabelSortKeys(copy, copy.mesin || 'SLITTING');
       this.labels.push(markRaw({ ...copy, ...sortKeys }));
+      assignLotSessionAnchors(this.labels);
       this.totalDbCount++;
       this.currentPage = this.totalPages;
       return copy;
@@ -1117,6 +1298,7 @@ export const useLabelStore = defineStore('labelStore', {
         const merged = { ...this.labels[idx], ...payload };
         const sortKeys = computeLabelSortKeys(merged, merged.mesin || 'SLITTING');
         this.labels[idx] = markRaw({ ...merged, ...sortKeys });
+        assignLotSessionAnchors(this.labels);
       }
     },
 
@@ -1147,6 +1329,7 @@ export const useLabelStore = defineStore('labelStore', {
         newItems.push(markRaw({ ...copy, ...sortKeys }));
       }
       this.labels.push(...newItems);
+      assignLotSessionAnchors(this.labels);
       this.totalDbCount += newItems.length;
       this.currentPage = this.totalPages;
       return newItems;

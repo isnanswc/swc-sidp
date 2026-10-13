@@ -12,7 +12,8 @@ export const APP_MENUS = [
   { key: 'tools', name: 'Tools & Konversi Lapangan', path: '/tools', category: 'PRODUKSI & LAPORAN', icon: '🛠️' },
   { key: 'tasks', name: 'Manajemen Tugas & QR', path: '/tasks', category: 'PRODUKSI & LAPORAN', icon: '✅' },
   { key: 'inventory', name: 'Roll & Inventory Management (IMS)', path: '/inventory', category: 'GUDANG & LOGISTIK', icon: '📦' },
-  { key: 'opname', name: 'Stok Opname', path: '/opname', category: 'GUDANG & LOGISTIK', icon: '📝' },
+  { key: 'fpb', name: 'Permintaan Barang (FPB)', path: '/fpb', category: 'GUDANG & LOGISTIK', icon: '📝' },
+  { key: 'opname', name: 'Stok Opname', path: '/opname', category: 'GUDANG & LOGISTIK', icon: '📋' },
   { key: 'data_config', name: 'Data Configuration', path: '/data-config', category: 'MASTER DATA & SISTEM', icon: '⚙️' },
   { key: 'settings', name: 'Pengaturan & AI', path: '/settings', category: 'MASTER DATA & SISTEM', icon: '🔧' },
   { key: 'users', name: 'Kelola Pengguna & Akses', path: '/users', category: 'MASTER DATA & SISTEM', icon: '👥' },
@@ -93,13 +94,13 @@ export function generatePresetPermissions(role) {
       canView = true;
       canEdit = true;
     } else if (role === 'ADMIN_DE') {
-      if (['dashboard', 'schedule', 'data_roll', 'label', 'spk', 'scan_report', 'de_report', 'tools'].includes(menu.key)) {
+      if (['dashboard', 'schedule', 'data_roll', 'label', 'spk', 'scan_report', 'de_report', 'tools', 'fpb'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }
     } else if (role === 'PPIC') {
       // PPIC: Hak edit pada SPK, Jadwal, WIP & Stok; Hak lihat pada Label, Data Roll, DE Report, Scan, Tools, Config
-      if (['spk', 'schedule', 'inventory', 'opname'].includes(menu.key)) {
+      if (['spk', 'schedule', 'inventory', 'opname', 'fpb'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       } else if (['dashboard', 'data_roll', 'label', 'de_report', 'scan_report', 'tools', 'tasks', 'data_config'].includes(menu.key)) {
@@ -107,8 +108,8 @@ export function generatePresetPermissions(role) {
         canEdit = false;
       }
     } else if (role === 'OPERATOR') {
-      // Operator: Hak akses khusus Manajemen Label (lihat dan edit)
-      if (['label'].includes(menu.key)) {
+      // Operator: Hak akses khusus Manajemen Label & FPB (lihat dan edit)
+      if (['label', 'fpb'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }
@@ -116,7 +117,7 @@ export function generatePresetPermissions(role) {
       if (['dashboard', 'scan_report', 'tools', 'spk'].includes(menu.key)) {
         canView = true;
         canEdit = false;
-      } else if (['tasks', 'data_roll'].includes(menu.key)) {
+      } else if (['tasks', 'data_roll', 'fpb'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }
@@ -124,7 +125,7 @@ export function generatePresetPermissions(role) {
       if (['dashboard', 'data_roll'].includes(menu.key)) {
         canView = true;
         canEdit = false;
-      } else if (['inventory', 'opname'].includes(menu.key)) {
+      } else if (['inventory', 'opname', 'fpb'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }

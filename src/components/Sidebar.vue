@@ -255,6 +255,14 @@ const navCategories = [
         icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`
       },
       {
+        name: 'Permintaan FPB',
+        path: '/fpb',
+        menuKey: 'fpb',
+        badge: 'Bon',
+        // Document with check / Request Form Icon
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`
+      },
+      {
         name: 'Stok Opname',
         path: '/opname',
         menuKey: 'opname',

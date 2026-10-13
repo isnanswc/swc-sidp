@@ -52,6 +52,12 @@ const routes = [
     meta: { title: 'Roll & Inventory Management (IMS)', menuKey: 'inventory' }
   },
   {
+    path: '/fpb',
+    name: 'FpbManagement',
+    component: () => import('@/views/FpbView.vue'),
+    meta: { title: 'Permintaan Pengebonan Barang (FPB)', menuKey: 'fpb' }
+  },
+  {
     path: '/wip',
     name: 'WipManagement',
     component: () => import('@/views/WipView.vue'),

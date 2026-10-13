@@ -492,6 +492,13 @@
                   >
                     {{ formatTurunanDisplay(formatLotTable(item).childTurunan || item.turunan) }}
                   </span>
+                  <span
+                    v-if="item._lotTotalSessions > 1 && item._lotSessionPart"
+                    class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-black font-sans uppercase tracking-wider shrink-0"
+                    :title="`No. Lot Induk kembar di shift ini — Sesi Pengerjaan ke-${item._lotSessionPart} dari ${item._lotTotalSessions}`"
+                  >
+                    Sesi {{ item._lotSessionPart }}
+                  </span>
                 </div>
               </td>
 
@@ -1089,6 +1096,13 @@
                           <div v-if="getLotParentRolls(lotNode).length <= 1" class="flex items-center gap-1.5 min-w-0">
                             <span class="text-xs font-black text-zinc-900 font-mono tracking-wide uppercase truncate" :title="`No. Lot Induk: ${lotNode.lot}`">
                               🏷️ {{ lotNode.lot }}
+                            </span>
+                            <span
+                              v-if="lotNode.totalSessions > 1 && lotNode.sessionPart"
+                              class="px-1.5 py-0.2 rounded bg-amber-600 text-white text-[9px] font-black font-sans uppercase tracking-wider shrink-0 shadow-2xs"
+                              :title="`No. Lot Induk kembar di shift ini — Sesi Pengerjaan ke-${lotNode.sessionPart} dari ${lotNode.totalSessions}`"
+                            >
+                              Sesi {{ lotNode.sessionPart }}
                             </span>
                           </div>
 
@@ -4244,7 +4258,7 @@
     <teleport to="body">
       <div
         v-if="showKodePackSkipModal"
-        class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-zinc-950/80 backdrop-blur-sm animate-fade-in"
+        class="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-zinc-950/80 backdrop-blur-sm animate-fade-in print:hidden"
         style="z-index: 99999;"
         @click.self="showKodePackSkipModal = false"
       >
@@ -4399,7 +4413,7 @@
       >
         <div
           v-if="showCornerReminder && detectedRecentIssues.length > 0"
-          class="fixed bottom-4 right-4 z-[99990] max-w-sm w-full sm:w-96 bg-white rounded-2xl shadow-2xl border-2 p-3.5 space-y-2.5 animate-bounce-short text-zinc-900 border-red-500 shadow-red-500/20"
+          class="fixed bottom-4 right-4 z-[99990] max-w-sm w-full sm:w-96 bg-white rounded-2xl shadow-2xl border-2 p-3.5 space-y-2.5 animate-bounce-short text-zinc-900 border-red-500 shadow-red-500/20 print:hidden"
         >
           <div class="flex items-start justify-between gap-2 pb-1.5 border-b border-zinc-100">
             <div class="flex items-center gap-2">
@@ -6236,7 +6250,7 @@ const hierarchyTree = computed(() => {
       const shiftData = shiftMap.get(shiftKey);
       const shiftItems = shiftData.items;
 
-      // Group Level 3: No Lot Induk Lengkap Sesuai Input User (Semua Mesin)
+      // Group Level 3: No Lot Induk Lengkap Sesuai Input User (Per Sesi Pengerjaan Jumbo Roll)
       const lotMap = new Map();
       shiftItems.forEach(item => {
         let parentLot = (item.lot || 'TANPA-LOT').trim().toUpperCase();
@@ -6266,10 +6280,21 @@ const hierarchyTree = computed(() => {
           }
         }
 
-        if (!lotMap.has(parentLot)) {
-          lotMap.set(parentLot, []);
+        const sessionOrder = item._lotSessionOrder || 1;
+        const sessionPart = item._lotSessionPart || 1;
+        const totalSessions = item._lotTotalSessions || 1;
+        const lotGroupKey = totalSessions > 1 ? `${parentLot}__SESI_${sessionPart}_${sessionOrder}` : parentLot;
+
+        if (!lotMap.has(lotGroupKey)) {
+          lotMap.set(lotGroupKey, {
+            pureLot: parentLot,
+            sessionOrder,
+            sessionPart,
+            totalSessions,
+            items: []
+          });
         }
-        lotMap.get(parentLot).push(item);
+        lotMap.get(lotGroupKey).items.push(item);
       });
 
       const lots = [];
@@ -6282,7 +6307,9 @@ const hierarchyTree = computed(() => {
       const shiftWaste = parseFloat(firstShiftItem.shiftWaste || firstShiftItem.parentWaste || 0) || 0;
       const shiftWasteNote = firstShiftItem.shiftWasteNote || firstShiftItem.parentWasteNote || '';
 
-      lotMap.forEach((lotItems, pureLot) => {
+      lotMap.forEach((lotGroup, lotGroupKey) => {
+        const pureLot = lotGroup.pureLot;
+        const lotItems = lotGroup.items;
         // Group Level 4: Urutkan Turunan Berdasarkan No Urut Tarikan, Chartingan (Arm A/C), SubKode, dan ID
         const sortedTurunan = [...lotItems].sort((a, b) => {
           const parsedA = parseTurunan(a.turunan);
@@ -6316,7 +6343,9 @@ const hierarchyTree = computed(() => {
         });
 
         const firstItem = sortedTurunan[0] || {};
-        const uniqueKey = `${dateKey}_${shiftData.shiftNum}_${shiftData.opName}_${pureLot}`;
+        const uniqueKey = lotGroup.totalSessions > 1
+          ? `${dateKey}_${shiftData.shiftNum}_${shiftData.opName}_${pureLot}_S${lotGroup.sessionPart}`
+          : `${dateKey}_${shiftData.shiftNum}_${shiftData.opName}_${pureLot}`;
 
         const spkPlan = findSpkPlanForLot(firstItem.spk);
         const wipRoll = findWipRollForLot(pureLot, firstItem.spk);
@@ -6412,9 +6441,12 @@ const hierarchyTree = computed(() => {
         const diffStatus = absDiffPct <= 2.0 ? 'OK' : absDiffPct <= 5.0 ? 'WARNING' : 'DANGER';
 
         lots.push({
-          lotKey: pureLot,
+          lotKey: lotGroupKey,
           uniqueKey,
           lot: pureLot,
+          sessionOrder: lotGroup.sessionOrder,
+          sessionPart: lotGroup.sessionPart,
+          totalSessions: lotGroup.totalSessions,
           spk: firstItem.spk || '-',
           mesin: firstItem.mesin || '-',
           jenis: firstItem.jenis || '',
@@ -10601,7 +10633,7 @@ onUnmounted(() => {
 
   /* HIDE ENTIRE SPA UI AND ALL BODY POPUPS / OVERLAYS */
   #app,
-  body > *:not(#printOnlyArea) {
+  body > *:not(#printOnlyArea):not(#fpbPrintOnlyArea) {
     display: none !important;
   }
 
