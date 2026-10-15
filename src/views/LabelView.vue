@@ -108,23 +108,33 @@
         <!-- Center: Minimalist Search Input Bar (Full width on mobile, flexible on desktop) -->
         <div class="w-full sm:flex-1 min-w-0 sm:min-w-[200px] relative order-2 sm:order-none">
           <input
+            ref="searchInputRef"
             :value="localSearchTerm"
             @input="onSearchInput"
             type="text"
-            placeholder="Cari SPK, Lot, Turunan, Operator..."
-            class="w-full pl-7 pr-6 py-1 text-xs border border-zinc-200 rounded-lg focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none bg-white font-medium placeholder-zinc-400 h-8 shadow-2xs"
+            placeholder="Cari SPK, Lot, Turunan, Operator... (Tekan /)"
+            class="w-full pl-7 pr-16 py-1 text-xs border border-zinc-200 rounded-lg focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none bg-white font-medium placeholder-zinc-400 h-8 shadow-2xs"
           />
           <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-2 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <button
-            v-if="localSearchTerm || labelStore.searchTerm"
-            @click="clearSearchTerm"
-            class="absolute right-2 top-2 text-zinc-400 hover:text-zinc-600 font-bold text-xs cursor-pointer"
-            title="Hapus pencarian"
-          >
-            ✕
-          </button>
+          <div class="absolute right-2 top-1.5 flex items-center gap-1.5">
+            <span
+              v-if="labelStore.searchTerm"
+              class="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-red-50 text-red-600 border border-red-100"
+              title="Jumlah label ditemukan"
+            >
+              {{ labelStore.filteredLabels.length }}
+            </span>
+            <button
+              v-if="localSearchTerm || labelStore.searchTerm"
+              @click="clearSearchTerm"
+              class="text-zinc-400 hover:text-zinc-600 font-bold text-xs cursor-pointer p-0.5"
+              title="Hapus pencarian (Esc)"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <!-- Right: Filters, View Mode Toggle, and Actions -->
@@ -255,6 +265,36 @@
       <span v-if="viewMode === 'table'" class="text-[11px] text-zinc-400 font-medium">
         Halaman {{ labelStore.currentPage }} dari {{ labelStore.totalPages || 1 }}
       </span>
+    </div>
+
+    <!-- Cross-Machine Search Match Notice Banner -->
+    <div
+      v-if="labelStore.crossMachineMatches && labelStore.crossMachineMatches.length > 0"
+      class="bg-blue-50 border border-blue-200 rounded-xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs text-blue-900 shadow-2xs animate-fade-in"
+    >
+      <div class="flex items-center gap-2">
+        <span class="text-sm">🔍</span>
+        <div>
+          <span>Kata kunci <strong>"{{ labelStore.searchTerm }}"</strong> tidak ditemukan di sheet <strong>Mesin {{ labelStore.filterMesin }}</strong>, tetapi ada di:</span>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+            <button
+              v-for="item in labelStore.crossMachineMatches"
+              :key="item.mesin"
+              @click="selectMachineSheet(item.mesin)"
+              class="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-[11px] transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+            >
+              <span>Mesin {{ item.mesin }}</span>
+              <span class="bg-blue-800 text-blue-100 px-1 rounded text-[10px]">{{ item.count }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <button
+        @click="selectMachineSheet('ALL')"
+        class="px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-700 border border-blue-300 rounded-lg font-bold text-[11px] transition-all cursor-pointer shrink-0"
+      >
+        Tampilkan Semua Mesin
+      </button>
     </div>
 
     <!-- Windowed Loading Notice Banner (Only shown if database has > 5000 records) -->
@@ -618,10 +658,36 @@
               <td :colspan="activeColumnCount + 1" class="py-12 text-center text-zinc-400">
                 <div class="text-3xl mb-2">🏷️</div>
                 <p class="font-bold text-sm text-zinc-800">Tidak ada data label yang ditemukan.</p>
-                <p class="text-xs text-zinc-400 mt-1 mb-4">Database label saat ini kosong atau filter aktif tidak menemukan kecocokan.</p>
+                <p class="text-xs text-zinc-400 mt-1 mb-3">
+                  {{ labelStore.searchTerm ? `Tidak ada data yang cocok dengan kata kunci "${labelStore.searchTerm}" pada filter aktif.` : 'Database label saat ini kosong atau filter aktif tidak menemukan kecocokan.' }}
+                </p>
+
+                <!-- Saran pindah mesin jika ada match di mesin lain -->
+                <div v-if="labelStore.crossMachineMatches && labelStore.crossMachineMatches.length > 0" class="mb-4 inline-flex flex-col items-center bg-blue-50/80 border border-blue-200 rounded-xl p-3 max-w-md">
+                  <span class="text-xs font-semibold text-blue-800 mb-2">Ditemukan pada sheet mesin lain:</span>
+                  <div class="flex flex-wrap items-center justify-center gap-1.5">
+                    <button
+                      v-for="m in labelStore.crossMachineMatches"
+                      :key="m.mesin"
+                      @click="selectMachineSheet(m.mesin)"
+                      class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all cursor-pointer shadow-xs flex items-center gap-1"
+                    >
+                      <span>Mesin {{ m.mesin }}</span>
+                      <span class="bg-blue-800 text-blue-100 px-1.5 py-0.2 rounded-full text-[10px]">{{ m.count }} label</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div class="flex items-center justify-center gap-2">
                   <button
-                    v-if="labelStore.filterMesin !== 'ALL' || labelStore.searchTerm || labelStore.filterStatus !== 'ALL'"
+                    v-if="labelStore.searchTerm"
+                    @click="clearSearchTerm"
+                    class="px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs transition-all cursor-pointer border border-red-200"
+                  >
+                    Hapus Pencarian
+                  </button>
+                  <button
+                    v-if="labelStore.filterMesin !== 'ALL' || labelStore.filterStatus !== 'ALL'"
                     @click="selectMachineSheet('ALL')"
                     class="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-xs transition-all cursor-pointer"
                   >
@@ -4512,6 +4578,7 @@ const dataRollStore = useDataRollStore();
 const scheduleStore = useScheduleStore();
 
 // Search input debouncer to prevent 20,000+ items freeze during typing
+const searchInputRef = ref(null);
 const localSearchTerm = ref(labelStore.searchTerm || '');
 let searchDebounceTimer = null;
 
@@ -4521,20 +4588,46 @@ const onSearchInput = (e) => {
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(() => {
     labelStore.searchTerm = val;
+    labelStore.currentPage = 1;
+    hierarchyPage.value = 1;
   }, 250);
 };
 
 const clearSearchTerm = () => {
   localSearchTerm.value = '';
   labelStore.searchTerm = '';
+  labelStore.currentPage = 1;
+  hierarchyPage.value = 1;
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchInputRef.value?.focus();
 };
 
 watch(() => labelStore.searchTerm, (newVal) => {
   if (newVal !== localSearchTerm.value) {
     localSearchTerm.value = newVal || '';
   }
+  labelStore.currentPage = 1;
+  hierarchyPage.value = 1;
 });
+
+const handleGlobalSearchShortcut = (e) => {
+  const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+  if (e.key === '/' && !isInputFocused) {
+    e.preventDefault();
+    searchInputRef.value?.focus();
+    searchInputRef.value?.select();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    searchInputRef.value?.focus();
+    searchInputRef.value?.select();
+  } else if (e.key === 'Escape' && document.activeElement === searchInputRef.value) {
+    if (localSearchTerm.value || labelStore.searchTerm) {
+      clearSearchTerm();
+    } else {
+      searchInputRef.value?.blur();
+    }
+  }
+};
 
 // =========================================================================
 // SMOOTH EXPAND / COLLAPSE ANIMATION HOOKS (ZERO-OVERHEAD HARDWARE ACCELERATED)
@@ -10071,11 +10164,13 @@ onMounted(async () => {
       scrollToLatestEntry(350);
     }
   });
+  window.addEventListener('keydown', handleGlobalSearchShortcut);
   window.addEventListener('resize', updateControlBarOffset);
   window.addEventListener('beforeprint', updatePrintTimestamp);
 });
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalSearchShortcut);
   window.removeEventListener('resize', updateControlBarOffset);
   window.removeEventListener('sync:labels-updated', handleLabelsSync);
   window.removeEventListener('beforeprint', updatePrintTimestamp);

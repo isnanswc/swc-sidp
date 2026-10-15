@@ -549,17 +549,27 @@ export const useLabelStore = defineStore('labelStore', {
         assignLotSessionAnchors(state.labels);
       }
 
-      const term = (state.searchTerm || '').toLowerCase().trim();
-      let matchedOps = [];
-      if (term) {
-        try {
-          const configStore = useConfigStore();
-          const opList = configStore.operatorList || [];
-          matchedOps = opList.filter(o => 
-            (o.nama && o.nama.toLowerCase().includes(term)) ||
-            (o.kodeOperator && o.kodeOperator.toLowerCase() === term)
+      const rawTerm = (state.searchTerm || '').trim();
+      const tokens = rawTerm.toLowerCase().split(/\s+/).filter(Boolean);
+
+      let configOpList = [];
+      try {
+        const configStore = useConfigStore();
+        configOpList = configStore.operatorList || [];
+      } catch (e) {}
+
+      // Pre-map matched operators untuk setiap token pencarian
+      const tokenOpMap = new Map();
+      if (tokens.length > 0 && configOpList.length > 0) {
+        tokens.forEach(tok => {
+          const matched = configOpList.filter(o => 
+            (o.nama && o.nama.toLowerCase().includes(tok)) ||
+            (o.kodeOperator && o.kodeOperator.toLowerCase() === tok)
           );
-        } catch (e) {}
+          if (matched.length > 0) {
+            tokenOpMap.set(tok, matched);
+          }
+        });
       }
 
       const filtered = state.labels.filter(item => {
@@ -577,33 +587,63 @@ export const useLabelStore = defineStore('labelStore', {
         const matchesStatus = state.filterStatus === 'ALL' || item.status === state.filterStatus;
         if (!matchesStatus) return false;
 
-        // 2. Jika tidak ada kata kunci pencarian, langsung loloskan tanpa pencarian string
-        if (!term) return true;
+        // 2. Jika tidak ada kata kunci pencarian, langsung loloskan
+        if (tokens.length === 0) return true;
 
-        let matchesOperator = (item.operator && item.operator.toLowerCase().includes(term)) ||
-          (item.kodeOperator && item.kodeOperator.toLowerCase().includes(term));
+        // 3. Bangun corpus teks pencarian komprehensif (Multi-field & Composite keys)
+        const supplier = item.supplier || '';
+        const spk = item.spk || '';
+        const lot = item.lot || '';
+        const turunan = item.turunan || '';
+        const fullLotSlash = `${lot}/${turunan}`;
+        const fullLotSpace = `${lot} ${turunan}`;
+        const kodePack = item.kodePack || '';
+        const subKode = item.subKode || '';
+        const fullPack = `${kodePack}${subKode}`;
+        const fullPackSpace = `${kodePack} ${subKode}`;
+        const fullPackDash = `${kodePack}-${subKode}`;
+        const opName = item.operator || '';
+        const opCode = item.kodeOperator || '';
+        const mesin = item.mesin || '';
+        const shift = item.shift || '';
+        const tanggal = item.tanggal || '';
+        const tanggalFormatted = item.tanggalFormatted || '';
+        const jenis = item.jenis || '';
+        const kode = item.kode || '';
+        const thickness = item.thickness || '';
+        const width = item.width || '';
+        const length = item.length || item.meter || '';
+        const netto = item.netto || item.berat || '';
+        const status = item.status || '';
+        const treatment = item.treatment || '';
+        const od = item.od || '';
+        const keterangan = item.keterangan || '';
+        const reasonDefect = item.reasonDefect || '';
+        const uniqId = item.uniqId || '';
+        const joint = item.joint ? `${item.joint}x joint` : '';
 
-        if (!matchesOperator && matchedOps.length > 0) {
-          matchesOperator = matchedOps.some(o => 
-            (item.kodeOperator && item.kodeOperator.toUpperCase() === o.kodeOperator.toUpperCase()) ||
-            (item.operator && (item.operator.toUpperCase().includes(o.kodeOperator.toUpperCase()) || item.operator.toUpperCase().includes(o.nama.toUpperCase()))) ||
-            (item.turunan && getOperatorCodeFromTurunan(item.turunan, item.mesin) === o.kodeOperator.toUpperCase())
-          );
-        }
+        const corpus = `
+          ${supplier} ${spk} ${lot} ${turunan} ${fullLotSlash} ${fullLotSpace}
+          ${kodePack} ${subKode} ${fullPack} ${fullPackSpace} ${fullPackDash}
+          ${opName} ${opCode} ${mesin} shift ${shift} ${tanggal} ${tanggalFormatted}
+          ${jenis} ${kode} ${thickness}mc ${width}mm ${length}m ${netto}kg ${status}
+          ${treatment} ${od} ${keterangan} ${reasonDefect} ${uniqId} ${joint}
+        `.toLowerCase();
 
-        return (
-          (item.supplier && item.supplier.toLowerCase().includes(term)) ||
-          (item.spk && item.spk.toLowerCase().includes(term)) ||
-          (item.lot && item.lot.toLowerCase().includes(term)) ||
-          (item.turunan && item.turunan.toLowerCase().includes(term)) ||
-          matchesOperator ||
-          (item.jenis && item.jenis.toLowerCase().includes(term)) ||
-          (item.kode && item.kode.toLowerCase().includes(term)) ||
-          (item.kodePack && item.kodePack.toLowerCase().includes(term)) ||
-          (item.subKode && item.subKode.toLowerCase().includes(term)) ||
-          (item.keterangan && item.keterangan.toLowerCase().includes(term)) ||
-          (item.uniqId && item.uniqId.toLowerCase().includes(term))
-        );
+        // Multi-Token AND Search: Seluruh kata harus cocok pada roll ini
+        return tokens.every(tok => {
+          if (corpus.includes(tok)) return true;
+          // Periksa operator alias / nama lengkap dari config
+          const ops = tokenOpMap.get(tok);
+          if (ops && ops.length > 0) {
+            return ops.some(o => 
+              (opCode && opCode.toUpperCase() === o.kodeOperator.toUpperCase()) ||
+              (opName && (opName.toUpperCase().includes(o.kodeOperator.toUpperCase()) || opName.toUpperCase().includes(o.nama.toUpperCase()))) ||
+              (turunan && getOperatorCodeFromTurunan(turunan, mesin) === o.kodeOperator.toUpperCase())
+            );
+          }
+          return false;
+        });
       });
 
       // Ultra-fast Hierarchical Slitting Comparator (O(1) comparisons using precomputed keys)
@@ -657,12 +697,54 @@ export const useLabelStore = defineStore('labelStore', {
     },
 
     paginatedLabels() {
-      const start = (this.currentPage - 1) * this.rowsPerPage;
+      const total = Math.ceil(this.filteredLabels.length / this.rowsPerPage) || 1;
+      const validPage = Math.min(Math.max(1, this.currentPage), total);
+      if (this.currentPage > total) {
+        this.currentPage = validPage;
+      }
+      const start = (validPage - 1) * this.rowsPerPage;
       return this.filteredLabels.slice(start, start + this.rowsPerPage);
     },
 
     totalPages() {
       return Math.ceil(this.filteredLabels.length / this.rowsPerPage) || 1;
+    },
+
+    // Deteksi cerdas apakah kata kunci pencarian ditemukan di mesin lain saat mesin aktif kosong
+    crossMachineMatches(state) {
+      const rawTerm = (state.searchTerm || '').trim();
+      if (!rawTerm || state.filterMesin === 'ALL') return [];
+
+      // Hanya muncul jika hasil di mesin aktif kosong
+      if (this.filteredLabels.length > 0) return [];
+
+      const tokens = rawTerm.toLowerCase().split(/\s+/).filter(Boolean);
+      if (tokens.length === 0) return [];
+
+      const byMachine = {};
+      const activeMesin = (state.filterMesin || '').toUpperCase();
+
+      state.labels.forEach(item => {
+        if (state.filterStatus !== 'ALL' && item.status !== state.filterStatus) return;
+        const itemMesin = (item.mesin || 'SLITTING').toUpperCase();
+        if (itemMesin === activeMesin) return; // Hanya hitung mesin lain
+
+        const corpus = `
+          ${item.supplier || ''} ${item.spk || ''} ${item.lot || ''} ${item.turunan || ''}
+          ${item.lot || ''}/${item.turunan || ''} ${item.kodePack || ''}${item.subKode || ''}
+          ${item.kodePack || ''} ${item.subKode || ''} ${item.operator || ''} ${item.kodeOperator || ''}
+          ${item.mesin || ''} shift ${item.shift || ''} ${item.tanggal || ''} ${item.tanggalFormatted || ''}
+          ${item.jenis || ''} ${item.kode || ''} ${item.thickness || ''}mc ${item.width || ''}mm
+          ${item.length || item.meter || ''} ${item.netto || item.berat || ''} ${item.status || ''}
+          ${item.keterangan || ''} ${item.reasonDefect || ''} ${item.uniqId || ''}
+        `.toLowerCase();
+
+        if (tokens.every(t => corpus.includes(t))) {
+          byMachine[itemMesin] = (byMachine[itemMesin] || 0) + 1;
+        }
+      });
+
+      return Object.entries(byMachine).map(([mesin, count]) => ({ mesin, count }));
     },
 
     statistics() {
@@ -714,6 +796,11 @@ export const useLabelStore = defineStore('labelStore', {
   },
 
   actions: {
+    setSearchTerm(term) {
+      this.searchTerm = term || '';
+      this.currentPage = 1;
+    },
+
     async loadLabels(force = false, options = {}) {
       const opts = typeof options === 'object' && options !== null ? options : {};
       const loadAll = opts.loadAll === true;
