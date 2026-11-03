@@ -36,9 +36,9 @@
                   'px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold',
                   selectedPaper === 'F4' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'
                 ]"
-                title="Maksimalkan lebar stiker untuk ukuran kertas F4 / Folio (208mm)"
+                title="Maksimalkan lebar stiker untuk ukuran kertas F4 / Folio (215mm dibagi 2 = 107.5mm)"
               >
-                F4 / Folio (Maksimal)
+                F4 / Folio (215mm / 2 = 107.5mm)
               </button>
               <button
                 type="button"
@@ -47,9 +47,9 @@
                   'px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold',
                   selectedPaper === 'A4' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'
                 ]"
-                title="Sesuaikan lebar stiker untuk ukuran kertas A4 (202mm)"
+                title="Sesuaikan lebar stiker untuk ukuran kertas A4 (210mm dibagi 2 = 105mm)"
               >
-                A4
+                A4 (210mm / 2 = 105mm)
               </button>
             </div>
 
@@ -394,11 +394,37 @@ const triggerBrowserPrint = () => {
   const originalTitle = document.title;
   // Kosongkan judul halaman sementara agar Chromium tidak mencetak teks di sudut kertas
   document.title = '';
+
+  // Tambahkan penanda khusus pada body agar CSS print HANYA aktif saat mencetak label export ini
+  document.body.classList.add('is-printing-export-label');
+
+  // Injeksi style @page margin 0 dinamis khusus untuk sesi cetak ini (tidak mengganggu modul cetak label biasa/lainnya)
+  let styleEl = document.getElementById('label-export-dynamic-print-style');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'label-export-dynamic-print-style';
+    styleEl.innerHTML = `
+      @page {
+        size: auto;
+        margin: 0mm !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }
+
+  const cleanup = () => {
+    document.title = originalTitle;
+    document.body.classList.remove('is-printing-export-label');
+    const el = document.getElementById('label-export-dynamic-print-style');
+    if (el) el.remove();
+    window.removeEventListener('afterprint', cleanup);
+  };
+
+  window.addEventListener('afterprint', cleanup);
+
   nextTick(() => {
     window.print();
-    setTimeout(() => {
-      document.title = originalTitle;
-    }, 1200);
+    setTimeout(cleanup, 1200);
   });
 };
 </script>
@@ -567,29 +593,16 @@ const triggerBrowserPrint = () => {
 </style>
 
 <style>
-/* ── STRICT PRINT ISOLATION & FULL WIDTH FOR F4 / A4 ── */
+/* Default Screen: Sembunyikan kontainer cetak teleportasi dari tampilan layar */
+#labelExportPrintArea {
+  display: none;
+}
+
+/* ── STRICT PRINT ISOLATION & FULL WIDTH UNTUK F4 / A4 (HANYA AKTIF SAAT CETAK EXPORT) ── */
 @media print {
-  @page {
-    /* size: auto memungkinkan printer memilih F4 atau A4 tanpa paksaan */
-    size: auto;
-    /* margin: 0mm menghilangkan header/footer otomatis browser (URL, tanggal, title) */
-    margin: 0mm !important;
-  }
-
-  html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    width: 100% !important;
-    height: auto !important;
-  }
-
-  #app,
-  body > *:not(#labelExportPrintArea) {
-    display: none !important;
-  }
-
-  #labelExportPrintArea {
+  /* Tampilkan kontainer cetak export HANYA saat sesi cetak label export berlangsung */
+  body.is-printing-export-label #labelExportPrintArea,
+  body:has(#labelExportPrintArea) #labelExportPrintArea {
     display: block !important;
     position: static !important;
     width: 100% !important;
@@ -598,8 +611,16 @@ const triggerBrowserPrint = () => {
     background: transparent !important;
   }
 
+  /* Sembunyikan UI aplikasi utama (#app) dan elemen body lain HANYA saat cetak label export */
+  body.is-printing-export-label #app,
+  body:has(#labelExportPrintArea) #app,
+  body.is-printing-export-label > *:not(#labelExportPrintArea):not(#printOnlyArea):not(#fpbPrintOnlyArea):not(#slittingPrintOnlyArea),
+  body:has(#labelExportPrintArea) > *:not(#labelExportPrintArea):not(#printOnlyArea):not(#fpbPrintOnlyArea):not(#slittingPrintOnlyArea) {
+    display: none !important;
+  }
+
   .export-print-page {
-    margin: 3mm auto 0 auto !important;
+    margin: 2mm auto 0 auto !important;
     padding: 0 !important;
     page-break-after: always !important;
     break-after: page !important;
@@ -616,22 +637,22 @@ const triggerBrowserPrint = () => {
     break-after: avoid !important;
   }
 
-  /* ── MODE 1: KERTAS F4 / FOLIO (215mm x 330mm) - MAKSIMAL LEBAR (208mm) ── */
+  /* ── MODE 1: KERTAS F4 / FOLIO (215mm x 330mm) - MAKSIMAL 215mm / 2 = 107.5mm ── */
   .grid-f4 {
     display: grid !important;
-    grid-template-columns: 104mm 104mm !important;
-    grid-template-rows: 73mm 73mm 73mm !important;
-    width: 208mm !important;
-    height: 219mm !important;
+    grid-template-columns: 107.5mm 107.5mm !important;
+    grid-template-rows: 75mm 75mm 75mm !important;
+    width: 215mm !important;
+    height: 225mm !important;
     margin: 0 auto !important;
     border: 1.5px dashed #4b5563 !important;
     box-sizing: border-box !important;
   }
 
   .cell-f4 {
-    width: 104mm !important;
-    height: 73mm !important;
-    padding: 2mm !important;
+    width: 107.5mm !important;
+    height: 75mm !important;
+    padding: 1.25mm !important;
     box-sizing: border-box !important;
     display: flex !important;
     align-items: center !important;
@@ -650,9 +671,10 @@ const triggerBrowserPrint = () => {
     border-bottom: 1.5px dashed #4b5563 !important;
   }
 
+  /* Kartu Stiker F4: Lebar 105mm x Tinggi 72.5mm (Jarak 1.25mm ke garis potong di tengah) */
   .card-f4 {
-    width: 100mm !important;
-    height: 69mm !important;
+    width: 105mm !important;
+    height: 72.5mm !important;
     border: 1.5px solid #000000 !important;
     box-sizing: border-box !important;
     padding: 1.5mm 2.2mm !important;
@@ -664,27 +686,27 @@ const triggerBrowserPrint = () => {
   }
 
   .cell-f4 .print-empty-slot {
-    width: 100mm !important;
-    height: 69mm !important;
+    width: 105mm !important;
+    height: 72.5mm !important;
     background: transparent !important;
   }
 
-  /* ── MODE 2: KERTAS A4 (210mm x 297mm) - FIT LEBAR (202mm) ── */
+  /* ── MODE 2: KERTAS A4 (210mm x 297mm) - MAKSIMAL 210mm / 2 = 105mm ── */
   .grid-a4 {
     display: grid !important;
-    grid-template-columns: 101mm 101mm !important;
-    grid-template-rows: 71mm 71mm 71mm !important;
-    width: 202mm !important;
-    height: 213mm !important;
+    grid-template-columns: 105mm 105mm !important;
+    grid-template-rows: 73mm 73mm 73mm !important;
+    width: 210mm !important;
+    height: 219mm !important;
     margin: 0 auto !important;
     border: 1.5px dashed #4b5563 !important;
     box-sizing: border-box !important;
   }
 
   .cell-a4 {
-    width: 101mm !important;
-    height: 71mm !important;
-    padding: 2mm !important;
+    width: 105mm !important;
+    height: 73mm !important;
+    padding: 1.25mm !important;
     box-sizing: border-box !important;
     display: flex !important;
     align-items: center !important;
@@ -703,9 +725,10 @@ const triggerBrowserPrint = () => {
     border-bottom: 1.5px dashed #4b5563 !important;
   }
 
+  /* Kartu Stiker A4: Lebar 102.5mm x Tinggi 70.5mm (Jarak 1.25mm ke garis potong di tengah) */
   .card-a4 {
-    width: 97mm !important;
-    height: 67mm !important;
+    width: 102.5mm !important;
+    height: 70.5mm !important;
     border: 1.5px solid #000000 !important;
     box-sizing: border-box !important;
     padding: 1.5mm 2mm !important;
@@ -717,8 +740,8 @@ const triggerBrowserPrint = () => {
   }
 
   .cell-a4 .print-empty-slot {
-    width: 97mm !important;
-    height: 67mm !important;
+    width: 102.5mm !important;
+    height: 70.5mm !important;
     background: transparent !important;
   }
 
@@ -730,20 +753,20 @@ const triggerBrowserPrint = () => {
     padding-bottom: 0.8mm !important;
     border-bottom: 1.2px solid #000000 !important;
     margin: 0 !important;
-    height: 14mm !important;
+    height: 14.5mm !important;
   }
 
   .print-header-logo-box,
   .print-header-spacer-box {
-    width: 25mm !important;
+    width: 26mm !important;
     flex-shrink: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
   .print-header-logo-img {
-    height: 14mm !important;
-    max-width: 25mm !important;
+    height: 14.5mm !important;
+    max-width: 26mm !important;
     object-fit: contain !important;
     object-position: left center !important;
     display: block !important;
@@ -755,7 +778,7 @@ const triggerBrowserPrint = () => {
     flex: 1 !important;
     text-align: center !important;
     font-family: 'Arial Black', Impact, Arial, sans-serif !important;
-    font-size: 14pt !important;
+    font-size: 14.5pt !important;
     font-weight: 900 !important;
     text-transform: uppercase !important;
     white-space: nowrap !important;
@@ -771,13 +794,13 @@ const triggerBrowserPrint = () => {
   .print-sticker-spec-table {
     width: 100% !important;
     border-collapse: collapse !important;
-    font-size: 8.8pt !important;
+    font-size: 9pt !important;
   }
 
   .print-sticker-spec-table td {
-    padding: 0.7mm 1.2mm !important;
+    padding: 0.7mm 1.3mm !important;
     border-top: 1px solid #000000 !important;
-    line-height: 1.15 !important;
+    line-height: 1.18 !important;
   }
 
   .print-sticker-spec-table tr:first-child td {
@@ -816,7 +839,7 @@ const triggerBrowserPrint = () => {
   .print-sticker-roll-id-band {
     text-align: center !important;
     font-weight: 900 !important;
-    font-size: 8.8pt !important;
+    font-size: 9pt !important;
     border-bottom: 1.2px solid #000000 !important;
     padding: 0.6mm 0 !important;
     letter-spacing: 0.5px !important;
