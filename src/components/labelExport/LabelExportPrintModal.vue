@@ -11,7 +11,7 @@
         @click.stop
       >
         <!-- Modal Header -->
-        <div class="flex items-center justify-between pb-2.5 border-b border-slate-100 shrink-0">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100 shrink-0">
           <div class="flex items-center gap-2">
             <span class="text-xl">🖨️</span>
             <div>
@@ -19,20 +19,64 @@
                 Pratinjau Cetak Label Export ({{ printRolls.length }} Data Roll / {{ printPages.length }} Lembar Halaman)
               </h3>
               <p class="text-[11px] text-slate-500">
-                Format Asli: 1 Roll = 3 Stiker Fisik | 1 Lembar A4 = 6 Petak Potong (2 Kolom × 3 Baris). Rasio presisi landscape.
+                1 Roll = 3 Stiker | 1 Lembar = 6 Petak Potong (2 Kolom × 3 Baris). Format simetris & presisi.
               </p>
             </div>
           </div>
-          <button
-            @click="store.closePrintModal"
-            class="text-slate-400 hover:text-slate-600 font-bold text-lg p-1 cursor-pointer"
-          >
-            ✕
-          </button>
+
+          <!-- Paper Size Selector & Close -->
+          <div class="flex items-center gap-2 self-end sm:self-auto">
+            <!-- Paper Option Selector (F4 Priority) -->
+            <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+              <span class="text-[10px] text-slate-500 font-bold uppercase px-1">Kertas:</span>
+              <button
+                type="button"
+                @click="selectedPaper = 'F4'"
+                :class="[
+                  'px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold',
+                  selectedPaper === 'F4' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'
+                ]"
+                title="Maksimalkan lebar stiker untuk ukuran kertas F4 / Folio (208mm)"
+              >
+                F4 / Folio (Maksimal)
+              </button>
+              <button
+                type="button"
+                @click="selectedPaper = 'A4'"
+                :class="[
+                  'px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold',
+                  selectedPaper === 'A4' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'
+                ]"
+                title="Sesuaikan lebar stiker untuk ukuran kertas A4 (202mm)"
+              >
+                A4
+              </button>
+            </div>
+
+            <button
+              @click="store.closePrintModal"
+              class="text-slate-400 hover:text-slate-600 font-bold text-lg p-1 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Clean Print Guide Banner -->
+        <div class="my-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-[11px] text-blue-900">
+          <div class="flex items-center gap-1.5">
+            <span>💡</span>
+            <span>
+              <strong>Petunjuk Cetak Maksimal & Bersih:</strong> Di dialog cetak browser, <u>HILANGKAN CENTANG "Header dan footer"</u> (agar tidak ada teks tanggal/URL di sudut) dan pilih <u>Margin: Minimum / Tidak Ada</u>.
+            </span>
+          </div>
+          <span class="font-mono font-bold text-blue-700 uppercase shrink-0 ml-2">
+            Mode {{ selectedPaper }}
+          </span>
         </div>
 
         <!-- Preview Body (Scrollable Screen Mockup of Printed Sheets) -->
-        <div class="my-3 space-y-6 overflow-y-auto flex-1 pr-1 bg-slate-100 p-3 sm:p-4 rounded-xl border border-slate-200">
+        <div class="my-1 space-y-6 overflow-y-auto flex-1 pr-1 bg-slate-100 p-3 sm:p-4 rounded-xl border border-slate-200">
           <div
             v-for="(page, pIdx) in printPages"
             :key="pIdx"
@@ -41,10 +85,10 @@
             <div class="flex items-center justify-between text-[11px] font-bold text-blue-900 pb-1.5 border-b border-slate-200">
               <span class="flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-                <span>Lembar Ke-{{ pIdx + 1 }} dari {{ printPages.length }}</span>
+                <span>Lembar Ke-{{ pIdx + 1 }} dari {{ printPages.length }} (Ukuran: {{ selectedPaper }})</span>
               </span>
               <span class="font-mono text-slate-600">
-                {{ page.cells.filter(c => c.item).length }} Stiker Terisi (Area bawah kosong alami sesuai rasio asli)
+                {{ page.cells.filter(c => c.item).length }} Stiker Terisi
               </span>
             </div>
 
@@ -150,7 +194,7 @@
 
             <!-- Bottom Margin Note -->
             <div class="text-[9.5px] text-slate-400 italic text-center pt-1 select-none">
-              (Area kosong di bawah lembar cetak A4 sesuai rasio asli)
+              (Area bawah kosong alami sesuai rasio asli landscape)
             </div>
           </div>
         </div>
@@ -158,7 +202,7 @@
         <!-- Action Footer -->
         <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 shrink-0">
           <div class="text-[11px] text-slate-500">
-            Total cetak: <strong class="text-slate-900">{{ printRolls.length * 3 }} Stiker</strong> ({{ printPages.length }} Lembar A4).
+            Total cetak: <strong class="text-slate-900">{{ printRolls.length * 3 }} Stiker</strong> ({{ printPages.length }} Lembar {{ selectedPaper }}).
           </div>
           <div class="flex items-center gap-2">
             <button
@@ -186,15 +230,15 @@
           :key="pIdx"
           class="export-print-page"
         >
-          <!-- 6-Cell Sheet Grid: Fixed Natural Ratio (94mm x 65mm per sticker, 196mm x 210mm total grid) -->
-          <div class="export-sheet-grid">
+          <!-- 6-Cell Sheet Grid: Scaled to Full Width for F4 or A4 -->
+          <div :class="['export-sheet-grid', selectedPaper === 'F4' ? 'grid-f4' : 'grid-a4']">
             <div
               v-for="(cell, cIdx) in page.cells"
               :key="cIdx"
-              class="export-sticker-cell"
+              :class="['export-sticker-cell', selectedPaper === 'F4' ? 'cell-f4' : 'cell-a4']"
             >
               <!-- Physical Sticker in Print Engine -->
-              <div v-if="cell.item" class="print-sticker-card">
+              <div v-if="cell.item" :class="['print-sticker-card', selectedPaper === 'F4' ? 'card-f4' : 'card-a4']">
                 <!-- Header: Logo Trivesta (Kiri, margin 0), Judul Jenis di TENGAH ATAS (Satu Baris Penuh) -->
                 <div class="print-sticker-header-centered">
                   <div class="print-header-logo-box">
@@ -260,8 +304,8 @@
                 <div class="print-barcode-box-1">
                   <LabelExportBarcode
                     :value="cell.item.codePack"
-                    :height="20"
-                    width="65%"
+                    :height="21"
+                    width="66%"
                     textSize="8.5pt"
                   />
                 </div>
@@ -270,7 +314,7 @@
                 <div class="print-barcode-box-2">
                   <LabelExportBarcode
                     :value="cell.item.nomorOk"
-                    :height="28"
+                    :height="29"
                     width="92%"
                     textSize="9.5pt"
                   />
@@ -288,12 +332,13 @@
 </template>
 
 <script setup>
-import { computed, nextTick } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { useLabelExportStore } from '@/stores/labelExportStore';
 import LabelExportBarcode from './LabelExportBarcode.vue';
 import trivestaLogoUrl from '@/assets/trivesta-logo.png';
 
 const store = useLabelExportStore();
+const selectedPaper = ref('F4'); // Default F4 sesuai permintaan pengguna
 
 const printRolls = computed(() => store.printItems || []);
 
@@ -304,7 +349,7 @@ const formatCommas = (val) => {
 
 /**
  * Aturan Lembar Cetak Presisi:
- * 1 lembar A4 memuat template 6 sel (2 kolom x 3 baris).
+ * 1 lembar memuat template 6 sel (2 kolom x 3 baris).
  * Sesuai urutan runtut:
  * - Label 1 (3 stiker): r1c1, r1c2, r2c1
  * - Label 2 (3 stiker): r2c2, r3c1, r3c2
@@ -346,8 +391,14 @@ const printPages = computed(() => {
 });
 
 const triggerBrowserPrint = () => {
+  const originalTitle = document.title;
+  // Kosongkan judul halaman sementara agar Chromium tidak mencetak teks di sudut kertas
+  document.title = '';
   nextTick(() => {
     window.print();
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 1200);
   });
 };
 </script>
@@ -364,7 +415,7 @@ const triggerBrowserPrint = () => {
 
 /* Garis bantu potong di antara dua stiker (tidak mepet outline) */
 .sticker-outer-preview {
-  padding: 10px 12px; /* Ruang bernapas antara stiker dan garis putus */
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -388,7 +439,7 @@ const triggerBrowserPrint = () => {
 
 .sticker-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 395px;
   border: 1.5px solid #000000;
   background-color: #ffffff;
   color: #000000;
@@ -516,11 +567,13 @@ const triggerBrowserPrint = () => {
 </style>
 
 <style>
-/* ── STRICT PRINT ISOLATION STYLES FOR LABEL EXPORT ── */
+/* ── STRICT PRINT ISOLATION & FULL WIDTH FOR F4 / A4 ── */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 6mm 7mm;
+    /* size: auto memungkinkan printer memilih F4 atau A4 tanpa paksaan */
+    size: auto;
+    /* margin: 0mm menghilangkan header/footer otomatis browser (URL, tanggal, title) */
+    margin: 0mm !important;
   }
 
   html, body {
@@ -546,14 +599,16 @@ const triggerBrowserPrint = () => {
   }
 
   .export-print-page {
-    width: 196mm !important;
-    margin: 0 auto !important;
+    margin: 3mm auto 0 auto !important;
+    padding: 0 !important;
     page-break-after: always !important;
     break-after: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     box-sizing: border-box !important;
-    display: block !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
   }
 
   .export-print-page:last-child {
@@ -561,47 +616,96 @@ const triggerBrowserPrint = () => {
     break-after: avoid !important;
   }
 
-  /* Grid 2 Kolom x 3 Baris: Rasio Alami Asli (196mm lebar x 210mm tinggi total) */
-  /* Di bawah lembar A4 (297mm) terdapat sisa area kosong ~80mm secara natural */
-  .export-sheet-grid {
+  /* ── MODE 1: KERTAS F4 / FOLIO (215mm x 330mm) - MAKSIMAL LEBAR (208mm) ── */
+  .grid-f4 {
     display: grid !important;
-    grid-template-columns: 98mm 98mm !important;
-    grid-template-rows: 70mm 70mm 70mm !important;
-    width: 196mm !important;
-    height: 210mm !important;
+    grid-template-columns: 104mm 104mm !important;
+    grid-template-rows: 73mm 73mm 73mm !important;
+    width: 208mm !important;
+    height: 219mm !important;
     margin: 0 auto !important;
-    border: 1.5px dashed #4b5563 !important; /* Garis potong batas tepi luar lembar */
+    border: 1.5px dashed #4b5563 !important;
     box-sizing: border-box !important;
   }
 
-  .export-sticker-cell {
+  .cell-f4 {
+    width: 104mm !important;
+    height: 73mm !important;
+    padding: 2mm !important;
     box-sizing: border-box !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 2.5mm 2mm !important; /* Jarak antara garis putus dan outline stiker */
     background: transparent !important;
-    width: 98mm !important;
-    height: 70mm !important;
   }
 
-  /* Garis putus vertikal tunggal tepat di antara kolom kiri dan kolom kanan */
-  .export-sticker-cell:nth-child(odd) {
+  .cell-f4:nth-child(odd) {
     border-right: 1.5px dashed #4b5563 !important;
   }
 
-  /* Garis putus horizontal tunggal tepat di antara baris-baris stiker */
-  .export-sticker-cell:nth-child(1),
-  .export-sticker-cell:nth-child(2),
-  .export-sticker-cell:nth-child(3),
-  .export-sticker-cell:nth-child(4) {
+  .cell-f4:nth-child(1),
+  .cell-f4:nth-child(2),
+  .cell-f4:nth-child(3),
+  .cell-f4:nth-child(4) {
     border-bottom: 1.5px dashed #4b5563 !important;
   }
 
-  /* Ukuran Fisik Stiker Asli Presisi (94mm lebar x 65mm tinggi) */
-  .print-sticker-card {
-    width: 94mm !important;
-    height: 65mm !important;
+  .card-f4 {
+    width: 100mm !important;
+    height: 69mm !important;
+    border: 1.5px solid #000000 !important;
+    box-sizing: border-box !important;
+    padding: 1.5mm 2.2mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .cell-f4 .print-empty-slot {
+    width: 100mm !important;
+    height: 69mm !important;
+    background: transparent !important;
+  }
+
+  /* ── MODE 2: KERTAS A4 (210mm x 297mm) - FIT LEBAR (202mm) ── */
+  .grid-a4 {
+    display: grid !important;
+    grid-template-columns: 101mm 101mm !important;
+    grid-template-rows: 71mm 71mm 71mm !important;
+    width: 202mm !important;
+    height: 213mm !important;
+    margin: 0 auto !important;
+    border: 1.5px dashed #4b5563 !important;
+    box-sizing: border-box !important;
+  }
+
+  .cell-a4 {
+    width: 101mm !important;
+    height: 71mm !important;
+    padding: 2mm !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: transparent !important;
+  }
+
+  .cell-a4:nth-child(odd) {
+    border-right: 1.5px dashed #4b5563 !important;
+  }
+
+  .cell-a4:nth-child(1),
+  .cell-a4:nth-child(2),
+  .cell-a4:nth-child(3),
+  .cell-a4:nth-child(4) {
+    border-bottom: 1.5px dashed #4b5563 !important;
+  }
+
+  .card-a4 {
+    width: 97mm !important;
+    height: 67mm !important;
     border: 1.5px solid #000000 !important;
     box-sizing: border-box !important;
     padding: 1.5mm 2mm !important;
@@ -612,18 +716,18 @@ const triggerBrowserPrint = () => {
     color: #000000 !important;
   }
 
-  .print-empty-slot {
-    width: 94mm !important;
-    height: 65mm !important;
+  .cell-a4 .print-empty-slot {
+    width: 97mm !important;
+    height: 67mm !important;
     background: transparent !important;
   }
 
-  /* Header Cetak: Logo di kiri (margin 0), judul jenis DI TENGAH ATAS (Satu baris penuh, no wrap) */
+  /* ── INTERNAL STICKER ELEMENTS ── */
   .print-sticker-header-centered {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    padding-bottom: 1mm !important;
+    padding-bottom: 0.8mm !important;
     border-bottom: 1.2px solid #000000 !important;
     margin: 0 !important;
     height: 14mm !important;
@@ -631,15 +735,15 @@ const triggerBrowserPrint = () => {
 
   .print-header-logo-box,
   .print-header-spacer-box {
-    width: 24mm !important;
+    width: 25mm !important;
     flex-shrink: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
   .print-header-logo-img {
-    height: 13.5mm !important;
-    max-width: 24mm !important;
+    height: 14mm !important;
+    max-width: 25mm !important;
     object-fit: contain !important;
     object-position: left center !important;
     display: block !important;
@@ -651,10 +755,10 @@ const triggerBrowserPrint = () => {
     flex: 1 !important;
     text-align: center !important;
     font-family: 'Arial Black', Impact, Arial, sans-serif !important;
-    font-size: 13.5pt !important;
+    font-size: 14pt !important;
     font-weight: 900 !important;
     text-transform: uppercase !important;
-    white-space: nowrap !important; /* DILARANG TERPOTONG JADI 3 BARIS */
+    white-space: nowrap !important;
     line-height: 1 !important;
     padding: 0 1mm !important;
     color: #000000 !important;
@@ -667,11 +771,11 @@ const triggerBrowserPrint = () => {
   .print-sticker-spec-table {
     width: 100% !important;
     border-collapse: collapse !important;
-    font-size: 8.5pt !important;
+    font-size: 8.8pt !important;
   }
 
   .print-sticker-spec-table td {
-    padding: 0.6mm 1mm !important;
+    padding: 0.7mm 1.2mm !important;
     border-top: 1px solid #000000 !important;
     line-height: 1.15 !important;
   }
@@ -712,9 +816,9 @@ const triggerBrowserPrint = () => {
   .print-sticker-roll-id-band {
     text-align: center !important;
     font-weight: 900 !important;
-    font-size: 8.5pt !important;
+    font-size: 8.8pt !important;
     border-bottom: 1.2px solid #000000 !important;
-    padding: 0.5mm 0 !important;
+    padding: 0.6mm 0 !important;
     letter-spacing: 0.5px !important;
     line-height: 1 !important;
   }
