@@ -177,7 +177,7 @@ const route = useRoute();
 
 const isActive = (path) => {
   if (path === '/') return route.path === '/';
-  return route.path.startsWith(path);
+  return route.path === path || route.path.startsWith(path + '/');
 };
 
 const closeMobileNav = () => {
@@ -224,6 +224,14 @@ const navCategories = [
         badge: 'Label FG',
         // Roll Barcode Tag with Perforated Label Edge
         icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7" y1="9" x2="7" y2="15"/><line x1="10" y1="9" x2="10" y2="15" stroke-width="2.5"/><line x1="14" y1="9" x2="14" y2="15"/><line x1="17" y1="9" x2="17" y2="15" stroke-width="2"/></svg>`
+      },
+      {
+        name: 'Label Export',
+        path: '/label-export',
+        menuKey: 'label_export',
+        badge: 'Trivesta',
+        // International Globe Icon (100% distinct from box/crate/barcode)
+        icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>`
       },
       {
         name: 'Data Roll FG',

@@ -1429,7 +1429,7 @@ const triggerPrint = () => {
 
   /* Sembunyikan SELURUH elemen aplikasi Vue dan modal preview di layar */
   #app,
-  body > *:not(#slittingPrintOnlyArea):not(#fpbPrintOnlyArea):not(#printOnlyArea) {
+  body > *:not(#slittingPrintOnlyArea):not(#fpbPrintOnlyArea):not(#printOnlyArea):not(#labelExportPrintArea) {
     display: none !important;
   }
 

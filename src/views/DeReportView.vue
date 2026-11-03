@@ -398,13 +398,26 @@
                               </span>
                             </td>
                             <td class="py-2.5 px-3 text-center">
-                              <button
-                                @click.stop="openVerificationForSession(group.date, m.mesin)"
-                                class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer mx-auto bg-zinc-900 hover:bg-black text-white shadow-xs"
-                              >
-                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>
-                                <span>{{ m.unverifiedCount > 0 ? `Verifikasi (${m.unverifiedCount})` : 'Buka Lembar' }}</span>
-                              </button>
+                              <div class="flex items-center justify-center gap-1.5">
+                                <button
+                                  @click.stop="openVerificationForSession(group.date, m.mesin)"
+                                  class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-zinc-900 hover:bg-black text-white shadow-xs"
+                                >
+                                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>
+                                  <span>{{ m.unverifiedCount > 0 ? `Verifikasi (${m.unverifiedCount})` : 'Buka Lembar' }}</span>
+                                </button>
+                                <button
+                                  @click.stop="openSlittingPrintModal({ date: group.date, machine: m.mesin })"
+                                  class="p-1.5 rounded-xl text-zinc-700 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 transition-colors cursor-pointer"
+                                  title="Preview & Cetak Laporan Harian Slitting (FILM.FM.003)"
+                                >
+                                  <svg class="w-4 h-4 text-zinc-800" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="6 9 6 2 18 2 18 9" />
+                                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                                    <rect x="6" y="14" width="12" height="8" />
+                                  </svg>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         </tbody>
@@ -592,6 +605,20 @@
               <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
             </svg>
             <span>Download Excel</span>
+          </button>
+
+          <!-- Cetak Laporan Batch (FILM.FM.003) -->
+          <button
+            @click="openSlittingPrintModal({ date: selectedVerifiedBatch.tanggal, machine: selectedVerifiedBatch.machine || selectedVerifiedBatch.mesin })"
+            class="px-3 py-1.5 rounded-xl text-xs font-black bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-600 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Preview dan Cetak Formulir Resmi Laporan Produksi Harian Slitting (FILM.FM.003)"
+          >
+            <svg class="w-3.5 h-3.5 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
+            <span>Cetak Laporan</span>
           </button>
 
           <!-- Buka Kunci Batch (Revisi) -->
@@ -892,6 +919,20 @@
             </svg>
             <span>📊 Export Excel (Ctrl+T)</span>
           </button>
+
+          <!-- Cetak Laporan Harian Slitting (FILM.FM.003) -->
+          <button
+            @click="openSlittingPrintModal()"
+            class="px-3 py-1.5 rounded-xl text-xs font-black bg-zinc-900 hover:bg-black text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Preview dan Cetak Formulir Resmi Laporan Produksi Harian Slitting (FILM.FM.003)"
+          >
+            <svg class="w-3.5 h-3.5 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
+            <span>🖨️ Cetak Laporan (A4)</span>
+          </button>
         </div>
 
         <!-- Right Tools: Search in Sheet -->
@@ -1015,14 +1056,14 @@
                     5. ATRIBUT & CORE
                   </th>
                 </template>
-                <!-- SLITTING 31-COLUMN GROUPS -->
+                <!-- SLITTING 32-COLUMN GROUPS -->
                 <template v-else>
                   <!-- Group 1: Shift & Parent Material (Deep Blue) -->
                   <th colspan="11" class="text-center py-1 bg-[#1e40af] border border-[#1d4ed8]">
                     1. IDENTITAS SHIFT & PARENT MATERIAL INDUK
                   </th>
                   <!-- Group 2: Output Child Slitting (Cyan/Slate) -->
-                  <th colspan="11" class="text-center py-1 bg-[#0369a1] border border-[#0284c7]">
+                  <th colspan="12" class="text-center py-1 bg-[#0369a1] border border-[#0284c7]">
                     2. OUTPUT CHILD ROLL HASIL SLITTING
                   </th>
                   <!-- Group 3: QC & Defect (Emerald Green) -->
@@ -1192,19 +1233,21 @@
                       <span class="text-zinc-700 font-mono">{{ getChildTeori(item) }}</span>
                     </template>
 
-                    <!-- Quality Status Badge -->
+                    <!-- Quality Status Badge (Kosong jika PASS) -->
                     <template v-else-if="col.key === 'status'">
                       <span
+                        v-if="item.status && item.status.toUpperCase() !== 'PASS'"
                         :class="[
                           'px-1.5 py-0.2 rounded text-[10px] font-black inline-block',
-                          item.status === 'PASS' ? 'bg-[#86efac] text-emerald-950 border border-emerald-400' :
-                          (item.status === 'REJECT' ? 'bg-[#ef4444] text-white font-black' :
+                          item.status === 'REJECT' ? 'bg-[#ef4444] text-white font-black' :
                           (item.status === 'HOLD' ? 'bg-amber-600 text-white' :
+                          (item.status === 'SORTIR' ? 'bg-zinc-700 text-white' :
                           'bg-zinc-100 text-zinc-700 border border-zinc-300'))
                         ]"
                       >
-                        {{ item.status || (item.jenisProses === 'BAHAN' ? 'SORTIR' : 'PASS') }}
+                        {{ item.status }}
                       </span>
+                      <span v-else class="text-zinc-300 font-mono text-[11px]"></span>
                     </template>
 
                     <!-- Reason of Defect (Auto switch dari Keterangan Hasil jika HOLD/REJECT) -->
@@ -1910,6 +1953,17 @@
         </div>
       </div>
     </div>
+
+    <!-- SLITTING DAILY REPORT PRINT PREVIEW MODAL (FILM.FM.003) -->
+    <SlittingDailyReportPrintModal
+      :is-open="showSlittingPrintModal"
+      :date="printModalData.date"
+      :machine="printModalData.machine"
+      :shift="printModalData.shift"
+      :items="printModalData.items"
+      :operator-name="printModalData.operatorName"
+      @close="showSlittingPrintModal = false"
+    />
   </div>
 </template>
 
@@ -1920,10 +1974,64 @@ import { useDataRollStore } from '@/stores/dataRollStore';
 import { useConfigStore } from '@/stores/configStore';
 import { db, generateUniqID } from '@/db';
 import { parseDateToIso, parseDataRollRow } from '@/services/dataRollParserService';
+import SlittingDailyReportPrintModal from '@/components/SlittingDailyReportPrintModal.vue';
 
 const labelStore = useLabelStore();
 const dataRollStore = useDataRollStore();
 const configStore = useConfigStore();
+
+// PRINT MODAL STATE (FILM.FM.003)
+const showSlittingPrintModal = ref(false);
+const printModalData = ref({
+  date: '',
+  machine: '',
+  shift: '1',
+  items: [],
+  operatorName: ''
+});
+
+const openSlittingPrintModal = (sessionOrCustom = null) => {
+  if (sessionOrCustom && sessionOrCustom.date) {
+    // Dipanggil dari Tab 1 Portal Sesi (per hari & per mesin)
+    const targetDate = sessionOrCustom.date;
+    const targetMachine = sessionOrCustom.machine || sessionOrCustom.mesin || 'SLITTING';
+    const sessionItems = allSourceItems.value.filter(item => {
+      const matchDate = (item.tanggal || 'Tanpa Tanggal') === targetDate;
+      const matchMach = String(item.mesin || 'SLITTING').toUpperCase() === String(targetMachine).toUpperCase();
+      return matchDate && matchMach;
+    });
+
+    const targetShift = sessionOrCustom.shift || sessionItems[0]?.shift || '1';
+    const firstItem = sessionItems.find(i => (i.shift || '1') === String(targetShift)) || sessionItems[0];
+    const opName = firstItem ? getResolvedOperatorName(firstItem) : '';
+
+    printModalData.value = {
+      date: targetDate === 'Tanpa Tanggal' ? '' : targetDate,
+      machine: targetMachine,
+      shift: targetShift,
+      items: sessionItems,
+      operatorName: opName
+    };
+  } else {
+    // Dipanggil dari Tab 2 Toolbar Lembar Verifikasi
+    const items = filteredUnverifiedList.value.length > 0 ? filteredUnverifiedList.value : paginatedSpreadsheetList.value;
+    const activeRowItem = paginatedSpreadsheetList.value[selectionStart.r] || items[0];
+    const targetDate = selectedDate.value !== 'ALL' ? selectedDate.value : (activeRowItem?.tanggal || '');
+    const targetMachine = selectedMachine.value !== 'ALL' ? selectedMachine.value : (activeRowItem?.mesin || 'SLITTING');
+    const targetShift = activeRowItem ? (activeRowItem.shift || '1') : '1';
+    const opName = activeRowItem ? getResolvedOperatorName(activeRowItem) : '';
+
+    printModalData.value = {
+      date: targetDate,
+      machine: targetMachine,
+      shift: targetShift,
+      items,
+      operatorName: opName
+    };
+  }
+
+  showSlittingPrintModal.value = true;
+};
 
 // Main Sheet Tabs & Verified Batch Unified View State
 const activeTab = ref('dashboard'); // Start on Dashboard / Sesi Portal
@@ -2364,6 +2472,7 @@ const defaultColWidths = {
   selisihBerat: 95,
   paperCore: 90,
   od: 135,
+  tanda: 85,
   turunan: 90,
   packing: 95,
   keteranganBahan: 140,
@@ -2495,25 +2604,26 @@ const slittingColumns = [
   { key: 'selisihBerat', name: 'Selisih', letter: 'P', group: 'child', readonly: true, align: 'right' },
   { key: 'paperCore', name: 'Core Roll', letter: 'Q', group: 'child', align: 'center' }, // Diameter Core (Default 6")
   { key: 'od', name: 'OD/Treat', letter: 'R', group: 'child', align: 'center' },
-  { key: 'turunan', name: 'Turunan', letter: 'S', group: 'child', align: 'center' },
-  { key: 'packing', name: 'Packing', letter: 'T', group: 'child', align: 'center' }, // Angka akhir kode pack
-  { key: 'keteranganBahan', name: 'Ket. Bahan', letter: 'U', group: 'child', align: 'left' }, // Keterangan dari parent
-  { key: 'keterangan', name: 'Ket. Hasil', letter: 'V', group: 'child', align: 'left' }, // Keterangan per roll child
+  { key: 'tanda', name: 'Tanda Hasil', letter: 'S', group: 'child', align: 'center' },
+  { key: 'turunan', name: 'Turunan', letter: 'T', group: 'child', align: 'center' },
+  { key: 'packing', name: 'Packing', letter: 'U', group: 'child', align: 'center' }, // Angka akhir kode pack
+  { key: 'keteranganBahan', name: 'Ket. Bahan', letter: 'V', group: 'child', align: 'left' }, // Keterangan dari parent
+  { key: 'keterangan', name: 'Ket. Hasil', letter: 'W', group: 'child', align: 'left' }, // Keterangan per roll child
 
   // GROUP 3: QUALITY CONTROL & DEFECT (Green)
-  { key: 'status', name: 'Quality Status', letter: 'W', group: 'qc', align: 'center' },
-  { key: 'reasonDefect', name: 'Reason Of Defect', letter: 'X', group: 'qc', align: 'left' }, // Pindah dari Ket Hasil jika HOLD/REJECT
+  { key: 'status', name: 'Quality Status', letter: 'X', group: 'qc', align: 'center' },
+  { key: 'reasonDefect', name: 'Reason Of Defect', letter: 'Y', group: 'qc', align: 'left' }, // Pindah dari Ket Hasil jika HOLD/REJECT
 
   // GROUP 4: JUMBO SISA (Purple)
-  { key: 'gradeSisa', name: 'Grade', letter: 'Y', group: 'sisa', align: 'center' }, // B-GRADE
-  { key: 'sisaMeter', name: 'Panjang Sisa', letter: 'Z', group: 'sisa', align: 'right' },
-  { key: 'keteranganSisa', name: 'Ket. Sisa', letter: 'AA', group: 'sisa', align: 'left' },
+  { key: 'gradeSisa', name: 'Grade', letter: 'Z', group: 'sisa', align: 'center' }, // B-GRADE
+  { key: 'sisaMeter', name: 'Panjang Sisa', letter: 'AA', group: 'sisa', align: 'right' },
+  { key: 'keteranganSisa', name: 'Ket. Sisa', letter: 'AB', group: 'sisa', align: 'left' },
 
   // GROUP 5: WASTE & CATATAN OPERATOR (Amber / Orange)
-  { key: 'wastePolos', name: 'Waste Polos (kg)', letter: 'AB', group: 'waste', sparseShift: true, align: 'right' },
-  { key: 'wasteMetal', name: 'Waste Metal (kg)', letter: 'AC', group: 'waste', sparseShift: true, align: 'right' },
-  { key: 'keteranganWaste', name: 'Ket. Waste', letter: 'AD', group: 'waste', sparseShift: true, align: 'left' },
-  { key: 'noteOperator', name: 'Note Operator', letter: 'AE', group: 'waste', sparseShift: true, align: 'left' }
+  { key: 'wastePolos', name: 'Waste Polos (kg)', letter: 'AC', group: 'waste', sparseShift: true, align: 'right' },
+  { key: 'wasteMetal', name: 'Waste Metal (kg)', letter: 'AD', group: 'waste', sparseShift: true, align: 'right' },
+  { key: 'keteranganWaste', name: 'Ket. Waste', letter: 'AE', group: 'waste', sparseShift: true, align: 'left' },
+  { key: 'noteOperator', name: 'Note Operator', letter: 'AF', group: 'waste', sparseShift: true, align: 'left' }
 ];
 
 // Active Columns Computed (Dynamic Switching between Rewind & Slitting)
@@ -3280,9 +3390,16 @@ const getParentWidth = (item) => {
 
 const getParentMeter = (item) => {
   if (!item) return '';
-  if (item.parentMeter && parseFloat(item.parentMeter) > 0) return String(item.parentMeter);
+  const pMeter = parseFloat(String(item.parentMeter || item.parentLength || item.panjangParent || '').replace(',', '.'));
+  if (!isNaN(pMeter) && pMeter > 0) return String(pMeter);
+
   const info = getParentLotInfo(item.lot);
-  return info.parentMeter > 0 ? String(info.parentMeter) : String(item.meter || item.length || item.panjang || '');
+  if (info.parentMeter > 0) return String(info.parentMeter);
+
+  const cMeter = parseFloat(String(item.meter || item.length || item.panjang || '').replace(',', '.'));
+  if (!isNaN(cMeter) && cMeter > 0) return String(cMeter);
+
+  return ''; // Tidak pernah mengembalikan '0', selalu kosongkan jika tidak ada/0
 };
 
 const getParentBeratTeori = (item) => {
@@ -3361,7 +3478,7 @@ const getSelisih = (item) => {
   return parseFloat((netto - teori).toFixed(2));
 };
 
-// Helper: Get Operator Code (e.g. GUNAWAN -> G, HENDRA -> H, WAHYU -> W, SUDARMAJI -> A/S)
+// Helper: Get Operator Code (e.g. GUNAWAN -> G, HENDRA -> H, WAHYU -> W, SUDARMAJI -> A/S, DZAKI -> J, DAVVA -> K)
 const getOperatorCode = (item) => {
   if (!item) return 'G';
 
@@ -3381,7 +3498,7 @@ const getOperatorCode = (item) => {
     if (matched && matched.kodeOperator) {
       return matched.kodeOperator.toUpperCase();
     }
-    // Jika operator berisi 1 huruf langsung (misal "G", "H", "W")
+    // Jika operator berisi 1 huruf langsung (misal "G", "H", "W", "J", "K")
     if (opUpper.length === 1 && /[A-Z]/.test(opUpper)) {
       return opUpper;
     }
@@ -3392,7 +3509,23 @@ const getOperatorCode = (item) => {
     }
   }
 
-  // 3. Ekstrak huruf dari shiftCombined jika ada (misal "G1" -> "G", "H3" -> "H")
+  // 3. Ekstrak dari turunan jika ada (misal GA01 -> G, HA02 -> H, atau compound rewind J101 -> J)
+  if (item.turunan) {
+    const tStr = String(item.turunan).trim().toUpperCase();
+    if (tStr.includes('/')) {
+      const parts = tStr.split('/');
+      const rChild = parts[parts.length - 1];
+      const matchR = rChild.match(/^([A-Za-z])/);
+      if (matchR && isRewindSession.value) return matchR[1];
+    }
+    const matchT = tStr.match(/^([A-Za-z])/);
+    if (matchT) {
+      const matchOp = configStore?.operatorList?.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === matchT[1]);
+      if (matchOp) return matchOp.kodeOperator.toUpperCase();
+    }
+  }
+
+  // 4. Ekstrak huruf dari shiftCombined jika ada (misal "G1" -> "G", "H3" -> "H")
   if (item.shiftCombined) {
     const matchPrefix = String(item.shiftCombined).trim().toUpperCase().match(/^([A-Z]+)/);
     if (matchPrefix) {
@@ -3401,6 +3534,53 @@ const getOperatorCode = (item) => {
   }
 
   return 'G'; // Fallback standar slitting
+};
+
+// Resolusi Nama Operator Terupdate dari Master ConfigStore
+const getResolvedOperatorName = (item) => {
+  if (!item) return '';
+  const list = configStore?.operatorList || [];
+
+  const rawOp = String(item.operator || item.operatorName || '').trim();
+  const machine = String(item.mesin || selectedMachine.value || (isRewindSession.value ? 'REWIND' : 'SLITTING')).trim().toUpperCase();
+  const targetDate = item.tanggalShift || item.tanggal || (item.createdAt ? String(item.createdAt).slice(0, 10) : null);
+
+  // 1. Dapatkan kode operator sah (dari kodeOperator, turunan, shiftCombined, nama dsb)
+  const opCode = getOperatorCode(item);
+
+  // 2. Lookup berdasarkan masa jabatan tanggal & mesin dari configStore jika ada
+  if (opCode && typeof configStore?.getOperatorByDate === 'function') {
+    const byDate = configStore.getOperatorByDate(opCode, machine, targetDate);
+    if (byDate && byDate.nama) return byDate.nama.toUpperCase();
+  }
+
+  // 3. Lookup berdasarkan kode operator & mesin di configStore
+  if (opCode && list.length) {
+    const byCodeMachine = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine && o.active !== false)
+      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opCode.toUpperCase() && o.mesin && o.mesin.toUpperCase() === machine);
+    if (byCodeMachine && byCodeMachine.nama) return byCodeMachine.nama.toUpperCase();
+
+    const byCode = list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opCode.toUpperCase() && o.active !== false)
+      || list.find(o => o.kodeOperator && o.kodeOperator.toUpperCase() === opCode.toUpperCase());
+    if (byCode && byCode.nama) return byCode.nama.toUpperCase();
+  }
+
+  // 4. Lookup berdasarkan nama mentah yang tersimpan jika ada kecocokan di master operator
+  if (rawOp && list.length) {
+    let clean = rawOp;
+    if (clean.toUpperCase().startsWith('OPERATOR ')) clean = clean.substring(9).trim();
+    const bracketMatch = clean.match(/^(.+?)\s*[\(\[]([A-Za-z0-9]+)[\)\]]$/);
+    if (bracketMatch) {
+      const bName = bracketMatch[1].trim().toUpperCase();
+      const bCode = bracketMatch[2].trim().toUpperCase();
+      const matched = list.find(o => (o.kodeOperator && o.kodeOperator.toUpperCase() === bCode) || (o.nama && o.nama.toUpperCase() === bName));
+      if (matched && matched.nama) return matched.nama.toUpperCase();
+    }
+    const byName = list.find(o => o.nama && o.nama.toUpperCase() === clean.toUpperCase());
+    if (byName && byName.nama) return byName.nama.toUpperCase();
+  }
+
+  return rawOp ? rawOp.toUpperCase() : '';
 };
 
 // Helper: Get Shift Number (1, 2, 3)
@@ -3480,9 +3660,13 @@ const formatCellValue = (val, key, item, rIdx) => {
 
   // REWIND 23-COLUMN SPECIAL FORMATTING
   if (isRewindSession.value) {
+    if (key === 'operator') return getResolvedOperatorName(item);
     if (key === 'jenisProses') return item.jenisProses || 'BAHAN';
     if (key === 'shiftCombined') return getShiftCombined(item);
-    if (key === 'status') return item.status || (item.jenisProses === 'BAHAN' ? 'SORTIR' : 'PASS');
+    if (key === 'status') {
+      const st = String(item.status || (item.jenisProses === 'BAHAN' ? 'SORTIR' : ''));
+      return st.toUpperCase() === 'PASS' ? '' : st;
+    }
     if (key === 'packing') return item.jenisProses === 'BAHAN' ? '' : String(getPackingEndNumber(item) || item.packing || item.subKode || '');
     if (key === 'turunan') return item.jenisProses === 'BAHAN' ? '' : (item.turunan || '');
     if (key === 'reasonDefect') return item.reasonDefect || (item.status === 'REJECT' ? (item.keterangan || '') : '');
@@ -3490,7 +3674,7 @@ const formatCellValue = (val, key, item, rIdx) => {
     if (key === 'weightWaste') return item.weightWaste !== undefined ? String(item.weightWaste) : '';
     if (key === 'paperCore') return item.paperCore ? String(item.paperCore).replace(/[^0-9]/g, '') : '6';
     if (key === 'od') return item.od || item.treatment || 'OD2.4+PLASMA';
-    if (key === 'tanda') return item.tanda || '';
+    if (key === 'tanda') return item.tanda || item.tandaHasil || '';
     if (key === 'bahan') return item.bahan || '';
     if (key === 'keteranganBahan') return item.keteranganBahan || '';
     if (key === 'keterangan') return item.keterangan || '';
@@ -3507,6 +3691,17 @@ const formatCellValue = (val, key, item, rIdx) => {
   }
 
   // 1. Handlers Khusus Kolom Terkalkulasi (Slitting)
+  if (key === 'operator') {
+    return getResolvedOperatorName(item);
+  }
+  if (key === 'tanda') {
+    return item.tanda || item.tandaHasil || '';
+  }
+  if (key === 'status') {
+    const rawSt = val !== undefined && val !== null && val !== '' ? val : item.status;
+    const st = String(rawSt || '');
+    return st.toUpperCase() === 'PASS' ? '' : st;
+  }
   if (key === 'paperCore') {
     return getCoreSizeText(item);
   }
@@ -3563,7 +3758,7 @@ const formatCellValue = (val, key, item, rIdx) => {
     if (key === 'length') return String(item.length || item.meter || item.panjang || '');
     if (key === 'spk') return String(item.spk || item.noSpk || '');
     if (key === 'lot') return String(item.lot || item.noLot || '');
-    if (key === 'status') return String(item.status || 'PASS');
+    if (key === 'status') return '';
     return '';
   }
   return String(val);
@@ -3575,6 +3770,12 @@ const activeCellValue = computed({
     const item = paginatedSpreadsheetList.value[selectionStart.r];
     if (!item) return '';
     const colKey = columns.value[selectionStart.c]?.key;
+    if (colKey === 'operator') return getResolvedOperatorName(item);
+    if (colKey === 'status') {
+      const s = String(item.status || '');
+      return s.toUpperCase() === 'PASS' ? '' : s;
+    }
+    if (colKey === 'tanda') return item.tanda || item.tandaHasil || '';
     if (colKey === 'shiftCombined') return getShiftCombined(item);
     if (colKey === 'parentWidth') return getParentWidth(item);
     if (colKey === 'parentMeter') return getParentMeter(item);
@@ -4518,6 +4719,7 @@ const addNewBlankRow = async () => {
     selisihBerat: '',
     paperCore: 6,
     od: '',
+    tanda: '',
     turunan: '',
     packing: '',
     keteranganBahan: '',
@@ -4884,30 +5086,32 @@ const parsePastedText = () => {
     const netto = cols[13] || '';
     const paperCore = cols[16] ? (cols[16].includes('3') ? '3"' : '6"') : '6"';
     const od = cols[17] || '';
-    const turunan = cols[18] || '';
-    const packingRaw = cols[19] || '';
+    const hasTandaCol = cols.length >= 32;
+    const tanda = hasTandaCol ? (cols[18] || '') : '';
+    const turunan = hasTandaCol ? (cols[19] || '') : (cols[18] || '');
+    const packingRaw = hasTandaCol ? (cols[20] || '') : (cols[19] || '');
     const packing = packingRaw ? String(parseInt(packingRaw, 10) || '') : '';
-    const keteranganBahan = cols[20] || curParent.keteranganBahan || '';
-    const keterangan = cols[21] || ''; // Ket Hasil per roll
+    const keteranganBahan = (hasTandaCol ? cols[21] : cols[20]) || curParent.keteranganBahan || '';
+    const keterangan = (hasTandaCol ? cols[22] : cols[21]) || ''; // Ket Hasil per roll
 
     // 4. Quality Control & Reason Defect
-    const statusRaw = String(cols[22] || 'PASS').toUpperCase();
+    const statusRaw = String((hasTandaCol ? cols[23] : cols[22]) || 'PASS').toUpperCase();
     const status = statusRaw.includes('HOLD') ? 'HOLD' : (statusRaw.includes('REJECT') ? 'REJECT' : 'PASS');
-    let reasonDefect = cols[23] || '';
+    let reasonDefect = (hasTandaCol ? cols[24] : cols[23]) || '';
     if ((status === 'HOLD' || status === 'REJECT') && !reasonDefect) {
       reasonDefect = keterangan; // Auto switch dari Ket Hasil
     }
 
     // 5. Jumbo Sisa
-    const gradeSisa = cols[24] || '';
-    const sisaMeter = cols[25] || '';
-    const keteranganSisa = cols[26] || '';
+    const gradeSisa = (hasTandaCol ? cols[25] : cols[24]) || '';
+    const sisaMeter = (hasTandaCol ? cols[26] : cols[25]) || '';
+    const keteranganSisa = (hasTandaCol ? cols[27] : cols[26]) || '';
 
     // 6. Waste Shift (Polos & Metal in kg)
-    const wastePolos = cols[27] || '';
-    const wasteMetal = cols[28] || '';
-    const keteranganWaste = cols[29] || '';
-    const noteOperator = cols[30] || '';
+    const wastePolos = (hasTandaCol ? cols[28] : cols[27]) || '';
+    const wasteMetal = (hasTandaCol ? cols[29] : cols[28]) || '';
+    const keteranganWaste = (hasTandaCol ? cols[30] : cols[29]) || '';
+    const noteOperator = (hasTandaCol ? cols[31] : cols[30]) || '';
 
     // Calculate Child Teori & Selisih
     const density = getDensity(curParent.jenis, curParent.kode);
@@ -4952,6 +5156,7 @@ const parsePastedText = () => {
       selisihBerat,
       paperCore,
       od,
+      tanda,
       turunan,
       packing,
       keteranganBahan,
@@ -5115,7 +5320,7 @@ const downloadSlittingTemplate = async () => {
   const headers = [
     [
       'Tanggal', 'Operator', 'Shift', 'SPK', 'Lot No.', 'Jenis', 'Kode Formula', 'Thickness', 'Lebar Bahan', 'Panjang Bahan', 'Berat Bahan',
-      'Lebar Hasil', 'Panjang Hasil', 'Berat Aktual', 'Berat Teori', 'Selisih', 'Core Roll', 'OD / Treatment', 'Turunan', 'Packing', 'Keterangan Bahan', 'Keterangan Hasil',
+      'Lebar Hasil', 'Panjang Hasil', 'Berat Aktual', 'Berat Teori', 'Selisih', 'Core Roll', 'OD / Treatment', 'Tanda Hasil', 'Turunan', 'Packing', 'Keterangan Bahan', 'Keterangan Hasil',
       'Quality Status', 'Reason Of Defect',
       'Grade', 'Panjang Sisa (m)', 'Keterangan Sisa',
       'Waste Polos (kg)', 'Waste Metal (kg)', 'Keterangan Waste', 'Note Operator'
@@ -5123,31 +5328,31 @@ const downloadSlittingTemplate = async () => {
     // Baris 1 (Parent Baris Pertama): No Lot, Panjang Bahan, Berat Bahan terisi
     [
       '03 Januari 2026', 'UMAR', 'G1', '507358/SPK/2026', 'M0401032100470/01', 'VMCPP', 'M06', 20, 2165, 26000, 1100,
-      1060, 6500, 125.0, 125.57, -0.57, 6, 'OD2.4+PLASMA', 'A01', 25, '', '',
-      'PASS', '',
+      1060, 6500, 125.0, 125.57, -0.57, 6, 'OD2.4+PLASMA', '', 'A01', 25, '', '',
+      '', '',
       '', '', '',
       '', '', '', ''
     ],
     // Baris 2 (Child ke-2): No Lot, Panjang & Berat Kosong, Lebar Bahan tetap 2165
     [
       '03 Januari 2026', 'UMAR', 'G1', '507358/SPK/2026', '', 'VMCPP', 'M06', 20, 2165, '', '',
-      1060, 6500, 126.8, 125.57, 1.23, 6, 'OD2.4+PLASMA', 'A02', 26, '', '',
-      'PASS', '',
+      1060, 6500, 126.8, 125.57, 1.23, 6, 'OD2.4+PLASMA', '', 'A02', 26, '', '',
+      '', '',
       '', '', '',
       '', '', '', ''
     ],
     // Baris 3 (Child ke-3)
     [
       '03 Januari 2026', 'UMAR', 'G1', '507358/SPK/2026', '', 'VMCPP', 'M06', 20, 2165, '', '',
-      1060, 6500, 127.5, 125.57, 1.93, 6, 'OD2.4+PLASMA', 'B01', 27, '', '',
-      'PASS', '',
+      1060, 6500, 127.5, 125.57, 1.93, 6, 'OD2.4+PLASMA', '', 'B01', 27, '', '',
+      '', '',
       '', '', '',
       '', '', '', ''
     ],
     // Baris 4 (Child ke-4): Sisa Jumbo Grade B-GRADE & Waste Shift terisi 1x di shift ini
     [
       '03 Januari 2026', 'UMAR', 'G1', '507358/SPK/2026', '', 'VMCPP', 'M06', 20, 2165, '', '',
-      1060, 6500, 125.8, 125.57, 0.23, 6, 'OD2.4+PLASMA', 'B02', 28, '', 'TEBAL KULIT',
+      1060, 6500, 125.8, 125.57, 0.23, 6, 'OD2.4+PLASMA', '', 'B02', 28, '', 'TEBAL KULIT',
       'HOLD', 'TEBAL KULIT',
       'B-GRADE', 500, 'SISA UNTUK SPK BERIKUTNYA',
       48, 120, 'TRIM + SETTING', 'MESIN ERROR 1X'
@@ -5573,6 +5778,7 @@ const exportVerifiedExcel = async () => {
     { name: 'Lebar Induk', filterButton: true },
     { name: 'Panjang Induk', filterButton: true },
     { name: 'Berat Induk', filterButton: true },
+    { name: 'Tanda Hasil', filterButton: true },
     { name: 'Turunan', filterButton: true },
     { name: 'Dimensi Hasil', filterButton: true },
     { name: 'Berat Aktual', filterButton: true },
@@ -5593,7 +5799,7 @@ const exportVerifiedExcel = async () => {
     item.verifiedAt || '',
     item.verifiedBy || 'Data Entry',
     item.tanggal || '',
-    item.operator || '-',
+    getResolvedOperatorName(item) || item.operator || '-',
     getShiftCombined(item),
     item.mesin || 'SLITTING',
     item.spk || '',
@@ -5601,13 +5807,14 @@ const exportVerifiedExcel = async () => {
     parseFloat(getParentWidth(item)) || getParentWidth(item),
     parseFloat(getParentMeter(item)) || getParentMeter(item),
     parseFloat(getParentBeratTeori(item)) || getParentBeratTeori(item),
+    item.tanda || item.tandaHasil || '',
     item.turunan || '',
     `${item.width}MM × ${item.length}M`,
     parseFloat(item.netto) || 0,
     getPackingEndNumber(item),
     item.keteranganBahan || '',
     item.keterangan || '',
-    item.status || 'PASS',
+    (item.status && item.status.toUpperCase() !== 'PASS') ? item.status : '',
     getReasonDefectText(item),
     item.gradeSisa || '',
     parseFloat(item.sisaMeter) || '',

@@ -1104,6 +1104,24 @@ export async function pushLocalToSupabase(tableOrForceAll = false) {
       })());
     }
 
+        // 1o. Export Labels Registry Sync (Hanya jika diubah lokal atau forceAll)
+    if (db.export_labels && (forceAll || dirtySet.has('export_labels'))) {
+      tasks.push((async () => {
+        try {
+          const allExportLabels = await db.export_labels.toArray();
+          const payload = {
+            key: 'export_labels_registry',
+            value: JSON.stringify(allExportLabels),
+            updated_at: new Date().toISOString()
+          };
+          await supabase.from('settings').upsert([payload], { onConflict: 'key' });
+          clearTableDirty('export_labels');
+        } catch (expErr) {
+          console.warn('[SyncPush] Export labels registry notice:', expErr.message || expErr);
+        }
+      })());
+    }
+
     // Jalankan sync push aktif secara PARALEL
     if (tasks.length > 0) {
       await Promise.all(tasks);
@@ -2042,6 +2060,35 @@ export async function pullFromSupabase(forceFull = false) {
                   }
                 } catch (fpbErr) {
                   console.warn('Sync pull FPB registry into db.fpb_records:', fpbErr);
+                }
+              }
+
+              // Jika ini registry export labels, sinkronkan ke db.export_labels
+              if (cs.key === 'export_labels_registry' && db.export_labels && Array.isArray(parsedVal)) {
+                try {
+                  const localExportLabels = await db.export_labels.toArray();
+                  const localMap = new Map(localExportLabels.map(r => [r.uuid || r.id, r]));
+                  let hasChanges = false;
+                  for (const cloudItem of parsedVal) {
+                    const key = cloudItem.uuid || cloudItem.id;
+                    const exist = localMap.get(key);
+                    if (!exist) {
+                      const { id, ...cleanItem } = cloudItem;
+                      await db.export_labels.add(cleanItem);
+                      hasChanges = true;
+                    } else if (new Date(cloudItem.updatedAt || 0) > new Date(exist.updatedAt || 0)) {
+                      await db.export_labels.update(exist.id, {
+                        ...cloudItem,
+                        id: exist.id
+                      });
+                      hasChanges = true;
+                    }
+                  }
+                  if (hasChanges && typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('sync:export-labels-updated'));
+                  }
+                } catch (expErr) {
+                  console.warn('Sync pull export labels registry into db.export_labels:', expErr);
                 }
               }
 

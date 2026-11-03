@@ -34,6 +34,12 @@ const routes = [
     meta: { title: 'Manajemen Label', menuKey: 'label' }
   },
   {
+    path: '/label-export',
+    name: 'LabelExport',
+    component: () => import('@/views/LabelExportView.vue'),
+    meta: { title: 'Label Export (Trivesta)', menuKey: 'label_export' }
+  },
+  {
     path: '/spk',
     name: 'SpkManagement',
     component: () => import('@/views/SpkManagementView.vue'),

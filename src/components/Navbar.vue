@@ -742,6 +742,7 @@ const currentRouteName = computed(() => {
   if (route.path === '/') return 'Dashboard';
   if (route.path.startsWith('/data-roll')) return 'Data Roll';
   if (route.path.startsWith('/schedule')) return 'Operator Schedule';
+  if (route.path.startsWith('/label-export')) return 'Label Export';
   if (route.path.startsWith('/label')) return 'Manajemen Label';
   if (route.path.startsWith('/de-report')) return 'DE Report';
   if (route.path.startsWith('/inventory')) return 'Inventory (IMS)';

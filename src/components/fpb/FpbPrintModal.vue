@@ -590,7 +590,7 @@ const FpbFormContent = defineComponent({
 
   /* Sembunyikan seluruh UI SPA, modal preview, overlay */
   #app,
-  body > *:not(#fpbPrintOnlyArea):not(#printOnlyArea) {
+  body > *:not(#fpbPrintOnlyArea):not(#printOnlyArea):not(#slittingPrintOnlyArea):not(#labelExportPrintArea) {
     display: none !important;
   }
 

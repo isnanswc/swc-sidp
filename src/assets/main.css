@@ -93,7 +93,7 @@ textarea:focus {
 
 /* ── STRICT PRINT ISOLATION: GUARANTEE ONLY PRINT CONTAINERS PRINT ── */
 @media print {
-  body > *:not(#printOnlyArea):not(#fpbPrintOnlyArea) {
+  body > *:not(#printOnlyArea):not(#fpbPrintOnlyArea):not(#slittingPrintOnlyArea):not(#labelExportPrintArea) {
     display: none !important;
   }
 }

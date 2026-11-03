@@ -10728,7 +10728,7 @@ onUnmounted(() => {
 
   /* HIDE ENTIRE SPA UI AND ALL BODY POPUPS / OVERLAYS */
   #app,
-  body > *:not(#printOnlyArea):not(#fpbPrintOnlyArea) {
+  body > *:not(#printOnlyArea):not(#fpbPrintOnlyArea):not(#slittingPrintOnlyArea):not(#labelExportPrintArea) {
     display: none !important;
   }
 

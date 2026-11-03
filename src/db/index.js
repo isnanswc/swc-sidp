@@ -414,6 +414,11 @@ db.version(27).stores({
   fpb_items: '++id, namaBarang, satuanDefault, lastUsedAt, usageCount'
 });
 
+
+db.version(28).stores({
+  export_labels: '++id, uuid, codePack, nomorOk, jenis, jenisDisplay, kodeFormula, type, thickness, width, length, treatment, netto, core, join, synced, createdAt, updatedAt'
+});
+
 export async function saveSetting(key, value) {
   try {
     let cleanValue = value;
