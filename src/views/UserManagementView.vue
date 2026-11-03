@@ -1121,10 +1121,17 @@ const openEditModal = (user) => {
         : ['SUPER_ADMIN', 'ADMIN_DE', 'PPIC'].includes(user.role)
     }
   };
-  APP_MENUS.forEach(m => {
+    APP_MENUS.forEach(m => {
+    const existing = userPerms[m.key];
+    let defView = false;
+    let defEdit = false;
+    if (m.key === 'label_export' && !existing && userPerms['label']) {
+      defView = !!userPerms['label'].view;
+      defEdit = !!userPerms['label'].edit;
+    }
     fullPerms[m.key] = {
-      view: !!userPerms[m.key]?.view,
-      edit: !!userPerms[m.key]?.edit
+      view: existing !== undefined ? !!existing.view : defView,
+      edit: existing !== undefined ? !!existing.edit : defEdit
     };
   });
 

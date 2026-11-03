@@ -120,7 +120,14 @@ export const useAuthStore = defineStore('auth', () => {
     if (menuKey === 'help' && action === 'view') return true;
 
     const perms = currentUser.value.permissions;
-    if (!perms || !perms[menuKey]) return false;
+    if (!perms) return false;
+
+    // Fallback cerdas: Jika hak akses label_export belum pernah disimpan di akun lama, gunakan menu 'label' sebagai acuan
+    if (menuKey === 'label_export' && !perms[menuKey] && perms['label']) {
+      return action === 'edit' ? !!perms['label'].edit : !!perms['label'].view;
+    }
+
+    if (!perms[menuKey]) return false;
 
     if (action === 'edit') {
       return !!perms[menuKey].edit;

@@ -6,6 +6,7 @@ export const APP_MENUS = [
   { key: 'schedule', name: 'Operator Schedule', path: '/schedule', category: 'PRODUKSI & LAPORAN', icon: '📅' },
   { key: 'data_roll', name: 'Data Roll (Identitas)', path: '/data-roll', category: 'PRODUKSI & LAPORAN', icon: '🌀' },
   { key: 'label', name: 'Manajemen Label', path: '/label', category: 'PRODUKSI & LAPORAN', icon: '🏷️' },
+  { key: 'label_export', name: 'Label Export (Trivesta)', path: '/label-export', category: 'PRODUKSI & LAPORAN', icon: '🌐' },
   { key: 'spk', name: 'Manajemen SPK (Production Order)', path: '/spk', category: 'PRODUKSI & LAPORAN', icon: '📄' },
   { key: 'scan_report', name: 'Scan Laporan AI', path: '/scan-report', category: 'PRODUKSI & LAPORAN', icon: '🤖' },
   { key: 'de_report', name: 'DE Report (Rekap)', path: '/de-report', category: 'PRODUKSI & LAPORAN', icon: '📋' },
@@ -94,7 +95,7 @@ export function generatePresetPermissions(role) {
       canView = true;
       canEdit = true;
     } else if (role === 'ADMIN_DE') {
-      if (['dashboard', 'schedule', 'data_roll', 'label', 'spk', 'scan_report', 'de_report', 'tools', 'fpb'].includes(menu.key)) {
+      if (['dashboard', 'schedule', 'data_roll', 'label', 'label_export', 'spk', 'scan_report', 'de_report', 'tools', 'fpb'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }
@@ -103,13 +104,13 @@ export function generatePresetPermissions(role) {
       if (['spk', 'schedule', 'inventory', 'opname', 'fpb'].includes(menu.key)) {
         canView = true;
         canEdit = true;
-      } else if (['dashboard', 'data_roll', 'label', 'de_report', 'scan_report', 'tools', 'tasks', 'data_config'].includes(menu.key)) {
+      } else if (['dashboard', 'data_roll', 'label', 'label_export', 'de_report', 'scan_report', 'tools', 'tasks', 'data_config'].includes(menu.key)) {
         canView = true;
         canEdit = false;
       }
     } else if (role === 'OPERATOR') {
       // Operator: Hak akses khusus Manajemen Label & FPB (lihat dan edit)
-      if (['label', 'fpb'].includes(menu.key)) {
+      if (['label', 'label_export', 'fpb'].includes(menu.key)) {
         canView = true;
         canEdit = true;
       }
