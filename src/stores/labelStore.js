@@ -157,6 +157,8 @@ export function computeLabelSortKeys(item, defaultMesin = 'SLITTING') {
     _turunanNum: turunanNum,
     _turunanPrefix: turunanPrefix,
     _turunanExtra: turunanExtra,
+    _chartingan: (turunanPrefix && turunanPrefix.length >= 1) ? turunanPrefix.slice(-1).toUpperCase() : 'A',
+    _widthNum: parseFloat(item.width || item.lebar) || 0,
     _packPrefix: packPrefix,
     _subNum: validSubNum,
     _packKey: packKey,
@@ -181,7 +183,7 @@ export function assignLotSessionAnchors(items) {
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     if (!item) continue;
-    if (item._turunanNum === undefined || item._baseLot === undefined) {
+    if (item._turunanNum === undefined || item._baseLot === undefined || item._widthNum === undefined) {
       Object.assign(item, computeLabelSortKeys(item, item.mesin || item.machineName || 'SLITTING'));
     }
     const bucketKey = `${item._dateStr || ''}__${item._shiftNum ?? 99}__${item._shiftStr || ''}__${item._mesin || 'SLITTING'}`;
@@ -194,7 +196,6 @@ export function assignLotSessionAnchors(items) {
   }
 
   // 2. Di setiap bucket (Tanggal + Shift + Mesin), urutkan berdasarkan kronologi produksi fisik
-  //    (Kode Pack subKode berurutan & waktu input createdAt / ID), lalu deteksi sesi pengerjaan Lot
   shiftBuckets.forEach((bucket) => {
     if (bucket.length === 1) {
       bucket[0]._lotSessionOrder = 1;
@@ -236,95 +237,125 @@ export function assignLotSessionAnchors(items) {
       return (a._numericId || 0) - (b._numericId || 0);
     });
 
-    let currentSessionOrder = 0;
-    let currentGroupKey = null;
-    let prevItem = null;
-    let sessionMaxTurunanNum = 0;
-    let sessionSeenTurunan = new Set();
-    let sessionArmMaxNum = new Map();
-
-    const lotSessionListMap = new Map(); // groupKey -> array of sessionOrder numbers
+    let globalSessionCounter = 0;
+    // Map pelacak sesi mandiri per Lot (groupKey -> state sesi lot)
+    const lotStateMap = new Map();
 
     for (let i = 0; i < timeline.length; i++) {
       const item = timeline[i];
       const groupKey = `${item._spk || ''}__${item._baseLot || ''}`;
       const fullTurunanKey = `${item._turunanPrefix || ''}_${item._turunanNum || 0}_${item._turunanExtra || ''}`;
       const armPrefix = item._turunanPrefix || '';
+      const chartingan = item._chartingan || 'A';
       const tNum = item._turunanNum !== undefined && item._turunanNum < 999999 ? item._turunanNum : 0;
+      const rollWidth = item._widthNum || parseFloat(item.width || item.lebar) || 0;
 
-      let isNewSession = false;
+      let state = lotStateMap.get(groupKey);
 
-      if (currentGroupKey === null || groupKey !== currentGroupKey) {
-        // Berganti ke SPK / No. Lot Induk yang berbeda (misal ganti Jumbo Roll lain)
-        isNewSession = true;
-      } else if (prevItem) {
-        // Masih di SPK & No. Lot Induk yang sama, cek apakah ini Jumbo Roll Kembar di sesi baru:
-        const timeA = prevItem._createdTime || 0;
-        const timeB = item._createdTime || 0;
-        const timeGap = (timeA > 0 && timeB > 0) ? Math.abs(timeB - timeA) : 0;
+      if (!state) {
+        // Sesi pertama untuk Lot ini pada shift/mesin ini
+        globalSessionCounter++;
+        state = {
+          currentSessionOrder: globalSessionCounter,
+          sessions: [globalSessionCounter],
+          sessionArmWidthMap: new Map(),
+          sessionArmMaxNum: new Map(),
+          sessionSeenTurunan: new Set(),
+          sessionMaxTurunanNum: 0,
+          prevItem: null
+        };
+        lotStateMap.set(groupKey, state);
 
-        const subA = prevItem._subNum !== undefined ? prevItem._subNum : 999999;
-        const subB = item._subNum !== undefined ? item._subNum : 999999;
-        const samePackPrefix = prevItem._packPrefix === item._packPrefix;
-        const subGap = (samePackPrefix && subA < 999999 && subB < 999999) ? (subB - subA) : 0;
+        item._lotSessionOrder = state.currentSessionOrder;
+        item._lotSessionPart = state.sessions.length; // Sesi 1
+      } else {
+        // Sudah ada riwayat pengerjaan lot ini sebelumnya, periksa kondisi Sesi Baru yang otentik:
+        let isNewSession = false;
+        const prevItem = state.prevItem;
 
-        // Indikator 1: Jeda waktu pengerjaan > 45 menit (2.700.000 ms)
-        const isLongTimeGap = timeGap > 2700000;
+        // 1. KONDISI UTAMA: Perubahan ukuran lebar potong (Width Chartingan / Pisau Potong)
+        // Jika pada arm/chartingan yang sama ukurannya berbeda dari tarikan sebelumnya pada lot ini
+        // (contoh: Arm A sebelumnya 500mm, sekarang dipotong jadi 650mm atau 1000mm)
+        let isWidthChanged = false;
+        if (rollWidth > 0 && state.sessionArmWidthMap.has(chartingan)) {
+          const prevWidth = state.sessionArmWidthMap.get(chartingan);
+          if (prevWidth > 0 && Math.abs(rollWidth - prevWidth) >= 3) {
+            isWidthChanged = true;
+          }
+        }
 
-        // Indikator 2: Lompatan nomor Kode Pack jauh (>= 8 nomor pada kodePack yang sama, atau >= 2 nomor dengan jeda > 15 menit)
-        const isSubKodeJump = subGap >= 8 || (subGap >= 2 && timeGap > 900000);
-
-        // Indikator 3: Kode turunan persis sama muncul lagi dengan Kode Pack berbeda (misal HA01 lalu HA01 lagi di jumbo baru)
-        const isDuplicateTurunanInNewPack =
+        // 2. KONDISI KEDUA: Duplikasi turunan persis sama yang sudah pernah dibuat pada sesi berjalan ini
+        // (misal HA01 muncul lagi setelah sebelumnya sudah ada HA01 pada lot ini)
+        const isDuplicateTurunan =
           tNum > 0 &&
-          sessionSeenTurunan.has(fullTurunanKey) &&
-          (subGap >= 1 || timeGap > 300000);
+          state.sessionSeenTurunan.has(fullTurunanKey);
 
-        // Indikator 4: Nomor urut tarikan mundur pada arm yang sama atau setelah jeda Kode Pack / waktu
-        const prevArmMax = sessionArmMaxNum.get(armPrefix) || 0;
+        // 3. KONDISI KETIGA: Reset nomor urut tarikan (bukti fisik berganti ke Jumbo Roll Kembar baru)
+        // (misal tarikan sebelumnya sudah mencapai urutan 06, lalu sekarang turun kembali ke 01)
+        const prevArmMax = state.sessionArmMaxNum.get(armPrefix) || 0;
         const isTurunanReset =
           tNum > 0 &&
-          ((prevArmMax > 0 && tNum < prevArmMax && (subGap >= 1 || timeGap > 300000)) ||
-           (sessionMaxTurunanNum > 0 && tNum < sessionMaxTurunanNum && (subGap >= 2 || timeGap > 600000)));
+          ((prevArmMax > 1 && tNum < prevArmMax) ||
+           (state.sessionMaxTurunanNum > 2 && tNum <= Math.floor(state.sessionMaxTurunanNum / 2)));
 
-        if (isLongTimeGap || isSubKodeJump || isDuplicateTurunanInNewPack || isTurunanReset) {
+        // 4. KONDISI KEEMPAT: Jeda waktu EKSTREM (> 4 jam) DISERTAI lompatan kode pack besar (>= 8 nomor)
+        // CATATAN PENTING: Jeda waktu 1-2 jam biasa (jam istirahat makan, kendala mesin, atau slitting roll panjang)
+        // TIDAK AKAN PERNAH memecah sesi jika lebar potong dan nomor urutannya konsisten.
+        let isExtremeGapWithPackJump = false;
+        if (prevItem) {
+          const timeA = prevItem._createdTime || 0;
+          const timeB = item._createdTime || 0;
+          const timeGap = (timeA > 0 && timeB > 0) ? Math.abs(timeB - timeA) : 0;
+
+          const subA = prevItem._subNum !== undefined ? prevItem._subNum : 999999;
+          const subB = item._subNum !== undefined ? item._subNum : 999999;
+          const samePackPrefix = prevItem._packPrefix === item._packPrefix;
+          const subGap = (samePackPrefix && subA < 999999 && subB < 999999) ? (subB - subA) : 0;
+
+          if (timeGap > 14400000 && subGap >= 8) {
+            isExtremeGapWithPackJump = true;
+          }
+        }
+
+        if (isWidthChanged || isDuplicateTurunan || isTurunanReset || isExtremeGapWithPackJump) {
           isNewSession = true;
         }
-      }
 
-      if (isNewSession) {
-        currentSessionOrder++;
-        currentGroupKey = groupKey;
-        sessionMaxTurunanNum = 0;
-        sessionSeenTurunan = new Set();
-        sessionArmMaxNum = new Map();
-
-        let sessions = lotSessionListMap.get(groupKey);
-        if (!sessions) {
-          sessions = [];
-          lotSessionListMap.set(groupKey, sessions);
+        if (isNewSession) {
+          globalSessionCounter++;
+          state.currentSessionOrder = globalSessionCounter;
+          state.sessions.push(globalSessionCounter);
+          state.sessionArmWidthMap.clear();
+          state.sessionArmMaxNum.clear();
+          state.sessionSeenTurunan.clear();
+          state.sessionMaxTurunanNum = 0;
         }
-        sessions.push(currentSessionOrder);
+
+        item._lotSessionOrder = state.currentSessionOrder;
+        item._lotSessionPart = state.sessions.length;
       }
 
-      const sessionsForLot = lotSessionListMap.get(groupKey);
-      item._lotSessionOrder = currentSessionOrder;
-      item._lotSessionPart = sessionsForLot ? sessionsForLot.length : 1;
-
+      // Perbarui metadata sesi berjalan
       if (tNum > 0) {
-        if (tNum > sessionMaxTurunanNum) sessionMaxTurunanNum = tNum;
-        const prevArmMax = sessionArmMaxNum.get(armPrefix) || 0;
-        if (tNum > prevArmMax) sessionArmMaxNum.set(armPrefix, tNum);
-        sessionSeenTurunan.add(fullTurunanKey);
+        if (tNum > state.sessionMaxTurunanNum) state.sessionMaxTurunanNum = tNum;
+        const prevArmMax = state.sessionArmMaxNum.get(armPrefix) || 0;
+        if (tNum > prevArmMax) state.sessionArmMaxNum.set(armPrefix, tNum);
+        state.sessionSeenTurunan.add(fullTurunanKey);
       }
-      prevItem = item;
+      if (rollWidth > 0 && chartingan) {
+        if (!state.sessionArmWidthMap.has(chartingan)) {
+          state.sessionArmWidthMap.set(chartingan, rollWidth);
+        }
+      }
+      state.prevItem = item;
     }
 
+    // 3. Tentukan total sesi untuk setiap item berdasarkan lot-nya
     for (let i = 0; i < timeline.length; i++) {
       const item = timeline[i];
       const groupKey = `${item._spk || ''}__${item._baseLot || ''}`;
-      const sessions = lotSessionListMap.get(groupKey);
-      item._lotTotalSessions = sessions ? sessions.length : 1;
+      const state = lotStateMap.get(groupKey);
+      item._lotTotalSessions = state ? state.sessions.length : 1;
     }
   });
 
