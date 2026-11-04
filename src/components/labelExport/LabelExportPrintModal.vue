@@ -408,6 +408,16 @@ const triggerBrowserPrint = () => {
         size: auto;
         margin: 0mm !important;
       }
+      @media print {
+        html, body {
+          margin: 0mm !important;
+          padding: 0mm !important;
+          min-height: 0 !important;
+          height: auto !important;
+          background: #ffffff !important;
+          overflow: visible !important;
+        }
+      }
     `;
     document.head.appendChild(styleEl);
   }
@@ -612,6 +622,15 @@ const triggerBrowserPrint = () => {
   }
 
   /* Sembunyikan UI aplikasi utama (#app) dan elemen body lain HANYA saat cetak label export */
+  body.is-printing-export-label,
+  body:has(#labelExportPrintArea) {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    background: #ffffff !important;
+  }
+
   body.is-printing-export-label #app,
   body:has(#labelExportPrintArea) #app,
   body.is-printing-export-label > *:not(#labelExportPrintArea):not(#printOnlyArea):not(#fpbPrintOnlyArea):not(#slittingPrintOnlyArea),
@@ -619,39 +638,52 @@ const triggerBrowserPrint = () => {
     display: none !important;
   }
 
-  .export-print-page {
-    margin: 2mm auto 0 auto !important;
+  #labelExportPrintArea {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
     padding: 0 !important;
-    page-break-after: always !important;
-    break-after: page !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  .export-print-page {
+    margin: 0 auto !important;
+    padding: 0 !important;
     box-sizing: border-box !important;
     display: flex !important;
     justify-content: center !important;
     align-items: flex-start !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
   }
 
-  .export-print-page:last-child {
-    page-break-after: avoid !important;
-    break-after: avoid !important;
+  /* Page break HANYA terjadi di antara dua lembar. Lembar ke-1 tidak pernah break-after, dan lembar terakhir tidak pernah menghasilkan halaman kosong */
+  .export-print-page + .export-print-page {
+    page-break-before: always !important;
+    break-before: page !important;
   }
 
-  /* ── MODE 1: KERTAS F4 / FOLIO (215mm x 330mm) - MAKSIMAL 215mm / 2 = 107.5mm ── */
+  /* ── MODE 1: KERTAS F4 / FOLIO (215mm x 330mm) - MAKSIMAL 213mm x 222mm ── */
   .grid-f4 {
     display: grid !important;
-    grid-template-columns: 107.5mm 107.5mm !important;
-    grid-template-rows: 75mm 75mm 75mm !important;
-    width: 215mm !important;
-    height: 225mm !important;
+    grid-template-columns: 106.5mm 106.5mm !important;
+    grid-template-rows: 74mm 74mm 74mm !important;
+    width: 213mm !important;
+    height: 222mm !important;
     margin: 0 auto !important;
     border: 1.5px dashed #4b5563 !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .cell-f4 {
-    width: 107.5mm !important;
-    height: 75mm !important;
+    width: 106.5mm !important;
+    height: 74mm !important;
     padding: 1.25mm !important;
     box-sizing: border-box !important;
     display: flex !important;
@@ -671,10 +703,10 @@ const triggerBrowserPrint = () => {
     border-bottom: 1.5px dashed #4b5563 !important;
   }
 
-  /* Kartu Stiker F4: Lebar 105mm x Tinggi 72.5mm (Jarak 1.25mm ke garis potong di tengah) */
+  /* Kartu Stiker F4: Lebar 104mm x Tinggi 71.5mm (Jarak 1.25mm ke garis potong di tengah) */
   .card-f4 {
-    width: 105mm !important;
-    height: 72.5mm !important;
+    width: 104mm !important;
+    height: 71.5mm !important;
     border: 1.5px solid #000000 !important;
     box-sizing: border-box !important;
     padding: 1.5mm 2.2mm !important;
@@ -686,26 +718,27 @@ const triggerBrowserPrint = () => {
   }
 
   .cell-f4 .print-empty-slot {
-    width: 105mm !important;
-    height: 72.5mm !important;
+    width: 104mm !important;
+    height: 71.5mm !important;
     background: transparent !important;
   }
 
-  /* ── MODE 2: KERTAS A4 (210mm x 297mm) - MAKSIMAL 210mm / 2 = 105mm ── */
+  /* ── MODE 2: KERTAS A4 (210mm x 297mm) - MAKSIMAL 208mm x 216mm ── */
   .grid-a4 {
     display: grid !important;
-    grid-template-columns: 105mm 105mm !important;
-    grid-template-rows: 73mm 73mm 73mm !important;
-    width: 210mm !important;
-    height: 219mm !important;
+    grid-template-columns: 104mm 104mm !important;
+    grid-template-rows: 72mm 72mm 72mm !important;
+    width: 208mm !important;
+    height: 216mm !important;
     margin: 0 auto !important;
     border: 1.5px dashed #4b5563 !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .cell-a4 {
-    width: 105mm !important;
-    height: 73mm !important;
+    width: 104mm !important;
+    height: 72mm !important;
     padding: 1.25mm !important;
     box-sizing: border-box !important;
     display: flex !important;
@@ -725,10 +758,10 @@ const triggerBrowserPrint = () => {
     border-bottom: 1.5px dashed #4b5563 !important;
   }
 
-  /* Kartu Stiker A4: Lebar 102.5mm x Tinggi 70.5mm (Jarak 1.25mm ke garis potong di tengah) */
+  /* Kartu Stiker A4: Lebar 101.5mm x Tinggi 69.5mm (Jarak 1.25mm ke garis potong di tengah) */
   .card-a4 {
-    width: 102.5mm !important;
-    height: 70.5mm !important;
+    width: 101.5mm !important;
+    height: 69.5mm !important;
     border: 1.5px solid #000000 !important;
     box-sizing: border-box !important;
     padding: 1.5mm 2mm !important;
@@ -740,8 +773,8 @@ const triggerBrowserPrint = () => {
   }
 
   .cell-a4 .print-empty-slot {
-    width: 102.5mm !important;
-    height: 70.5mm !important;
+    width: 101.5mm !important;
+    height: 69.5mm !important;
     background: transparent !important;
   }
 
